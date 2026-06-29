@@ -1,6 +1,6 @@
 # Task Card: cuFlye M1c Candidate ABI Contract
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -62,15 +62,49 @@ satisfy before it can be wired into Flye.
 
 ## Execution Checklist
 
-- [ ] Add candidate ABI document.
-- [ ] Add candidate dump validator.
-- [ ] Add README gate commands.
-- [ ] Validate M1b default-backend dump on DGX.
-- [ ] Validate M1b explicit-CPU dump on DGX.
-- [ ] Validate canonical SHA-256 on DGX.
-- [ ] Verify invalid dump rejection locally.
-- [ ] Record compact proof and close this card.
+- [x] Add candidate ABI document.
+- [x] Add candidate dump validator.
+- [x] Add README gate commands.
+- [x] Validate M1b default-backend dump on DGX.
+- [x] Validate M1b explicit-CPU dump on DGX.
+- [x] Validate canonical SHA-256 on DGX.
+- [x] Verify invalid dump rejection locally.
+- [x] Record compact proof and close this card.
 
 ## Merge Note
 
-Pending implementation.
+Completed on DGX host `edgexpert-45d2` using M1c validator source commit
+`0f60b70` and the existing M1b candidate dumps.
+
+ABI contract:
+
+- Document: `docs/abi/candidate-record-v1.md`
+- Validator: `tools/validate_candidate_dump.py`
+
+Raw ABI validation:
+
+- Default backend dump:
+  `out/m1b/f311460/runs/toy-default/candidates.tsv`
+- Explicit CPU backend dump:
+  `out/m1b/f311460/runs/toy-cpu/candidates.tsv`
+- Records per dump: `29035928`
+- Size per dump: `946049505` bytes
+- Raw SHA-256 per dump:
+  `5e55b79e3cda21ce4d7e5e101a65f30b8fa9c3ba50b542faadbbb27d5c4bfebd`
+- Raw files are not globally sorted by the canonical key. This is accepted by
+  ABI v1 because equality is defined on the canonical multiset.
+
+Canonical validation:
+
+- Canonical SHA-256:
+  `97ec5f51c034e5a8a8eaa70d4c3d4ced5513f7ee93ad367671b756814310086b`
+- Candidate diff status: `match`
+
+Negative validation:
+
+- A local header-row TSV was rejected with:
+  `query_id must be a decimal integer`
+
+Tracked compact proof:
+
+- `tests/golden/toy-hifi-candidate-abi-dgx-aarch64.json`

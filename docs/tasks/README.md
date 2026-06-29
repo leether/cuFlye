@@ -7,11 +7,12 @@ change is considered complete.
 
 Active cards:
 
-- `2026-06-30-cuflye-m1c-candidate-abi-contract.md`: define and validate the
-  candidate record ABI for future CUDA backend output.
+- None.
 
 Completed cards:
 
+- `2026-06-30-cuflye-m1c-candidate-abi-contract.md`: define and validate the
+  candidate record ABI for future CUDA backend output.
 - `2026-06-30-cuflye-m1b-candidate-backend-seam.md`: add the first backend
   selector seam for future CUDA candidate generation.
 - `2026-06-30-cuflye-m1a-candidate-oracle-backend-seam.md`: build the M1a

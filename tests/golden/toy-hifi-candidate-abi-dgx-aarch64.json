@@ -1,0 +1,48 @@
+{
+  "abi": {
+    "document": "docs/abi/candidate-record-v1.md",
+    "name": "candidate-record-v1",
+    "validator": "tools/validate_candidate_dump.py"
+  },
+  "candidate_dump": {
+    "canonical_sha256": "97ec5f51c034e5a8a8eaa70d4c3d4ced5513f7ee93ad367671b756814310086b",
+    "diff_report": "out/m1c/0f60b70/toy-default-vs-cpu.candidate-diff.json",
+    "raw_sha256": "5e55b79e3cda21ce4d7e5e101a65f30b8fa9c3ba50b542faadbbb27d5c4bfebd",
+    "records": 29035928,
+    "size_bytes": 946049505,
+    "status": "match"
+  },
+  "fixture": "toy-hifi",
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "nvidia_smi": "NVIDIA GB10, driver 580.159.03",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39"
+  },
+  "parameters": {
+    "genome_size": "500k",
+    "min_overlap": "1000",
+    "read_type": "pacbio-corr",
+    "threads": 1
+  },
+  "proof": {
+    "candidate_diff_status": "match",
+    "default_backend_dump": "out/m1b/f311460/runs/toy-default/candidates.tsv",
+    "default_backend_validator_canonical": "out/m1c/0f60b70/toy-default.validator.canonical.json",
+    "default_backend_validator_raw": "out/m1c/0f60b70/toy-default.validator.raw.json",
+    "explicit_cpu_dump": "out/m1b/f311460/runs/toy-cpu/candidates.tsv",
+    "explicit_cpu_validator_raw": "out/m1c/0f60b70/toy-cpu.validator.raw.json",
+    "invalid_local_fixture": "header row rejected by validate_candidate_dump.py",
+    "validated_source_commit": "0f60b70",
+    "validated_on_utc": "2026-06-29T23:52:00Z"
+  },
+  "validation": {
+    "canonical_sha256_checked": true,
+    "integer_ranges_checked": true,
+    "raw_sorted_by_canonical_key": false,
+    "raw_sha256_checked": true,
+    "record_count_checked": true,
+    "schema_checked": true,
+    "strand_encoding_checked": true
+  }
+}
