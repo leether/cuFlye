@@ -13,6 +13,7 @@ Options:
   --expected-commit SHA  Expected commit prefix. Default: 886b8c1
   --jobs N              Build parallelism. Default: nproc/sysctl fallback
   --fetch-upstream       Clone the expected Flye ref if --flye-dir is missing
+  --apply-patches        Apply cuFlye patches for the expected Flye ref
   --clean                Run make clean before building
   --skip-version-check   Do not enforce expected ref/commit
   --manifest PATH        Build manifest path. Default: ./out/m0/build_manifest.json
@@ -20,6 +21,7 @@ Options:
 
 Environment:
   CUFLYE_FETCH_UPSTREAM=1  Same as --fetch-upstream
+  CUFLYE_APPLY_PATCHES=1   Same as --apply-patches
   FLYE_DIR=PATH            Same as --flye-dir
   FLYE_REF=REF             Same as --ref
   JOBS=N                   Same as --jobs
@@ -34,6 +36,7 @@ expected_ref="${FLYE_REF:-2.9.6}"
 expected_commit="886b8c1"
 jobs="${JOBS:-}"
 fetch_upstream="${CUFLYE_FETCH_UPSTREAM:-0}"
+apply_patches="${CUFLYE_APPLY_PATCHES:-0}"
 clean=0
 skip_version_check=0
 manifest="${repo_root}/out/m0/build_manifest.json"
@@ -58,6 +61,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --fetch-upstream)
       fetch_upstream=1
+      shift
+      ;;
+    --apply-patches)
+      apply_patches=1
       shift
       ;;
     --clean)
@@ -164,6 +171,7 @@ fi
 actual_commit="$(git -C "${flye_dir}" rev-parse --short=12 HEAD)"
 actual_tags="$(git -C "${flye_dir}" tag --points-at HEAD | tr '\n' ' ')"
 actual_branch="$(git -C "${flye_dir}" branch --show-current || true)"
+applied_patch_names=()
 
 if [ "${skip_version_check}" != "1" ]; then
   if ! printf '%s\n' "${actual_tags}" | grep -Eq "(^|[[:space:]])${expected_ref}([[:space:]]|$)" &&
@@ -180,6 +188,34 @@ Use --skip-version-check only for deliberate experiments.
 EOF
     exit 1
   fi
+fi
+
+apply_patch_set() {
+  local patch_dir
+  local patch_file
+  patch_dir="${repo_root}/patches/flye/${expected_ref}"
+  if [ ! -d "${patch_dir}" ]; then
+    echo "No cuFlye patch directory for Flye ${expected_ref}: ${patch_dir}"
+    return 0
+  fi
+
+  while IFS= read -r patch_file; do
+    [ -n "${patch_file}" ] || continue
+    if git -C "${flye_dir}" apply --check "${patch_file}"; then
+      git -C "${flye_dir}" apply "${patch_file}"
+      applied_patch_names+=("$(basename "${patch_file}")")
+    elif git -C "${flye_dir}" apply --reverse --check "${patch_file}"; then
+      echo "Patch already applied: $(basename "${patch_file}")"
+      applied_patch_names+=("$(basename "${patch_file}")")
+    else
+      echo "Patch cannot be applied cleanly: ${patch_file}" >&2
+      exit 1
+    fi
+  done < <(find "${patch_dir}" -maxdepth 1 -type f -name '*.patch' | sort)
+}
+
+if [ "${apply_patches}" = "1" ]; then
+  apply_patch_set
 fi
 
 if [ "${clean}" = "1" ]; then
@@ -206,7 +242,8 @@ for bin_path in "${required_bins[@]}"; do
 done
 
 python3 - "$manifest" "$repo_root" "$flye_dir" "$expected_ref" "$expected_commit" \
-  "$actual_commit" "$actual_tags" "$actual_branch" "$jobs" "${make_args[*]}" <<'PY'
+  "$actual_commit" "$actual_tags" "$actual_branch" "$jobs" "${make_args[*]}" \
+  "$apply_patches" "${applied_patch_names[*]}" <<'PY'
 import json
 import os
 import platform
@@ -215,7 +252,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 
-manifest, repo_root, flye_dir, expected_ref, expected_commit, actual_commit, actual_tags, actual_branch, jobs, make_args = sys.argv[1:]
+manifest, repo_root, flye_dir, expected_ref, expected_commit, actual_commit, actual_tags, actual_branch, jobs, make_args, apply_patches, applied_patch_names = sys.argv[1:]
 
 def run(cmd):
     try:
@@ -234,6 +271,8 @@ payload = {
     "actual_branch": actual_branch or None,
     "jobs": int(jobs),
     "make_args": make_args.split(),
+    "apply_patches": apply_patches == "1",
+    "applied_patches": applied_patch_names.split(),
     "host": platform.node(),
     "platform": platform.platform(),
     "machine": platform.machine(),

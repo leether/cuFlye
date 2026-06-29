@@ -1,0 +1,95 @@
+diff --git a/src/sequence/overlap.cpp b/src/sequence/overlap.cpp
+index 1eb4131..211ba51 100644
+--- a/src/sequence/overlap.cpp
++++ b/src/sequence/overlap.cpp
+@@ -13,7 +13,10 @@
+ #include <chrono>
+ #include <ctime>
+ #include <cstring>
++#include <cstdlib>
++#include <fstream>
+ #include <iomanip>
++#include <mutex>
+ #include <numeric>
+ 
+ #include "overlap.h"
+@@ -74,11 +77,13 @@ namespace
+ 	struct KmerMatch
+ 	{
+ 		KmerMatch(int32_t cur = 0, int32_t ext = 0,
+-				  FastaRecord::Id extId = FastaRecord::ID_NONE): 
+-			curPos(cur), extPos(ext), extId(extId) {}
++				  FastaRecord::Id extId = FastaRecord::ID_NONE,
++				  size_t kmerRepr = 0): 
++			curPos(cur), extPos(ext), extId(extId), kmerRepr(kmerRepr) {}
+ 		int32_t curPos;
+ 		int32_t extPos;
+ 		FastaRecord::Id extId;
++		size_t kmerRepr;
+ 	};
+ 
+ 	template <class T>
+@@ -92,6 +97,42 @@ namespace
+ 		vec = std::vector<T>();
+ 		vec.reserve(newCapacity);
+ 	}
++
++	std::mutex& candidateDumpMutex()
++	{
++		static std::mutex dumpMutex;
++		return dumpMutex;
++	}
++
++	const char* candidateDumpPath()
++	{
++		static const char* dumpPath = std::getenv("CUFLYE_CANDIDATE_DUMP");
++		return dumpPath;
++	}
++
++	template <class Matches>
++	void dumpCandidateMatches(const FastaRecord& fastaRec, const Matches& matches)
++	{
++		const char* dumpPath = candidateDumpPath();
++		if (!dumpPath || !dumpPath[0]) return;
++
++		std::lock_guard<std::mutex> lock(candidateDumpMutex());
++		std::ofstream fout(dumpPath, std::ios::out | std::ios::app);
++		if (!fout)
++		{
++			throw std::runtime_error("Can't open CUFLYE_CANDIDATE_DUMP path");
++		}
++
++		for (const auto& match : matches)
++		{
++			fout << fastaRec.id.signedId() << "\t"
++				 << match.curPos << "\t"
++				 << match.kmerRepr << "\t"
++				 << match.extId.signedId() << "\t"
++				 << match.extPos << "\t"
++				 << (match.extId.strand() ? "+" : "-") << "\n";
++		}
++	}
+ }
+ 
+ //This implementation was inspired by Heng Li's minimap2 paper
+@@ -192,9 +233,11 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
+ 			if ((extReadPos.readId == fastaRec.id &&
+ 				extReadPos.position == curKmerPos.position)) continue;
+ 
++			Kmer queryKmer = curKmerPos.kmer;
+ 			vecMatches.emplace_back(curKmerPos.position, 
+ 									extReadPos.position,
+-									extReadPos.readId);
++									extReadPos.readId,
++									queryKmer.numRepr());
+ 		}
+ 	}
+ 	timeKmerIndexFirst += std::chrono::duration_cast<std::chrono::duration<float>>
+@@ -205,6 +248,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
+ 			  [](const KmerMatch& k1, const KmerMatch& k2)
+ 			  {return k1.extId != k2.extId ? k1.extId < k2.extId : 
+ 			  								 k1.curPos < k2.curPos;});
++	dumpCandidateMatches(fastaRec, vecMatches);
+ 
+ 	timeKmerIndexSecond += std::chrono::duration_cast<std::chrono::duration<float>>
+ 								(std::chrono::system_clock::now() - timeStart).count();

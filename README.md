@@ -34,6 +34,25 @@ bench/profile_flye_cpu.sh --profile-dir out/m0/profiles/toy-hifi --threads 8
 
 Generated runs and profiles live under `out/` and are intentionally ignored.
 
+## M1a Candidate Oracle
+
+Candidate dump instrumentation is stored as a Flye patch and must be enabled
+explicitly:
+
+```sh
+scripts/build_flye_cpu.sh --apply-patches --clean
+scripts/run_flye_fixture.sh --out-dir out/m1a/runs/toy-a \
+  --candidate-dump out/m1a/runs/toy-a/candidates.tsv
+scripts/run_flye_fixture.sh --out-dir out/m1a/runs/toy-b \
+  --candidate-dump out/m1a/runs/toy-b/candidates.tsv
+tools/diff_candidate_dumps.py \
+  out/m1a/runs/toy-a/candidates.tsv \
+  out/m1a/runs/toy-b/candidates.tsv
+```
+
+The patch does not change default Flye behavior when `CUFLYE_CANDIDATE_DUMP` is
+unset.
+
 ## Licensing
 
 Original code in this repository is BSD-3-Clause by default.
