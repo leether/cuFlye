@@ -7,7 +7,8 @@ change is considered complete.
 
 Active cards:
 
-- None.
+- `2026-06-30-cuflye-m1c-candidate-abi-contract.md`: define and validate the
+  candidate record ABI for future CUDA backend output.
 
 Completed cards:
 

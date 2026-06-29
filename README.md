@@ -75,6 +75,26 @@ Unknown `CUFLYE_CANDIDATE_BACKEND` values fail fast. CUDA work should add a new
 backend behind this selector and prove candidate-list equivalence before
 touching downstream graph logic.
 
+## M1c Candidate ABI
+
+The candidate record contract is defined in
+`docs/abi/candidate-record-v1.md`. Validate candidate dumps before comparing
+backends:
+
+```sh
+tools/validate_candidate_dump.py out/m1b/f311460/runs/toy-default/candidates.tsv \
+  --expect-records 29035928 \
+  --expect-raw-sha256 5e55b79e3cda21ce4d7e5e101a65f30b8fa9c3ba50b542faadbbb27d5c4bfebd
+tools/validate_candidate_dump.py out/m1b/f311460/runs/toy-default/candidates.tsv \
+  --compute-canonical-sha256 \
+  --expect-canonical-sha256 97ec5f51c034e5a8a8eaa70d4c3d4ced5513f7ee93ad367671b756814310086b
+```
+
+The ABI gate checks schema, integer ranges, strand encoding, record count, raw
+hash, and optional canonical hash. CUDA candidate prototypes must pass this gate
+and `tools/diff_candidate_dumps.py` against the CPU oracle before downstream
+Flye stages are considered.
+
 ## Licensing
 
 Original code in this repository is BSD-3-Clause by default.
