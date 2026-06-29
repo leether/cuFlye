@@ -7,11 +7,12 @@ change is considered complete.
 
 Active cards:
 
-- `2026-06-30-cuflye-m1d-cuda-backend-stub.md`: add a fail-fast CUDA backend
-  adapter path before implementing kernels.
+- None.
 
 Completed cards:
 
+- `2026-06-30-cuflye-m1d-cuda-backend-stub.md`: add a fail-fast CUDA backend
+  adapter path before implementing kernels.
 - `2026-06-30-cuflye-m1c-candidate-abi-contract.md`: define and validate the
   candidate record ABI for future CUDA backend output.
 - `2026-06-30-cuflye-m1b-candidate-backend-seam.md`: add the first backend

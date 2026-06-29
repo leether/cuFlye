@@ -14,6 +14,7 @@ Accepted fixtures:
   - Candidate oracle manifest: `toy-hifi-candidate-dgx-aarch64.json`
   - Candidate backend seam manifest: `toy-hifi-backend-dgx-aarch64.json`
   - Candidate ABI manifest: `toy-hifi-candidate-abi-dgx-aarch64.json`
+  - CUDA backend stub manifest: `toy-hifi-cuda-stub-dgx-aarch64.json`
 
 ABI proof manifests use the same fixture and must reference compact validator
 summaries, not full candidate TSV files.

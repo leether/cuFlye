@@ -1,0 +1,59 @@
+{
+  "artifact_diff": {
+    "left": "out/m1d/67ee037/runs/toy-cpu",
+    "matched_paths": [
+      "00-assembly/draft_assembly.fasta",
+      "20-repeat/repeat_graph_dump",
+      "20-repeat/read_alignment_dump",
+      "20-repeat/repeat_graph_edges.fasta",
+      "30-contigger/graph_final.gfa",
+      "30-contigger/graph_final.fasta",
+      "assembly.fasta",
+      "assembly_info.txt",
+      "assembly_graph.gfa"
+    ],
+    "report": "out/m1d/67ee037/runs/toy-cpu-vs-m1b.artifact-diff.json",
+    "right": "out/m1b/f311460/runs/toy-cpu",
+    "status": "match"
+  },
+  "build": {
+    "applied_patches": [
+      "patches/flye/2.9.6/0001-cuflye-candidate-dump.patch",
+      "patches/flye/2.9.6/0002-cuflye-candidate-backend-seam.patch",
+      "patches/flye/2.9.6/0003-cuflye-cuda-backend-stub.patch"
+    ],
+    "flye_commit": "886b8c17412cdf3a2868a28237bca6c5ad1da156",
+    "flye_version": "2.9.6-b1802",
+    "patch_prefix_detected": "0002-cuflye-candidate-backend-seam.patch",
+    "repo_commit": "67ee037f0e4c7ca3da77ae7fbc3a6db13ba97d17"
+  },
+  "cuda_stub": {
+    "backend": "cuda",
+    "cuda_device": "0",
+    "cuda_memory_budget_bytes": "1073741824",
+    "error_excerpt": "cuFlye CUDA candidate backend selected; adapter=stub; CUFLYE_CUDA_DEVICE=0; CUFLYE_CUDA_MEMORY_BUDGET_BYTES=1073741824; CUDA candidate kernel is not implemented yet",
+    "metadata": "out/m1d/67ee037/runs/toy-cuda-stub/run_metadata.pre.json",
+    "stderr": "out/m1d/67ee037/runs/toy-cuda-stub/stderr.log",
+    "status": "failed_as_expected"
+  },
+  "fixture": "toy-hifi",
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "nvidia_smi": "GPU 0: NVIDIA GB10",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39"
+  },
+  "parameters": {
+    "genome_size": "500k",
+    "min_overlap": "1000",
+    "read_type": "pacbio-corr",
+    "threads": 1
+  },
+  "proof": {
+    "build_log": "out/m1d/67ee037/build.log",
+    "build_manifest": "out/m1d/67ee037/build_manifest.json",
+    "cpu_backend_metadata": "out/m1d/67ee037/runs/toy-cpu/run_metadata.json",
+    "cuda_stub_error": "out/m1d/67ee037/runs/toy-cuda-stub.error.txt",
+    "validated_on_utc": "2026-06-29T23:58:33Z"
+  }
+}
