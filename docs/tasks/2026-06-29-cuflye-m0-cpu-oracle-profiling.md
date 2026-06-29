@@ -1,6 +1,6 @@
 # Task Card: cuFlye M0 CPU Oracle and Profiling Harness
 
-Status: active
+Status: complete
 
 Created: 2026-06-29
 
@@ -137,18 +137,18 @@ Mitigation: make DGX/sample input optional but first-class in
 
 ## Execution Checklist
 
-- [ ] Create `scripts/`, `tools/`, `bench/`, and `tests/golden/` structure.
-- [ ] Implement `scripts/build_flye_cpu.sh`.
-- [ ] Implement `scripts/run_flye_fixture.sh`.
-- [ ] Implement artifact canonicalization.
-- [ ] Implement run diff.
-- [ ] Implement CPU profiling wrapper.
-- [ ] Add fixture manifest and golden hash documentation.
-- [ ] Run build script.
-- [ ] Run two independent CPU fixture runs.
-- [ ] Diff the two fixture runs.
-- [ ] Run CPU profiling wrapper on the toy fixture.
-- [ ] Commit and push the M0 harness.
+- [x] Create `scripts/`, `tools/`, `bench/`, and `tests/golden/` structure.
+- [x] Implement `scripts/build_flye_cpu.sh`.
+- [x] Implement `scripts/run_flye_fixture.sh`.
+- [x] Implement artifact canonicalization.
+- [x] Implement run diff.
+- [x] Implement CPU profiling wrapper.
+- [x] Add fixture manifest and golden hash documentation.
+- [x] Run build script.
+- [x] Run two independent CPU fixture runs.
+- [x] Diff the two fixture runs.
+- [x] Run CPU profiling wrapper on the toy fixture.
+- [x] Commit and push the M0 harness.
 
 ## Implementation Constraints
 
@@ -169,4 +169,46 @@ used as the first gate for CUDA backend work.
 
 ## Merge Note
 
-Pending implementation.
+Implemented and validated on DGX `edgexpert-45d2` on 2026-06-29.
+
+Implemented files:
+
+- `scripts/build_flye_cpu.sh`
+- `scripts/run_flye_fixture.sh`
+- `tools/canonicalize_flye_artifacts.py`
+- `tools/diff_flye_runs.py`
+- `bench/profile_flye_cpu.sh`
+- `tests/golden/toy-hifi-dgx-aarch64.json`
+
+DGX build proof:
+
+- cuFlye commit: `009eeb8c537cf9385c637d1ea03d6eaad7a599fd`
+- Flye checkout: `2.9.6`, commit `886b8c17412cdf3a2868a28237bca6c5ad1da156`
+- Host: Linux/aarch64, `edgexpert-45d2`
+- Build adaptation: `THREADS=8 aarch64=1 arm_neon=1`
+- Build manifest: `/home/lize/workspace/cuFlye/out/m0/build_manifest.json`
+
+Oracle proof:
+
+- Default deterministic fixture uses `threads=1`.
+- Compared:
+  - `/home/lize/workspace/cuFlye/out/m0/runs/toy-009-a`
+  - `/home/lize/workspace/cuFlye/out/m0/runs/toy-009-b`
+- Diff result: `match`
+- Diff proof: `/home/lize/workspace/cuFlye/out/m0/runs/toy-009-a-vs-b.diff.json`
+
+Profiling proof:
+
+- Profile directory: `/home/lize/workspace/cuFlye/out/m0/profiles/toy-hifi-009-threads8`
+- Threads: `8`
+- Elapsed seconds: `13`
+- Peak RSS: `292368 KB`
+
+Important finding:
+
+- With `threads=8`, final `assembly.fasta`, `assembly_info.txt`, and
+  `assembly_graph.gfa` matched, but several intermediate artifacts differed.
+- With `threads=1` plus repeat-graph node-id canonicalization, all M0 artifacts
+  matched. Therefore `scripts/run_flye_fixture.sh` defaults to `threads=1` for
+  deterministic oracle runs, while `bench/profile_flye_cpu.sh` keeps `threads=8`
+  as the profiling default.

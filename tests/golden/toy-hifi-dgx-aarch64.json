@@ -1,0 +1,82 @@
+{
+  "artifact_hashes": [
+    {
+      "canonical_sha256": "f24373e93e70d4e2dc26fd4e035f6f319b5c4957eb79233d74c49e63d1099af6",
+      "kind": "fasta",
+      "path": "00-assembly/draft_assembly.fasta"
+    },
+    {
+      "canonical_sha256": "62952fa5ecbf84b4f5a5470da16d95f85a962e8cb722aa532610ba87431a56ef",
+      "kind": "repeat_graph_dump",
+      "path": "20-repeat/repeat_graph_dump"
+    },
+    {
+      "canonical_sha256": "26740f1d782591fdcd5c5aef11f591d4559df353b7b31409b6f579caa17bffc5",
+      "kind": "plain",
+      "path": "20-repeat/read_alignment_dump"
+    },
+    {
+      "canonical_sha256": "ed90d197289573e3f83c2ebd038115d9371b74d465f903ec4649caa013b4b6d3",
+      "kind": "fasta",
+      "path": "20-repeat/repeat_graph_edges.fasta"
+    },
+    {
+      "canonical_sha256": "faa40610465dc27b5a52d9ea892f61d4ad6ab5cb35ea83ab9430e63ca2084ff1",
+      "kind": "gfa",
+      "path": "30-contigger/graph_final.gfa"
+    },
+    {
+      "canonical_sha256": "cc51357bbf92798b7c29574b809fb0926e7a4fba078183a8d40b3f919b5066b3",
+      "kind": "fasta",
+      "path": "30-contigger/graph_final.fasta"
+    },
+    {
+      "canonical_sha256": "59e1db047711152e2c70c03a8b7cfbdd3f2595a2dee81cd958b4ec6485158db7",
+      "kind": "fasta",
+      "path": "assembly.fasta"
+    },
+    {
+      "canonical_sha256": "5daa37903ecde55d19951c4f2f0f205dc1992abd59b59744e369998d07ee971f",
+      "kind": "plain",
+      "path": "assembly_info.txt"
+    },
+    {
+      "canonical_sha256": "e0c4c0d4e0d6b65936eb911a7267bbba5c68f15b2ab28ff0e66f043de3b9e40c",
+      "kind": "gfa",
+      "path": "assembly_graph.gfa"
+    }
+  ],
+  "build": {
+    "flye_commit": "886b8c17412cdf3a2868a28237bca6c5ad1da156",
+    "flye_version": "2.9.6-b1802",
+    "make_args": [
+      "THREADS=8",
+      "aarch64=1",
+      "arm_neon=1"
+    ],
+    "repo_commit": "009eeb8c537cf9385c637d1ea03d6eaad7a599fd"
+  },
+  "diff": {
+    "left": "out/m0/runs/toy-009-a",
+    "right": "out/m0/runs/toy-009-b",
+    "status": "match"
+  },
+  "fixture": "toy-hifi",
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "nvidia_smi": "GPU 0: NVIDIA GB10",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39"
+  },
+  "parameters": {
+    "genome_size": "500k",
+    "min_overlap": "1000",
+    "read_type": "pacbio-corr",
+    "threads": 1
+  },
+  "profile": {
+    "elapsed_seconds": 13,
+    "peak_rss_kb": 292368,
+    "threads": 8
+  }
+}
