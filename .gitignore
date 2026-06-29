@@ -9,6 +9,9 @@
 /install/
 /out/
 /tmp/
+/runs/
+/profiles/
+/bench/results/
 *.o
 *.so
 *.a

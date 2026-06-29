@@ -13,9 +13,26 @@ CUDA.
 - `CUDA_FLYE_DESIGN.md`: CUDA backend architecture and milestones.
 - `GENOMEWORKS_NOTES.md`: source-level notes from NVIDIA GenomeWorks modules.
 - `docs/tasks/`: Task Cards for bounded implementation slices.
+- `scripts/`, `tools/`, `bench/`: M0 CPU oracle, canonical diff, and profiling
+  harness.
 - `upstream-flye/`: local research clone of Flye, ignored by this root repo.
 - `GenomeWorks/`: local research clone of NVIDIA GenomeWorks, ignored by this
   root repo.
+
+## M0 CPU Oracle
+
+The first implementation milestone is a CPU reference harness. On a target
+Linux/DGX host:
+
+```sh
+scripts/build_flye_cpu.sh --fetch-upstream
+scripts/run_flye_fixture.sh --out-dir out/m0/runs/toy-a
+scripts/run_flye_fixture.sh --out-dir out/m0/runs/toy-b
+tools/diff_flye_runs.py out/m0/runs/toy-a out/m0/runs/toy-b
+bench/profile_flye_cpu.sh --profile-dir out/m0/profiles/toy-hifi
+```
+
+Generated runs and profiles live under `out/` and are intentionally ignored.
 
 ## Licensing
 
