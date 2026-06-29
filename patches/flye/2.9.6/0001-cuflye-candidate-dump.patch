@@ -20,7 +20,7 @@ index 1eb4131..211ba51 100644
 -				  FastaRecord::Id extId = FastaRecord::ID_NONE): 
 -			curPos(cur), extPos(ext), extId(extId) {}
 +				  FastaRecord::Id extId = FastaRecord::ID_NONE,
-+				  size_t kmerRepr = 0): 
++				  size_t kmerRepr = 0):
 +			curPos(cur), extPos(ext), extId(extId), kmerRepr(kmerRepr) {}
  		int32_t curPos;
  		int32_t extPos;
@@ -47,7 +47,7 @@ index 1eb4131..211ba51 100644
 +	}
 +
 +	template <class Matches>
-+	void dumpCandidateMatches(const FastaRecord& fastaRec, const Matches& matches)
++	void dumpCandidateMatches(const FastaRecord& fastaRec, Matches& matches)
 +	{
 +		const char* dumpPath = candidateDumpPath();
 +		if (!dumpPath || !dumpPath[0]) return;
