@@ -12,3 +12,4 @@ Accepted fixtures:
   `upstream-flye/flye/tests/data/ecoli_500kb_reads_hifi.fastq.gz`.
   - Manifest: `toy-hifi-dgx-aarch64.json`
   - Candidate oracle manifest: `toy-hifi-candidate-dgx-aarch64.json`
+  - Candidate backend seam manifest: `toy-hifi-backend-dgx-aarch64.json`

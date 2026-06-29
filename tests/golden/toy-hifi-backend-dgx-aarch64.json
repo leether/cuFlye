@@ -1,0 +1,94 @@
+{
+  "artifact_diff": {
+    "left": "out/m1b/f311460/runs/toy-default",
+    "matched_paths": [
+      "00-assembly/draft_assembly.fasta",
+      "20-repeat/repeat_graph_dump",
+      "20-repeat/read_alignment_dump",
+      "20-repeat/repeat_graph_edges.fasta",
+      "30-contigger/graph_final.gfa",
+      "30-contigger/graph_final.fasta",
+      "assembly.fasta",
+      "assembly_info.txt",
+      "assembly_graph.gfa"
+    ],
+    "report": "out/m1b/f311460/runs/toy-default-vs-cpu.artifact-diff.json",
+    "right": "out/m1b/f311460/runs/toy-cpu",
+    "status": "match"
+  },
+  "build": {
+    "applied_patches": [
+      "patches/flye/2.9.6/0001-cuflye-candidate-dump.patch",
+      "patches/flye/2.9.6/0002-cuflye-candidate-backend-seam.patch"
+    ],
+    "flye_commit": "886b8c17412cdf3a2868a28237bca6c5ad1da156",
+    "flye_version": "2.9.6-b1802",
+    "idempotent_patch_series": true,
+    "idempotent_patch_series_message": "Patch series already applied through 0002-cuflye-candidate-backend-seam.patch",
+    "make_args": [
+      "THREADS=8",
+      "aarch64=1",
+      "arm_neon=1"
+    ],
+    "repo_commit": "f31146052d35f7eebb9c9bdb940a4a04a2c6a275"
+  },
+  "candidate_backend": {
+    "default": "cpu",
+    "explicit": "cpu",
+    "selector_env": "CUFLYE_CANDIDATE_BACKEND"
+  },
+  "candidate_dump": {
+    "canonicalization": "sort rows by query_id, query_pos, kmer, target_id, target_pos, target_strand",
+    "diff_report": "out/m1b/f311460/runs/toy-default-vs-cpu.candidate-diff.json",
+    "schema": [
+      "query_id",
+      "query_pos",
+      "kmer",
+      "target_id",
+      "target_pos",
+      "target_strand"
+    ],
+    "status": "match",
+    "runs": [
+      {
+        "backend": "default",
+        "canonical_sha256": "97ec5f51c034e5a8a8eaa70d4c3d4ced5513f7ee93ad367671b756814310086b",
+        "path": "out/m1b/f311460/runs/toy-default/candidates.tsv",
+        "raw_sha256": "5e55b79e3cda21ce4d7e5e101a65f30b8fa9c3ba50b542faadbbb27d5c4bfebd",
+        "records": 29035928,
+        "size": "903M"
+      },
+      {
+        "backend": "cpu",
+        "canonical_sha256": "97ec5f51c034e5a8a8eaa70d4c3d4ced5513f7ee93ad367671b756814310086b",
+        "path": "out/m1b/f311460/runs/toy-cpu/candidates.tsv",
+        "raw_sha256": "5e55b79e3cda21ce4d7e5e101a65f30b8fa9c3ba50b542faadbbb27d5c4bfebd",
+        "records": 29035928,
+        "size": "903M"
+      }
+    ]
+  },
+  "fixture": "toy-hifi",
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "nvidia_smi": "NVIDIA GB10, driver 580.159.03",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39"
+  },
+  "negative_test": {
+    "backend": "bogus",
+    "error_excerpt": "Unsupported CUFLYE_CANDIDATE_BACKEND: bogus",
+    "stderr": "out/m1b/f311460/runs/toy-invalid-backend/stderr.log",
+    "status": "failed_as_expected"
+  },
+  "parameters": {
+    "genome_size": "500k",
+    "min_overlap": "1000",
+    "read_type": "pacbio-corr",
+    "threads": 1
+  },
+  "proof": {
+    "build_manifest": "out/m1b/f311460/build_manifest.json",
+    "validated_on_utc": "2026-06-29T23:30:33Z"
+  }
+}

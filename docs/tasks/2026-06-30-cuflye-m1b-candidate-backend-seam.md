@@ -1,6 +1,6 @@
 # Task Card: cuFlye M1b Candidate Backend Seam
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -62,16 +62,56 @@ polishing code.
 
 ## Execution Checklist
 
-- [ ] Add backend seam patch.
-- [ ] Extend fixture runner with backend selection.
-- [ ] Build patched Flye on DGX.
-- [ ] Run default-backend candidate fixture.
-- [ ] Run explicit-CPU candidate fixture.
-- [ ] Diff candidate dumps.
-- [ ] Diff Flye artifacts.
-- [ ] Verify unsupported backend failure.
-- [ ] Record compact proof and close this card.
+- [x] Add backend seam patch.
+- [x] Extend fixture runner with backend selection.
+- [x] Build patched Flye on DGX.
+- [x] Run default-backend candidate fixture.
+- [x] Run explicit-CPU candidate fixture.
+- [x] Diff candidate dumps.
+- [x] Diff Flye artifacts.
+- [x] Verify unsupported backend failure.
+- [x] Record compact proof and close this card.
 
 ## Merge Note
 
-Pending implementation.
+Completed on DGX host `edgexpert-45d2` against cuFlye commit
+`f31146052d35f7eebb9c9bdb940a4a04a2c6a275` and upstream Flye commit
+`886b8c17412cdf3a2868a28237bca6c5ad1da156`.
+
+Patched build proof:
+
+- Build manifest: `out/m1b/f311460/build_manifest.json`
+- Applied patches:
+  - `patches/flye/2.9.6/0001-cuflye-candidate-dump.patch`
+  - `patches/flye/2.9.6/0002-cuflye-candidate-backend-seam.patch`
+- Idempotent rebuild message:
+  `Patch series already applied through 0002-cuflye-candidate-backend-seam.patch`
+
+Backend equivalence proof:
+
+- Default backend run: `out/m1b/f311460/runs/toy-default/candidates.tsv`
+- Explicit CPU backend run: `out/m1b/f311460/runs/toy-cpu/candidates.tsv`
+- Records per run: `29035928`
+- Raw TSV SHA-256 per run:
+  `5e55b79e3cda21ce4d7e5e101a65f30b8fa9c3ba50b542faadbbb27d5c4bfebd`
+- Canonical candidate SHA-256 per run:
+  `97ec5f51c034e5a8a8eaa70d4c3d4ced5513f7ee93ad367671b756814310086b`
+- Candidate diff report:
+  `out/m1b/f311460/runs/toy-default-vs-cpu.candidate-diff.json`
+- Candidate diff status: `match`
+
+Behavioral regression proof:
+
+- Artifact diff report:
+  `out/m1b/f311460/runs/toy-default-vs-cpu.artifact-diff.json`
+- Artifact diff status: `match` for all M0 tracked Flye outputs.
+
+Negative backend proof:
+
+- Command used `--candidate-backend bogus`.
+- Expected failure appeared in stderr:
+  `Unsupported CUFLYE_CANDIDATE_BACKEND: bogus`
+
+Tracked compact proof:
+
+- `tests/golden/toy-hifi-backend-dgx-aarch64.json`
