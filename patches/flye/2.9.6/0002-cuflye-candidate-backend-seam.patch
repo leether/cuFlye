@@ -1,0 +1,104 @@
+diff --git a/src/sequence/overlap.cpp b/src/sequence/overlap.cpp
+index 2f24aac..8cbb188 100644
+--- a/src/sequence/overlap.cpp
++++ b/src/sequence/overlap.cpp
+@@ -18,6 +18,7 @@
+ #include <iomanip>
+ #include <mutex>
+ #include <numeric>
++#include <string>
+ 
+ #include "overlap.h"
+ #include "alignment.h"
+@@ -86,6 +87,11 @@ namespace
+ 		size_t kmerRepr;
+ 	};
+ 
++	enum class CandidateBackend
++	{
++		Cpu
++	};
++
+ 	template <class T>
+ 	void shrinkAndClear(std::vector<T>& vec, float rate)
+ 	{
+@@ -110,6 +116,22 @@ namespace
+ 		return dumpPath;
+ 	}
+ 
++	CandidateBackend candidateBackend()
++	{
++		static CandidateBackend backend = []()
++		{
++			const char* envBackend = std::getenv("CUFLYE_CANDIDATE_BACKEND");
++			if (!envBackend || !envBackend[0] || std::strcmp(envBackend, "cpu") == 0)
++			{
++				return CandidateBackend::Cpu;
++			}
++
++			throw std::runtime_error(std::string("Unsupported CUFLYE_CANDIDATE_BACKEND: ") +
++									 envBackend);
++		}();
++		return backend;
++	}
++
+ 	template <class Matches>
+ 	void dumpCandidateMatches(const FastaRecord& fastaRec, Matches& matches)
+ 	{
+@@ -217,28 +239,38 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
+ 						(std::chrono::system_clock::now() - timeStart).count();
+ 	timeStart = std::chrono::system_clock::now();
+ 
+-	for (const auto& curKmerPos : IterKmers(fastaRec.sequence))
++	auto collectCandidateMatchesCpu = [&]()
+ 	{
+-		if (_vertexIndex.isRepetitive(curKmerPos.kmer))
++		for (const auto& curKmerPos : IterKmers(fastaRec.sequence))
+ 		{
+-			curFilteredPos.push_back(curKmerPos.position);
+-			continue;
+-		}
+-		if (!_vertexIndex.kmerFreq(curKmerPos.kmer)) continue;
++			if (_vertexIndex.isRepetitive(curKmerPos.kmer))
++			{
++				curFilteredPos.push_back(curKmerPos.position);
++				continue;
++			}
++			if (!_vertexIndex.kmerFreq(curKmerPos.kmer)) continue;
+ 
+-		//FastaRecord::Id prevSeqId = FastaRecord::ID_NONE;
+-		for (const auto& extReadPos : _vertexIndex.iterKmerPos(curKmerPos.kmer))
+-		{
+-			//no trivial matches
+-			if ((extReadPos.readId == fastaRec.id &&
+-				extReadPos.position == curKmerPos.position)) continue;
+-
+-			Kmer queryKmer = curKmerPos.kmer;
+-			vecMatches.emplace_back(curKmerPos.position, 
+-									extReadPos.position,
+-									extReadPos.readId,
+-									queryKmer.numRepr());
++			//FastaRecord::Id prevSeqId = FastaRecord::ID_NONE;
++			for (const auto& extReadPos : _vertexIndex.iterKmerPos(curKmerPos.kmer))
++			{
++				//no trivial matches
++				if ((extReadPos.readId == fastaRec.id &&
++					extReadPos.position == curKmerPos.position)) continue;
++
++				Kmer queryKmer = curKmerPos.kmer;
++				vecMatches.emplace_back(curKmerPos.position,
++										extReadPos.position,
++										extReadPos.readId,
++										queryKmer.numRepr());
++			}
+ 		}
++	};
++
++	switch (candidateBackend())
++	{
++	case CandidateBackend::Cpu:
++		collectCandidateMatchesCpu();
++		break;
+ 	}
+ 	timeKmerIndexFirst += std::chrono::duration_cast<std::chrono::duration<float>>
+ 							(std::chrono::system_clock::now() - timeStart).count();

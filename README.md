@@ -53,6 +53,28 @@ tools/diff_candidate_dumps.py \
 The patch does not change default Flye behavior when `CUFLYE_CANDIDATE_DUMP` is
 unset.
 
+## M1b Candidate Backend Seam
+
+The candidate backend selector is intentionally explicit. The default backend is
+the original CPU implementation, and the only accepted explicit value is
+currently `cpu`:
+
+```sh
+scripts/build_flye_cpu.sh --apply-patches --clean
+scripts/run_flye_fixture.sh --out-dir out/m1b/runs/toy-default \
+  --candidate-dump out/m1b/runs/toy-default/candidates.tsv
+scripts/run_flye_fixture.sh --out-dir out/m1b/runs/toy-cpu \
+  --candidate-backend cpu \
+  --candidate-dump out/m1b/runs/toy-cpu/candidates.tsv
+tools/diff_candidate_dumps.py \
+  out/m1b/runs/toy-default/candidates.tsv \
+  out/m1b/runs/toy-cpu/candidates.tsv
+```
+
+Unknown `CUFLYE_CANDIDATE_BACKEND` values fail fast. CUDA work should add a new
+backend behind this selector and prove candidate-list equivalence before
+touching downstream graph logic.
+
 ## Licensing
 
 Original code in this repository is BSD-3-Clause by default.

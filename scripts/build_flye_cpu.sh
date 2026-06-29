@@ -193,6 +193,9 @@ fi
 apply_patch_set() {
   local patch_dir
   local patch_file
+  local patch_files=()
+  local last_patch_index
+  local last_patch
   patch_dir="${repo_root}/patches/flye/${expected_ref}"
   if [ ! -d "${patch_dir}" ]; then
     echo "No cuFlye patch directory for Flye ${expected_ref}: ${patch_dir}"
@@ -201,17 +204,39 @@ apply_patch_set() {
 
   while IFS= read -r patch_file; do
     [ -n "${patch_file}" ] || continue
-    if git -C "${flye_dir}" apply --check "${patch_file}"; then
+    patch_files+=("${patch_file}")
+  done < <(find "${patch_dir}" -maxdepth 1 -type f -name '*.patch' | sort)
+
+  if [ "${#patch_files[@]}" -eq 0 ]; then
+    return 0
+  fi
+
+  # If the newest patch in the series is already present, assume the ordered
+  # series has reached the requested cuFlye patch level. This keeps repeated
+  # builds idempotent even when later patches touch context used by earlier
+  # patches' reverse checks.
+  last_patch_index=$((${#patch_files[@]} - 1))
+  last_patch="${patch_files[${last_patch_index}]}"
+  if git -C "${flye_dir}" apply --reverse --check "${last_patch}" >/dev/null 2>&1; then
+    echo "Patch series already applied through $(basename "${last_patch}")"
+    for patch_file in "${patch_files[@]}"; do
+      applied_patch_names+=("$(basename "${patch_file}")")
+    done
+    return 0
+  fi
+
+  for patch_file in "${patch_files[@]}"; do
+    if git -C "${flye_dir}" apply --check "${patch_file}" >/dev/null 2>&1; then
       git -C "${flye_dir}" apply "${patch_file}"
       applied_patch_names+=("$(basename "${patch_file}")")
-    elif git -C "${flye_dir}" apply --reverse --check "${patch_file}"; then
+    elif git -C "${flye_dir}" apply --reverse --check "${patch_file}" >/dev/null 2>&1; then
       echo "Patch already applied: $(basename "${patch_file}")"
       applied_patch_names+=("$(basename "${patch_file}")")
     else
       echo "Patch cannot be applied cleanly: ${patch_file}" >&2
       exit 1
     fi
-  done < <(find "${patch_dir}" -maxdepth 1 -type f -name '*.patch' | sort)
+  done
 }
 
 if [ "${apply_patches}" = "1" ]; then

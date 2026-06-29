@@ -7,7 +7,8 @@ change is considered complete.
 
 Active cards:
 
-- None.
+- `2026-06-30-cuflye-m1b-candidate-backend-seam.md`: add the first backend
+  selector seam for future CUDA candidate generation.
 
 Completed cards:
 

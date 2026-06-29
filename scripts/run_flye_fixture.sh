@@ -19,6 +19,8 @@ Options:
                        pacbio-hifi, nano-raw, nano-hq, nano-corr, subassemblies
   --candidate-dump PATH
                        Enable cuFlye patched candidate dump at PATH
+  --candidate-backend NAME
+                       Set CUFLYE_CANDIDATE_BACKEND for patched Flye
   --extra-arg ARG      Extra Flye argument. May be repeated.
   --force              Remove existing output directory before running
   -h, --help           Show this help
@@ -43,6 +45,7 @@ reads=""
 read_type=""
 force=0
 candidate_dump=""
+candidate_backend="${CUFLYE_CANDIDATE_BACKEND:-}"
 extra_args=()
 
 while [ "$#" -gt 0 ]; do
@@ -81,6 +84,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --candidate-dump)
       candidate_dump="$2"
+      shift 2
+      ;;
+    --candidate-backend)
+      candidate_backend="$2"
       shift 2
       ;;
     --extra-arg)
@@ -243,6 +250,9 @@ time_log="${out_dir}/time.log"
 if [ -n "${candidate_dump}" ]; then
   export CUFLYE_CANDIDATE_DUMP="${candidate_dump}"
 fi
+if [ -n "${candidate_backend}" ]; then
+  export CUFLYE_CANDIDATE_BACKEND="${candidate_backend}"
+fi
 
 if /usr/bin/time -v true >/dev/null 2>&1; then
   /usr/bin/time -v "${cmd[@]}" > "${out_dir}/stdout.log" 2> >(tee "${out_dir}/stderr.log" > "${time_log}")
@@ -275,16 +285,19 @@ rm -f "${metadata_tmp}"
 "${repo_root}/tools/canonicalize_flye_artifacts.py" --manifest "${out_dir}" \
   > "${out_dir}/artifact_hashes.json"
 
-if [ -n "${candidate_dump}" ]; then
-  python3 - "$out_dir/run_metadata.json" "$candidate_dump" <<'PY'
+if [ -n "${candidate_dump}" ] || [ -n "${candidate_backend}" ]; then
+  python3 - "$out_dir/run_metadata.json" "$candidate_dump" "$candidate_backend" <<'PY'
 import json
 import os
 import sys
 
-metadata_path, candidate_dump = sys.argv[1:]
+metadata_path, candidate_dump, candidate_backend = sys.argv[1:]
 with open(metadata_path, "r", encoding="utf-8") as handle:
     payload = json.load(handle)
-payload["candidate_dump"] = os.path.abspath(candidate_dump)
+if candidate_dump:
+    payload["candidate_dump"] = os.path.abspath(candidate_dump)
+if candidate_backend:
+    payload["candidate_backend"] = candidate_backend
 with open(metadata_path, "w", encoding="utf-8") as handle:
     json.dump(payload, handle, indent=2, sort_keys=True)
     handle.write("\n")
