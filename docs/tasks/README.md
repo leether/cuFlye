@@ -7,10 +7,11 @@ change is considered complete.
 
 Active cards:
 
-- `2026-06-30-cuflye-m1a-candidate-oracle-backend-seam.md`: build the M1a
-  candidate-generation oracle and patch overlay.
+- None.
 
 Completed cards:
 
+- `2026-06-30-cuflye-m1a-candidate-oracle-backend-seam.md`: build the M1a
+  candidate-generation oracle and patch overlay.
 - `2026-06-29-cuflye-m0-cpu-oracle-profiling.md`: build the M0 CPU oracle,
   canonical artifact diff, and profiling harness.

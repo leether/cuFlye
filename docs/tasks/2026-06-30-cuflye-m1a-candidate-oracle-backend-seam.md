@@ -1,6 +1,6 @@
 # Task Card: cuFlye M1a Candidate Oracle and Backend Seam
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -69,17 +69,49 @@ lookup without changing normal Flye behavior.
 
 ## Execution Checklist
 
-- [ ] Add patch overlay directory.
-- [ ] Add candidate dump patch.
-- [ ] Extend build script patch application.
-- [ ] Extend fixture runner with candidate dump support.
-- [ ] Add candidate dump diff tool.
-- [ ] Build patched Flye on DGX.
-- [ ] Run two deterministic candidate dump fixtures.
-- [ ] Diff candidate dumps.
-- [ ] Run normal M0 artifact diff against patched build.
-- [ ] Record compact proof and close this card.
+- [x] Add patch overlay directory.
+- [x] Add candidate dump patch.
+- [x] Extend build script patch application.
+- [x] Extend fixture runner with candidate dump support.
+- [x] Add candidate dump diff tool.
+- [x] Build patched Flye on DGX.
+- [x] Run two deterministic candidate dump fixtures.
+- [x] Diff candidate dumps.
+- [x] Run normal M0 artifact diff against patched build.
+- [x] Record compact proof and close this card.
 
 ## Merge Note
 
-Pending implementation.
+Completed on DGX host `edgexpert-45d2` against cuFlye commit
+`1458421209821ff27f1334406a0ab2337d839130` and upstream Flye commit
+`886b8c17412cdf3a2868a28237bca6c5ad1da156`.
+
+Patched build proof:
+
+- Build manifest: `out/m1a/build_manifest.json`
+- Applied patch: `patches/flye/2.9.6/0001-cuflye-candidate-dump.patch`
+
+Candidate oracle proof:
+
+- Run A: `out/m1a/runs/toy-candidate-a/candidates.tsv`
+- Run B: `out/m1a/runs/toy-candidate-b/candidates.tsv`
+- Records per run: `29035928`
+- Raw TSV SHA-256 per run:
+  `5e55b79e3cda21ce4d7e5e101a65f30b8fa9c3ba50b542faadbbb27d5c4bfebd`
+- Canonical candidate SHA-256 per run:
+  `97ec5f51c034e5a8a8eaa70d4c3d4ced5513f7ee93ad367671b756814310086b`
+- Candidate diff report:
+  `out/m1a/runs/toy-candidate-a-vs-b.candidate-diff.json`
+- Candidate diff status: `match`
+
+Behavioral regression proof:
+
+- Candidate-run artifact diff:
+  `out/m1a/runs/toy-candidate-a-vs-b.artifact-diff.json`
+- Normal no-dump artifact diff:
+  `out/m1a/runs/toy-normal-a-vs-b.artifact-diff.json`
+- Both artifact diff reports returned `match` for all M0 tracked Flye outputs.
+
+Tracked compact proof:
+
+- `tests/golden/toy-hifi-candidate-dgx-aarch64.json`
