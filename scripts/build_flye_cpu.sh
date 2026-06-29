@@ -96,11 +96,48 @@ fi
 
 mkdir -p "$(dirname "${manifest}")"
 
+clone_upstream() {
+  local tmp_dir
+  local attempt
+  tmp_dir="${flye_dir}.tmp.$$"
+  rm -rf "${tmp_dir}"
+  for attempt in 1 2 3; do
+    echo "Cloning Flye ${expected_ref} into ${flye_dir} (attempt ${attempt}/3)"
+    if git clone --depth 1 --branch "${expected_ref}" \
+      https://github.com/mikolmogorov/Flye.git "${tmp_dir}"; then
+      rm -rf "${flye_dir}"
+      mv "${tmp_dir}" "${flye_dir}"
+      return 0
+    fi
+    rm -rf "${tmp_dir}"
+    sleep "$((attempt * 5))"
+  done
+  echo "Failed to clone Flye after 3 attempts." >&2
+  return 1
+}
+
+if [ -d "${flye_dir}" ] && [ ! -d "${flye_dir}/.git" ]; then
+  if [ "${fetch_upstream}" = "1" ]; then
+    rm -rf "${flye_dir}"
+  else
+    echo "Flye path exists but is not a git checkout: ${flye_dir}" >&2
+    exit 1
+  fi
+fi
+
+if [ -d "${flye_dir}/.git" ] && ! git -C "${flye_dir}" rev-parse --verify HEAD >/dev/null 2>&1; then
+  if [ "${fetch_upstream}" = "1" ]; then
+    rm -rf "${flye_dir}"
+  else
+    echo "Flye checkout exists but has no valid HEAD: ${flye_dir}" >&2
+    exit 1
+  fi
+fi
+
 if [ ! -d "${flye_dir}/.git" ]; then
   if [ "${fetch_upstream}" = "1" ]; then
     mkdir -p "$(dirname "${flye_dir}")"
-    git clone --depth 1 --branch "${expected_ref}" \
-      https://github.com/mikolmogorov/Flye.git "${flye_dir}"
+    clone_upstream
   else
     cat >&2 <<EOF
 Flye checkout not found: ${flye_dir}
