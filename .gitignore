@@ -1,0 +1,33 @@
+# Local research checkouts. Keep them outside the root repository history unless
+# they are intentionally converted to submodules later.
+/upstream-flye/
+/GenomeWorks/
+
+# Build and runtime outputs
+/build/
+/dist/
+/install/
+/out/
+/tmp/
+*.o
+*.so
+*.a
+*.dylib
+*.pyc
+__pycache__/
+
+# Flye run outputs
+/00-assembly/
+/20-repeat/
+/30-contigger/
+/40-polishing/
+/assembly.fasta
+/assembly_info.txt
+/assembly_graph.gfa
+/assembly_graph.gv
+
+# Local environment files
+.DS_Store
+.env
+.venv/
+venv/
