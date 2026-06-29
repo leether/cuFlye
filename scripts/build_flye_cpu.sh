@@ -194,8 +194,8 @@ apply_patch_set() {
   local patch_dir
   local patch_file
   local patch_files=()
-  local last_patch_index
-  local last_patch
+  local applied_through
+  local idx
   patch_dir="${repo_root}/patches/flye/${expected_ref}"
   if [ ! -d "${patch_dir}" ]; then
     echo "No cuFlye patch directory for Flye ${expected_ref}: ${patch_dir}"
@@ -211,21 +211,26 @@ apply_patch_set() {
     return 0
   fi
 
-  # If the newest patch in the series is already present, assume the ordered
-  # series has reached the requested cuFlye patch level. This keeps repeated
-  # builds idempotent even when later patches touch context used by earlier
-  # patches' reverse checks.
-  last_patch_index=$((${#patch_files[@]} - 1))
-  last_patch="${patch_files[${last_patch_index}]}"
-  if git -C "${flye_dir}" apply --reverse --check "${last_patch}" >/dev/null 2>&1; then
-    echo "Patch series already applied through $(basename "${last_patch}")"
-    for patch_file in "${patch_files[@]}"; do
-      applied_patch_names+=("$(basename "${patch_file}")")
+  # Find the highest applied patch in the ordered series. Later patches can
+  # change context from earlier patches, so reverse-checking every patch from
+  # the beginning is not reliable once a prefix has been applied.
+  applied_through=-1
+  for ((idx=${#patch_files[@]} - 1; idx >= 0; idx--)); do
+    if git -C "${flye_dir}" apply --reverse --check "${patch_files[${idx}]}" >/dev/null 2>&1; then
+      applied_through="${idx}"
+      break
+    fi
+  done
+
+  if [ "${applied_through}" -ge 0 ]; then
+    echo "Patch series already applied through $(basename "${patch_files[${applied_through}]}")"
+    for ((idx=0; idx <= applied_through; idx++)); do
+      applied_patch_names+=("$(basename "${patch_files[${idx}]}")")
     done
-    return 0
   fi
 
-  for patch_file in "${patch_files[@]}"; do
+  for ((idx=applied_through + 1; idx < ${#patch_files[@]}; idx++)); do
+    patch_file="${patch_files[${idx}]}"
     if git -C "${flye_dir}" apply --check "${patch_file}" >/dev/null 2>&1; then
       git -C "${flye_dir}" apply "${patch_file}"
       applied_patch_names+=("$(basename "${patch_file}")")
