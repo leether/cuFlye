@@ -12,6 +12,7 @@ CUDA.
 
 - `CUDA_FLYE_DESIGN.md`: CUDA backend architecture and milestones.
 - `GENOMEWORKS_NOTES.md`: source-level notes from NVIDIA GenomeWorks modules.
+- `docs/tasks/`: Task Cards for bounded implementation slices.
 - `upstream-flye/`: local research clone of Flye, ignored by this root repo.
 - `GenomeWorks/`: local research clone of NVIDIA GenomeWorks, ignored by this
   root repo.
