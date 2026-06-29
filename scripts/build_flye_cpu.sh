@@ -94,6 +94,17 @@ if [ -z "${jobs}" ]; then
   fi
 fi
 
+make_args=("THREADS=${jobs}")
+machine="$(uname -m)"
+case "${machine}" in
+  aarch64)
+    # Upstream Flye's top-level Makefile only special-cases macOS arm64.
+    # Linux/aarch64 DGX builds need these variables so vendored minimap2 uses
+    # the NEON path instead of x86 SSE flags.
+    make_args+=("aarch64=1" "arm_neon=1")
+    ;;
+esac
+
 mkdir -p "$(dirname "${manifest}")"
 
 clone_upstream() {
@@ -172,10 +183,13 @@ EOF
 fi
 
 if [ "${clean}" = "1" ]; then
-  make -C "${flye_dir}" clean
+  make -C "${flye_dir}" clean "${make_args[@]}"
 fi
 
-make -C "${flye_dir}" -j "${jobs}"
+# Keep top-level prerequisites sequential. Flye's samtools configure links
+# against vendored minimap2, so running top-level minimap2 and samtools targets
+# concurrently can race on clean checkouts. THREADS still controls sub-makes.
+make -C "${flye_dir}" -j 1 "${make_args[@]}"
 
 required_bins=(
   "${flye_dir}/bin/flye"
@@ -192,7 +206,7 @@ for bin_path in "${required_bins[@]}"; do
 done
 
 python3 - "$manifest" "$repo_root" "$flye_dir" "$expected_ref" "$expected_commit" \
-  "$actual_commit" "$actual_tags" "$actual_branch" "$jobs" <<'PY'
+  "$actual_commit" "$actual_tags" "$actual_branch" "$jobs" "${make_args[*]}" <<'PY'
 import json
 import os
 import platform
@@ -201,7 +215,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 
-manifest, repo_root, flye_dir, expected_ref, expected_commit, actual_commit, actual_tags, actual_branch, jobs = sys.argv[1:]
+manifest, repo_root, flye_dir, expected_ref, expected_commit, actual_commit, actual_tags, actual_branch, jobs, make_args = sys.argv[1:]
 
 def run(cmd):
     try:
@@ -219,6 +233,7 @@ payload = {
     "actual_tags": actual_tags.split(),
     "actual_branch": actual_branch or None,
     "jobs": int(jobs),
+    "make_args": make_args.split(),
     "host": platform.node(),
     "platform": platform.platform(),
     "machine": platform.machine(),
