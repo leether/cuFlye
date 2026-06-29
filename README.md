@@ -29,7 +29,7 @@ scripts/build_flye_cpu.sh --fetch-upstream
 scripts/run_flye_fixture.sh --out-dir out/m0/runs/toy-a
 scripts/run_flye_fixture.sh --out-dir out/m0/runs/toy-b
 tools/diff_flye_runs.py out/m0/runs/toy-a out/m0/runs/toy-b
-bench/profile_flye_cpu.sh --profile-dir out/m0/profiles/toy-hifi
+bench/profile_flye_cpu.sh --profile-dir out/m0/profiles/toy-hifi --threads 8
 ```
 
 Generated runs and profiles live under `out/` and are intentionally ignored.

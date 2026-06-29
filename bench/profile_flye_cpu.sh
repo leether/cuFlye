@@ -11,7 +11,7 @@ Options:
   --profile-dir PATH    Profile output directory. Default: ./out/m0/profiles/<fixture>-<timestamp>
   --fixture NAME        Fixture name. Default: toy-hifi
   --flye-dir PATH       Flye checkout path. Default: ./upstream-flye
-  --threads N           Flye thread count. Default: 8
+  --threads N           Flye thread count. Default: 8 for profiling
   --reads PATH          Custom reads path, forwarded to run_flye_fixture.sh
   --read-type TYPE      Custom read type, forwarded to run_flye_fixture.sh
   --genome-size SIZE    Genome size, forwarded to run_flye_fixture.sh

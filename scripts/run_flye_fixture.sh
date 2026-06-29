@@ -11,7 +11,7 @@ Options:
   --fixture NAME       Fixture name: toy-hifi, toy-raw, or custom. Default: toy-hifi
   --flye-dir PATH      Flye checkout path. Default: ./upstream-flye
   --out-dir PATH       Output directory. Default: ./out/m0/runs/<fixture>-<timestamp>
-  --threads N          Flye thread count. Default: 8
+  --threads N          Flye thread count. Default: 1 for deterministic oracle
   --min-overlap N      Flye -m value. Default: 1000 for toy fixtures
   --genome-size SIZE   Flye -g value. Default: 500k for toy fixtures
   --reads PATH         Reads path. Required for --fixture custom
@@ -34,7 +34,7 @@ repo_root="$(cd "${script_dir}/.." && pwd)"
 fixture="toy-hifi"
 flye_dir="${FLYE_DIR:-${repo_root}/upstream-flye}"
 out_dir=""
-threads="${THREADS:-8}"
+threads="${THREADS:-1}"
 min_overlap="1000"
 genome_size="500k"
 reads=""
