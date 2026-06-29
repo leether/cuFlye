@@ -1,7 +1,7 @@
-# flye-cuda
+# cuFlye
 
-`flye-cuda` is a planning and implementation workspace for a Flye-compatible
-CUDA backend.
+`cuFlye` is an unofficial, Flye-compatible CUDA acceleration project for
+long-read genome assembly.
 
 The target is not a clean-room GPU assembler. The target is a Flye-compatible
 fork that keeps Flye's CLI, stage contracts, intermediate artifacts, and CPU

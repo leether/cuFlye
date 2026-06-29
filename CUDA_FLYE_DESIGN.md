@@ -1,4 +1,4 @@
-# CUDA-enabled Flye design
+# cuFlye CUDA backend design
 
 ## Positioning
 

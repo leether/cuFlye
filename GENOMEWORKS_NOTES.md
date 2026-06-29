@@ -1,4 +1,4 @@
-# GenomeWorks design notes for CUDA Flye
+# GenomeWorks design notes for cuFlye
 
 Source checkout:
 
@@ -188,4 +188,3 @@ backend architecture inspired by GenomeWorks:
 
 The graph resolver remains Flye CPU logic until the overlap/alignment artifacts
 are proven equivalent.
-
