@@ -142,3 +142,6 @@ tools/diff_candidate_dumps.py cpu.tsv cuda.tsv
 
 The CUDA backend is not eligible to feed downstream Flye stages until both the
 ABI validator and candidate diff gates pass.
+
+See `docs/abi/cuda-candidate-backend-v0.md` for the pre-kernel CUDA backend
+stub contract.

@@ -21,6 +21,9 @@ Options:
                        Enable cuFlye patched candidate dump at PATH
   --candidate-backend NAME
                        Set CUFLYE_CANDIDATE_BACKEND for patched Flye
+  --cuda-device ID     Set CUFLYE_CUDA_DEVICE for CUDA backend experiments
+  --cuda-memory-budget-bytes N
+                       Set CUFLYE_CUDA_MEMORY_BUDGET_BYTES
   --extra-arg ARG      Extra Flye argument. May be repeated.
   --force              Remove existing output directory before running
   -h, --help           Show this help
@@ -46,6 +49,8 @@ read_type=""
 force=0
 candidate_dump=""
 candidate_backend="${CUFLYE_CANDIDATE_BACKEND:-}"
+cuda_device="${CUFLYE_CUDA_DEVICE:-}"
+cuda_memory_budget_bytes="${CUFLYE_CUDA_MEMORY_BUDGET_BYTES:-}"
 extra_args=()
 
 while [ "$#" -gt 0 ]; do
@@ -88,6 +93,14 @@ while [ "$#" -gt 0 ]; do
       ;;
     --candidate-backend)
       candidate_backend="$2"
+      shift 2
+      ;;
+    --cuda-device)
+      cuda_device="$2"
+      shift 2
+      ;;
+    --cuda-memory-budget-bytes)
+      cuda_memory_budget_bytes="$2"
       shift 2
       ;;
     --extra-arg)
@@ -200,8 +213,21 @@ fi
 printf '%q ' "${cmd[@]}" > "${out_dir}/command.sh"
 printf '\n' >> "${out_dir}/command.sh"
 
+if [ -n "${candidate_dump}" ]; then
+  export CUFLYE_CANDIDATE_DUMP="${candidate_dump}"
+fi
+if [ -n "${candidate_backend}" ]; then
+  export CUFLYE_CANDIDATE_BACKEND="${candidate_backend}"
+fi
+if [ -n "${cuda_device}" ]; then
+  export CUFLYE_CUDA_DEVICE="${cuda_device}"
+fi
+if [ -n "${cuda_memory_budget_bytes}" ]; then
+  export CUFLYE_CUDA_MEMORY_BUDGET_BYTES="${cuda_memory_budget_bytes}"
+fi
+
 metadata_tmp="${out_dir}/run_metadata.pre.json"
-python3 - "$metadata_tmp" "$repo_root" "$flye_dir" "$fixture" "$reads" "$read_type" "$genome_size" "$min_overlap" "$threads" "${cmd[@]}" <<'PY'
+python3 - "$metadata_tmp" "$repo_root" "$flye_dir" "$fixture" "$reads" "$read_type" "$genome_size" "$min_overlap" "$threads" "$candidate_dump" "$candidate_backend" "$cuda_device" "$cuda_memory_budget_bytes" "${cmd[@]}" <<'PY'
 import json
 import os
 import platform
@@ -210,7 +236,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 
-metadata_path, repo_root, flye_dir, fixture, reads, read_type, genome_size, min_overlap, threads, *cmd = sys.argv[1:]
+metadata_path, repo_root, flye_dir, fixture, reads, read_type, genome_size, min_overlap, threads, candidate_dump, candidate_backend, cuda_device, cuda_memory_budget_bytes, *cmd = sys.argv[1:]
 
 def run(cmdline):
     try:
@@ -238,6 +264,14 @@ payload = {
     "python": sys.version.split()[0],
     "nvidia_smi": run(["nvidia-smi", "-L"]) if shutil.which("nvidia-smi") else None,
 }
+if candidate_dump:
+    payload["candidate_dump"] = os.path.abspath(candidate_dump)
+if candidate_backend:
+    payload["candidate_backend"] = candidate_backend
+if cuda_device:
+    payload["cuda_device"] = cuda_device
+if cuda_memory_budget_bytes:
+    payload["cuda_memory_budget_bytes"] = cuda_memory_budget_bytes
 
 with open(metadata_path, "w", encoding="utf-8") as handle:
     json.dump(payload, handle, indent=2, sort_keys=True)
@@ -246,13 +280,6 @@ PY
 
 start_epoch="$(date +%s)"
 time_log="${out_dir}/time.log"
-
-if [ -n "${candidate_dump}" ]; then
-  export CUFLYE_CANDIDATE_DUMP="${candidate_dump}"
-fi
-if [ -n "${candidate_backend}" ]; then
-  export CUFLYE_CANDIDATE_BACKEND="${candidate_backend}"
-fi
 
 if /usr/bin/time -v true >/dev/null 2>&1; then
   /usr/bin/time -v "${cmd[@]}" > "${out_dir}/stdout.log" 2> >(tee "${out_dir}/stderr.log" > "${time_log}")

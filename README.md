@@ -95,6 +95,23 @@ hash, and optional canonical hash. CUDA candidate prototypes must pass this gate
 and `tools/diff_candidate_dumps.py` against the CPU oracle before downstream
 Flye stages are considered.
 
+## M1d CUDA Backend Stub
+
+The CUDA backend selector exists but intentionally fails until a real kernel is
+implemented:
+
+```sh
+scripts/build_flye_cpu.sh --apply-patches --clean
+scripts/run_flye_fixture.sh --out-dir out/m1d/runs/toy-cuda-stub \
+  --candidate-backend cuda \
+  --cuda-device 0 \
+  --cuda-memory-budget-bytes 1073741824
+```
+
+Expected stderr includes `adapter=stub`, the requested CUDA device, the memory
+budget, and `CUDA candidate kernel is not implemented yet`. This path must never
+silently fall back to CPU.
+
 ## Licensing
 
 Original code in this repository is BSD-3-Clause by default.

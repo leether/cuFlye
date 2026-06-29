@@ -1,0 +1,61 @@
+diff --git a/src/sequence/overlap.cpp b/src/sequence/overlap.cpp
+index 8cbb188..ada2ae2 100644
+--- a/src/sequence/overlap.cpp
++++ b/src/sequence/overlap.cpp
+@@ -89,7 +89,8 @@ namespace
+ 
+ 	enum class CandidateBackend
+ 	{
+-		Cpu
++		Cpu,
++		Cuda
+ 	};
+ 
+ 	template <class T>
+@@ -125,6 +126,10 @@ namespace
+ 			{
+ 				return CandidateBackend::Cpu;
+ 			}
++			if (std::strcmp(envBackend, "cuda") == 0)
++			{
++				return CandidateBackend::Cuda;
++			}
+ 
+ 			throw std::runtime_error(std::string("Unsupported CUFLYE_CANDIDATE_BACKEND: ") +
+ 									 envBackend);
+@@ -132,6 +137,25 @@ namespace
+ 		return backend;
+ 	}
+ 
++	std::string cudaEnvOrDefault(const char* name, const char* fallback)
++	{
++		const char* value = std::getenv(name);
++		if (!value || !value[0]) return fallback;
++		return value;
++	}
++
++	void collectCandidateMatchesCudaStub()
++	{
++		std::string device = cudaEnvOrDefault("CUFLYE_CUDA_DEVICE", "0");
++		std::string memoryBudget =
++			cudaEnvOrDefault("CUFLYE_CUDA_MEMORY_BUDGET_BYTES", "unbounded");
++		throw std::runtime_error(
++			std::string("cuFlye CUDA candidate backend selected; adapter=stub; ") +
++			"CUFLYE_CUDA_DEVICE=" + device + "; " +
++			"CUFLYE_CUDA_MEMORY_BUDGET_BYTES=" + memoryBudget + "; " +
++			"CUDA candidate kernel is not implemented yet");
++	}
++
+ 	template <class Matches>
+ 	void dumpCandidateMatches(const FastaRecord& fastaRec, Matches& matches)
+ 	{
+@@ -271,6 +295,9 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
+ 	case CandidateBackend::Cpu:
+ 		collectCandidateMatchesCpu();
+ 		break;
++	case CandidateBackend::Cuda:
++		collectCandidateMatchesCudaStub();
++		break;
+ 	}
+ 	timeKmerIndexFirst += std::chrono::duration_cast<std::chrono::duration<float>>
+ 							(std::chrono::system_clock::now() - timeStart).count();
