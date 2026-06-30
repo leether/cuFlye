@@ -11,6 +11,8 @@ Active cards:
 
 Completed cards:
 
+- `2026-06-30-cuflye-governance-memory-ownership-scan.md`: add memory/resource
+  ownership rules and scan existing code for common C++/CUDA leak patterns.
 - `2026-06-30-cuflye-governance-coding-style-v0.md`: define local C++/CUDA
   style rules and formatter scope without reformatting upstream or patch code.
 - `2026-06-30-cuflye-m2b-real-data-pack-dump.md`: extract real Flye

@@ -66,6 +66,50 @@ this repository does not adopt LLVM design rules as project policy.
 - Do not feed GPU output into downstream Flye graph logic until the relevant
   CPU oracle diff gate passes.
 
+## Memory and Resource Ownership
+
+Raw resource management is the highest-risk C++ failure mode for cuFlye because
+the project crosses CPU containers, Flye adapter boundaries, CUDA device memory,
+CUDA events, CUDA streams, and error paths.
+
+The default rule is:
+
+```text
+Ownership must be visible in the type system, and reusable backend code must use
+RAII for every CPU, CUDA, file, stream, and event resource.
+```
+
+- Do not use direct `new`, `delete`, `malloc`, `calloc`, `realloc`, or `free` in
+  original cuFlye business logic.
+- Prefer `std::vector`, `std::string`, `std::array`, and stack objects for
+  ordinary CPU memory.
+- Use `std::unique_ptr` only when object lifetime cannot be represented by a
+  standard container or stack object.
+- Treat raw pointers as non-owning by default. If a raw pointer crosses a
+  boundary, the owner and lifetime must be obvious from the function contract.
+- Avoid `std::shared_ptr` in hot paths and adapter boundaries. If shared
+  ownership is unavoidable, document why unique ownership does not work.
+- Avoid `std::weak_ptr` unless it is breaking an explicit shared ownership
+  cycle.
+- Resource-owning classes should follow Rule of Zero. If they must own a
+  non-standard resource, they must be move-only and explicitly delete copy
+  construction and copy assignment.
+- Destructors and RAII cleanup paths must not throw. If checked teardown matters,
+  expose an explicit checked `reset` or `close` operation before destruction.
+- Reusable CUDA backend code must not call `cudaMalloc`, `cudaFree`,
+  `cudaHostAlloc`, `cudaFreeHost`, `cudaStreamCreate`, `cudaStreamDestroy`,
+  `cudaEventCreate`, or `cudaEventDestroy` directly. Wrap these resources in
+  move-only RAII types.
+- Standalone M1 smoke prototypes may contain direct CUDA resource calls only as
+  temporary proof code. Do not copy that pattern into M2+ backend integration
+  code.
+- CUDA allocation wrappers must check memory budgets before allocation and
+  report device id, requested bytes, CUDA error code, CUDA error name, and CUDA
+  error text on failure.
+- Flye integration patches should adapt to upstream ownership conventions at the
+  narrowest possible boundary instead of rewriting large upstream ownership
+  surfaces.
+
 ## Naming and Layout
 
 - Match upstream Flye naming inside Flye patches.
@@ -88,6 +132,9 @@ when its relevant proof gates pass:
 - CPU and CUDA candidate outputs diff cleanly with `tools/diff_candidate_dumps.py`;
 - runtime probes report CUDA device and memory facts when CUDA is required;
 - benchmark claims include matched counts and bounded input shape;
+- ownership scans show no new direct CPU allocation APIs and no direct CUDA
+  resource APIs outside approved low-level RAII wrappers or grandfathered smoke
+  prototypes;
 - generated large artifacts stay under `out/` and are not committed;
 - compact manifests, hashes, and proof summaries are committed under `tests/`
   or `docs/` when they support a milestone claim.
