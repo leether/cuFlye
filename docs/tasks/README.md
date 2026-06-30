@@ -7,7 +7,8 @@ change is considered complete.
 
 Active cards:
 
-- None.
+- `2026-06-30-cuflye-m1g-cuda-kmer-join-smoke.md`: generate a small
+  candidate-record-v1 TSV on GPU from query k-mers and a k-mer index fixture.
 
 Completed cards:
 

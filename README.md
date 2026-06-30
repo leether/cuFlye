@@ -149,6 +149,31 @@ This is not Flye acceleration yet. It proves that a CUDA kernel can produce
 candidate ABI records that pass the same validator and diff gates as CPU oracle
 data.
 
+## M1g CUDA K-mer Join Smoke
+
+The first GPU-generated candidate prototype performs a bounded k-mer equality
+join over an explicit fixture:
+
+```sh
+scripts/build_cuda_kmer_join_smoke.sh --arch sm_121
+out/m1g/bin/cuflye-cuda-kmer-join-smoke \
+  --queries-tsv tests/fixtures/kmer-join-smoke-v0/queries.tsv \
+  --index-tsv tests/fixtures/kmer-join-smoke-v0/index.tsv \
+  --repetitive-kmers-tsv tests/fixtures/kmer-join-smoke-v0/repetitive-kmers.tsv \
+  --cpu-output-tsv out/m1g/cpu-oracle.tsv \
+  --output-tsv out/m1g/gpu-candidates.tsv \
+  --memory-budget-bytes 1048576 \
+  --json-output out/m1g/cuda-kmer-join-smoke.json
+tools/diff_candidate_dumps.py \
+  tests/fixtures/kmer-join-smoke-v0/expected.candidates.tsv \
+  out/m1g/cpu-oracle.tsv
+tools/diff_candidate_dumps.py out/m1g/cpu-oracle.tsv out/m1g/gpu-candidates.tsv
+```
+
+This still does not parse Flye reads or replace the Flye backend stub. It proves
+that device code can generate ABI-valid candidate records from query/index
+inputs using Flye-like equality-join and trivial-hit filtering semantics.
+
 ## Licensing
 
 Original code in this repository is BSD-3-Clause by default.
