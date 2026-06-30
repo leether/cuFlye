@@ -1,0 +1,49 @@
+diff --git a/src/sequence/overlap.cpp b/src/sequence/overlap.cpp
+index f2b6f5c..8e1a8bb 100644
+--- a/src/sequence/overlap.cpp
++++ b/src/sequence/overlap.cpp
+@@ -149,6 +149,23 @@ namespace
+ 		return dumpDir;
+ 	}
+ 
++	size_t overlapReplayMaxFixtures()
++	{
++		static size_t maxFixtures = []()
++		{
++			const char* raw = std::getenv("CUFLYE_OVERLAP_REPLAY_MAX_FIXTURES");
++			if (!raw || !raw[0]) return static_cast<size_t>(1);
++			long long parsed = std::stoll(raw);
++			if (parsed < 1)
++			{
++				throw std::runtime_error(
++					"CUFLYE_OVERLAP_REPLAY_MAX_FIXTURES must be >= 1");
++			}
++			return static_cast<size_t>(parsed);
++		}();
++		return maxFixtures;
++	}
++
+ 	const char* boolJson(bool value)
+ 	{
+ 		return value ? "true" : "false";
+@@ -674,9 +691,9 @@ namespace
+ 			return;
+ 		}
+ 
+-		size_t expected = 0;
+-		if (!overlapReplayDumpCounter().compare_exchange_strong(expected, 1))
+-		{
++		size_t dumpIndex = overlapReplayDumpCounter().fetch_add(1);
++		if (dumpIndex >= overlapReplayMaxFixtures())
++		{
+ 			return;
+ 		}
+ 
+@@ -728,6 +745,7 @@ namespace
+ 						<< "  \"status\": \"captured\",\n"
+ 						<< "  \"query_id\": " << queryId << ",\n"
+ 						<< "  \"query_length\": " << fastaRec.sequence.length() << ",\n"
++						<< "  \"dump_index\": " << dumpIndex << ",\n"
+ 						<< "  \"candidate_records\": " << matches.size() << ",\n"
+ 						<< "  \"filtered_positions\": " << curFilteredPos.size() << ",\n"
+ 						<< "  \"target_records\": " << targetLengths.size() << ",\n"

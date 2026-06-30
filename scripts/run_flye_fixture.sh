@@ -24,6 +24,8 @@ Options:
                        Set CUFLYE_OVERLAP_REPLAY_DUMP_DIR for M4b replay fixture
   --overlap-replay-query-id ID
                        Set CUFLYE_OVERLAP_REPLAY_QUERY_ID
+  --overlap-replay-max-fixtures N
+                       Set CUFLYE_OVERLAP_REPLAY_MAX_FIXTURES
   --overlap-replay-stop-after-dump
                        Set CUFLYE_OVERLAP_REPLAY_STOP_AFTER_DUMP=1
   --candidate-backend NAME
@@ -76,6 +78,7 @@ candidate_dump=""
 overlap_dump=""
 overlap_replay_dump_dir="${CUFLYE_OVERLAP_REPLAY_DUMP_DIR:-}"
 overlap_replay_query_id="${CUFLYE_OVERLAP_REPLAY_QUERY_ID:-}"
+overlap_replay_max_fixtures="${CUFLYE_OVERLAP_REPLAY_MAX_FIXTURES:-}"
 overlap_replay_stop_after_dump="${CUFLYE_OVERLAP_REPLAY_STOP_AFTER_DUMP:-}"
 candidate_backend="${CUFLYE_CANDIDATE_BACKEND:-}"
 cuda_device="${CUFLYE_CUDA_DEVICE:-}"
@@ -139,6 +142,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --overlap-replay-query-id)
       overlap_replay_query_id="$2"
+      shift 2
+      ;;
+    --overlap-replay-max-fixtures)
+      overlap_replay_max_fixtures="$2"
       shift 2
       ;;
     --overlap-replay-stop-after-dump)
@@ -334,6 +341,9 @@ if [ -n "${overlap_replay_dump_dir}" ]; then
 fi
 if [ -n "${overlap_replay_query_id}" ]; then
   export CUFLYE_OVERLAP_REPLAY_QUERY_ID="${overlap_replay_query_id}"
+fi
+if [ -n "${overlap_replay_max_fixtures}" ]; then
+  export CUFLYE_OVERLAP_REPLAY_MAX_FIXTURES="${overlap_replay_max_fixtures}"
 fi
 if [ -n "${overlap_replay_stop_after_dump}" ]; then
   export CUFLYE_OVERLAP_REPLAY_STOP_AFTER_DUMP="${overlap_replay_stop_after_dump}"
