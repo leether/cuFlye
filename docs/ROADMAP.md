@@ -205,6 +205,16 @@ Completed:
   the guard without shadow mode; validation still passed, but guard checks
   `shadow_mode_selected` and `shadow_passed` failed, producing
   `status=guard-failed-before-graph-mutation` before graph mutation.
+- M4p: Flye can rehydrate validated packed CUDA overlap worker output into a
+  Flye-side typed overlap vector after validation, shadow comparison, and the
+  M4o guard pass. The positive DGX proof used the M4n 12-fixture heterogeneous
+  matrix and wrote `overlap_rehydration_status=passed`,
+  `overlap_rehydration_state=not-consumed`, and
+  `graph_mutation_consumed_worker_output=false`. The negative proof used the
+  same matrix with `CUFLYE_OVERLAP_REHYDRATION_PROOF_FAULT=drop-first-worker-record`;
+  validation, shadow comparison, and guard still passed, but typed-vector
+  comparison produced `12` mismatching fixtures and failed closed with
+  `status=rehydration-failed-before-graph-mutation` before graph mutation.
 
 Current allowed performance claim:
 
@@ -271,6 +281,11 @@ cuFlye now has a guarded graph-consumption dry-run contract for that same
 boundary. This is a safety and auditability claim: the code can prove the
 preconditions for future graph consumption and still records that worker output
 was not consumed by graph mutation.
+
+cuFlye can now rehydrate validated CUDA overlap worker records into a
+Flye-side typed overlap vector and prove that vector matches CPU overlap
+records captured in memory. This is a representation-boundary claim; it still
+does not feed GPU output into graph mutation.
 ```
 
 Current forbidden claim:
@@ -452,9 +467,17 @@ Next highest-ROI task:
 ```text
 M4p: rehydrate validated CUDA overlap worker output into a Flye-side typed
 overlap vector in a no-mutation dry-run, then prove it matches the CPU vector
-before any graph-consumption path is enabled.
+before any graph-consumption path is enabled. Completed.
 ```
 
-Acceptance should require M4o guard eligibility first, preserve default CPU
-behavior, fail closed on any typed-vector mismatch, and still record
-`graph_mutation_consumed_worker_output=false`.
+Next highest-ROI task:
+
+```text
+M4q: convert the validated typed overlap vector into actual Flye `OverlapRange`
+objects in a no-mutation dry-run, then prove the object vector canonicalizes
+back to the CPU overlap vector before graph consumption is enabled.
+```
+
+Acceptance should require M4p typed rehydration success first, preserve default
+CPU behavior, fail closed on any `OverlapRange` object-vector mismatch, and
+still record `graph_mutation_consumed_worker_output=false`.

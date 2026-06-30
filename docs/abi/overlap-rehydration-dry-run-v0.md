@@ -1,6 +1,6 @@
 # Overlap Rehydration Dry Run v0
 
-Status: proposed for M4p
+Status: accepted in M4p
 
 Introduced: M4p
 

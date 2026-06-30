@@ -7,16 +7,19 @@ change is considered complete.
 
 Active cards:
 
-- `2026-07-01-cuflye-m4p-overlap-graph-consumption-rehydration-dry-run.md`:
-  rehydrate validated CUDA overlap worker output into Flye-side typed overlap
-  data in a no-mutation dry-run before any graph consumption path is enabled.
+- None. M4p is complete; M4q is proposed.
 
 Proposed cards:
 
-- None. M4p is in progress.
+- `2026-07-01-cuflye-m4q-overlap-range-object-rehydration-dry-run.md`:
+  convert validated typed overlap records into actual Flye `OverlapRange`
+  objects in a no-mutation dry-run before graph consumption is enabled.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m4p-overlap-graph-consumption-rehydration-dry-run.md`:
+  rehydrate validated CUDA overlap worker output into Flye-side typed overlap
+  data in a no-mutation dry-run before any graph consumption path is enabled.
 - `2026-07-01-cuflye-m4o-guarded-overlap-graph-consumption-design.md`: define
   the guarded-consumption contract and dry-run proof before any CUDA overlap
   output is allowed to affect Flye graph mutation.
