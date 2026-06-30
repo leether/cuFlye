@@ -7,7 +7,9 @@ change is considered complete.
 
 Active cards:
 
-- None.
+- `2026-06-30-cuflye-m1h-cuda-kmer-encoding-smoke.md`: compute Flye-style
+  k-mer encodings and standard-form lookup keys on GPU before generating a
+  small candidate-record-v1 TSV.
 
 Completed cards:
 

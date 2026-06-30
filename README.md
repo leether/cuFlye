@@ -174,6 +174,33 @@ This still does not parse Flye reads or replace the Flye backend stub. It proves
 that device code can generate ABI-valid candidate records from query/index
 inputs using Flye-like equality-join and trivial-hit filtering semantics.
 
+## M1h CUDA K-mer Encode Smoke
+
+The next prototype removes the integer lookup shortcut from M1g. It gives CUDA
+DNA k-mer strings and makes the device compute Flye-style 2-bit k-mer
+representations and standard-form lookup keys:
+
+```sh
+scripts/build_cuda_kmer_encode_smoke.sh --arch sm_121
+out/m1h/bin/cuflye-cuda-kmer-encode-smoke \
+  --kmer-size 4 \
+  --queries-tsv tests/fixtures/kmer-encode-smoke-v0/queries.tsv \
+  --index-tsv tests/fixtures/kmer-encode-smoke-v0/index.tsv \
+  --repetitive-kmers-tsv tests/fixtures/kmer-encode-smoke-v0/repetitive-kmers.tsv \
+  --cpu-output-tsv out/m1h/cpu-oracle.tsv \
+  --output-tsv out/m1h/gpu-candidates.tsv \
+  --memory-budget-bytes 1048576 \
+  --json-output out/m1h/cuda-kmer-encode-smoke.json
+tools/diff_candidate_dumps.py \
+  tests/fixtures/kmer-encode-smoke-v0/expected.candidates.tsv \
+  out/m1h/cpu-oracle.tsv
+tools/diff_candidate_dumps.py out/m1h/cpu-oracle.tsv out/m1h/gpu-candidates.tsv
+```
+
+This still does not slide across full reads or upload Flye's full `VertexIndex`.
+It proves the device-side encoding and standard-form semantics needed before a
+real CUDA candidate backend can replace the stub.
+
 ## Licensing
 
 Original code in this repository is BSD-3-Clause by default.
