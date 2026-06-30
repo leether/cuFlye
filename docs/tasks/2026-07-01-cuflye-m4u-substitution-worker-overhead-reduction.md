@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4u Substitution Worker Overhead Reduction
 
-Status: proposed
+Status: in_progress
 
 Created: 2026-07-01
 
@@ -75,3 +75,18 @@ file IO, and repeated validation scaffolding.
 - Updated ABI documentation if the timing or worker contract changes.
 - DGX proof manifest with positive and negative sessions.
 - Roadmap, Task Card, golden index, and plain-language benefit assessment.
+
+## Implementation Notes
+
+M4u starts with an opt-in Flye seam mode:
+
+```text
+CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE=verified-overlap-range-session-batch-v0
+```
+
+The first selected supported query can be recorded as
+`deferred-session-batch-waiting` and return CPU output. Once the allowlist-sized
+batch is available, Flye invokes the CUDA overlap worker once, validates the
+batch output, and caches the verified worker output for later selected query
+calls. Cached returns still run the final exact CPU comparison before returning
+worker-derived `OverlapRange` objects.

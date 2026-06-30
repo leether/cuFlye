@@ -1,0 +1,338 @@
+--- a/src/sequence/overlap.cpp	2026-07-01 03:29:40
++++ b/src/sequence/overlap.cpp	2026-07-01 03:28:22
+@@ -445,6 +445,29 @@
+ 		double substitutionComparisonMs = 0.0;
+ 		double ledgerEntryBuildMs = 0.0;
+ 		double seamTotalMs = 0.0;
++	};
++
++	struct OverlapWorkerSessionBatchCache
++	{
++		bool ready = false;
++		std::vector<std::string> fixtures;
++		std::vector<int64_t> queryIds;
++		std::string requestJson;
++		std::string responseJson;
++		std::string fixtureList;
++		std::string queryIdsFile;
++		std::string validationJson;
++		std::string shadowJson;
++		std::string graphGuardJson;
++		std::string rehydrationJson;
++		std::string objectRehydrationJson;
++		std::string batchJson;
++		std::string batchOutputDir;
++		OverlapWorkerValidationResult validation;
++		OverlapWorkerShadowResult shadow;
++		OverlapWorkerGraphGuardResult graphGuard;
++		OverlapWorkerRehydrationResult rehydration;
++		OverlapWorkerObjectRehydrationResult objectRehydration;
+ 	};
+ 
+ 	std::map<std::string, std::vector<OverlapDumpRecord>>&
+@@ -454,6 +477,12 @@
+ 		return records;
+ 	}
+ 
++	OverlapWorkerSessionBatchCache& overlapWorkerSessionBatchCache()
++	{
++		static OverlapWorkerSessionBatchCache cache;
++		return cache;
++	}
++
+ 	const char* overlapWorkerMode()
+ 	{
+ 		static const char* mode = std::getenv("CUFLYE_OVERLAP_WORKER_MODE");
+@@ -634,7 +663,8 @@
+ 			if (!raw || !raw[0]) return std::string();
+ 			std::string selected(raw);
+ 			if (selected != "verified-overlap-range-v0" &&
+-				selected != "verified-overlap-range-session-v0")
++				selected != "verified-overlap-range-session-v0" &&
++				selected != "verified-overlap-range-session-batch-v0")
+ 			{
+ 				throw std::runtime_error(
+ 					"Unsupported CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE: " +
+@@ -652,8 +682,15 @@
+ 
+ 	bool overlapWorkerVectorSubstitutionSessionEnabled()
+ 	{
++		std::string mode = overlapWorkerVectorSubstitutionMode();
++		return mode == "verified-overlap-range-session-v0" ||
++			   mode == "verified-overlap-range-session-batch-v0";
++	}
++
++	bool overlapWorkerVectorSubstitutionSessionBatchEnabled()
++	{
+ 		return overlapWorkerVectorSubstitutionMode() ==
+-			   "verified-overlap-range-session-v0";
++			   "verified-overlap-range-session-batch-v0";
+ 	}
+ 
+ 	std::string overlapWorkerVectorSubstitutionProofFault()
+@@ -782,8 +819,14 @@
+ 			{
+ 				throw std::runtime_error(
+ 					"CUFLYE_OVERLAP_REPLAY_QUERY_IDS is required for "
+-					"CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE="
+-					"verified-overlap-range-session-v0");
++					"CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE session modes");
++			}
++			if (overlapWorkerVectorSubstitutionSessionBatchEnabled() &&
++				overlapReplayMaxFixtures() != queryIds.size())
++			{
++				throw std::runtime_error(
++					"CUFLYE_OVERLAP_REPLAY_MAX_FIXTURES must equal the number of "
++					"CUFLYE_OVERLAP_REPLAY_QUERY_IDS entries in session-batch mode");
+ 			}
+ 			if (!overlapWorkerVectorSubstitutionSessionEnabled() &&
+ 				!queryIds.empty() &&
+@@ -2023,6 +2066,40 @@
+ 					   queryDirName(queryId) + ".consumed");
+ 	}
+ 
++	bool vectorContainsQueryId(const std::vector<int64_t>& ids, int64_t queryId)
++	{
++		return std::find(ids.begin(), ids.end(), queryId) != ids.end();
++	}
++
++	void collectSessionBatchRequest(
++		const std::vector<std::string>& capturedFixtures,
++		const std::vector<int64_t>& capturedQueryIds,
++		std::vector<std::string>& requestFixtures,
++		std::vector<int64_t>& requestQueryIds)
++	{
++		requestFixtures.clear();
++		requestQueryIds.clear();
++		std::set<int64_t> seen;
++		const auto& selectedIds = overlapReplayQueryIds();
++		for (size_t idx = 0; idx < capturedFixtures.size() &&
++							 idx < capturedQueryIds.size(); ++idx)
++		{
++			int64_t queryId = capturedQueryIds[idx];
++			if (!vectorContainsQueryId(selectedIds, queryId)) continue;
++			if (!seen.insert(queryId).second) continue;
++			requestFixtures.push_back(capturedFixtures[idx]);
++			requestQueryIds.push_back(queryId);
++			if (requestFixtures.size() == overlapReplayMaxFixtures()) return;
++		}
++	}
++
++	bool sessionBatchCacheContainsQuery(
++		const OverlapWorkerSessionBatchCache& cache,
++		int64_t queryId)
++	{
++		return vectorContainsQueryId(cache.queryIds, queryId);
++	}
++
+ 	void writeOverlapWorkerTimingJsonFields(
+ 		std::ostringstream& json,
+ 		const OverlapWorkerSeamTiming& timing)
+@@ -2151,7 +2228,9 @@
+ 		addVectorSubstitutionCheck(result, "explicit_vector_substitution_mode",
+ 								   result.mode == "verified-overlap-range-v0" ||
+ 									   result.mode ==
+-										   "verified-overlap-range-session-v0",
++										   "verified-overlap-range-session-v0" ||
++									   result.mode ==
++										   "verified-overlap-range-session-batch-v0",
+ 								   "CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE selects a verified overlap-range substitution mode");
+ 		addVectorSubstitutionCheck(result, "object_rehydration_passed",
+ 								   objectRehydration.status == "passed" &&
+@@ -2575,16 +2654,6 @@
+ 		}
+ 		auto requestIoStart = overlapWorkerTimingNow();
+ 		ensureDirectory(outputRoot);
+-
+-		std::vector<std::string> requestFixtures = fixtures;
+-		std::vector<int64_t> requestQueryIds = overlapReplayCapturedQueryIds();
+-		if (overlapWorkerVectorSubstitutionSessionEnabled())
+-		{
+-			requestFixtures.clear();
+-			requestFixtures.push_back(currentFixtureDir);
+-			requestQueryIds.clear();
+-			requestQueryIds.push_back(currentQueryId);
+-		}
+ 
+ 		std::string fixtureList = joinPath(outputRoot, "worker-fixtures.txt");
+ 		std::string queryIdsFile = joinPath(outputRoot, "worker-query-ids.txt");
+@@ -2604,10 +2673,118 @@
+ 		std::string stdoutLog = joinPath(outputRoot, "worker-stdout.log");
+ 		std::string stderrLog = joinPath(outputRoot, "worker-stderr.log");
+ 		std::string seamSummary = joinPath(outputRoot, "seam-summary.json");
+-		std::string requestId = overlapWorkerVectorSubstitutionSessionEnabled()
+-			? "flye-overlap-worker-query-" + std::to_string(currentQueryId)
+-			: "flye-overlap-worker-" + std::to_string(fixtures.size());
+ 
++		auto& sessionBatchCache = overlapWorkerSessionBatchCache();
++		if (overlapWorkerVectorSubstitutionSessionBatchEnabled() &&
++			sessionBatchCache.ready &&
++			sessionBatchCacheContainsQuery(sessionBatchCache, currentQueryId))
++		{
++			timing.requestIoMs = overlapWorkerElapsedMs(requestIoStart);
++			auto substitutionStart = overlapWorkerTimingNow();
++			substitution = evaluateOverlapWorkerVectorSubstitution(
++				sessionBatchCache.fixtures, sessionBatchCache.batchOutputDir,
++				sessionBatchCache.objectRehydration, vectorSubstitutionJson,
++				currentFixtureDir, currentQueryId, currentCpuOverlaps);
++			writeOverlapWorkerVectorSubstitutionJson(vectorSubstitutionJson,
++													 substitution);
++			timing.substitutionComparisonMs =
++				overlapWorkerElapsedMs(substitutionStart);
++			timing.seamTotalMs = overlapWorkerElapsedMs(seamStart);
++			appendOverlapWorkerVectorSubstitutionLedgerEntry(
++				ledgerJsonl, currentQueryId, currentFixtureDir, currentShape, true,
++				substitution.failedClosed ? "failed-closed" :
++					(substitution.consumed ?
++						"substituted-from-session-batch-cache" : "not-consumed"),
++				substitution.failedClosed ? substitution.error :
++					"selected supported shape reused verified session batch output",
++				substitution, timing);
++			if (substitution.failedClosed)
++			{
++				writeOverlapWorkerSeamSummary(
++					seamSummary, sessionBatchCache.requestJson,
++					sessionBatchCache.responseJson, sessionBatchCache.fixtureList,
++					sessionBatchCache.queryIdsFile,
++					sessionBatchCache.validationJson,
++					sessionBatchCache.validation.status, true,
++					sessionBatchCache.shadowJson, sessionBatchCache.shadow.status,
++					sessionBatchCache.shadow.shadowConsumptionEligible,
++					sessionBatchCache.graphGuardJson, sessionBatchCache.graphGuard,
++					sessionBatchCache.rehydrationJson, sessionBatchCache.rehydration,
++					sessionBatchCache.objectRehydrationJson,
++					sessionBatchCache.objectRehydration,
++					vectorSubstitutionJson, substitution,
++					"session-batch-cache-substitution-failed-before-graph-mutation",
++					sessionBatchCache.batchJson, sessionBatchCache.batchOutputDir,
++					sessionBatchCache.fixtures.size());
++				throw std::runtime_error(
++					"cuFlye overlap worker seam fail-closed; session batch cache "
++					"substitution failed; substitution_json=" +
++					vectorSubstitutionJson + "; seam_summary=" + seamSummary);
++			}
++			if (substitution.consumed)
++			{
++				writeOverlapWorkerSeamSummary(
++					seamSummary, sessionBatchCache.requestJson,
++					sessionBatchCache.responseJson, sessionBatchCache.fixtureList,
++					sessionBatchCache.queryIdsFile,
++					sessionBatchCache.validationJson,
++					sessionBatchCache.validation.status, true,
++					sessionBatchCache.shadowJson, sessionBatchCache.shadow.status,
++					sessionBatchCache.shadow.shadowConsumptionEligible,
++					sessionBatchCache.graphGuardJson, sessionBatchCache.graphGuard,
++					sessionBatchCache.rehydrationJson, sessionBatchCache.rehydration,
++					sessionBatchCache.objectRehydrationJson,
++					sessionBatchCache.objectRehydration,
++					vectorSubstitutionJson, substitution,
++					"session-batch-cache-substitution-consumed",
++					sessionBatchCache.batchJson, sessionBatchCache.batchOutputDir,
++					sessionBatchCache.fixtures.size());
++				writeOverlapWorkerVectorSubstitutionDoneFile(
++					vectorSubstitutionQueryDoneFile(outputRoot, currentQueryId),
++					substitution);
++				return substitution;
++			}
++		}
++
++		std::vector<std::string> requestFixtures = fixtures;
++		std::vector<int64_t> requestQueryIds = overlapReplayCapturedQueryIds();
++		if (overlapWorkerVectorSubstitutionSessionBatchEnabled())
++		{
++			collectSessionBatchRequest(fixtures, overlapReplayCapturedQueryIds(),
++									   requestFixtures, requestQueryIds);
++			if (requestFixtures.size() < overlapReplayMaxFixtures())
++			{
++				substitution.mode = overlapWorkerVectorSubstitutionMode();
++				substitution.proofFault =
++					overlapWorkerVectorSubstitutionProofFault();
++				substitution.selectedQueryId = currentQueryId;
++				substitution.selectedFixtureDir = currentFixtureDir;
++				substitution.selectedFixtureName = pathBasename(currentFixtureDir);
++				substitution.cpuRecords = currentCpuOverlaps.size();
++				timing.requestIoMs = overlapWorkerElapsedMs(requestIoStart);
++				timing.seamTotalMs = overlapWorkerElapsedMs(seamStart);
++				appendOverlapWorkerVectorSubstitutionLedgerEntry(
++					ledgerJsonl, currentQueryId, currentFixtureDir, currentShape, true,
++					"deferred-session-batch-waiting",
++					"waiting for selected supported fixtures to amortize worker invocation",
++					substitution, timing);
++				return substitution;
++			}
++		}
++		else if (overlapWorkerVectorSubstitutionSessionEnabled())
++		{
++			requestFixtures.clear();
++			requestFixtures.push_back(currentFixtureDir);
++			requestQueryIds.clear();
++			requestQueryIds.push_back(currentQueryId);
++		}
++		std::string requestId = overlapWorkerVectorSubstitutionSessionBatchEnabled()
++			? "flye-overlap-worker-session-batch-" +
++				  std::to_string(requestFixtures.size())
++			: (overlapWorkerVectorSubstitutionSessionEnabled()
++				? "flye-overlap-worker-query-" + std::to_string(currentQueryId)
++				: "flye-overlap-worker-" + std::to_string(fixtures.size()));
++
+ 		writeOverlapWorkerFixtureList(fixtureList, requestFixtures);
+ 		writeOverlapWorkerQueryIdList(queryIdsFile, requestQueryIds);
+ 		writeOverlapWorkerRequestJson(requestJson, requestId, fixtureList, queryIdsFile,
+@@ -2765,6 +2942,28 @@
+ 					objectRehydrationJson + "; seam_summary=" + seamSummary);
+ 			}
+ 		}
++		if (overlapWorkerVectorSubstitutionSessionBatchEnabled())
++		{
++			sessionBatchCache.ready = true;
++			sessionBatchCache.fixtures = requestFixtures;
++			sessionBatchCache.queryIds = requestQueryIds;
++			sessionBatchCache.requestJson = requestJson;
++			sessionBatchCache.responseJson = responseJson;
++			sessionBatchCache.fixtureList = fixtureList;
++			sessionBatchCache.queryIdsFile = queryIdsFile;
++			sessionBatchCache.validationJson = validationJson;
++			sessionBatchCache.shadowJson = shadowJson;
++			sessionBatchCache.graphGuardJson = graphGuardJson;
++			sessionBatchCache.rehydrationJson = rehydrationJson;
++			sessionBatchCache.objectRehydrationJson = objectRehydrationJson;
++			sessionBatchCache.batchJson = batchJson;
++			sessionBatchCache.batchOutputDir = batchOutputDir;
++			sessionBatchCache.validation = validation;
++			sessionBatchCache.shadow = shadow;
++			sessionBatchCache.graphGuard = graphGuard;
++			sessionBatchCache.rehydration = rehydration;
++			sessionBatchCache.objectRehydration = objectRehydration;
++		}
+ 		if (overlapWorkerVectorSubstitutionEnabled())
+ 		{
+ 			auto substitutionStart = overlapWorkerTimingNow();
+@@ -2778,12 +2977,24 @@
+ 			if (overlapWorkerVectorSubstitutionSessionEnabled())
+ 			{
+ 				timing.seamTotalMs = overlapWorkerElapsedMs(seamStart);
++				std::string ledgerDecision = "not-consumed";
++				std::string ledgerReason =
++					"selected supported shape evaluated by worker";
++				if (substitution.failedClosed)
++				{
++					ledgerDecision = "failed-closed";
++					ledgerReason = substitution.error;
++				}
++				else if (substitution.consumed)
++				{
++					ledgerDecision =
++						overlapWorkerVectorSubstitutionSessionBatchEnabled()
++							? "substituted-from-session-batch-run"
++							: "substituted";
++				}
+ 				appendOverlapWorkerVectorSubstitutionLedgerEntry(
+ 					ledgerJsonl, currentQueryId, currentFixtureDir, currentShape, true,
+-					substitution.failedClosed ? "failed-closed" :
+-						(substitution.consumed ? "substituted" : "not-consumed"),
+-					substitution.failedClosed ? substitution.error :
+-						"selected supported shape evaluated by worker",
++					ledgerDecision, ledgerReason,
+ 					substitution, timing);
+ 			}
+ 			if (substitution.failedClosed)

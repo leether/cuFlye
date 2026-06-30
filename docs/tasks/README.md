@@ -7,13 +7,13 @@ change is considered complete.
 
 Active cards:
 
-- None.
-
-Proposed cards:
-
 - `2026-07-01-cuflye-m4u-substitution-worker-overhead-reduction.md`:
   reduce the worker process and file-IO overhead exposed by M4t before expanding
   graph-facing substitution scope.
+
+Proposed cards:
+
+- None. M4u is in progress.
 
 Completed cards:
 

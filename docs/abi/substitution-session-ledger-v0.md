@@ -1,6 +1,7 @@
 # Substitution Session Ledger v0
 
-Status: accepted in M4s; timing attribution accepted in M4t
+Status: accepted in M4s; timing attribution accepted in M4t; session batch
+cache proposed for M4u
 
 Introduced: M4s
 
@@ -31,6 +32,18 @@ M4s requires a deterministic query allowlist:
 ```text
 CUFLYE_OVERLAP_REPLAY_QUERY_IDS=353,381
 ```
+
+M4u adds an opt-in session batch/cache mode:
+
+```text
+CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE=verified-overlap-range-session-batch-v0
+```
+
+In this mode, selected supported queries may be deferred until the configured
+allowlist-sized batch is available. The worker output is validated once for the
+batch, then later selected query calls may reuse that verified batch output, but
+the graph-facing return still requires an exact comparison against the current
+CPU `OverlapRange` vector.
 
 The existing M4r single-smoke selector remains valid:
 
@@ -130,6 +143,14 @@ Possible `decision` values are:
   did not pass.
 - `failed-closed-unsupported-selected-shape`: selected query had an unsupported
   shape and failed closed before worker invocation.
+- `deferred-session-batch-waiting`: selected supported query was captured but
+  returned CPU output while waiting for enough selected fixtures to amortize a
+  batch worker invocation.
+- `substituted-from-session-batch-run`: selected supported query returned a
+  verified worker-derived `OverlapRange` vector from the batch worker invocation.
+- `substituted-from-session-batch-cache`: selected supported query returned a
+  verified worker-derived `OverlapRange` vector by reusing the already validated
+  session batch output.
 
 ## Consumption Semantics
 
