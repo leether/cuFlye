@@ -7,14 +7,14 @@ change is considered complete.
 
 Active cards:
 
-- None.
-
-Proposed cards:
-
 - `2026-07-01-cuflye-m4s-substitution-supported-shape-expansion.md`:
   expand verified graph-facing substitution from one selected query to a
   deterministic supported-shape session ledger, while keeping unsupported
   shapes explicit and fail-closed.
+
+Proposed cards:
+
+- None. M4s is in progress.
 
 Completed cards:
 

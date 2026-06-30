@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4s Substitution Supported-Shape Expansion
 
-Status: proposed
+Status: in_progress
 
 Created: 2026-07-01
 

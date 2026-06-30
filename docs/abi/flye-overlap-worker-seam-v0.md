@@ -4,7 +4,8 @@ Status: accepted in M4j; batch allowlist extension accepted in M4k; validation
 gate accepted in M4l; shadow consumption proof accepted in M4m; graph
 consumption guard dry-run accepted in M4o; typed rehydration dry-run accepted
 in M4p; `OverlapRange` object rehydration dry-run accepted in M4q; verified
-overlap-vector substitution smoke accepted in M4r
+overlap-vector substitution smoke accepted in M4r; substitution session ledger
+proposed for M4s
 
 Introduced: M4j
 
@@ -59,8 +60,8 @@ Optional environment:
 | `CUFLYE_OVERLAP_REHYDRATION_PROOF_FAULT` | unset | Optional M4p negative-proof fault. `drop-first-worker-record` forces typed-vector mismatch after validation, shadow, and guard success. |
 | `CUFLYE_OVERLAP_OBJECT_REHYDRATION_MODE` | unset | Optional M4q proof mode. `overlap-range-object-v0` converts typed records into actual Flye `OverlapRange` objects after M4p passes. |
 | `CUFLYE_OVERLAP_OBJECT_REHYDRATION_PROOF_FAULT` | unset | Optional M4q negative-proof fault. `drop-first-overlap-range` forces object-vector mismatch after M4p success. |
-| `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE` | unset | Optional M4r smoke mode. `verified-overlap-range-v0` returns the verified worker-derived `OverlapRange` vector for the selected query after M4q passes. |
-| `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_PROOF_FAULT` | unset | Optional M4r negative-proof fault. `drop-first-substitution-overlap` forces substitution mismatch after M4q success. |
+| `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE` | unset | Optional M4r/M4s mode. `verified-overlap-range-v0` returns the verified worker-derived `OverlapRange` vector for one selected query after M4q passes. `verified-overlap-range-session-v0` records a per-query session ledger and evaluates each allowlisted supported query separately. |
+| `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_PROOF_FAULT` | unset | Optional M4r/M4s negative-proof fault. `drop-first-substitution-overlap` forces substitution mismatch after M4q success. `force-unsupported-selected-shape` forces the selected query through the unsupported-shape fail-closed gate before worker invocation. |
 
 ## Generated Files
 
@@ -80,6 +81,8 @@ Given `CUFLYE_OVERLAP_WORKER_OUTPUT_DIR=/path/to/seam`, Flye writes:
 | `worker-object-rehydration.json` | Flye `OverlapRange` object-vector rehydration dry-run summary when `CUFLYE_OVERLAP_OBJECT_REHYDRATION_MODE=overlap-range-object-v0`. |
 | `worker-vector-substitution.json` | Verified graph-facing overlap-vector substitution smoke summary when `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE=verified-overlap-range-v0`. |
 | `worker-vector-substitution.consumed` | Durable M4r one-shot sentinel written after a verified worker-derived overlap vector is returned; later Flye subprocesses skip worker invocation when this file exists. |
+| `worker-vector-substitution-ledger.jsonl` | M4s session ledger, one JSON line per selected, skipped, or failed-closed substitution decision when `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE=verified-overlap-range-session-v0`. |
+| `worker-vector-substitution.query_<id>.consumed` | Durable M4s per-query sentinel written after a selected supported query returns a verified worker-derived overlap vector. |
 | `worker-stdout.log` | Worker stdout. |
 | `worker-stderr.log` | Worker stderr. |
 | `seam-summary.json` | Flye-side seam metadata and stop proof. |
@@ -368,6 +371,17 @@ On verified vector substitution success, Flye returns the worker-derived
 consumed. Later overlap calls from the same process or a later Flye subprocess
 skip worker invocation when this sentinel exists, preserving M4r as a one-shot
 smoke instead of accidentally broadening the supported shape contract.
+
+In M4s session mode, Flye appends every substitution decision to
+`worker-vector-substitution-ledger.jsonl`. Selected supported queries are sent to
+the worker one at a time and, after exact CPU equivalence checks, write a
+per-query sentinel such as `worker-vector-substitution.query_353.consumed`.
+Later calls for the same query append `skipped-already-substituted` to the
+ledger. Non-selected unsupported shapes append
+`skipped-unsupported-non-selected-shape` and do not invoke the worker. A selected
+unsupported shape appends `failed-closed-unsupported-selected-shape`, writes
+`worker-vector-substitution.json`, and exits non-zero before worker invocation or
+graph mutation.
 
 On shadow mismatch after validation passes, Flye writes `worker-shadow.json`,
 writes `seam-summary.json` with:
