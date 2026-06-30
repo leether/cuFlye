@@ -104,3 +104,27 @@ Runtime JSON includes:
 `total_before_json` measures through candidate TSV writing and excludes the JSON
 manifest write itself. Timing values are evidence for the measured pack shape
 only; they are not a full Flye assembly speed claim.
+
+## M2f Extension
+
+M2f changes the backend output strategy from dense pair materialization to sparse
+offset compaction. The candidate-record-v1 TSV ABI and canonical ordering remain
+unchanged.
+
+Runtime JSON includes:
+
+- `output_strategy: sparse-offsets-v1`;
+- `dense_pair_output_materialized: false`;
+- `timing_ms.mark_kernel`;
+- `timing_ms.flag_device_to_host`;
+- `timing_ms.host_prefix_sum`;
+- `timing_ms.offsets_host_to_device`;
+- `timing_ms.emit_kernel`;
+- `timing_ms.sparse_output_allocation`;
+- `timing_ms.output_device_to_host`.
+
+The broad compatibility fields remain:
+
+- `timing_ms.kernel` is `mark_kernel + emit_kernel`;
+- `timing_ms.device_to_host` is `flag_device_to_host + output_device_to_host`;
+- `timing_ms.compact` is the host prefix-sum compaction step.

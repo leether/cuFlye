@@ -86,7 +86,14 @@ struct TimingSummary
 	double deviceAllocationMs = 0.0;
 	double hostToDeviceMs = 0.0;
 	double kernelMs = 0.0;
+	double markKernelMs = 0.0;
+	double flagDeviceToHostMs = 0.0;
+	double hostPrefixSumMs = 0.0;
+	double offsetsHostToDeviceMs = 0.0;
+	double emitKernelMs = 0.0;
 	double hostOutputAllocationMs = 0.0;
+	double sparseOutputAllocationMs = 0.0;
+	double outputDeviceToHostMs = 0.0;
 	double deviceToHostMs = 0.0;
 	double compactMs = 0.0;
 	double writeOutputMs = 0.0;
@@ -170,22 +177,18 @@ __device__ size_t findReadIndex(size_t windowIndex,
 	return readCount - 1;
 }
 
-__global__ void generateCandidateRecordsKernel(const QueryReadMeta* reads,
-											   size_t readCount,
-											   const char* readBases,
-											   const uint64_t* readWindowOffsets,
-											   const IndexWindow* indexEntries,
-											   size_t indexCount,
-											   const RepetitiveWindow* repetitiveKmers,
-											   size_t repetitiveCount,
-											   uint32_t kmerSize,
-											   CandidateRecord* output,
-											   uint8_t* validFlags,
-											   size_t pairCount)
+__device__ bool buildCandidateRecord(size_t pairIndex,
+									 const QueryReadMeta* reads,
+									 size_t readCount,
+									 const char* readBases,
+									 const uint64_t* readWindowOffsets,
+									 const IndexWindow* indexEntries,
+									 size_t indexCount,
+									 const RepetitiveWindow* repetitiveKmers,
+									 size_t repetitiveCount,
+									 uint32_t kmerSize,
+									 CandidateRecord* output)
 {
-	size_t pairIndex = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-	if (pairIndex >= pairCount) return;
-
 	size_t queryWindowIndex = pairIndex / indexCount;
 	size_t targetIndex = pairIndex % indexCount;
 	size_t readIndex = findReadIndex(queryWindowIndex, readWindowOffsets, readCount);
@@ -199,34 +202,81 @@ __global__ void generateCandidateRecordsKernel(const QueryReadMeta* reads,
 
 	if (isRepetitiveLookupKmer(queryLookupKmer, repetitiveKmers, repetitiveCount, kmerSize))
 	{
-		validFlags[pairIndex] = 0;
-		return;
+		return false;
 	}
 
 	uint64_t targetLookupKmer = standardForm(encodeKmerAt(target->sequence, 0, kmerSize),
 											 kmerSize);
 	if (queryLookupKmer != targetLookupKmer)
 	{
-		validFlags[pairIndex] = 0;
-		return;
+		return false;
 	}
 
 	if (query->queryId == target->targetId && queryPos == target->targetPos)
 	{
-		validFlags[pairIndex] = 0;
-		return;
+		return false;
 	}
 
+	if (output)
+	{
+		CandidateRecord record;
+		record.queryId = query->queryId;
+		record.queryPos = queryPos;
+		record.kmer = queryKmer;
+		record.targetId = target->targetId;
+		record.targetPos = target->targetPos;
+		record.targetStrand = target->targetStrand;
+		for (char& ch : record.padding) ch = 0;
+		*output = record;
+	}
+	return true;
+}
+
+__global__ void markCandidateRecordsKernel(const QueryReadMeta* reads,
+										   size_t readCount,
+										   const char* readBases,
+										   const uint64_t* readWindowOffsets,
+										   const IndexWindow* indexEntries,
+										   size_t indexCount,
+										   const RepetitiveWindow* repetitiveKmers,
+										   size_t repetitiveCount,
+										   uint32_t kmerSize,
+										   uint8_t* validFlags,
+										   size_t pairCount)
+{
+	size_t pairIndex = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+	if (pairIndex >= pairCount) return;
+	validFlags[pairIndex] = buildCandidateRecord(pairIndex, reads, readCount, readBases,
+												 readWindowOffsets, indexEntries,
+												 indexCount, repetitiveKmers,
+												 repetitiveCount, kmerSize, nullptr) ? 1 : 0;
+}
+
+__global__ void emitCandidateRecordsKernel(const QueryReadMeta* reads,
+										   size_t readCount,
+										   const char* readBases,
+										   const uint64_t* readWindowOffsets,
+										   const IndexWindow* indexEntries,
+										   size_t indexCount,
+										   const RepetitiveWindow* repetitiveKmers,
+										   size_t repetitiveCount,
+										   uint32_t kmerSize,
+										   const uint8_t* validFlags,
+										   const uint32_t* outputOffsets,
+										   CandidateRecord* output,
+										   size_t pairCount)
+{
+	size_t pairIndex = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+	if (pairIndex >= pairCount || !validFlags[pairIndex]) return;
+
 	CandidateRecord record;
-	record.queryId = query->queryId;
-	record.queryPos = queryPos;
-	record.kmer = queryKmer;
-	record.targetId = target->targetId;
-	record.targetPos = target->targetPos;
-	record.targetStrand = target->targetStrand;
-	for (char& ch : record.padding) ch = 0;
-	output[pairIndex] = record;
-	validFlags[pairIndex] = 1;
+	if (!buildCandidateRecord(pairIndex, reads, readCount, readBases,
+							  readWindowOffsets, indexEntries, indexCount,
+							  repetitiveKmers, repetitiveCount, kmerSize, &record))
+	{
+		return;
+	}
+	output[outputOffsets[pairIndex]] = record;
 }
 
 [[noreturn]] void usageError(const std::string& message)
@@ -619,17 +669,6 @@ std::vector<CandidateRecord> generateCpuOracle(const QueryReadSet& readSet,
 	return records;
 }
 
-std::vector<CandidateRecord> compactGpuRecords(const std::vector<CandidateRecord>& records,
-											   const std::vector<uint8_t>& validFlags)
-{
-	std::vector<CandidateRecord> compacted;
-	for (size_t index = 0; index < records.size(); ++index)
-	{
-		if (validFlags[index]) compacted.push_back(records[index]);
-	}
-	return compacted;
-}
-
 void writeCandidateTsv(const std::string& path, const std::vector<CandidateRecord>& records)
 {
 	if (path.empty()) return;
@@ -715,6 +754,8 @@ std::string buildJson(const Options& options,
 	json << ",\n";
 	json << "  \"memory_budget_satisfied\": true,\n";
 	json << "  \"dynamic_read_bases\": true,\n";
+	json << "  \"output_strategy\": \"sparse-offsets-v1\",\n";
+	json << "  \"dense_pair_output_materialized\": false,\n";
 	json << "  \"device_side_read_windowing\": true,\n";
 	json << "  \"device_side_kmer_encoding\": true,\n";
 	json << "  \"device_side_standard_form\": true,\n";
@@ -726,7 +767,14 @@ std::string buildJson(const Options& options,
 	json << "    \"device_allocation\": " << timing.deviceAllocationMs << ",\n";
 	json << "    \"host_to_device\": " << timing.hostToDeviceMs << ",\n";
 	json << "    \"kernel\": " << timing.kernelMs << ",\n";
+	json << "    \"mark_kernel\": " << timing.markKernelMs << ",\n";
+	json << "    \"flag_device_to_host\": " << timing.flagDeviceToHostMs << ",\n";
+	json << "    \"host_prefix_sum\": " << timing.hostPrefixSumMs << ",\n";
+	json << "    \"offsets_host_to_device\": " << timing.offsetsHostToDeviceMs << ",\n";
+	json << "    \"emit_kernel\": " << timing.emitKernelMs << ",\n";
 	json << "    \"host_output_allocation\": " << timing.hostOutputAllocationMs << ",\n";
+	json << "    \"sparse_output_allocation\": " << timing.sparseOutputAllocationMs << ",\n";
+	json << "    \"output_device_to_host\": " << timing.outputDeviceToHostMs << ",\n";
 	json << "    \"device_to_host\": " << timing.deviceToHostMs << ",\n";
 	json << "    \"compact\": " << timing.compactMs << ",\n";
 	json << "    \"write_output\": " << timing.writeOutputMs << ",\n";
@@ -818,14 +866,14 @@ int main(int argc, char** argv)
 		size_t indexBytes = checkedMultiply(indexEntries.size(), sizeof(IndexWindow), "index buffer");
 		size_t repetitiveBytes = checkedMultiply(repetitiveKmers.size(), sizeof(RepetitiveWindow),
 												 "repetitive k-mer buffer");
-		size_t outputBytes = checkedMultiply(pairCount, sizeof(CandidateRecord), "output buffer");
 		size_t flagBytes = checkedMultiply(pairCount, sizeof(uint8_t), "valid flag buffer");
+		size_t outputOffsetBytes = checkedMultiply(pairCount, sizeof(uint32_t), "output offset buffer");
 		size_t requiredBytes = checkedAdd(readBytes, offsetBytes, "device allocation");
 		requiredBytes = checkedAdd(requiredBytes, readBaseBytes, "device allocation");
 		requiredBytes = checkedAdd(requiredBytes, indexBytes, "device allocation");
 		requiredBytes = checkedAdd(requiredBytes, repetitiveBytes, "device allocation");
-		requiredBytes = checkedAdd(requiredBytes, outputBytes, "device allocation");
 		requiredBytes = checkedAdd(requiredBytes, flagBytes, "device allocation");
+		requiredBytes = checkedAdd(requiredBytes, outputOffsetBytes, "device allocation");
 
 		if (options.hasMemoryBudget && requiredBytes > options.memoryBudgetBytes)
 		{
@@ -844,8 +892,9 @@ int main(int argc, char** argv)
 		cuflye::cuda_raii::DeviceBuffer<IndexWindow> deviceIndex(indexBytes, "index");
 		cuflye::cuda_raii::DeviceBuffer<RepetitiveWindow> deviceRepetitive(repetitiveBytes,
 																		   "repetitive k-mers");
-		cuflye::cuda_raii::DeviceBuffer<CandidateRecord> deviceOutput(outputBytes, "output");
 		cuflye::cuda_raii::DeviceBuffer<uint8_t> deviceFlags(flagBytes, "flags");
+		cuflye::cuda_raii::DeviceBuffer<uint32_t> deviceOutputOffsets(outputOffsetBytes,
+																	   "output offsets");
 		timing.deviceAllocationMs = elapsedMs(allocationStart, Clock::now());
 
 		cuflye::cuda_raii::CudaEvent h2dStart("host to device start");
@@ -875,10 +924,10 @@ int main(int argc, char** argv)
 
 		const int threadsPerBlock = 128;
 		const int blocks = static_cast<int>((pairCount + threadsPerBlock - 1) / threadsPerBlock);
-		cuflye::cuda_raii::CudaEvent kernelStart("kernel start");
-		cuflye::cuda_raii::CudaEvent kernelStop("kernel stop");
-		checkCuda(cudaEventRecord(kernelStart.get()), "cudaEventRecord kernel start failed");
-		generateCandidateRecordsKernel<<<blocks, threadsPerBlock>>>(
+		cuflye::cuda_raii::CudaEvent markStart("mark kernel start");
+		cuflye::cuda_raii::CudaEvent markStop("mark kernel stop");
+		checkCuda(cudaEventRecord(markStart.get()), "cudaEventRecord mark start failed");
+		markCandidateRecordsKernel<<<blocks, threadsPerBlock>>>(
 			deviceReads.get(),
 			readSet.reads.size(),
 			deviceReadBases.get(),
@@ -888,34 +937,114 @@ int main(int argc, char** argv)
 			deviceRepetitive.get(),
 			repetitiveKmers.size(),
 			options.kmerSize,
-			deviceOutput.get(),
 			deviceFlags.get(),
 			pairCount);
-		checkCuda(cudaGetLastError(), "generateCandidateRecordsKernel launch failed");
-		checkCuda(cudaEventRecord(kernelStop.get()), "cudaEventRecord kernel stop failed");
-		checkCuda(cudaEventSynchronize(kernelStop.get()), "generateCandidateRecordsKernel execution failed");
-		timing.kernelMs = cudaEventElapsedMs(kernelStart, kernelStop,
-											"cudaEventElapsedTime kernel failed");
+		checkCuda(cudaGetLastError(), "markCandidateRecordsKernel launch failed");
+		checkCuda(cudaEventRecord(markStop.get()), "cudaEventRecord mark stop failed");
+		checkCuda(cudaEventSynchronize(markStop.get()), "markCandidateRecordsKernel execution failed");
+		timing.markKernelMs = cudaEventElapsedMs(markStart, markStop,
+												"cudaEventElapsedTime mark failed");
 
-		auto hostOutputAllocationStart = Clock::now();
-		std::vector<CandidateRecord> gpuBuffer(pairCount);
+		auto hostFlagAllocationStart = Clock::now();
 		std::vector<uint8_t> validFlags(pairCount);
-		timing.hostOutputAllocationMs = elapsedMs(hostOutputAllocationStart, Clock::now());
-		cuflye::cuda_raii::CudaEvent d2hStart("device to host start");
-		cuflye::cuda_raii::CudaEvent d2hStop("device to host stop");
-		checkCuda(cudaEventRecord(d2hStart.get()), "cudaEventRecord D2H start failed");
-		checkCuda(cudaMemcpy(gpuBuffer.data(), deviceOutput.get(), outputBytes, cudaMemcpyDeviceToHost),
-				  "cudaMemcpy output device-to-host failed");
+		timing.hostOutputAllocationMs = elapsedMs(hostFlagAllocationStart, Clock::now());
+
+		cuflye::cuda_raii::CudaEvent flagD2hStart("flag device to host start");
+		cuflye::cuda_raii::CudaEvent flagD2hStop("flag device to host stop");
+		checkCuda(cudaEventRecord(flagD2hStart.get()), "cudaEventRecord flag D2H start failed");
 		checkCuda(cudaMemcpy(validFlags.data(), deviceFlags.get(), flagBytes, cudaMemcpyDeviceToHost),
 				  "cudaMemcpy flags device-to-host failed");
-		checkCuda(cudaEventRecord(d2hStop.get()), "cudaEventRecord D2H stop failed");
-		checkCuda(cudaEventSynchronize(d2hStop.get()), "cudaEventSynchronize D2H stop failed");
-		timing.deviceToHostMs = cudaEventElapsedMs(d2hStart, d2hStop,
-												  "cudaEventElapsedTime D2H failed");
+		checkCuda(cudaEventRecord(flagD2hStop.get()), "cudaEventRecord flag D2H stop failed");
+		checkCuda(cudaEventSynchronize(flagD2hStop.get()), "cudaEventSynchronize flag D2H stop failed");
+		timing.flagDeviceToHostMs = cudaEventElapsedMs(flagD2hStart, flagD2hStop,
+													  "cudaEventElapsedTime flag D2H failed");
 
-		auto compactStart = Clock::now();
-		std::vector<CandidateRecord> gpuRecords = compactGpuRecords(gpuBuffer, validFlags);
-		timing.compactMs = elapsedMs(compactStart, Clock::now());
+		auto prefixStart = Clock::now();
+		std::vector<uint32_t> outputOffsets(pairCount);
+		uint32_t outputCount = 0;
+		for (size_t index = 0; index < validFlags.size(); ++index)
+		{
+			outputOffsets[index] = outputCount;
+			if (validFlags[index])
+			{
+				if (outputCount == std::numeric_limits<uint32_t>::max())
+				{
+					throw std::runtime_error("candidate output count exceeds uint32 range");
+				}
+				++outputCount;
+			}
+		}
+		if (outputCount == 0) throw std::runtime_error("GPU emitted no candidate records");
+		timing.hostPrefixSumMs = elapsedMs(prefixStart, Clock::now());
+		timing.compactMs = timing.hostPrefixSumMs;
+
+		cuflye::cuda_raii::CudaEvent offsetsH2dStart("offsets host to device start");
+		cuflye::cuda_raii::CudaEvent offsetsH2dStop("offsets host to device stop");
+		checkCuda(cudaEventRecord(offsetsH2dStart.get()), "cudaEventRecord offsets H2D start failed");
+		checkCuda(cudaMemcpy(deviceOutputOffsets.get(), outputOffsets.data(), outputOffsetBytes,
+							 cudaMemcpyHostToDevice),
+				  "cudaMemcpy output offsets host-to-device failed");
+		checkCuda(cudaEventRecord(offsetsH2dStop.get()), "cudaEventRecord offsets H2D stop failed");
+		checkCuda(cudaEventSynchronize(offsetsH2dStop.get()), "cudaEventSynchronize offsets H2D stop failed");
+		timing.offsetsHostToDeviceMs = cudaEventElapsedMs(offsetsH2dStart, offsetsH2dStop,
+														 "cudaEventElapsedTime offsets H2D failed");
+
+		size_t outputBytes = checkedMultiply(static_cast<size_t>(outputCount),
+											 sizeof(CandidateRecord),
+											 "compact output buffer");
+		requiredBytes = checkedAdd(requiredBytes, outputBytes, "device allocation");
+		if (options.hasMemoryBudget && requiredBytes > options.memoryBudgetBytes)
+		{
+			throw std::runtime_error("CUDA read window smoke compact output exceeds memory budget");
+		}
+		if (requiredBytes > freeBytes)
+		{
+			throw std::runtime_error("CUDA read window smoke compact output exceeds free device memory");
+		}
+
+		auto sparseOutputAllocationStart = Clock::now();
+		cuflye::cuda_raii::DeviceBuffer<CandidateRecord> deviceOutput(outputBytes,
+																	  "compact output");
+		timing.sparseOutputAllocationMs = elapsedMs(sparseOutputAllocationStart, Clock::now());
+
+		cuflye::cuda_raii::CudaEvent emitStart("emit kernel start");
+		cuflye::cuda_raii::CudaEvent emitStop("emit kernel stop");
+		checkCuda(cudaEventRecord(emitStart.get()), "cudaEventRecord emit start failed");
+		emitCandidateRecordsKernel<<<blocks, threadsPerBlock>>>(
+			deviceReads.get(),
+			readSet.reads.size(),
+			deviceReadBases.get(),
+			deviceReadWindowOffsets.get(),
+			deviceIndex.get(),
+			indexEntries.size(),
+			deviceRepetitive.get(),
+			repetitiveKmers.size(),
+			options.kmerSize,
+			deviceFlags.get(),
+			deviceOutputOffsets.get(),
+			deviceOutput.get(),
+			pairCount);
+		checkCuda(cudaGetLastError(), "emitCandidateRecordsKernel launch failed");
+		checkCuda(cudaEventRecord(emitStop.get()), "cudaEventRecord emit stop failed");
+		checkCuda(cudaEventSynchronize(emitStop.get()), "emitCandidateRecordsKernel execution failed");
+		timing.emitKernelMs = cudaEventElapsedMs(emitStart, emitStop,
+												"cudaEventElapsedTime emit failed");
+		timing.kernelMs = timing.markKernelMs + timing.emitKernelMs;
+
+		auto hostOutputAllocationStart = Clock::now();
+		std::vector<CandidateRecord> gpuRecords(outputCount);
+		timing.hostOutputAllocationMs += elapsedMs(hostOutputAllocationStart, Clock::now());
+
+		cuflye::cuda_raii::CudaEvent outputD2hStart("output device to host start");
+		cuflye::cuda_raii::CudaEvent outputD2hStop("output device to host stop");
+		checkCuda(cudaEventRecord(outputD2hStart.get()), "cudaEventRecord output D2H start failed");
+		checkCuda(cudaMemcpy(gpuRecords.data(), deviceOutput.get(), outputBytes, cudaMemcpyDeviceToHost),
+				  "cudaMemcpy compact output device-to-host failed");
+		checkCuda(cudaEventRecord(outputD2hStop.get()), "cudaEventRecord output D2H stop failed");
+		checkCuda(cudaEventSynchronize(outputD2hStop.get()), "cudaEventSynchronize output D2H stop failed");
+		timing.outputDeviceToHostMs = cudaEventElapsedMs(outputD2hStart, outputD2hStop,
+														"cudaEventElapsedTime output D2H failed");
+		timing.deviceToHostMs = timing.flagDeviceToHostMs + timing.outputDeviceToHostMs;
 
 		auto writeStart = Clock::now();
 		writeCandidateTsv(options.outputTsv, gpuRecords);

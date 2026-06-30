@@ -7,7 +7,9 @@ change is considered complete.
 
 Active cards:
 
-- None.
+- `2026-06-30-cuflye-m2f-sparse-output-compaction.md`: replace dense
+  pair-count-sized output materialization with sparse/compacted candidate output
+  for the real-pack CUDA backend.
 
 Completed cards:
 
