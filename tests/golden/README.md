@@ -83,3 +83,5 @@ M4 overlap-range oracle proof:
   `cuflye-m4h-packed-multi-query-overlap-kernel-dgx-aarch64.json`
 - Packed overlap worker protocol manifest:
   `cuflye-m4i-packed-overlap-worker-protocol-dgx-aarch64.json`
+- Flye overlap worker seam manifest:
+  `cuflye-m4j-flye-overlap-worker-seam-dgx-aarch64.json`

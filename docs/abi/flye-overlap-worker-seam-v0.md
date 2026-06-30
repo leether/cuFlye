@@ -1,6 +1,6 @@
 # Flye Overlap Worker Seam v0
 
-Status: draft for M4j
+Status: accepted in M4j
 
 Introduced: M4j
 

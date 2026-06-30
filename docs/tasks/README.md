@@ -7,15 +7,18 @@ change is considered complete.
 
 Active cards:
 
-- None. M4i completed the packed overlap worker protocol proof.
+- None. M4j completed the Flye-side overlap worker seam proof.
 
 Proposed cards:
 
-- `2026-06-30-cuflye-m4j-flye-overlap-worker-seam.md`: add a fail-closed
-  Flye-side overlap worker seam without feeding GPU output into graph mutation.
+- `2026-06-30-cuflye-m4k-flye-overlap-worker-batch-seam.md`: make the Flye
+  seam collect an explicit replay-match query allowlist and invoke the packed
+  overlap worker as a batch before graph mutation.
 
 Completed cards:
 
+- `2026-06-30-cuflye-m4j-flye-overlap-worker-seam.md`: add a fail-closed
+  Flye-side overlap worker seam without feeding GPU output into graph mutation.
 - `2026-06-30-cuflye-m4i-packed-overlap-worker-protocol.md`: move the packed
   overlap speedup toward a governed worker boundary without changing Flye graph
   semantics.

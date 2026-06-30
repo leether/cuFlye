@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4j Flye Overlap Worker Seam
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -76,12 +76,44 @@ validate it, and stop before graph logic consumes it.
 
 ## Execution Checklist
 
-- [ ] Document Flye-side seam environment and outputs.
-- [ ] Add Flye patch for request generation, worker invocation, and stop.
-- [ ] Extend fixture runner options and metadata.
-- [ ] Build patched Flye on DGX.
-- [ ] Prove default CPU fixture behavior remains unchanged.
-- [ ] Prove explicit worker proof mode records response and stops before graph
+- [x] Document Flye-side seam environment and outputs.
+- [x] Add Flye patch for request generation, worker invocation, and stop.
+- [x] Extend fixture runner options and metadata.
+- [x] Build patched Flye on DGX.
+- [x] Prove default CPU fixture behavior remains unchanged.
+- [x] Prove explicit worker proof mode records response and stops before graph
   mutation.
-- [ ] Validate and diff worker outputs.
-- [ ] Record compact DGX proof and close this card.
+- [x] Validate and diff worker outputs.
+- [x] Record compact DGX proof and close this card.
+
+## Merge Note
+
+Implementation commit:
+`4fe144cf745323d4ca73dff73c3ae990addd8029`.
+
+DGX proof:
+`tests/golden/cuflye-m4j-flye-overlap-worker-seam-dgx-aarch64.json`.
+
+M4j added `docs/abi/flye-overlap-worker-seam-v0.md`, Flye patch
+`0010-cuflye-flye-overlap-worker-seam.patch`, and fixture-runner controls for
+`CUFLYE_OVERLAP_WORKER_MODE=packed-replay-v0`.
+
+The proof passed all gates on DGX host `edgexpert-45d2`:
+
+- Patched Flye `2.9.6` built through patch `0010`.
+- Default `toy-hifi` CPU run completed with exit status `0`.
+- Default CPU artifact hashes matched the M0 `toy-hifi` golden set for all
+  `9` canonical artifacts.
+- Explicit `toy-raw` worker proof captured `query -71`, generated a
+  `cuflye-overlap-worker-request-v0` request, invoked the CUDA worker, and
+  stopped with the expected proof-mode failure before graph mutation.
+- `seam-summary.json` recorded
+  `graph_mutation_consumed_worker_output=false`.
+- The worker emitted `51` `overlap-range-v1` records, matching the Flye CPU
+  oracle canonical SHA-256
+  `1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73`.
+- Local and DGX syntax/style gates passed, and the M4j ownership scan found no
+  new direct owning resource APIs.
+
+M4j proves a governed Flye-side request/response boundary. It still does not
+feed GPU output into Flye graph logic and does not claim end-to-end GPU speed.
