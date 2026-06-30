@@ -105,7 +105,10 @@ struct Options
 	std::string fixtureDir;
 	std::string outputTsv;
 	std::string jsonOutput;
+	std::string backend = "cuda";
 	int device = 0;
+	uint32_t warmupRuns = 0;
+	uint32_t benchmarkRuns = 1;
 	bool hasMemoryBudget = false;
 	unsigned long long memoryBudgetBytes = 0;
 };
@@ -154,13 +157,23 @@ struct FixtureManifest
 
 struct CudaRunSummary
 {
+	std::string backend = "cuda";
 	double parseMs = 0.0;
 	double setupMs = 0.0;
+	double deviceAllocationMs = 0.0;
 	double hostToDeviceMs = 0.0;
 	double kernelMs = 0.0;
+	double cpuChainMs = 0.0;
 	double deviceToHostMs = 0.0;
+	double finalizeMs = 0.0;
 	double writeMs = 0.0;
 	double totalBeforeJsonMs = 0.0;
+	uint32_t warmupRuns = 0;
+	uint32_t timedRuns = 1;
+	double benchmarkMeanTotalMs = 0.0;
+	double benchmarkMinTotalMs = 0.0;
+	double benchmarkMaxTotalMs = 0.0;
+	double benchmarkMeanCoreMs = 0.0;
 	size_t requiredBytes = 0;
 	size_t freeBytes = 0;
 	size_t totalBytes = 0;
@@ -745,6 +758,223 @@ __global__ void overlapChainKernel(const CandidateRecord* candidates,
 	output[groupId] = best;
 }
 
+int32_t hostOverlapLrOverhang(const DeviceOverlap& overlap)
+{
+	int32_t left = std::min(overlap.curBegin, overlap.extBegin);
+	int32_t right = std::min(overlap.curLen - overlap.curEnd,
+							 overlap.extLen - overlap.extEnd);
+	return std::max(left, right);
+}
+
+bool hostOverlapTest(const DeviceOverlap& overlap, const DeviceParams& params)
+{
+	int32_t curRange = overlap.curEnd - overlap.curBegin;
+	int32_t extRange = overlap.extEnd - overlap.extBegin;
+	if (curRange < params.minimumOverlap || extRange < params.minimumOverlap) return false;
+
+	int32_t lengthDiff = std::abs(curRange - extRange);
+	if (static_cast<float>(lengthDiff) >
+		0.5f * static_cast<float>(std::min(curRange, extRange)))
+	{
+		return false;
+	}
+
+	if (overlap.curId == overlap.extId)
+	{
+		int32_t intersect = std::min(overlap.curEnd, overlap.extEnd) -
+							std::max(overlap.curBegin, overlap.extBegin);
+		if (static_cast<float>(intersect) > static_cast<float>(curRange) / 2.0f)
+		{
+			return false;
+		}
+	}
+
+	if (overlap.curId == -overlap.extId)
+	{
+		int32_t intersect = std::min(overlap.curEnd, overlap.extLen - overlap.extBegin) -
+							std::max(overlap.curBegin, overlap.extLen - overlap.extEnd);
+		if (static_cast<float>(intersect) > static_cast<float>(curRange) / 2.0f)
+		{
+			return false;
+		}
+	}
+
+	if (!params.forceLocal && params.checkOverhang &&
+		hostOverlapLrOverhang(overlap) > params.maximumOverhang)
+	{
+		return false;
+	}
+	return true;
+}
+
+DeviceParams makeDeviceParams(const FixtureManifest& manifest)
+{
+	DeviceParams params{};
+	params.queryId = manifest.queryId;
+	params.queryLen = manifest.queryLength;
+	params.kmerSize = manifest.params.kmerSize;
+	params.minKmerSurvivalRate = manifest.params.minKmerSurvivalRate;
+	params.largeGapPenalty = manifest.params.largeGapPenalty;
+	params.smallGapPenalty = manifest.params.smallGapPenalty;
+	params.gapJumpThreshold = manifest.params.gapJumpThreshold;
+	params.maxGap = manifest.params.maxGap;
+	params.maximumJump = manifest.params.maximumJump;
+	params.minimumOverlap = manifest.params.minimumOverlap;
+	params.maximumOverhang = manifest.params.maximumOverhang;
+	params.checkOverhang = manifest.params.checkOverhang ? 1 : 0;
+	params.forceLocal = manifest.params.forceLocal ? 1 : 0;
+	return params;
+}
+
+DeviceOverlap computeCpuGroupOverlap(const std::vector<CandidateRecord>& candidates,
+									 const TargetGroup& group,
+									 const DeviceParams& params,
+									 std::vector<int32_t>& scoreTable,
+									 std::vector<int32_t>& backtrackTable,
+									 std::vector<uint8_t>& orderedUsed)
+{
+	const uint32_t start = group.start;
+	const uint32_t count = group.count;
+	DeviceOverlap best{};
+	best.valid = 0;
+	if (count == 0) return best;
+
+	uint32_t uniqueMatches = 0;
+	int32_t prevPos = 0;
+	for (uint32_t local = 0; local < count; ++local)
+	{
+		int32_t curPos = candidates[start + local].queryPos;
+		if (curPos != prevPos)
+		{
+			++uniqueMatches;
+			prevPos = curPos;
+		}
+	}
+	if (static_cast<float>(uniqueMatches) <
+		params.minKmerSurvivalRate * static_cast<float>(params.minimumOverlap))
+	{
+		return best;
+	}
+
+	if (group.maxCur - group.minCur < params.minimumOverlap ||
+		group.maxExt - group.minExt < params.minimumOverlap)
+	{
+		return best;
+	}
+	if (params.checkOverhang && !params.forceLocal)
+	{
+		if (std::min(group.minCur, group.minExt) > params.maximumOverhang) return best;
+		if (std::min(params.queryLen - group.maxCur, group.targetLen - group.maxExt) >
+			params.maximumOverhang)
+		{
+			return best;
+		}
+	}
+
+	for (uint32_t local = 0; local < count; ++local)
+	{
+		scoreTable[start + local] = 0;
+		backtrackTable[start + local] = -1;
+		orderedUsed[start + local] = 0;
+	}
+
+	for (uint32_t i = 1; i < count; ++i)
+	{
+		int32_t maxScore = 0;
+		int32_t maxId = 0;
+		int32_t curNext = candidates[start + i].queryPos;
+		int32_t extNext = candidates[start + i].targetPos;
+
+		for (int32_t j = static_cast<int32_t>(i) - 1; j >= 0; --j)
+		{
+			int32_t curPrev = candidates[start + j].queryPos;
+			int32_t extPrev = candidates[start + j].targetPos;
+			int32_t curDelta = curNext - curPrev;
+			int32_t extDelta = extNext - extPrev;
+			int32_t jumpDiv = std::abs(curDelta - extDelta);
+			if (0 < curDelta && curDelta < params.maximumJump &&
+				0 < extDelta && extDelta < params.maximumJump &&
+				jumpDiv <= params.maxGap)
+			{
+				int32_t matchScore = std::min(std::min(curDelta, extDelta), params.kmerSize);
+				float gapPenalty = jumpDiv > params.gapJumpThreshold ?
+					params.largeGapPenalty : params.smallGapPenalty;
+				int32_t gapCost = static_cast<int32_t>(gapPenalty * static_cast<float>(jumpDiv));
+				int32_t nextScore = scoreTable[start + j] + matchScore - gapCost;
+				if (nextScore > maxScore)
+				{
+					maxScore = nextScore;
+					maxId = j;
+					if (jumpDiv == 0 && curDelta < params.kmerSize) break;
+				}
+			}
+			if (group.extSorted && extNext - extPrev > params.maximumJump) break;
+			if (!group.extSorted && curNext - curPrev > params.maximumJump) break;
+		}
+
+		scoreTable[start + i] = std::max(maxScore, params.kmerSize);
+		if (maxScore > params.kmerSize)
+		{
+			backtrackTable[start + i] = maxId;
+		}
+	}
+
+	for (uint32_t ordered = 0; ordered < count; ++ordered)
+	{
+		int32_t chainStart = -1;
+		int32_t bestScore = INT_MIN;
+		for (uint32_t local = 0; local < count; ++local)
+		{
+			if (orderedUsed[start + local]) continue;
+			int32_t score = scoreTable[start + local];
+			if (chainStart == -1 || score > bestScore)
+			{
+				chainStart = static_cast<int32_t>(local);
+				bestScore = score;
+			}
+		}
+		if (chainStart == -1) break;
+		orderedUsed[start + chainStart] = 1;
+		if (backtrackTable[start + chainStart] == -1) continue;
+
+		int32_t lastMatch = chainStart;
+		int32_t firstMatch = 0;
+		int32_t chainLength = 0;
+		int32_t pos = chainStart;
+		while (pos != -1)
+		{
+			firstMatch = pos;
+			++chainLength;
+			int32_t newPos = backtrackTable[start + pos];
+			backtrackTable[start + pos] = -1;
+			pos = newPos;
+		}
+
+		DeviceOverlap overlap{};
+		overlap.curId = params.queryId;
+		overlap.curBegin = candidates[start + firstMatch].queryPos;
+		overlap.curEnd = candidates[start + lastMatch].queryPos + params.kmerSize - 1;
+		overlap.curLen = params.queryLen;
+		overlap.extId = group.targetId;
+		overlap.extBegin = candidates[start + firstMatch].targetPos;
+		overlap.extEnd = candidates[start + lastMatch].targetPos + params.kmerSize - 1;
+		overlap.extLen = group.targetLen;
+		overlap.score = scoreTable[start + lastMatch] - scoreTable[start + firstMatch] +
+						params.kmerSize - 1;
+		overlap.chainLength = chainLength;
+		overlap.valid = 0;
+
+		if (!hostOverlapTest(overlap, params)) continue;
+		if (!best.valid || overlap.score > best.score)
+		{
+			best = overlap;
+			best.valid = 1;
+		}
+	}
+
+	return best;
+}
+
 int32_t countFiltered(const std::vector<int32_t>& filteredPositions, const HostOverlap& overlap)
 {
 	int32_t count = 0;
@@ -842,7 +1072,16 @@ Options parseArgs(int argc, char** argv)
 		if (arg == "--fixture-dir") options.fixtureDir = requireValue(arg);
 		else if (arg == "--output-tsv") options.outputTsv = requireValue(arg);
 		else if (arg == "--json-output") options.jsonOutput = requireValue(arg);
+		else if (arg == "--backend") options.backend = requireValue(arg);
 		else if (arg == "--device") options.device = std::stoi(requireValue(arg));
+		else if (arg == "--warmup-runs")
+		{
+			options.warmupRuns = static_cast<uint32_t>(std::stoul(requireValue(arg)));
+		}
+		else if (arg == "--benchmark-runs")
+		{
+			options.benchmarkRuns = static_cast<uint32_t>(std::stoul(requireValue(arg)));
+		}
 		else if (arg == "--memory-budget-bytes")
 		{
 			options.hasMemoryBudget = true;
@@ -852,7 +1091,9 @@ Options parseArgs(int argc, char** argv)
 		{
 			std::cout << "Usage: cuflye-cuda-overlap-chain-replay "
 					  << "--fixture-dir DIR --output-tsv PATH --json-output PATH "
-					  << "[--device ID] [--memory-budget-bytes N]\n";
+					  << "[--backend cpu|cuda] [--device ID] "
+					  << "[--warmup-runs N] [--benchmark-runs N] "
+					  << "[--memory-budget-bytes N]\n";
 			std::exit(0);
 		}
 		else
@@ -863,6 +1104,18 @@ Options parseArgs(int argc, char** argv)
 	if (options.fixtureDir.empty()) throw std::runtime_error("--fixture-dir is required");
 	if (options.outputTsv.empty()) throw std::runtime_error("--output-tsv is required");
 	if (options.jsonOutput.empty()) throw std::runtime_error("--json-output is required");
+	if (options.backend != "cuda" && options.backend != "cpu")
+	{
+		throw std::runtime_error("--backend must be cpu or cuda");
+	}
+	if (options.benchmarkRuns == 0)
+	{
+		throw std::runtime_error("--benchmark-runs must be greater than zero");
+	}
+	if (options.hasMemoryBudget && options.backend == "cpu")
+	{
+		throw std::runtime_error("--memory-budget-bytes is only supported for cuda backend");
+	}
 	return options;
 }
 
@@ -875,6 +1128,46 @@ size_t checkedBytes(size_t count, size_t size, const std::string& label)
 	return count * size;
 }
 
+CudaRunSummary runCpu(const FixtureManifest& manifest,
+					  const std::vector<CandidateRecord>& candidates,
+					  const std::vector<int32_t>& filteredPositions,
+					  const std::vector<TargetGroup>& groups,
+					  std::vector<HostOverlap>& overlaps)
+{
+	CudaRunSummary summary;
+	summary.backend = "cpu";
+	summary.candidateRecords = candidates.size();
+	summary.targetGroups = groups.size();
+	summary.filteredPositions = filteredPositions.size();
+	summary.requiredBytes = checkedBytes(candidates.size(), sizeof(int32_t), "CPU score table") * 2 +
+							checkedBytes(candidates.size(), sizeof(uint8_t), "CPU ordered flags") +
+							checkedBytes(groups.size(), sizeof(DeviceOverlap), "CPU output overlaps");
+
+	DeviceParams params = makeDeviceParams(manifest);
+	std::vector<int32_t> scoreTable(candidates.size());
+	std::vector<int32_t> backtrackTable(candidates.size());
+	std::vector<uint8_t> orderedUsed(candidates.size());
+	std::vector<DeviceOverlap> deviceOverlaps(groups.size());
+
+	auto chainStart = Clock::now();
+	for (size_t groupIndex = 0; groupIndex < groups.size(); ++groupIndex)
+	{
+		deviceOverlaps[groupIndex] = computeCpuGroupOverlap(candidates, groups[groupIndex],
+															 params, scoreTable,
+															 backtrackTable, orderedUsed);
+	}
+	auto chainEnd = Clock::now();
+	summary.cpuChainMs = elapsedMs(chainStart, chainEnd);
+
+	auto finalizeStart = Clock::now();
+	overlaps = finalizeOverlaps(deviceOverlaps, manifest.params, filteredPositions);
+	auto finalizeEnd = Clock::now();
+	summary.finalizeMs = elapsedMs(finalizeStart, finalizeEnd);
+	summary.outputRecords = overlaps.size();
+	summary.totalBeforeJsonMs = summary.cpuChainMs + summary.finalizeMs;
+	return summary;
+}
+
 CudaRunSummary runCuda(const Options& options,
 					   const FixtureManifest& manifest,
 					   std::vector<CandidateRecord>& candidates,
@@ -883,6 +1176,7 @@ CudaRunSummary runCuda(const Options& options,
 					   std::vector<HostOverlap>& overlaps)
 {
 	CudaRunSummary summary;
+	summary.backend = "cuda";
 	summary.device = options.device;
 	summary.candidateRecords = candidates.size();
 	summary.targetGroups = groups.size();
@@ -925,6 +1219,7 @@ CudaRunSummary runCuda(const Options& options,
 	cuflye::cuda_raii::DeviceBuffer<uint8_t> dUsed(usedBytes, "ordered flags");
 	cuflye::cuda_raii::DeviceBuffer<DeviceOverlap> dOutput(outputBytes, "output overlaps");
 	auto allocEnd = Clock::now();
+	summary.deviceAllocationMs = elapsedMs(allocStart, allocEnd);
 
 	auto h2dStart = Clock::now();
 	cuflye::cuda_raii::checkCuda(
@@ -943,20 +1238,7 @@ CudaRunSummary runCuda(const Options& options,
 	auto h2dEnd = Clock::now();
 	summary.hostToDeviceMs = elapsedMs(h2dStart, h2dEnd);
 
-	DeviceParams params{};
-	params.queryId = manifest.queryId;
-	params.queryLen = manifest.queryLength;
-	params.kmerSize = manifest.params.kmerSize;
-	params.minKmerSurvivalRate = manifest.params.minKmerSurvivalRate;
-	params.largeGapPenalty = manifest.params.largeGapPenalty;
-	params.smallGapPenalty = manifest.params.smallGapPenalty;
-	params.gapJumpThreshold = manifest.params.gapJumpThreshold;
-	params.maxGap = manifest.params.maxGap;
-	params.maximumJump = manifest.params.maximumJump;
-	params.minimumOverlap = manifest.params.minimumOverlap;
-	params.maximumOverhang = manifest.params.maximumOverhang;
-	params.checkOverhang = manifest.params.checkOverhang ? 1 : 0;
-	params.forceLocal = manifest.params.forceLocal ? 1 : 0;
+	DeviceParams params = makeDeviceParams(manifest);
 
 	auto kernelStart = Clock::now();
 	overlapChainKernel<<<static_cast<unsigned int>(groups.size()), 1>>>(
@@ -983,12 +1265,92 @@ CudaRunSummary runCuda(const Options& options,
 	auto d2hEnd = Clock::now();
 	summary.deviceToHostMs = elapsedMs(d2hStart, d2hEnd);
 
+	auto finalizeStart = Clock::now();
 	overlaps = finalizeOverlaps(deviceOverlaps, manifest.params, filteredPositions);
+	auto finalizeEnd = Clock::now();
+	summary.finalizeMs = elapsedMs(finalizeStart, finalizeEnd);
 	summary.outputRecords = overlaps.size();
 	summary.totalBeforeJsonMs = summary.parseMs + summary.setupMs +
-								elapsedMs(allocStart, allocEnd) +
+								summary.deviceAllocationMs +
 								summary.hostToDeviceMs + summary.kernelMs +
-								summary.deviceToHostMs;
+								summary.deviceToHostMs + summary.finalizeMs;
+	return summary;
+}
+
+void attachBenchmarkStats(CudaRunSummary& summary,
+						  const std::vector<CudaRunSummary>& timedRuns,
+						  uint32_t warmupRuns)
+{
+	if (timedRuns.empty())
+	{
+		throw std::runtime_error("cannot summarize empty benchmark run set");
+	}
+	summary.warmupRuns = warmupRuns;
+	summary.timedRuns = static_cast<uint32_t>(timedRuns.size());
+	double total = 0.0;
+	double core = 0.0;
+	summary.benchmarkMinTotalMs = timedRuns[0].totalBeforeJsonMs;
+	summary.benchmarkMaxTotalMs = timedRuns[0].totalBeforeJsonMs;
+	for (const auto& run : timedRuns)
+	{
+		total += run.totalBeforeJsonMs;
+		core += run.backend == "cuda" ? run.kernelMs : run.cpuChainMs;
+		summary.benchmarkMinTotalMs =
+			std::min(summary.benchmarkMinTotalMs, run.totalBeforeJsonMs);
+		summary.benchmarkMaxTotalMs =
+			std::max(summary.benchmarkMaxTotalMs, run.totalBeforeJsonMs);
+	}
+	summary.benchmarkMeanTotalMs = total / static_cast<double>(timedRuns.size());
+	summary.benchmarkMeanCoreMs = core / static_cast<double>(timedRuns.size());
+}
+
+CudaRunSummary runCpuBenchmark(const Options& options,
+							   const FixtureManifest& manifest,
+							   const std::vector<CandidateRecord>& candidates,
+							   const std::vector<int32_t>& filteredPositions,
+							   const std::vector<TargetGroup>& groups,
+							   std::vector<HostOverlap>& overlaps)
+{
+	std::vector<HostOverlap> scratch;
+	for (uint32_t index = 0; index < options.warmupRuns; ++index)
+	{
+		(void)runCpu(manifest, candidates, filteredPositions, groups, scratch);
+	}
+
+	std::vector<CudaRunSummary> timedRuns;
+	for (uint32_t index = 0; index < options.benchmarkRuns; ++index)
+	{
+		CudaRunSummary summary = runCpu(manifest, candidates, filteredPositions,
+										groups, overlaps);
+		timedRuns.push_back(summary);
+	}
+	CudaRunSummary summary = timedRuns.back();
+	attachBenchmarkStats(summary, timedRuns, options.warmupRuns);
+	return summary;
+}
+
+CudaRunSummary runCudaBenchmark(const Options& options,
+								const FixtureManifest& manifest,
+								std::vector<CandidateRecord>& candidates,
+								const std::vector<int32_t>& filteredPositions,
+								const std::vector<TargetGroup>& groups,
+								std::vector<HostOverlap>& overlaps)
+{
+	std::vector<HostOverlap> scratch;
+	for (uint32_t index = 0; index < options.warmupRuns; ++index)
+	{
+		(void)runCuda(options, manifest, candidates, filteredPositions, groups, scratch);
+	}
+
+	std::vector<CudaRunSummary> timedRuns;
+	for (uint32_t index = 0; index < options.benchmarkRuns; ++index)
+	{
+		CudaRunSummary summary = runCuda(options, manifest, candidates,
+										 filteredPositions, groups, overlaps);
+		timedRuns.push_back(summary);
+	}
+	CudaRunSummary summary = timedRuns.back();
+	attachBenchmarkStats(summary, timedRuns, options.warmupRuns);
 	return summary;
 }
 
@@ -1006,19 +1368,28 @@ void writeJsonSummary(const std::string& path,
 	output << "{\n"
 		   << "  \"schema\": \"cuflye-cuda-overlap-chain-replay-v0\",\n"
 		   << "  \"status\": \"ok\",\n"
+		   << "  \"backend\": \"" << summary.backend << "\",\n"
 		   << "  \"fixture_dir\": \"" << options.fixtureDir << "\",\n"
 		   << "  \"output_tsv\": \"" << options.outputTsv << "\",\n"
 		   << "  \"query_id\": " << manifest.queryId << ",\n"
 		   << "  \"candidate_records\": " << summary.candidateRecords << ",\n"
 		   << "  \"target_groups\": " << summary.targetGroups << ",\n"
 		   << "  \"filtered_positions\": " << summary.filteredPositions << ",\n"
-		   << "  \"output_records\": " << summary.outputRecords << ",\n"
-		   << "  \"device\": {\n"
-		   << "    \"id\": " << summary.device << ",\n"
-		   << "    \"name\": \"" << summary.deviceName << "\",\n"
-		   << "    \"free_bytes\": " << summary.freeBytes << ",\n"
-		   << "    \"total_bytes\": " << summary.totalBytes << "\n"
-		   << "  },\n"
+		   << "  \"output_records\": " << summary.outputRecords << ",\n";
+	if (summary.backend == "cuda")
+	{
+		output << "  \"device\": {\n"
+			   << "    \"id\": " << summary.device << ",\n"
+			   << "    \"name\": \"" << summary.deviceName << "\",\n"
+			   << "    \"free_bytes\": " << summary.freeBytes << ",\n"
+			   << "    \"total_bytes\": " << summary.totalBytes << "\n"
+			   << "  },\n";
+	}
+	else
+	{
+		output << "  \"device\": null,\n";
+	}
+	output
 		   << "  \"memory\": {\n"
 		   << "    \"required_bytes\": " << summary.requiredBytes;
 	if (options.hasMemoryBudget)
@@ -1032,11 +1403,22 @@ void writeJsonSummary(const std::string& path,
 	output << "  },\n"
 		   << "  \"timing_ms\": {\n"
 		   << "    \"setup\": " << summary.setupMs << ",\n"
+		   << "    \"device_allocation\": " << summary.deviceAllocationMs << ",\n"
 		   << "    \"host_to_device\": " << summary.hostToDeviceMs << ",\n"
 		   << "    \"kernel\": " << summary.kernelMs << ",\n"
+		   << "    \"cpu_chain\": " << summary.cpuChainMs << ",\n"
 		   << "    \"device_to_host\": " << summary.deviceToHostMs << ",\n"
+		   << "    \"finalize\": " << summary.finalizeMs << ",\n"
 		   << "    \"write_output\": " << summary.writeMs << ",\n"
 		   << "    \"total_before_json\": " << summary.totalBeforeJsonMs << "\n"
+		   << "  },\n"
+		   << "  \"benchmark\": {\n"
+		   << "    \"warmup_runs\": " << summary.warmupRuns << ",\n"
+		   << "    \"timed_runs\": " << summary.timedRuns << ",\n"
+		   << "    \"mean_total_before_json_ms\": " << summary.benchmarkMeanTotalMs << ",\n"
+		   << "    \"min_total_before_json_ms\": " << summary.benchmarkMinTotalMs << ",\n"
+		   << "    \"max_total_before_json_ms\": " << summary.benchmarkMaxTotalMs << ",\n"
+		   << "    \"mean_core_ms\": " << summary.benchmarkMeanCoreMs << "\n"
 		   << "  },\n"
 		   << "  \"supported_shape\": {\n"
 		   << "    \"nucl_alignment\": false,\n"
@@ -1078,8 +1460,17 @@ int main(int argc, char** argv)
 		auto parseEnd = Clock::now();
 
 		std::vector<HostOverlap> overlaps;
-		CudaRunSummary summary = runCuda(options, manifest, candidates,
-										 filteredPositions, groups, overlaps);
+		CudaRunSummary summary;
+		if (options.backend == "cuda")
+		{
+			summary = runCudaBenchmark(options, manifest, candidates,
+									   filteredPositions, groups, overlaps);
+		}
+		else
+		{
+			summary = runCpuBenchmark(options, manifest, candidates,
+									  filteredPositions, groups, overlaps);
+		}
 		summary.parseMs = elapsedMs(parseStart, parseEnd);
 		auto writeStart = Clock::now();
 		writeOverlaps(options.outputTsv, overlaps);
