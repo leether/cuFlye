@@ -1,6 +1,6 @@
 # Task Card: cuFlye M3b Long-Lived CUDA Worker
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -92,10 +92,49 @@ are now larger targets than the candidate kernel itself.
 
 ## Execution Checklist
 
-- [ ] Refactor backend runner without changing candidate semantics.
-- [ ] Add worker CLI and JSONL protocol handling.
-- [ ] Add worker build script.
-- [ ] Run local static/style gates.
-- [ ] Build and run on DGX.
-- [ ] Validate worker candidate outputs.
-- [ ] Record compact proof and close this card.
+- [x] Refactor backend runner without changing candidate semantics.
+- [x] Add worker CLI and JSONL protocol handling.
+- [x] Add worker build script.
+- [x] Run local static/style gates.
+- [x] Build and run on DGX.
+- [x] Validate worker candidate outputs.
+- [x] Record compact proof and close this card.
+
+## Merge Note
+
+Implemented in repo commit `699228bb9c409b2ab1be59cb2508bb9dd4b7be1c` and
+validated on DGX host `edgexpert-45d2` with `/usr/local/cuda/bin/nvcc`
+`13.0.88` targeting `sm_121`.
+
+Real pack proof:
+
+- Source pack:
+  `/tmp/cuflye-m2b-1782793203/out/m2b/proof/pack/query_neg253`
+- Query id: `-253`
+- K-mer size: `17`
+- Requests processed in one worker process: `2`
+- Candidate records per request: `15571`
+- Second request warm context: `true`
+- Worker context setup: `264.730 ms`
+- First request total: `187.557 ms`
+- First backend total before JSON: `162.663 ms`
+- Warm request total: `157.098 ms`
+- Warm backend total before JSON: `132.110 ms`
+- Warm backend CUDA setup: `0.000 ms`
+- Warm backend kernel: `6.224 ms`
+- Warm backend host prefix sum: `84.221 ms`
+- M2f GPU-only backend total before JSON: `425.540 ms`
+- M2f CPU oracle: `943.032 ms`
+- Warm backend vs M2f GPU-only speedup: `3.22x`
+- Warm backend vs CPU oracle speedup: `7.14x`
+- Worker RSS for two real requests: `356240 kB`
+- CPU/worker candidate diffs: `match`
+- Canonical SHA-256:
+  `5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae`
+
+Tracked compact proof:
+
+- `tests/golden/cuflye-m3b-long-lived-cuda-worker-dgx-aarch64.json`
+
+M3b proves a reusable CUDA worker boundary and removes CUDA setup from
+per-request backend timing. It still does not claim full Flye assembly speedup.

@@ -51,3 +51,8 @@ M2 real-pack CUDA consumer proof:
 
 - Real-pack CUDA consumer manifest:
   `cuflye-m2c-real-pack-cuda-consumer-dgx-aarch64.json`
+
+M3 long-lived CUDA worker proof:
+
+- Long-lived worker manifest:
+  `cuflye-m3b-long-lived-cuda-worker-dgx-aarch64.json`

@@ -250,12 +250,12 @@ Use precise milestone labels:
 Next highest-ROI task:
 
 ```text
-M3b: build the first minimal long-lived CUDA worker boundary. It should accept
-a JSONL sequence of pack-dump-v0 requests in one worker process, emit
-candidate-record-v1 output, and report first-request versus warm-request timing.
+M3c: move sparse output prefix/compaction into the CUDA backend so the warm
+worker path no longer pays the measured host prefix-sum bottleneck. Preserve the
+M3b JSONL worker proof mode and candidate-record-v1 equivalence gates.
 ```
 
 Acceptance should remain candidate-list equivalence plus honest timing
-breakdown. The immediate target is preserving the M2f GPU-over-CPU advantage by
-reducing setup and adapter overhead; do not claim full assembly speed until
+breakdown. The immediate target is reducing the M3b warm backend total while
+preserving the worker advantage; do not claim full assembly speed until
 downstream graph equivalence is proven.

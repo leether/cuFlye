@@ -7,11 +7,12 @@ change is considered complete.
 
 Active cards:
 
-- `2026-06-30-cuflye-m3b-long-lived-cuda-worker.md`: build the first
-  long-lived CUDA worker proof boundary for repeated pack-dump-v0 requests.
+- None.
 
 Completed cards:
 
+- `2026-06-30-cuflye-m3b-long-lived-cuda-worker.md`: build the first
+  long-lived CUDA worker proof boundary for repeated pack-dump-v0 requests.
 - `2026-06-30-cuflye-m3a-integration-path-decision.md`: choose the
   long-lived external CUDA worker path and seed the M3b worker protocol.
 - `2026-06-30-cuflye-m2f-sparse-output-compaction.md`: replace dense
