@@ -11,6 +11,8 @@ Active cards:
 
 Completed cards:
 
+- `2026-06-30-cuflye-m3a-integration-path-decision.md`: choose the
+  long-lived external CUDA worker path and seed the M3b worker protocol.
 - `2026-06-30-cuflye-m2f-sparse-output-compaction.md`: replace dense
   pair-count-sized output materialization with sparse/compacted candidate output
   for the real-pack CUDA backend.

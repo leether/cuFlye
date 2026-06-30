@@ -250,12 +250,12 @@ Use precise milestone labels:
 Next highest-ROI task:
 
 ```text
-M3a: choose the next integration path for turning the sparse real-pack backend
-into a reusable Flye GPU backend: in-process CUDA, long-lived external worker,
-or batched external adapter with device-side compaction.
+M3b: build the first minimal long-lived CUDA worker boundary. It should accept
+a JSONL sequence of pack-dump-v0 requests in one worker process, emit
+candidate-record-v1 output, and report first-request versus warm-request timing.
 ```
 
 Acceptance should remain candidate-list equivalence plus honest timing
-breakdown. The immediate target is preserving the M2f GPU-over-CPU advantage
-while reducing CUDA setup and adapter overhead; do not claim full assembly speed
-until downstream graph equivalence is proven.
+breakdown. The immediate target is preserving the M2f GPU-over-CPU advantage by
+reducing setup and adapter overhead; do not claim full assembly speed until
+downstream graph equivalence is proven.
