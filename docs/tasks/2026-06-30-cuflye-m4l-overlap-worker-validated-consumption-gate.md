@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4l Overlap Worker Validated Consumption Gate
 
-Status: proposed
+Status: active
 
 Created: 2026-06-30
 
@@ -75,3 +75,15 @@ output passes the same ABI and diff gates used in the golden proof.
 - Runner controls and metadata for validation-gated worker proof mode.
 - DGX proof with one positive batch and one negative fail-closed case.
 - This Task Card completed after proof.
+
+## Execution Checklist
+
+- [ ] Define validation mode and seam-summary eligibility fields.
+- [ ] Add Flye patch for worker output validation and fail-closed summaries.
+- [ ] Extend fixture runner controls and metadata.
+- [ ] Build patched Flye on DGX.
+- [ ] Prove default CPU fixture behavior remains unchanged.
+- [ ] Prove positive batch mode validates and marks worker output eligible.
+- [ ] Prove negative validation mode fails closed and marks worker output
+  ineligible.
+- [ ] Record compact DGX proof and close this card.

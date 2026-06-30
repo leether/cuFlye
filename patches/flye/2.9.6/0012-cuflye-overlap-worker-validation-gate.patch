@@ -1,0 +1,417 @@
+--- a/src/sequence/overlap.cpp
++++ b/src/sequence/overlap.cpp
+@@ -181,6 +181,71 @@
+ 		return queryIds;
+ 	}
+ 
++	struct OverlapDumpRecord
++	{
++		int64_t curId = 0;
++		int64_t curBegin = 0;
++		int64_t curEnd = 0;
++		int64_t curLen = 0;
++		int64_t extId = 0;
++		int64_t extBegin = 0;
++		int64_t extEnd = 0;
++		int64_t extLen = 0;
++		int64_t score = 0;
++		double seqDivergence = 0.0;
++	};
++
++	bool operator<(const OverlapDumpRecord& lhs, const OverlapDumpRecord& rhs)
++	{
++		if (lhs.curId != rhs.curId) return lhs.curId < rhs.curId;
++		if (lhs.curBegin != rhs.curBegin) return lhs.curBegin < rhs.curBegin;
++		if (lhs.curEnd != rhs.curEnd) return lhs.curEnd < rhs.curEnd;
++		if (lhs.curLen != rhs.curLen) return lhs.curLen < rhs.curLen;
++		if (lhs.extId != rhs.extId) return lhs.extId < rhs.extId;
++		if (lhs.extBegin != rhs.extBegin) return lhs.extBegin < rhs.extBegin;
++		if (lhs.extEnd != rhs.extEnd) return lhs.extEnd < rhs.extEnd;
++		if (lhs.extLen != rhs.extLen) return lhs.extLen < rhs.extLen;
++		if (lhs.score != rhs.score) return lhs.score < rhs.score;
++		return lhs.seqDivergence < rhs.seqDivergence;
++	}
++
++	bool operator==(const OverlapDumpRecord& lhs, const OverlapDumpRecord& rhs)
++	{
++		return lhs.curId == rhs.curId &&
++			   lhs.curBegin == rhs.curBegin &&
++			   lhs.curEnd == rhs.curEnd &&
++			   lhs.curLen == rhs.curLen &&
++			   lhs.extId == rhs.extId &&
++			   lhs.extBegin == rhs.extBegin &&
++			   lhs.extEnd == rhs.extEnd &&
++			   lhs.extLen == rhs.extLen &&
++			   lhs.score == rhs.score &&
++			   lhs.seqDivergence == rhs.seqDivergence;
++	}
++
++	struct OverlapWorkerFixtureValidation
++	{
++		std::string fixtureDir;
++		std::string fixtureName;
++		std::string oraclePath;
++		std::string workerPath;
++		std::string status = "failed";
++		std::string canonicalDiffStatus = "not-run";
++		bool oracleAbiValid = false;
++		bool workerAbiValid = false;
++		size_t oracleRecords = 0;
++		size_t workerRecords = 0;
++		std::string error;
++	};
++
++	struct OverlapWorkerValidationResult
++	{
++		std::string mode;
++		std::string status = "failed";
++		bool consumptionEligible = false;
++		std::vector<OverlapWorkerFixtureValidation> fixtures;
++	};
++
+ 	const char* overlapWorkerMode()
+ 	{
+ 		static const char* mode = std::getenv("CUFLYE_OVERLAP_WORKER_MODE");
+@@ -208,6 +273,23 @@
+ 		return value;
+ 	}
+ 
++	std::string overlapWorkerValidationMode()
++	{
++		static std::string mode = []()
++		{
++			const char* raw = std::getenv("CUFLYE_OVERLAP_WORKER_VALIDATION_MODE");
++			std::string selected = raw && raw[0] ? std::string(raw) :
++								   std::string("oracle-diff-v0");
++			if (selected != "oracle-diff-v0")
++			{
++				throw std::runtime_error(
++					"Unsupported CUFLYE_OVERLAP_WORKER_VALIDATION_MODE: " + selected);
++			}
++			return selected;
++		}();
++		return mode;
++	}
++
+ 	std::string stripWhitespace(const std::string& text)
+ 	{
+ 		std::string stripped;
+@@ -299,6 +381,7 @@
+ 			overlapEnvRequired("CUFLYE_OVERLAP_REPLAY_DUMP_DIR");
+ 			overlapEnvRequired("CUFLYE_OVERLAP_REPLAY_MAX_FIXTURES");
+ 			overlapEnvRequired("CUFLYE_OVERLAP_WORKER_OUTPUT_DIR");
++			overlapWorkerValidationMode();
+ 			const auto& queryIds = overlapReplayQueryIds();
+ 			if (!queryIds.empty() && overlapReplayMaxFixtures() != queryIds.size())
+ 			{
+@@ -476,8 +559,243 @@
+ 		std::ostringstream text;
+ 		for (auto queryId : queryIds) text << queryId << "\n";
+ 		writeTextFile(path, text.str());
++	}
++
++	std::string pathBasename(const std::string& path)
++	{
++		if (path.empty()) return path;
++		size_t end = path.find_last_not_of('/');
++		if (end == std::string::npos) return path;
++		size_t slash = path.find_last_of('/', end);
++		if (slash == std::string::npos) return path.substr(0, end + 1);
++		return path.substr(slash + 1, end - slash);
+ 	}
+ 
++	std::vector<std::string> splitOverlapTabLine(const std::string& line)
++	{
++		std::vector<std::string> fields;
++		std::string field;
++		std::stringstream stream(line);
++		while (std::getline(stream, field, '\t')) fields.push_back(field);
++		return fields;
++	}
++
++	int64_t parseOverlapDumpInt(const std::string& value,
++								const std::string& name,
++								const std::string& path,
++								size_t lineNo)
++	{
++		if (value.empty() || value[0] == '+')
++		{
++			throw std::runtime_error(path + ":" + std::to_string(lineNo) + ": " +
++									 name + " must be a signed decimal integer");
++		}
++		size_t parsedChars = 0;
++		long long parsed = std::stoll(value, &parsedChars);
++		if (parsedChars != value.size())
++		{
++			throw std::runtime_error(path + ":" + std::to_string(lineNo) + ": " +
++									 name + " must be a decimal integer");
++		}
++		return static_cast<int64_t>(parsed);
++	}
++
++	double parseOverlapDumpFloat(const std::string& value,
++								 const std::string& path,
++								 size_t lineNo)
++	{
++		size_t parsedChars = 0;
++		double parsed = std::stod(value, &parsedChars);
++		if (parsedChars != value.size() || !std::isfinite(parsed) || parsed < 0.0)
++		{
++			throw std::runtime_error(
++				path + ":" + std::to_string(lineNo) +
++				": seq_divergence must be finite and non-negative");
++		}
++		return parsed;
++	}
++
++	OverlapDumpRecord parseOverlapDumpRecord(const std::string& line,
++											 const std::string& path,
++											 size_t lineNo)
++	{
++		if (line.empty())
++		{
++			throw std::runtime_error(path + ":" + std::to_string(lineNo) +
++									 ": blank overlap records are not allowed");
++		}
++		if (!line.empty() && line[line.size() - 1] == '\r')
++		{
++			throw std::runtime_error(path + ":" + std::to_string(lineNo) +
++									 ": CRLF records are not allowed");
++		}
++		auto fields = splitOverlapTabLine(line);
++		if (fields.size() != 10)
++		{
++			throw std::runtime_error(path + ":" + std::to_string(lineNo) +
++									 ": expected 10 tab-separated fields");
++		}
++
++		OverlapDumpRecord record;
++		record.curId = parseOverlapDumpInt(fields[0], "cur_id", path, lineNo);
++		record.curBegin = parseOverlapDumpInt(fields[1], "cur_begin", path, lineNo);
++		record.curEnd = parseOverlapDumpInt(fields[2], "cur_end", path, lineNo);
++		record.curLen = parseOverlapDumpInt(fields[3], "cur_len", path, lineNo);
++		record.extId = parseOverlapDumpInt(fields[4], "ext_id", path, lineNo);
++		record.extBegin = parseOverlapDumpInt(fields[5], "ext_begin", path, lineNo);
++		record.extEnd = parseOverlapDumpInt(fields[6], "ext_end", path, lineNo);
++		record.extLen = parseOverlapDumpInt(fields[7], "ext_len", path, lineNo);
++		record.score = parseOverlapDumpInt(fields[8], "score", path, lineNo);
++		record.seqDivergence = parseOverlapDumpFloat(fields[9], path, lineNo);
++
++		if (record.curId == 0 || record.extId == 0)
++		{
++			throw std::runtime_error(path + ":" + std::to_string(lineNo) +
++									 ": ids must not be zero");
++		}
++		if (record.curLen <= 0 || record.extLen <= 0)
++		{
++			throw std::runtime_error(path + ":" + std::to_string(lineNo) +
++									 ": lengths must be positive");
++		}
++		if (record.curBegin < 0 || record.curEnd < 0 ||
++			record.extBegin < 0 || record.extEnd < 0)
++		{
++			throw std::runtime_error(path + ":" + std::to_string(lineNo) +
++									 ": ranges must be non-negative");
++		}
++		if (record.curBegin > record.curEnd || record.curEnd >= record.curLen)
++		{
++			throw std::runtime_error(path + ":" + std::to_string(lineNo) +
++									 ": current range must satisfy begin <= end < len");
++		}
++		if (record.extBegin > record.extEnd || record.extEnd >= record.extLen)
++		{
++			throw std::runtime_error(path + ":" + std::to_string(lineNo) +
++									 ": extension range must satisfy begin <= end < len");
++		}
++		return record;
++	}
++
++	std::vector<OverlapDumpRecord> readCanonicalOverlapDump(const std::string& path)
++	{
++		std::ifstream input(path);
++		if (!input)
++		{
++			throw std::runtime_error("cannot read overlap dump: " + path);
++		}
++		std::vector<OverlapDumpRecord> records;
++		std::string line;
++		size_t lineNo = 0;
++		while (std::getline(input, line))
++		{
++			++lineNo;
++			records.push_back(parseOverlapDumpRecord(line, path, lineNo));
++		}
++		if (records.empty())
++		{
++			throw std::runtime_error("overlap dump is empty: " + path);
++		}
++		std::sort(records.begin(), records.end());
++		return records;
++	}
++
++	OverlapWorkerValidationResult validateOverlapWorkerOutputs(
++		const std::vector<std::string>& fixtures,
++		const std::string& batchOutputDir)
++	{
++		OverlapWorkerValidationResult result;
++		result.mode = overlapWorkerValidationMode();
++		result.consumptionEligible = true;
++
++		for (const auto& fixtureDir : fixtures)
++		{
++			OverlapWorkerFixtureValidation fixture;
++			fixture.fixtureDir = fixtureDir;
++			fixture.fixtureName = pathBasename(fixtureDir);
++			fixture.oraclePath = joinPath(fixtureDir, "oracle.overlaps.tsv");
++			fixture.workerPath = joinPath(joinPath(batchOutputDir, fixture.fixtureName),
++										  "overlaps.tsv");
++			try
++			{
++				auto oracleRecords = readCanonicalOverlapDump(fixture.oraclePath);
++				fixture.oracleAbiValid = true;
++				fixture.oracleRecords = oracleRecords.size();
++				auto workerRecords = readCanonicalOverlapDump(fixture.workerPath);
++				fixture.workerAbiValid = true;
++				fixture.workerRecords = workerRecords.size();
++				if (oracleRecords == workerRecords)
++				{
++					fixture.status = "passed";
++					fixture.canonicalDiffStatus = "match";
++				}
++				else
++				{
++					fixture.status = "failed";
++					fixture.canonicalDiffStatus = "mismatch";
++					fixture.error = "worker output canonical records differ from oracle";
++					result.consumptionEligible = false;
++				}
++			}
++			catch (const std::exception& exc)
++			{
++				fixture.status = "failed";
++				fixture.error = exc.what();
++				result.consumptionEligible = false;
++			}
++			result.fixtures.push_back(fixture);
++		}
++
++		if (result.fixtures.empty()) result.consumptionEligible = false;
++		result.status = result.consumptionEligible ? "passed" : "failed";
++		return result;
++	}
++
++	void writeOverlapWorkerValidationJson(
++		const std::string& path,
++		const OverlapWorkerValidationResult& validation)
++	{
++		std::ostringstream json;
++		json << "{\n"
++			 << "  \"schema\": \"cuflye-overlap-worker-validation-v0\",\n"
++			 << "  \"status\": \"" << jsonEscape(validation.status) << "\",\n"
++			 << "  \"mode\": \"" << jsonEscape(validation.mode) << "\",\n"
++			 << "  \"overlap_abi\": \"overlap-range-v1\",\n"
++			 << "  \"fixture_count\": " << validation.fixtures.size() << ",\n"
++			 << "  \"worker_output_consumption_eligible\": "
++			 << boolJson(validation.consumptionEligible) << ",\n"
++			 << "  \"graph_mutation_consumed_worker_output\": false,\n"
++			 << "  \"fixtures\": [\n";
++		for (size_t i = 0; i < validation.fixtures.size(); ++i)
++		{
++			const auto& fixture = validation.fixtures[i];
++			json << "    {\n"
++				 << "      \"fixture_dir\": \"" << jsonEscape(fixture.fixtureDir) << "\",\n"
++				 << "      \"fixture_name\": \"" << jsonEscape(fixture.fixtureName) << "\",\n"
++				 << "      \"oracle_path\": \"" << jsonEscape(fixture.oraclePath) << "\",\n"
++				 << "      \"worker_path\": \"" << jsonEscape(fixture.workerPath) << "\",\n"
++				 << "      \"status\": \"" << jsonEscape(fixture.status) << "\",\n"
++				 << "      \"oracle_abi_valid\": " << boolJson(fixture.oracleAbiValid) << ",\n"
++				 << "      \"worker_abi_valid\": " << boolJson(fixture.workerAbiValid) << ",\n"
++				 << "      \"oracle_records\": " << fixture.oracleRecords << ",\n"
++				 << "      \"worker_records\": " << fixture.workerRecords << ",\n"
++				 << "      \"canonical_diff_status\": \""
++				 << jsonEscape(fixture.canonicalDiffStatus) << "\"";
++			if (!fixture.error.empty())
++			{
++				json << ",\n      \"error\": \"" << jsonEscape(fixture.error) << "\"\n";
++			}
++			else
++			{
++				json << "\n";
++			}
++			json << "    }" << (i + 1 == validation.fixtures.size() ? "\n" : ",\n");
++		}
++		json << "  ]\n"
++			 << "}\n";
++		writeTextFile(path, json.str());
++	}
++
+ 	void writeOverlapWorkerRequestJson(const std::string& path,
+ 									   const std::string& requestId,
+ 									   const std::string& fixtureList,
+@@ -534,6 +852,10 @@
+ 									   const std::string& responseJson,
+ 									   const std::string& fixtureList,
+ 									   const std::string& queryIdsFile,
++									   const std::string& validationJson,
++									   const std::string& validationStatus,
++									   bool consumptionEligible,
++									   const std::string& status,
+ 									   const std::string& batchJson,
+ 									   const std::string& batchOutputDir,
+ 									   size_t fixtureCount)
+@@ -541,7 +863,7 @@
+ 		std::ostringstream json;
+ 		json << "{\n"
+ 			 << "  \"schema\": \"cuflye-flye-overlap-worker-seam-v0\",\n"
+-			 << "  \"status\": \"stopped-before-graph-mutation\",\n"
++			 << "  \"status\": \"" << jsonEscape(status) << "\",\n"
+ 			 << "  \"fixture_count\": " << fixtureCount << ",\n"
+ 			 << "  \"request_json\": \"" << jsonEscape(requestJson) << "\",\n"
+ 			 << "  \"response_json\": \"" << jsonEscape(responseJson) << "\",\n"
+@@ -553,6 +875,11 @@
+ 				 << jsonEscape(overlapReplayQueryIdsRaw()) << "\",\n";
+ 		}
+ 		json
++			 << "  \"validation_mode\": \"" << jsonEscape(overlapWorkerValidationMode()) << "\",\n"
++			 << "  \"validation_json\": \"" << jsonEscape(validationJson) << "\",\n"
++			 << "  \"validation_status\": \"" << jsonEscape(validationStatus) << "\",\n"
++			 << "  \"worker_output_consumption_eligible\": "
++			 << boolJson(consumptionEligible) << ",\n"
+ 			 << "  \"batch_json_output\": \"" << jsonEscape(batchJson) << "\",\n"
+ 			 << "  \"batch_output_dir\": \"" << jsonEscape(batchOutputDir) << "\",\n"
+ 			 << "  \"graph_mutation_consumed_worker_output\": false\n"
+@@ -581,6 +908,7 @@
+ 		std::string responseJson = joinPath(outputRoot, "worker-response.json");
+ 		std::string batchJson = joinPath(outputRoot, "worker-batch.json");
+ 		std::string batchOutputDir = joinPath(outputRoot, "worker-output");
++		std::string validationJson = joinPath(outputRoot, "worker-validation.json");
+ 		std::string stdoutLog = joinPath(outputRoot, "worker-stdout.log");
+ 		std::string stderrLog = joinPath(outputRoot, "worker-stderr.log");
+ 		std::string seamSummary = joinPath(outputRoot, "seam-summary.json");
+@@ -603,8 +931,25 @@
+ 				"request_json=" + requestJson + "; response_json=" + responseJson);
+ 		}
+ 		ensureReadableFile(responseJson, "overlap worker response JSON");
++
++		auto validation = validateOverlapWorkerOutputs(fixtures, batchOutputDir);
++		writeOverlapWorkerValidationJson(validationJson, validation);
++		if (!validation.consumptionEligible)
++		{
++			writeOverlapWorkerSeamSummary(
++				seamSummary, requestJson, responseJson, fixtureList, queryIdsFile,
++				validationJson, validation.status, false,
++				"validation-failed-before-graph-mutation", batchJson, batchOutputDir,
++				fixtures.size());
++			throw std::runtime_error(
++				"cuFlye overlap worker seam fail-closed; worker output validation "
++				"failed; validation_json=" + validationJson +
++				"; seam_summary=" + seamSummary);
++		}
+ 		writeOverlapWorkerSeamSummary(seamSummary, requestJson, responseJson,
+-									  fixtureList, queryIdsFile, batchJson, batchOutputDir,
++									  fixtureList, queryIdsFile, validationJson,
++									  validation.status, true,
++									  "stopped-before-graph-mutation", batchJson, batchOutputDir,
+ 									  fixtures.size());
+ 		throw std::runtime_error(
+ 			"cuFlye overlap worker seam stopped before graph mutation; "

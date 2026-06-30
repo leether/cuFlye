@@ -1,6 +1,7 @@
 # Flye Overlap Worker Seam v0
 
-Status: accepted in M4j; batch allowlist extension accepted in M4k
+Status: accepted in M4j; batch allowlist extension accepted in M4k; validation
+gate active in M4l
 
 Introduced: M4j
 
@@ -48,6 +49,7 @@ Optional environment:
 | `CUFLYE_OVERLAP_WORKER_WARMUP_RUNS` | `0` | Worker warmup runs. |
 | `CUFLYE_OVERLAP_WORKER_BENCHMARK_RUNS` | `1` | Worker timed runs. |
 | `CUFLYE_OVERLAP_WORKER_MEMORY_BUDGET_BYTES` | unset | Optional worker memory budget. |
+| `CUFLYE_OVERLAP_WORKER_VALIDATION_MODE` | `oracle-diff-v0` | Validate every worker output as `overlap-range-v1` and canonical-diff it against the captured CPU oracle before marking worker output consumption-eligible. |
 
 ## Generated Files
 
@@ -60,6 +62,7 @@ Given `CUFLYE_OVERLAP_WORKER_OUTPUT_DIR=/path/to/seam`, Flye writes:
 | `worker-request.json` | `cuflye-overlap-worker-request-v0` request. |
 | `worker-response.json` | `cuflye-overlap-worker-response-v0` response. |
 | `worker-batch.json` | Underlying packed batch runner JSON. |
+| `worker-validation.json` | Flye-side ABI validation and CPU-oracle canonical diff summary for every worker output. |
 | `worker-stdout.log` | Worker stdout. |
 | `worker-stderr.log` | Worker stderr. |
 | `seam-summary.json` | Flye-side seam metadata and stop proof. |
@@ -86,7 +89,9 @@ fixture list as the execution source of truth.
 ## Stop Boundary
 
 After the worker exits successfully and the response file is readable, Flye
-writes `seam-summary.json` and throws an exception containing:
+validates every worker output against the captured CPU oracle. When validation
+passes, Flye writes `worker-validation.json`, writes `seam-summary.json`, and
+throws an exception containing:
 
 ```text
 cuFlye overlap worker seam stopped before graph mutation
@@ -94,6 +99,19 @@ cuFlye overlap worker seam stopped before graph mutation
 
 This stop is intentional. It proves request generation and worker round-trip
 without allowing GPU overlap output to change Flye graph construction.
+
+M4l adds a separate consumption eligibility flag. A passing validation writes:
+
+```json
+{
+  "validation_status": "passed",
+  "worker_output_consumption_eligible": true,
+  "graph_mutation_consumed_worker_output": false
+}
+```
+
+This means the worker output passed the current proof gate. It still does not
+mean Flye graph logic consumed GPU output.
 
 ## Failure Semantics
 
@@ -109,5 +127,22 @@ The seam fails closed when:
 - fixture count has not reached `CUFLYE_OVERLAP_REPLAY_MAX_FIXTURES`;
 - the worker binary exits non-zero;
 - the worker response file is missing or unreadable.
+- `CUFLYE_OVERLAP_WORKER_VALIDATION_MODE` is unsupported;
+- any worker output is missing, malformed, empty, not `overlap-range-v1`, or
+  canonical-diffs `mismatch` against its captured `oracle.overlaps.tsv`.
 
 There is no silent CPU fallback when the seam is explicitly enabled.
+
+On validation failure Flye writes `worker-validation.json`, writes
+`seam-summary.json` with:
+
+```json
+{
+  "status": "validation-failed-before-graph-mutation",
+  "validation_status": "failed",
+  "worker_output_consumption_eligible": false,
+  "graph_mutation_consumed_worker_output": false
+}
+```
+
+and then exits non-zero before graph mutation.

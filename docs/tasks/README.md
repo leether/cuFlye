@@ -7,13 +7,13 @@ change is considered complete.
 
 Active cards:
 
-- None. M4k is complete; M4l is proposed.
-
-Proposed cards:
-
 - `2026-06-30-cuflye-m4l-overlap-worker-validated-consumption-gate.md`: add a
   fail-closed validation gate before any future graph-consumption path can treat
   CUDA overlap worker output as consumption-eligible.
+
+Proposed cards:
+
+- None. M4l is active.
 
 Completed cards:
 
