@@ -7,13 +7,13 @@ change is considered complete.
 
 Active cards:
 
-- None. M4o is complete; M4p is proposed.
-
-Proposed cards:
-
 - `2026-07-01-cuflye-m4p-overlap-graph-consumption-rehydration-dry-run.md`:
   rehydrate validated CUDA overlap worker output into Flye-side typed overlap
   data in a no-mutation dry-run before any graph consumption path is enabled.
+
+Proposed cards:
+
+- None. M4p is in progress.
 
 Completed cards:
 

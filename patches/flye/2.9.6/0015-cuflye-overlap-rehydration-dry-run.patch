@@ -1,0 +1,544 @@
+--- a/src/sequence/overlap.cpp
++++ b/src/sequence/overlap.cpp
+@@ -288,6 +288,57 @@
+ 		std::vector<OverlapWorkerGraphGuardCheck> checks;
+ 	};
+ 
++	struct OverlapTypedRecord
++	{
++		FastaRecord::Id curId;
++		int32_t curBegin = 0;
++		int32_t curEnd = 0;
++		int32_t curLen = 0;
++		FastaRecord::Id extId;
++		int32_t extBegin = 0;
++		int32_t extEnd = 0;
++		int32_t extLen = 0;
++		int32_t score = 0;
++		double seqDivergence = 0.0;
++	};
++
++	struct OverlapWorkerRehydrationCheck
++	{
++		std::string name;
++		bool required = true;
++		bool passed = false;
++		std::string detail;
++	};
++
++	struct OverlapWorkerFixtureRehydration
++	{
++		std::string fixtureDir;
++		std::string fixtureName;
++		std::string workerPath;
++		std::string status = "failed";
++		std::string typedVectorStatus = "not-run";
++		bool proofFaultApplied = false;
++		size_t cpuRecords = 0;
++		size_t workerRecords = 0;
++		size_t rehydratedRecords = 0;
++		std::string error;
++	};
++
++	struct OverlapWorkerRehydrationResult
++	{
++		std::string mode;
++		std::string proofFault;
++		std::string status = "not-requested";
++		std::string state = "not-consumed";
++		std::string decision = "disabled";
++		bool eligible = false;
++		bool consumed = false;
++		bool notConsumed = true;
++		bool failedClosed = false;
++		std::vector<OverlapWorkerRehydrationCheck> checks;
++		std::vector<OverlapWorkerFixtureRehydration> fixtures;
++	};
++
+ 	std::map<std::string, std::vector<OverlapDumpRecord>>&
+ 	overlapReplayCapturedCpuRecords()
+ 	{
+@@ -384,6 +435,47 @@
+ 		return !overlapWorkerGraphConsumptionMode().empty();
+ 	}
+ 
++	std::string overlapWorkerRehydrationMode()
++	{
++		static std::string mode = []()
++		{
++			const char* raw = std::getenv("CUFLYE_OVERLAP_REHYDRATION_MODE");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "typed-overlap-v0")
++			{
++				throw std::runtime_error(
++					"Unsupported CUFLYE_OVERLAP_REHYDRATION_MODE: " +
++					selected);
++			}
++			return selected;
++		}();
++		return mode;
++	}
++
++	bool overlapWorkerRehydrationEnabled()
++	{
++		return !overlapWorkerRehydrationMode().empty();
++	}
++
++	std::string overlapWorkerRehydrationProofFault()
++	{
++		static std::string fault = []()
++		{
++			const char* raw = std::getenv("CUFLYE_OVERLAP_REHYDRATION_PROOF_FAULT");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "drop-first-worker-record")
++			{
++				throw std::runtime_error(
++					"Unsupported CUFLYE_OVERLAP_REHYDRATION_PROOF_FAULT: " +
++					selected);
++			}
++			return selected;
++		}();
++		return fault;
++	}
++
+ 	std::string stripWhitespace(const std::string& text)
+ 	{
+ 		std::string stripped;
+@@ -478,6 +570,8 @@
+ 			overlapWorkerValidationMode();
+ 			overlapWorkerShadowMode();
+ 			overlapWorkerGraphConsumptionMode();
++			overlapWorkerRehydrationMode();
++			overlapWorkerRehydrationProofFault();
+ 			const auto& queryIds = overlapReplayQueryIds();
+ 			if (!queryIds.empty() && overlapReplayMaxFixtures() != queryIds.size())
+ 			{
+@@ -827,6 +921,96 @@
+ 		return records;
+ 	}
+ 
++	FastaRecord::Id fastaIdFromSigned(int64_t signedId);
++
++	int32_t checkedOverlapInt32(int64_t value,
++								const std::string& name,
++								const std::string& path)
++	{
++		if (value < std::numeric_limits<int32_t>::min() ||
++			value > std::numeric_limits<int32_t>::max())
++		{
++			throw std::runtime_error(path + ": " + name +
++									 " is outside int32 range for Flye overlap typing");
++		}
++		return static_cast<int32_t>(value);
++	}
++
++	FastaRecord::Id checkedFastaIdFromSigned(int64_t signedId,
++											 const std::string& name,
++											 const std::string& path)
++	{
++		if (signedId < -static_cast<int64_t>(std::numeric_limits<int32_t>::max()) ||
++			signedId > static_cast<int64_t>(std::numeric_limits<int32_t>::max()) ||
++			signedId == 0)
++		{
++			throw std::runtime_error(path + ": " + name +
++									 " is outside Flye signed-id range");
++		}
++		return fastaIdFromSigned(signedId);
++	}
++
++	OverlapTypedRecord overlapDumpRecordToTypedRecord(
++		const OverlapDumpRecord& record,
++		const std::string& path)
++	{
++		OverlapTypedRecord typed;
++		typed.curId = checkedFastaIdFromSigned(record.curId, "cur_id", path);
++		typed.curBegin = checkedOverlapInt32(record.curBegin, "cur_begin", path);
++		typed.curEnd = checkedOverlapInt32(record.curEnd, "cur_end", path);
++		typed.curLen = checkedOverlapInt32(record.curLen, "cur_len", path);
++		typed.extId = checkedFastaIdFromSigned(record.extId, "ext_id", path);
++		typed.extBegin = checkedOverlapInt32(record.extBegin, "ext_begin", path);
++		typed.extEnd = checkedOverlapInt32(record.extEnd, "ext_end", path);
++		typed.extLen = checkedOverlapInt32(record.extLen, "ext_len", path);
++		typed.score = checkedOverlapInt32(record.score, "score", path);
++		typed.seqDivergence = record.seqDivergence;
++		return typed;
++	}
++
++	OverlapDumpRecord overlapTypedRecordToDumpRecord(
++		const OverlapTypedRecord& typed)
++	{
++		OverlapDumpRecord record;
++		record.curId = typed.curId.signedId();
++		record.curBegin = typed.curBegin;
++		record.curEnd = typed.curEnd;
++		record.curLen = typed.curLen;
++		record.extId = typed.extId.signedId();
++		record.extBegin = typed.extBegin;
++		record.extEnd = typed.extEnd;
++		record.extLen = typed.extLen;
++		record.score = typed.score;
++		record.seqDivergence = typed.seqDivergence;
++		return record;
++	}
++
++	std::vector<OverlapTypedRecord> rehydrateTypedOverlapRecords(
++		const std::vector<OverlapDumpRecord>& records,
++		const std::string& path)
++	{
++		std::vector<OverlapTypedRecord> typedRecords;
++		typedRecords.reserve(records.size());
++		for (const auto& record : records)
++		{
++			typedRecords.push_back(overlapDumpRecordToTypedRecord(record, path));
++		}
++		return typedRecords;
++	}
++
++	std::vector<OverlapDumpRecord> canonicalOverlapRecordsFromTyped(
++		const std::vector<OverlapTypedRecord>& typedRecords)
++	{
++		std::vector<OverlapDumpRecord> records;
++		records.reserve(typedRecords.size());
++		for (const auto& record : typedRecords)
++		{
++			records.push_back(overlapTypedRecordToDumpRecord(record));
++		}
++		std::sort(records.begin(), records.end());
++		return records;
++	}
++
+ 	OverlapWorkerValidationResult validateOverlapWorkerOutputs(
+ 		const std::vector<std::string>& fixtures,
+ 		const std::string& batchOutputDir)
+@@ -1133,6 +1317,202 @@
+ 		writeTextFile(path, json.str());
+ 	}
+ 
++	void addRehydrationCheck(OverlapWorkerRehydrationResult& rehydration,
++							 const std::string& name,
++							 bool passed,
++							 const std::string& detail)
++	{
++		OverlapWorkerRehydrationCheck check;
++		check.name = name;
++		check.required = true;
++		check.passed = passed;
++		check.detail = detail;
++		rehydration.checks.push_back(check);
++	}
++
++	bool allRehydrationChecksPassed(
++		const OverlapWorkerRehydrationResult& rehydration)
++	{
++		for (const auto& check : rehydration.checks)
++		{
++			if (check.required && !check.passed) return false;
++		}
++		return !rehydration.checks.empty();
++	}
++
++	void markRehydrationFailed(OverlapWorkerRehydrationResult& rehydration)
++	{
++		rehydration.status = "failed";
++		rehydration.state = "failed-closed";
++		rehydration.decision = "failed-closed-before-graph-mutation";
++		rehydration.eligible = false;
++		rehydration.consumed = false;
++		rehydration.notConsumed = false;
++		rehydration.failedClosed = true;
++	}
++
++	OverlapWorkerRehydrationResult compareOverlapWorkerRehydrationOutputs(
++		const std::vector<std::string>& fixtures,
++		const std::string& batchOutputDir,
++		const OverlapWorkerValidationResult& validation,
++		const OverlapWorkerShadowResult& shadow,
++		const OverlapWorkerGraphGuardResult& graphGuard,
++		const std::string& rehydrationJson)
++	{
++		OverlapWorkerRehydrationResult result;
++		result.mode = overlapWorkerRehydrationMode();
++		result.proofFault = overlapWorkerRehydrationProofFault();
++		if (!overlapWorkerRehydrationEnabled()) return result;
++
++		markRehydrationFailed(result);
++		addRehydrationCheck(result, "explicit_rehydration_mode",
++							result.mode == "typed-overlap-v0",
++							"CUFLYE_OVERLAP_REHYDRATION_MODE=typed-overlap-v0");
++		addRehydrationCheck(result, "graph_guard_passed",
++							graphGuard.status == "passed" && graphGuard.eligible,
++							"M4o graph-consumption guard must be eligible");
++		addRehydrationCheck(result, "validation_passed",
++							validation.status == "passed" &&
++								validation.consumptionEligible,
++							"worker output validation must pass");
++		addRehydrationCheck(result, "shadow_passed",
++							shadow.status == "passed" &&
++								shadow.shadowConsumptionEligible,
++							"in-memory shadow comparison must pass");
++		addRehydrationCheck(result, "fixture_count_matches_request",
++							fixtures.size() == overlapReplayMaxFixtures(),
++							"captured fixture count must match request");
++		addRehydrationCheck(result, "audit_metadata_available",
++							!rehydrationJson.empty(),
++							"rehydration audit JSON path must be available");
++
++		if (!allRehydrationChecksPassed(result)) return result;
++
++		result.status = "passed";
++		result.state = "not-consumed";
++		result.decision = "typed-vector-match-not-consumed";
++		result.eligible = true;
++		result.notConsumed = true;
++		result.failedClosed = false;
++
++		auto& cpuRecordsByFixture = overlapReplayCapturedCpuRecords();
++		for (const auto& fixtureDir : fixtures)
++		{
++			OverlapWorkerFixtureRehydration fixture;
++			fixture.fixtureDir = fixtureDir;
++			fixture.fixtureName = pathBasename(fixtureDir);
++			fixture.workerPath = joinPath(joinPath(batchOutputDir, fixture.fixtureName),
++										  "overlaps.tsv");
++			try
++			{
++				auto cpuIt = cpuRecordsByFixture.find(fixtureDir);
++				if (cpuIt == cpuRecordsByFixture.end())
++				{
++					throw std::runtime_error(
++						"missing captured CPU overlap records for fixture");
++				}
++				fixture.cpuRecords = cpuIt->second.size();
++				auto workerRecords = readCanonicalOverlapDump(fixture.workerPath);
++				fixture.workerRecords = workerRecords.size();
++				if (result.proofFault == "drop-first-worker-record" &&
++					!workerRecords.empty())
++				{
++					workerRecords.erase(workerRecords.begin());
++					fixture.proofFaultApplied = true;
++				}
++				auto typedRecords = rehydrateTypedOverlapRecords(workerRecords,
++																fixture.workerPath);
++				fixture.rehydratedRecords = typedRecords.size();
++				auto rehydratedRecords = canonicalOverlapRecordsFromTyped(typedRecords);
++				if (cpuIt->second == rehydratedRecords)
++				{
++					fixture.status = "passed";
++					fixture.typedVectorStatus = "match";
++				}
++				else
++				{
++					fixture.status = "failed";
++					fixture.typedVectorStatus = "mismatch";
++					fixture.error =
++						"rehydrated typed overlap vector differs from captured CPU records";
++					markRehydrationFailed(result);
++				}
++			}
++			catch (const std::exception& exc)
++			{
++				fixture.status = "failed";
++				fixture.error = exc.what();
++				markRehydrationFailed(result);
++			}
++			result.fixtures.push_back(fixture);
++		}
++
++		if (result.fixtures.empty()) markRehydrationFailed(result);
++		return result;
++	}
++
++	void writeOverlapWorkerRehydrationJson(
++		const std::string& path,
++		const OverlapWorkerRehydrationResult& rehydration)
++	{
++		std::ostringstream json;
++		json << "{\n"
++			 << "  \"schema\": \"cuflye-overlap-rehydration-dry-run-v0\",\n"
++			 << "  \"status\": \"" << jsonEscape(rehydration.status) << "\",\n"
++			 << "  \"mode\": \"" << jsonEscape(rehydration.mode) << "\",\n"
++			 << "  \"typed_representation\": \"typed-overlap-v0\",\n"
++			 << "  \"proof_fault\": \"" << jsonEscape(rehydration.proofFault) << "\",\n"
++			 << "  \"state\": \"" << jsonEscape(rehydration.state) << "\",\n"
++			 << "  \"decision\": \"" << jsonEscape(rehydration.decision) << "\",\n"
++			 << "  \"eligible\": " << boolJson(rehydration.eligible) << ",\n"
++			 << "  \"consumed\": " << boolJson(rehydration.consumed) << ",\n"
++			 << "  \"not_consumed\": " << boolJson(rehydration.notConsumed) << ",\n"
++			 << "  \"failed_closed\": " << boolJson(rehydration.failedClosed) << ",\n"
++			 << "  \"graph_mutation_consumed_worker_output\": false,\n"
++			 << "  \"checks\": [\n";
++		for (size_t i = 0; i < rehydration.checks.size(); ++i)
++		{
++			const auto& check = rehydration.checks[i];
++			json << "    {\n"
++				 << "      \"name\": \"" << jsonEscape(check.name) << "\",\n"
++				 << "      \"required\": " << boolJson(check.required) << ",\n"
++				 << "      \"passed\": " << boolJson(check.passed) << ",\n"
++				 << "      \"detail\": \"" << jsonEscape(check.detail) << "\"\n"
++				 << "    }" << (i + 1 == rehydration.checks.size() ? "\n" : ",\n");
++		}
++		json << "  ],\n"
++			 << "  \"fixture_count\": " << rehydration.fixtures.size() << ",\n"
++			 << "  \"fixtures\": [\n";
++		for (size_t i = 0; i < rehydration.fixtures.size(); ++i)
++		{
++			const auto& fixture = rehydration.fixtures[i];
++			json << "    {\n"
++				 << "      \"fixture_dir\": \"" << jsonEscape(fixture.fixtureDir) << "\",\n"
++				 << "      \"fixture_name\": \"" << jsonEscape(fixture.fixtureName) << "\",\n"
++				 << "      \"worker_path\": \"" << jsonEscape(fixture.workerPath) << "\",\n"
++				 << "      \"status\": \"" << jsonEscape(fixture.status) << "\",\n"
++				 << "      \"typed_vector_status\": \""
++				 << jsonEscape(fixture.typedVectorStatus) << "\",\n"
++				 << "      \"proof_fault_applied\": "
++				 << boolJson(fixture.proofFaultApplied) << ",\n"
++				 << "      \"cpu_records\": " << fixture.cpuRecords << ",\n"
++				 << "      \"worker_records\": " << fixture.workerRecords << ",\n"
++				 << "      \"rehydrated_records\": " << fixture.rehydratedRecords;
++			if (!fixture.error.empty())
++			{
++				json << ",\n      \"error\": \"" << jsonEscape(fixture.error) << "\"\n";
++			}
++			else
++			{
++				json << "\n";
++			}
++			json << "    }" << (i + 1 == rehydration.fixtures.size() ? "\n" : ",\n");
++		}
++		json << "  ]\n"
++			 << "}\n";
++		writeTextFile(path, json.str());
++	}
++
+ 	void writeOverlapWorkerRequestJson(const std::string& path,
+ 									   const std::string& requestId,
+ 									   const std::string& fixtureList,
+@@ -1197,6 +1577,8 @@
+ 									   bool shadowConsumptionEligible,
+ 									   const std::string& graphGuardJson,
+ 									   const OverlapWorkerGraphGuardResult& graphGuard,
++									   const std::string& rehydrationJson,
++									   const OverlapWorkerRehydrationResult& rehydration,
+ 									   const std::string& status,
+ 									   const std::string& batchJson,
+ 									   const std::string& batchOutputDir,
+@@ -1239,6 +1621,18 @@
+ 			 << jsonEscape(graphGuard.decision) << "\",\n"
+ 			 << "  \"graph_consumption_eligible\": "
+ 			 << boolJson(graphGuard.eligible) << ",\n"
++			 << "  \"overlap_rehydration_mode\": \""
++			 << jsonEscape(overlapWorkerRehydrationMode()) << "\",\n"
++			 << "  \"overlap_rehydration_json\": \""
++			 << jsonEscape(rehydrationJson) << "\",\n"
++			 << "  \"overlap_rehydration_status\": \""
++			 << jsonEscape(rehydration.status) << "\",\n"
++			 << "  \"overlap_rehydration_state\": \""
++			 << jsonEscape(rehydration.state) << "\",\n"
++			 << "  \"overlap_rehydration_decision\": \""
++			 << jsonEscape(rehydration.decision) << "\",\n"
++			 << "  \"overlap_rehydration_eligible\": "
++			 << boolJson(rehydration.eligible) << ",\n"
+ 			 << "  \"batch_json_output\": \"" << jsonEscape(batchJson) << "\",\n"
+ 			 << "  \"batch_output_dir\": \"" << jsonEscape(batchOutputDir) << "\",\n"
+ 			 << "  \"graph_mutation_consumed_worker_output\": false\n"
+@@ -1271,6 +1665,7 @@
+ 		std::string shadowJson = joinPath(outputRoot, "worker-shadow.json");
+ 		std::string graphGuardJson = joinPath(outputRoot,
+ 											  "worker-graph-consumption-guard.json");
++		std::string rehydrationJson = joinPath(outputRoot, "worker-rehydration.json");
+ 		std::string stdoutLog = joinPath(outputRoot, "worker-stdout.log");
+ 		std::string stderrLog = joinPath(outputRoot, "worker-stderr.log");
+ 		std::string seamSummary = joinPath(outputRoot, "seam-summary.json");
+@@ -1297,6 +1692,7 @@
+ 		auto validation = validateOverlapWorkerOutputs(fixtures, batchOutputDir);
+ 		writeOverlapWorkerValidationJson(validationJson, validation);
+ 		OverlapWorkerShadowResult shadow;
++		OverlapWorkerRehydrationResult rehydration;
+ 		if (!validation.consumptionEligible)
+ 		{
+ 			auto graphGuard = evaluateOverlapWorkerGraphGuard(validation, shadow,
+@@ -1309,7 +1705,7 @@
+ 			writeOverlapWorkerSeamSummary(
+ 				seamSummary, requestJson, responseJson, fixtureList, queryIdsFile,
+ 				validationJson, validation.status, false, shadowJson, "not-run", false,
+-				graphGuardJson, graphGuard,
++				graphGuardJson, graphGuard, rehydrationJson, rehydration,
+ 				"validation-failed-before-graph-mutation", batchJson, batchOutputDir,
+ 				fixtures.size());
+ 			throw std::runtime_error(
+@@ -1330,13 +1726,13 @@
+ 				if (overlapWorkerGraphConsumptionDryRunEnabled())
+ 				{
+ 					writeOverlapWorkerGraphGuardJson(graphGuardJson, graphGuard);
+-				}
+-				writeOverlapWorkerSeamSummary(
+-					seamSummary, requestJson, responseJson, fixtureList, queryIdsFile,
+-					validationJson, validation.status, true, shadowJson, shadow.status,
+-					false, graphGuardJson, graphGuard,
+-					"shadow-failed-before-graph-mutation", batchJson,
+-					batchOutputDir, fixtures.size());
++					}
++					writeOverlapWorkerSeamSummary(
++						seamSummary, requestJson, responseJson, fixtureList, queryIdsFile,
++						validationJson, validation.status, true, shadowJson, shadow.status,
++						false, graphGuardJson, graphGuard, rehydrationJson, rehydration,
++						"shadow-failed-before-graph-mutation", batchJson,
++						batchOutputDir, fixtures.size());
+ 				throw std::runtime_error(
+ 					"cuFlye overlap worker seam fail-closed; shadow consumption "
+ 					"comparison failed; shadow_json=" + shadowJson +
+@@ -1351,17 +1747,39 @@
+ 		{
+ 			writeOverlapWorkerGraphGuardJson(graphGuardJson, graphGuard);
+ 			if (graphGuard.failedClosed)
++				{
++					writeOverlapWorkerSeamSummary(
++						seamSummary, requestJson, responseJson, fixtureList, queryIdsFile,
++						validationJson, validation.status, true, shadowJson, shadow.status,
++						shadow.shadowConsumptionEligible, graphGuardJson, graphGuard,
++						rehydrationJson, rehydration,
++						"guard-failed-before-graph-mutation", batchJson, batchOutputDir,
++						fixtures.size());
++				throw std::runtime_error(
++					"cuFlye overlap worker seam fail-closed; graph consumption guard "
++					"precondition failed; guard_json=" + graphGuardJson +
++					"; seam_summary=" + seamSummary);
++			}
++		}
++		if (overlapWorkerRehydrationEnabled())
++		{
++			rehydration = compareOverlapWorkerRehydrationOutputs(
++				fixtures, batchOutputDir, validation, shadow, graphGuard,
++				rehydrationJson);
++			writeOverlapWorkerRehydrationJson(rehydrationJson, rehydration);
++			if (rehydration.failedClosed)
+ 			{
+ 				writeOverlapWorkerSeamSummary(
+ 					seamSummary, requestJson, responseJson, fixtureList, queryIdsFile,
+ 					validationJson, validation.status, true, shadowJson, shadow.status,
+ 					shadow.shadowConsumptionEligible, graphGuardJson, graphGuard,
+-					"guard-failed-before-graph-mutation", batchJson, batchOutputDir,
+-					fixtures.size());
++					rehydrationJson, rehydration,
++					"rehydration-failed-before-graph-mutation", batchJson,
++					batchOutputDir, fixtures.size());
+ 				throw std::runtime_error(
+-					"cuFlye overlap worker seam fail-closed; graph consumption guard "
+-					"precondition failed; guard_json=" + graphGuardJson +
+-					"; seam_summary=" + seamSummary);
++					"cuFlye overlap worker seam fail-closed; typed overlap "
++					"rehydration dry-run failed; rehydration_json=" +
++					rehydrationJson + "; seam_summary=" + seamSummary);
+ 			}
+ 		}
+ 		writeOverlapWorkerSeamSummary(seamSummary, requestJson, responseJson,
+@@ -1369,6 +1787,7 @@
+ 									  validation.status, true, shadowJson, shadow.status,
+ 									  shadow.shadowConsumptionEligible,
+ 									  graphGuardJson, graphGuard,
++									  rehydrationJson, rehydration,
+ 									  "stopped-before-graph-mutation", batchJson, batchOutputDir,
+ 									  fixtures.size());
+ 		throw std::runtime_error(
