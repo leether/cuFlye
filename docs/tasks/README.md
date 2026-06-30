@@ -15,6 +15,10 @@ Proposed cards:
 
 Completed cards:
 
+- `2026-07-01-cuflye-m4z-validation-safe-selection-planner.md`:
+  rank validation-safe GPU-first query allowlists, reject known validation
+  failures such as query `798`, and compare serial versus parallel-reduce
+  worker timing on the accepted M4y fixture batch.
 - `2026-07-01-cuflye-m4y-sparse-gpu-first-selection-audit-sampling.md`:
   reduce GPU-first proof overhead with selected-only substitution ledger output,
   use a bounded 7-query GPU-first selection set, preserve exact toy-raw

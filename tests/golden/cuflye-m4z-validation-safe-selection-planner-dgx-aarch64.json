@@ -1,0 +1,110 @@
+{
+  "acceptance": {
+    "dgx_parallel_reduce_worker_outputs_match_oracle": true,
+    "dgx_planner_rejects_query_798": true,
+    "dgx_planner_selected_m4y_safe_set": true,
+    "dgx_serial_worker_outputs_match_oracle": true,
+    "local_fixture_rejects_validation_failure": true,
+    "local_fixture_selects_ranked_safe_queries": true,
+    "planner_output_json_parseable": true,
+    "whole_flye_speedup_claimed": false
+  },
+  "benefit_assessment_plain_language": "M4z does not make Flye faster by itself. Its benefit is governance: the GPU-first allowlist is now derived from ledger and validation evidence, so known unsafe candidates such as query 798 are rejected before another Flye proof run. On the accepted 7-query batch, both CUDA worker modes preserved exact overlap output, but parallel-reduce was slower than serial for this small shape.",
+  "claims": {
+    "allowed": "cuFlye can derive a validation-safe GPU-first overlap query allowlist from ledger and validation evidence, reject known mismatches such as query 798, and verify serial versus parallel-reduce worker modes before choosing the faster safe mode.",
+    "forbidden": "M4z does not prove default GPU mode, broad unsupported-shape substitution, parallel-reduce superiority, or end-to-end Flye speedup."
+  },
+  "created_at_utc": "2026-06-30T17:51:00Z",
+  "dgx_proof": {
+    "planner_combined_output": "/tmp/cuflye-m4y-proof-20260630T212731Z/out/m4z/dgx-planner-combined-m4y.json",
+    "proof_dir": "/tmp/cuflye-m4y-proof-20260630T212731Z",
+    "worker_kernel_compare_output": "/tmp/cuflye-m4y-proof-20260630T212731Z/out/m4z/dgx-worker-kernel-compare.json"
+  },
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "nvidia_smi": "NVIDIA GB10, GPU-36e1e91e-fa5c-6e0d-d076-203391a7bb03",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+    "python": "3.12.3"
+  },
+  "local_fixture": {
+    "expected_rejected_query_ids": [
+      202
+    ],
+    "expected_selected_query_ids": [
+      101,
+      303
+    ],
+    "ledger_jsonl": "tests/fixtures/gpu-first-selection-planner-v0/ledger.jsonl",
+    "output": "out/m4z/local-planner-test.json",
+    "validation_json": "tests/fixtures/gpu-first-selection-planner-v0/validation.json"
+  },
+  "milestone": "M4z",
+  "planner": {
+    "combined_ledger_inputs": [
+      "/tmp/cuflye-m4y-proof-20260630T212731Z/out/m4y/runs/m4y-positive-serial/seam/worker-vector-substitution-ledger.jsonl",
+      "/tmp/cuflye-m4y-proof-20260630T212731Z/out/m4y/runs/m4y-positive7/seam/worker-vector-substitution-ledger.jsonl"
+    ],
+    "limit": 8,
+    "min_observations": 1,
+    "rejected_query_ids": [
+      {
+        "canonical_diff_status": "mismatch",
+        "error": "worker output canonical records differ from oracle",
+        "oracle_records": 49,
+        "query_id": 798,
+        "reason": "validation_failed",
+        "status": "failed",
+        "worker_records": 48
+      }
+    ],
+    "selected_query_ids": [
+      161,
+      89,
+      554,
+      752,
+      112,
+      896,
+      110
+    ],
+    "selected_query_ids_csv": "161,89,554,752,112,896,110",
+    "validation_input": "/tmp/cuflye-m4y-proof-20260630T212731Z/out/m4y/runs/m4y-positive-serial/seam/worker-validation.json"
+  },
+  "repo": {
+    "base_commit": "f2b4b6c4e9fd72c7460ae6287132c6af46f1c3ef",
+    "remote": "https://github.com/leether/cuFlye"
+  },
+  "verification": {
+    "dgx_worker_kernel_compare_json_valid": true,
+    "local_py_compile_plan_gpu_first_selection": true,
+    "local_python_fixture_assertions_passed": true
+  },
+  "worker_kernel_compare": {
+    "benchmark_runs": 10,
+    "comparison": {
+      "backend_mean_parallel_minus_serial_ms": 0.4195169999999999,
+      "backend_mean_parallel_over_serial": 1.0617987707330525,
+      "kernel_parallel_minus_serial_ms": 0.41515399999999936,
+      "kernel_parallel_over_serial": 1.0616372135229688,
+      "request_total_parallel_minus_serial_ms": 1.5079220000000078
+    },
+    "fixture_count": 7,
+    "output_records": 237,
+    "parallel_reduce": {
+      "backend_mean_total_before_write_ms": 7.207953,
+      "fixture_diffs_match": true,
+      "kernel_ms": 7.150598,
+      "request_total_ms": 90.571207,
+      "status": "passed"
+    },
+    "serial": {
+      "backend_mean_total_before_write_ms": 6.788436,
+      "fixture_diffs_match": true,
+      "kernel_ms": 6.735444,
+      "request_total_ms": 89.063285,
+      "status": "passed"
+    },
+    "warmup_runs": 1,
+    "winner": "serial"
+  }
+}

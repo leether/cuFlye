@@ -955,3 +955,67 @@ GPU-first selection planner and compare serial versus parallel-reduce worker
 kernels, so the next proof can increase accepted cache hits without hand-picking
 unsafe query ids like 798.
 ```
+
+Completed.
+
+M4z adds a deterministic planner for GPU-first overlap query selection. It reads
+substitution ledger JSONL plus worker-validation JSON, ranks repeated supported
+query ids by later CPU-overlap cost, and treats validation failures as hard
+rejections.
+
+The DGX planner proof combined M4y's failed 8-query evidence with the successful
+7-query positive proof. It rejected query `798` because validation had already
+shown a canonical mismatch:
+
+```text
+query_798 oracle_records=49 worker_records=48 canonical_diff_status=mismatch
+```
+
+It emitted this validation-safe allowlist:
+
+```text
+161,89,554,752,112,896,110
+```
+
+The accepted 7-query batch was then replayed directly through the overlap
+worker with `warmup_runs=1` and `benchmark_runs=10`. Both CUDA worker kernel
+modes produced `237` total overlap records and canonical-diffed `match` against
+all 7 fixture CPU oracles.
+
+The worker timing comparison was:
+
+```text
+serial kernel_ms=6.735444 backend_mean_ms=6.788436 request_total_ms=89.063285
+parallel-reduce kernel_ms=7.150598 backend_mean_ms=7.207953 request_total_ms=90.571207
+parallel/serial kernel ratio=1.061637
+```
+
+M4z improves selection governance, not whole-Flye speed. It prevents unsafe
+manual allowlists from admitting known mismatches, and it shows that
+`parallel-reduce` is not the better kernel for the current small M4y fixture
+batch. The serial packed worker remains the preferred mode for the next
+GPU-first proof.
+
+Allowed M4z claim:
+
+```text
+cuFlye can derive a validation-safe GPU-first overlap query allowlist from
+ledger and validation evidence, reject known mismatches such as query 798, and
+verify both serial and parallel-reduce worker modes before choosing the faster
+safe mode for the next proof.
+```
+
+Forbidden M4z claim:
+
+```text
+M4z does not prove default GPU mode, broad unsupported-shape substitution,
+parallel-reduce superiority, or end-to-end Flye speedup.
+```
+
+Next highest-ROI task:
+
+```text
+M5a: start the read-to-graph alignment oracle by locating Flye's
+ReadAligner::alignReads contract, defining a compact alignment-record ABI, and
+dumping CPU oracle records before any CUDA read-to-graph acceleration.
+```

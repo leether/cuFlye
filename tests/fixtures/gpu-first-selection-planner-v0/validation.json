@@ -1,0 +1,27 @@
+{
+  "schema": "cuflye-overlap-worker-validation-v0",
+  "fixtures": [
+    {
+      "fixture_name": "query_101",
+      "status": "passed",
+      "canonical_diff_status": "match",
+      "oracle_records": 11,
+      "worker_records": 11
+    },
+    {
+      "fixture_name": "query_202",
+      "status": "failed",
+      "canonical_diff_status": "mismatch",
+      "oracle_records": 9,
+      "worker_records": 8,
+      "error": "worker output canonical records differ from oracle"
+    },
+    {
+      "fixture_name": "query_303",
+      "status": "passed",
+      "canonical_diff_status": "match",
+      "oracle_records": 5,
+      "worker_records": 5
+    }
+  ]
+}
