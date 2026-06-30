@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4r Verified Overlap Vector Substitution Smoke
 
-Status: in_progress
+Status: completed
 
 Created: 2026-07-01
 
@@ -49,18 +49,18 @@ test, not a production GPU mode and not a speed claim.
 
 ## Acceptance Gates
 
-- Substitution smoke mode is documented and disabled by default.
-- M4q object rehydration success is mandatory before substitution can be
+- [x] Substitution smoke mode is documented and disabled by default.
+- [x] M4q object rehydration success is mandatory before substitution can be
   considered.
-- Unsupported shape, missing object proof, or mismatch fails closed.
-- Positive smoke records the verified object vector as the selected overlap
+- [x] Unsupported shape, missing object proof, or mismatch fails closed.
+- [x] Positive smoke records the verified object vector as the selected overlap
   source only after exact CPU comparison.
-- Default CPU Flye fixture output remains unchanged.
-- Canonical graph/output artifacts are unchanged when substitution is accepted,
+- [x] Default CPU Flye fixture output remains unchanged.
+- [x] Canonical graph/output artifacts are unchanged when substitution is accepted,
   or the run stops before graph mutation when it is rejected.
-- Audit metadata records selected query ids, consumed state, failed-closed
+- [x] Audit metadata records selected query ids, consumed state, failed-closed
   state, and graph mutation status.
-- Local and DGX syntax/style/ownership gates pass.
+- [x] Local and DGX syntax/style/ownership gates pass.
 
 ## C++ Style Constraints
 
@@ -72,7 +72,47 @@ test, not a production GPU mode and not a speed claim.
 
 ## Deliverables
 
-- Substitution smoke ABI/design documentation.
-- Flye seam patch for verified overlap-vector substitution.
-- DGX proof manifest for positive and negative substitution smoke runs.
-- Roadmap, Task Card, golden index, and plain-language benefit assessment.
+- [x] Substitution smoke ABI/design documentation.
+- [x] Flye seam patch for verified overlap-vector substitution.
+- [x] DGX proof manifest for positive and negative substitution smoke runs.
+- [x] Roadmap, Task Card, golden index, and plain-language benefit assessment.
+
+## Completion Notes
+
+Implementation commit: `a5139802951e3f752d56429195e8ec51e29ea020`
+
+DGX proof:
+`tests/golden/cuflye-m4r-verified-overlap-vector-substitution-smoke-dgx-aarch64.json`
+
+The positive proof ran toy-raw with
+`CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE=verified-overlap-range-v0`,
+selected query `353`, and consumed the verified worker-derived
+`OverlapRange` vector:
+
+- validation, shadow comparison, graph guard, typed rehydration, and object
+  rehydration all passed.
+- `worker-vector-substitution.json` recorded `status=passed`,
+  `state=consumed`, `cpu_records=8`, `worker_records=8`,
+  `object_records=8`, and
+  `graph_facing_returned_worker_output=true`.
+- `worker-vector-substitution.consumed` was written as a durable one-shot
+  sentinel, so later Flye subprocesses did not re-invoke the worker or
+  overwrite `worker-response.json`.
+- canonical Flye artifacts matched the CPU toy-raw run.
+
+The negative proof injected
+`CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_PROOF_FAULT=drop-first-substitution-overlap`.
+Validation, shadow comparison, graph guard, typed rehydration, and object
+rehydration still passed, but substitution detected the object-vector mismatch
+and failed closed before returning worker output:
+
+- `worker-vector-substitution.json` recorded `status=failed`,
+  `state=failed-closed`, `consumed=false`, and
+  `graph_facing_returned_worker_output=false`.
+- `seam-summary.json` recorded
+  `status=substitution-failed-before-graph-mutation`.
+
+Plain-language CUDA benefit: M4r still does not prove Flye is faster. It proves
+the first graph-facing boundary can be crossed safely for one supported query:
+CUDA-worker overlap output became the vector returned to Flye, the final graph
+artifacts stayed unchanged, and a mismatch still stopped before graph mutation.

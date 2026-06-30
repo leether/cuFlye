@@ -1,6 +1,6 @@
 # Verified Overlap Vector Substitution Smoke v0
 
-Status: proposed for M4r
+Status: accepted in M4r
 
 Introduced: M4r
 

@@ -7,17 +7,21 @@ change is considered complete.
 
 Active cards:
 
-- `2026-07-01-cuflye-m4r-verified-overlap-vector-substitution-smoke.md`:
-  use a verified `OverlapRange` object vector as an opt-in graph-facing
-  substitution smoke while still requiring exact CPU comparison and fail-closed
-  behavior.
+- None.
 
 Proposed cards:
 
-- None. M4r is in progress.
+- `2026-07-01-cuflye-m4s-substitution-supported-shape-expansion.md`:
+  expand verified graph-facing substitution from one selected query to a
+  deterministic supported-shape session ledger, while keeping unsupported
+  shapes explicit and fail-closed.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m4r-verified-overlap-vector-substitution-smoke.md`:
+  return a verified `OverlapRange` object vector as an opt-in graph-facing
+  substitution smoke for one selected query, with unchanged canonical Flye
+  artifacts and negative fail-closed proof.
 - `2026-07-01-cuflye-m4q-overlap-range-object-rehydration-dry-run.md`:
   convert validated typed overlap records into actual Flye `OverlapRange`
   objects in a no-mutation dry-run before graph consumption is enabled.

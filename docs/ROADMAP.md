@@ -502,4 +502,41 @@ M4r: use the verified `OverlapRange` object vector as an opt-in graph-facing
 substitution smoke for selected fixtures, still guarded by exact CPU comparison
 and fail-closed behavior, then prove graph artifacts stay unchanged or the run
 stops before mutation.
+Completed.
+```
+
+M4r proof on DGX selected toy-raw query `353` as the first graph-facing
+substitution smoke. The positive run passed validation, shadow comparison,
+graph guard, typed rehydration, object rehydration, and exact CPU comparison,
+then returned the worker-derived `OverlapRange` vector to Flye. Canonical graph
+and assembly artifacts matched the CPU toy-raw run. A durable
+`worker-vector-substitution.consumed` sentinel kept later Flye subprocesses
+from re-invoking the worker and overwriting the accepted proof.
+
+The negative proof injected `drop-first-substitution-overlap`; all upstream
+checks still passed, but substitution detected the object-vector mismatch and
+failed closed before returning worker output.
+
+Allowed M4r claim:
+
+```text
+cuFlye can return a verified CUDA-worker-derived Flye `OverlapRange` vector for
+one selected supported overlap query, preserve canonical Flye graph artifacts,
+and fail closed on a forced substitution mismatch.
+```
+
+Forbidden M4r claim:
+
+```text
+M4r does not prove default GPU mode, unsupported-shape substitution, or
+end-to-end Flye speedup.
+```
+
+Next highest-ROI task:
+
+```text
+M4s: expand verified graph-facing substitution from one selected query to a
+deterministic supported-shape session ledger. Every query/shape decision should
+be recorded as substituted, skipped, or failed-closed, and positive artifacts
+must still match CPU.
 ```
