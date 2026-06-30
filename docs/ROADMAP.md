@@ -62,6 +62,10 @@ Completed:
 - M1j: CUDA candidate equality-scan core is faster than CPU on DGX:
   268,435,456 pair comparisons, matched count 65,536, CUDA total best
   1.272772 ms vs CPU best 68.864532 ms, 54.105945x total speedup.
+- M2a: Flye's CUDA candidate backend selector now reaches a real external
+  packed adapter shell, invokes CUDA on a bounded fixture, validates
+  candidate-record-v1 output, and fails closed for unsupported real Flye
+  shapes.
 
 Current allowed performance claim:
 
@@ -239,9 +243,10 @@ Use precise milestone labels:
 Next highest-ROI task:
 
 ```text
-M2a: turn the CUDA candidate backend stub into a real adapter shell that can
-accept packed toy read/index data, invoke a CUDA candidate backend for supported
-small fixtures, and still fail closed for unsupported real Flye shapes.
+M2b: define and implement the first real Flye data packer boundary: extract
+bounded query read windows and flattened `VertexIndex` buckets from Flye data
+structures into a candidate-backend input buffer without changing CPU
+candidate semantics.
 ```
 
 Acceptance should remain candidate-list equivalence, not full assembly speed.

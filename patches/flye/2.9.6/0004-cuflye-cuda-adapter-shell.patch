@@ -1,0 +1,293 @@
+diff --git a/src/sequence/overlap.cpp b/src/sequence/overlap.cpp
+index ada2ae2..36a3f34 100644
+--- a/src/sequence/overlap.cpp
++++ b/src/sequence/overlap.cpp
+@@ -14,10 +14,13 @@
+ #include <ctime>
+ #include <cstring>
+ #include <cstdlib>
++#include <cstdio>
+ #include <fstream>
+ #include <iomanip>
++#include <map>
+ #include <mutex>
+ #include <numeric>
++#include <sstream>
+ #include <string>
+ 
+ #include "overlap.h"
+@@ -144,16 +147,216 @@ namespace
+ 		return value;
+ 	}
+ 
+-	void collectCandidateMatchesCudaStub()
++	const char* cudaEnvRequired(const char* name)
+ 	{
++		const char* value = std::getenv(name);
++		if (!value || !value[0])
++		{
++			throw std::runtime_error(std::string(
++				"cuFlye CUDA candidate backend selected; adapter=external-packed-v0; "
++				"missing required environment variable ") + name);
++		}
++		return value;
++	}
++
++	std::string joinPath(const std::string& root, const std::string& leaf)
++	{
++		if (root.empty()) return leaf;
++		if (root[root.size() - 1] == '/') return root + leaf;
++		return root + "/" + leaf;
++	}
++
++	void ensureReadableFile(const std::string& path, const std::string& label)
++	{
++		std::ifstream input(path);
++		if (!input)
++		{
++			throw std::runtime_error("cuFlye CUDA adapter cannot read " + label +
++									 ": " + path);
++		}
++	}
++
++	std::string shellQuote(const std::string& value)
++	{
++		std::string quoted = "'";
++		for (char ch : value)
++		{
++			if (ch == '\'') quoted += "'\\''";
++			else quoted += ch;
++		}
++		quoted += "'";
++		return quoted;
++	}
++
++	std::vector<std::string> splitTabLine(const std::string& line)
++	{
++		std::vector<std::string> fields;
++		std::string field;
++		std::stringstream stream(line);
++		while (std::getline(stream, field, '\t')) fields.push_back(field);
++		return fields;
++	}
++
++	FastaRecord::Id fastaIdFromSigned(int64_t signedId)
++	{
++		if (signedId > 0)
++		{
++			return FastaRecord::Id(static_cast<uint32_t>((signedId - 1) * 2));
++		}
++		if (signedId < 0)
++		{
++			return FastaRecord::Id(static_cast<uint32_t>((-signedId) * 2 - 1));
++		}
++		throw std::runtime_error("candidate-record-v1 id must not be zero");
++	}
++
++	struct PackedCudaCandidateRecord
++	{
++		int64_t queryId;
++		int32_t queryPos;
++		size_t kmerRepr;
++		FastaRecord::Id targetId;
++		int32_t targetPos;
++	};
++
++	struct PackedCudaFixture
++	{
++		bool loaded = false;
++		std::map<int64_t, std::string> readSequences;
++		std::vector<PackedCudaCandidateRecord> records;
++		std::string outputTsv;
++		std::string jsonOutput;
++	};
++
++	std::mutex& cudaAdapterMutex()
++	{
++		static std::mutex adapterMutex;
++		return adapterMutex;
++	}
++
++	PackedCudaFixture& packedCudaFixtureCache()
++	{
++		static PackedCudaFixture fixture;
++		return fixture;
++	}
++
++	void loadPackedCudaFixture(PackedCudaFixture& fixture)
++	{
++		if (fixture.loaded) return;
++
++		std::string mode = cudaEnvOrDefault("CUFLYE_CUDA_ADAPTER_MODE", "");
++		if (mode != "external-packed-v0")
++		{
++			throw std::runtime_error(
++				std::string("cuFlye CUDA candidate backend selected; adapter=external-packed-v0; ") +
++				"unsupported real Flye shape: set CUFLYE_CUDA_ADAPTER_MODE=external-packed-v0 "
++				"with packed toy fixture inputs to enable this M2a adapter shell");
++		}
++
++		std::string backendBin = cudaEnvRequired("CUFLYE_CUDA_BACKEND_BIN");
++		std::string fixtureDir = cudaEnvRequired("CUFLYE_CUDA_PACKED_FIXTURE_DIR");
++		std::string outputTsv = cudaEnvRequired("CUFLYE_CUDA_ADAPTER_OUTPUT_TSV");
++		std::string defaultJsonOutput = outputTsv + ".json";
++		std::string jsonOutput =
++			cudaEnvOrDefault("CUFLYE_CUDA_ADAPTER_JSON", defaultJsonOutput.c_str());
+ 		std::string device = cudaEnvOrDefault("CUFLYE_CUDA_DEVICE", "0");
+ 		std::string memoryBudget =
+-			cudaEnvOrDefault("CUFLYE_CUDA_MEMORY_BUDGET_BYTES", "unbounded");
+-		throw std::runtime_error(
+-			std::string("cuFlye CUDA candidate backend selected; adapter=stub; ") +
+-			"CUFLYE_CUDA_DEVICE=" + device + "; " +
+-			"CUFLYE_CUDA_MEMORY_BUDGET_BYTES=" + memoryBudget + "; " +
+-			"CUDA candidate kernel is not implemented yet");
++			cudaEnvOrDefault("CUFLYE_CUDA_MEMORY_BUDGET_BYTES", "");
++		std::string defaultKmerSize = std::to_string(Parameters::get().kmerSize);
++		std::string kmerSize =
++			cudaEnvOrDefault("CUFLYE_CUDA_PACKED_KMER_SIZE",
++							 defaultKmerSize.c_str());
++
++		std::string readsTsv = joinPath(fixtureDir, "reads.tsv");
++		std::string indexTsv = joinPath(fixtureDir, "index.tsv");
++		std::string repetitiveTsv = joinPath(fixtureDir, "repetitive-kmers.tsv");
++		ensureReadableFile(backendBin, "backend binary");
++		ensureReadableFile(readsTsv, "packed reads TSV");
++		ensureReadableFile(indexTsv, "packed index TSV");
++		ensureReadableFile(repetitiveTsv, "packed repetitive-kmers TSV");
++
++		std::remove(outputTsv.c_str());
++		std::remove(jsonOutput.c_str());
++
++		std::string command =
++			shellQuote(backendBin) +
++			" --kmer-size " + shellQuote(kmerSize) +
++			" --reads-tsv " + shellQuote(readsTsv) +
++			" --index-tsv " + shellQuote(indexTsv) +
++			" --repetitive-kmers-tsv " + shellQuote(repetitiveTsv) +
++			" --output-tsv " + shellQuote(outputTsv) +
++			" --json-output " + shellQuote(jsonOutput) +
++			" --device " + shellQuote(device);
++		if (!memoryBudget.empty())
++		{
++			command += " --memory-budget-bytes " + shellQuote(memoryBudget);
++		}
++
++		int status = std::system(command.c_str());
++		if (status != 0)
++		{
++			throw std::runtime_error(
++				"cuFlye CUDA adapter external backend failed; adapter=external-packed-v0; "
++				"status=" + std::to_string(status));
++		}
++
++		ensureReadableFile(outputTsv, "CUDA candidate output TSV");
++		std::ifstream readsInput(readsTsv);
++		std::string line;
++		size_t lineNumber = 0;
++		while (std::getline(readsInput, line))
++		{
++			++lineNumber;
++			if (line.empty()) continue;
++			auto fields = splitTabLine(line);
++			if (fields.size() != 2)
++			{
++				throw std::runtime_error("Invalid packed reads TSV at line " +
++										 std::to_string(lineNumber));
++			}
++			fixture.readSequences[std::stoll(fields[0])] = fields[1];
++		}
++
++		std::ifstream outputInput(outputTsv);
++		lineNumber = 0;
++		while (std::getline(outputInput, line))
++		{
++			++lineNumber;
++			if (line.empty()) continue;
++			auto fields = splitTabLine(line);
++			if (fields.size() != 6)
++			{
++				throw std::runtime_error("Invalid candidate-record-v1 TSV at line " +
++										 std::to_string(lineNumber));
++			}
++
++			int64_t queryId = std::stoll(fields[0]);
++			int64_t targetId = std::stoll(fields[3]);
++			FastaRecord::Id fastaTarget = fastaIdFromSigned(targetId);
++			if ((fields[5] == "+") != fastaTarget.strand())
++			{
++				throw std::runtime_error("candidate-record-v1 target strand mismatch at line " +
++										 std::to_string(lineNumber));
++			}
++
++			fixture.records.push_back({
++				queryId,
++				static_cast<int32_t>(std::stoll(fields[1])),
++				static_cast<size_t>(std::stoull(fields[2])),
++				fastaTarget,
++				static_cast<int32_t>(std::stoll(fields[4]))
++			});
++		}
++
++		if (fixture.records.empty())
++		{
++			throw std::runtime_error(
++				"cuFlye CUDA adapter external backend emitted no candidate records");
++		}
++
++		fixture.outputTsv = outputTsv;
++		fixture.jsonOutput = jsonOutput;
++		fixture.loaded = true;
+ 	}
+ 
+ 	template <class Matches>
+@@ -179,6 +382,41 @@ namespace
+ 				 << (match.extId.strand() ? "+" : "-") << "\n";
+ 		}
+ 	}
++
++	template <class Matches>
++	void collectCandidateMatchesCudaAdapter(const FastaRecord& fastaRec,
++											Matches& matches)
++	{
++		std::lock_guard<std::mutex> lock(cudaAdapterMutex());
++		PackedCudaFixture& fixture = packedCudaFixtureCache();
++		loadPackedCudaFixture(fixture);
++
++		int64_t queryId = fastaRec.id.signedId();
++		auto expectedSeq = fixture.readSequences.find(queryId);
++		if (expectedSeq == fixture.readSequences.end())
++		{
++			throw std::runtime_error(
++				"cuFlye CUDA adapter fail-closed; adapter=external-packed-v0; "
++				"unsupported real Flye shape: query id " +
++				std::to_string(queryId) + " is absent from packed reads TSV");
++		}
++		if (expectedSeq->second != fastaRec.sequence.str())
++		{
++			throw std::runtime_error(
++				"cuFlye CUDA adapter fail-closed; adapter=external-packed-v0; "
++				"unsupported real Flye shape: query sequence does not match "
++				"packed reads TSV for query id " + std::to_string(queryId));
++		}
++
++		for (const auto& record : fixture.records)
++		{
++			if (record.queryId != queryId) continue;
++			matches.emplace_back(record.queryPos,
++								 record.targetPos,
++								 record.targetId,
++								 record.kmerRepr);
++		}
++	}
+ }
+ 
+ //This implementation was inspired by Heng Li's minimap2 paper
+@@ -296,7 +534,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
+ 		collectCandidateMatchesCpu();
+ 		break;
+ 	case CandidateBackend::Cuda:
+-		collectCandidateMatchesCudaStub();
++		collectCandidateMatchesCudaAdapter(fastaRec, vecMatches);
+ 		break;
+ 	}
+ 	timeKmerIndexFirst += std::chrono::duration_cast<std::chrono::duration<float>>

@@ -11,6 +11,8 @@ Active cards:
 
 Completed cards:
 
+- `2026-06-30-cuflye-m2a-cuda-candidate-adapter-shell.md`: replace the CUDA
+  backend stub with an external packed adapter shell and fail-closed guards.
 - `2026-06-30-cuflye-m1j-cuda-candidate-core-benchmark.md`: benchmark the
   candidate equality-scan core and prove a bounded CUDA-over-CPU speedup.
 - `2026-06-30-cuflye-m1i-cuda-read-window-smoke.md`: slide bounded read

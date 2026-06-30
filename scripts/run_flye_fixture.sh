@@ -24,6 +24,18 @@ Options:
   --cuda-device ID     Set CUFLYE_CUDA_DEVICE for CUDA backend experiments
   --cuda-memory-budget-bytes N
                        Set CUFLYE_CUDA_MEMORY_BUDGET_BYTES
+  --cuda-adapter-mode NAME
+                       Set CUFLYE_CUDA_ADAPTER_MODE
+  --cuda-backend-bin PATH
+                       Set CUFLYE_CUDA_BACKEND_BIN for external CUDA adapter shell
+  --cuda-packed-fixture-dir PATH
+                       Set CUFLYE_CUDA_PACKED_FIXTURE_DIR
+  --cuda-adapter-output-tsv PATH
+                       Set CUFLYE_CUDA_ADAPTER_OUTPUT_TSV
+  --cuda-adapter-json PATH
+                       Set CUFLYE_CUDA_ADAPTER_JSON
+  --cuda-packed-kmer-size N
+                       Set CUFLYE_CUDA_PACKED_KMER_SIZE
   --extra-arg ARG      Extra Flye argument. May be repeated.
   --force              Remove existing output directory before running
   -h, --help           Show this help
@@ -51,6 +63,12 @@ candidate_dump=""
 candidate_backend="${CUFLYE_CANDIDATE_BACKEND:-}"
 cuda_device="${CUFLYE_CUDA_DEVICE:-}"
 cuda_memory_budget_bytes="${CUFLYE_CUDA_MEMORY_BUDGET_BYTES:-}"
+cuda_adapter_mode="${CUFLYE_CUDA_ADAPTER_MODE:-}"
+cuda_backend_bin="${CUFLYE_CUDA_BACKEND_BIN:-}"
+cuda_packed_fixture_dir="${CUFLYE_CUDA_PACKED_FIXTURE_DIR:-}"
+cuda_adapter_output_tsv="${CUFLYE_CUDA_ADAPTER_OUTPUT_TSV:-}"
+cuda_adapter_json="${CUFLYE_CUDA_ADAPTER_JSON:-}"
+cuda_packed_kmer_size="${CUFLYE_CUDA_PACKED_KMER_SIZE:-}"
 extra_args=()
 
 while [ "$#" -gt 0 ]; do
@@ -101,6 +119,30 @@ while [ "$#" -gt 0 ]; do
       ;;
     --cuda-memory-budget-bytes)
       cuda_memory_budget_bytes="$2"
+      shift 2
+      ;;
+    --cuda-adapter-mode)
+      cuda_adapter_mode="$2"
+      shift 2
+      ;;
+    --cuda-backend-bin)
+      cuda_backend_bin="$2"
+      shift 2
+      ;;
+    --cuda-packed-fixture-dir)
+      cuda_packed_fixture_dir="$2"
+      shift 2
+      ;;
+    --cuda-adapter-output-tsv)
+      cuda_adapter_output_tsv="$2"
+      shift 2
+      ;;
+    --cuda-adapter-json)
+      cuda_adapter_json="$2"
+      shift 2
+      ;;
+    --cuda-packed-kmer-size)
+      cuda_packed_kmer_size="$2"
       shift 2
       ;;
     --extra-arg)
@@ -180,6 +222,14 @@ if [ -n "${candidate_dump}" ]; then
   mkdir -p "$(dirname "${candidate_dump}")"
   rm -f "${candidate_dump}"
 fi
+if [ -n "${cuda_adapter_output_tsv}" ]; then
+  mkdir -p "$(dirname "${cuda_adapter_output_tsv}")"
+  rm -f "${cuda_adapter_output_tsv}"
+fi
+if [ -n "${cuda_adapter_json}" ]; then
+  mkdir -p "$(dirname "${cuda_adapter_json}")"
+  rm -f "${cuda_adapter_json}"
+fi
 
 read_flag=""
 case "${read_type}" in
@@ -225,9 +275,27 @@ fi
 if [ -n "${cuda_memory_budget_bytes}" ]; then
   export CUFLYE_CUDA_MEMORY_BUDGET_BYTES="${cuda_memory_budget_bytes}"
 fi
+if [ -n "${cuda_adapter_mode}" ]; then
+  export CUFLYE_CUDA_ADAPTER_MODE="${cuda_adapter_mode}"
+fi
+if [ -n "${cuda_backend_bin}" ]; then
+  export CUFLYE_CUDA_BACKEND_BIN="${cuda_backend_bin}"
+fi
+if [ -n "${cuda_packed_fixture_dir}" ]; then
+  export CUFLYE_CUDA_PACKED_FIXTURE_DIR="${cuda_packed_fixture_dir}"
+fi
+if [ -n "${cuda_adapter_output_tsv}" ]; then
+  export CUFLYE_CUDA_ADAPTER_OUTPUT_TSV="${cuda_adapter_output_tsv}"
+fi
+if [ -n "${cuda_adapter_json}" ]; then
+  export CUFLYE_CUDA_ADAPTER_JSON="${cuda_adapter_json}"
+fi
+if [ -n "${cuda_packed_kmer_size}" ]; then
+  export CUFLYE_CUDA_PACKED_KMER_SIZE="${cuda_packed_kmer_size}"
+fi
 
 metadata_tmp="${out_dir}/run_metadata.pre.json"
-python3 - "$metadata_tmp" "$repo_root" "$flye_dir" "$fixture" "$reads" "$read_type" "$genome_size" "$min_overlap" "$threads" "$candidate_dump" "$candidate_backend" "$cuda_device" "$cuda_memory_budget_bytes" "${cmd[@]}" <<'PY'
+python3 - "$metadata_tmp" "$repo_root" "$flye_dir" "$fixture" "$reads" "$read_type" "$genome_size" "$min_overlap" "$threads" "$candidate_dump" "$candidate_backend" "$cuda_device" "$cuda_memory_budget_bytes" "$cuda_adapter_mode" "$cuda_backend_bin" "$cuda_packed_fixture_dir" "$cuda_adapter_output_tsv" "$cuda_adapter_json" "$cuda_packed_kmer_size" "${cmd[@]}" <<'PY'
 import json
 import os
 import platform
@@ -236,7 +304,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 
-metadata_path, repo_root, flye_dir, fixture, reads, read_type, genome_size, min_overlap, threads, candidate_dump, candidate_backend, cuda_device, cuda_memory_budget_bytes, *cmd = sys.argv[1:]
+metadata_path, repo_root, flye_dir, fixture, reads, read_type, genome_size, min_overlap, threads, candidate_dump, candidate_backend, cuda_device, cuda_memory_budget_bytes, cuda_adapter_mode, cuda_backend_bin, cuda_packed_fixture_dir, cuda_adapter_output_tsv, cuda_adapter_json, cuda_packed_kmer_size, *cmd = sys.argv[1:]
 
 def run(cmdline):
     try:
@@ -272,6 +340,18 @@ if cuda_device:
     payload["cuda_device"] = cuda_device
 if cuda_memory_budget_bytes:
     payload["cuda_memory_budget_bytes"] = cuda_memory_budget_bytes
+if cuda_adapter_mode:
+    payload["cuda_adapter_mode"] = cuda_adapter_mode
+if cuda_backend_bin:
+    payload["cuda_backend_bin"] = os.path.abspath(cuda_backend_bin)
+if cuda_packed_fixture_dir:
+    payload["cuda_packed_fixture_dir"] = os.path.abspath(cuda_packed_fixture_dir)
+if cuda_adapter_output_tsv:
+    payload["cuda_adapter_output_tsv"] = os.path.abspath(cuda_adapter_output_tsv)
+if cuda_adapter_json:
+    payload["cuda_adapter_json"] = os.path.abspath(cuda_adapter_json)
+if cuda_packed_kmer_size:
+    payload["cuda_packed_kmer_size"] = cuda_packed_kmer_size
 
 with open(metadata_path, "w", encoding="utf-8") as handle:
     json.dump(payload, handle, indent=2, sort_keys=True)

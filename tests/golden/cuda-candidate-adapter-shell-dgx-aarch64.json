@@ -1,0 +1,70 @@
+{
+  "build": {
+    "applied_patches": [
+      "patches/flye/2.9.6/0001-cuflye-candidate-dump.patch",
+      "patches/flye/2.9.6/0002-cuflye-candidate-backend-seam.patch",
+      "patches/flye/2.9.6/0003-cuflye-cuda-backend-stub.patch",
+      "patches/flye/2.9.6/0004-cuflye-cuda-adapter-shell.patch"
+    ],
+    "cuda_arch": "sm_121",
+    "cuda_backend_binary": "out/m2a/proof/bin/cuflye-cuda-read-window-smoke",
+    "cuda_backend_manifest": "out/m2a/proof/cuda_read_window_build_manifest.json",
+    "flye_build_manifest": "out/m2a/proof/flye_build_manifest.json",
+    "flye_commit": "886b8c17412c",
+    "flye_version": "2.9.6-b1802",
+    "nvcc_version": "Cuda compilation tools, release 13.0, V13.0.88"
+  },
+  "cpu_regression": {
+    "artifact_diff": "out/m2a/proof/runs/toy-default-vs-cpu.artifact-diff.json",
+    "artifact_status": "match",
+    "candidate_canonical_sha256": "97ec5f51c034e5a8a8eaa70d4c3d4ced5513f7ee93ad367671b756814310086b",
+    "candidate_diff": "out/m2a/proof/runs/toy-default-vs-cpu.candidate-diff.json",
+    "candidate_records": 29035928,
+    "candidate_status": "match",
+    "default_run": "out/m2a/proof/runs/toy-default",
+    "explicit_cpu_run": "out/m2a/proof/runs/toy-cpu"
+  },
+  "cuda_adapter": {
+    "adapter": "external-packed-v0",
+    "backend": "cuda",
+    "expected_vs_gpu_diff": "out/m2a/proof/runs/toy-cuda-packed/expected-vs-gpu.candidate-diff.json",
+    "expected_vs_gpu_status": "match",
+    "gpu_output": "out/m2a/proof/runs/toy-cuda-packed/gpu-candidates.tsv",
+    "gpu_output_records": 6,
+    "gpu_output_sha256": "f0ef59dafc1a8efa5f007443d4c11191e3f03b2500c87874b40fa89f2803010d",
+    "gpu_validator": "out/m2a/proof/runs/toy-cuda-packed/gpu-candidates.validator.json",
+    "missing_mode_error_excerpt": "cuFlye CUDA candidate backend selected; adapter=external-packed-v0; unsupported real Flye shape: set CUFLYE_CUDA_ADAPTER_MODE=external-packed-v0 with packed toy fixture inputs to enable this M2a adapter shell",
+    "missing_mode_status": "failed_as_expected",
+    "packed_fixture": "tests/fixtures/read-window-smoke-v0",
+    "packed_mode_error_excerpt": "cuFlye CUDA adapter fail-closed; adapter=external-packed-v0; unsupported real Flye shape: query id -253 is absent from packed reads TSV",
+    "packed_mode_status": "failed_closed_after_cuda_invocation",
+    "runtime_json": "out/m2a/proof/runs/toy-cuda-packed/cuda-adapter.json"
+  },
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "nvidia_smi": "GPU 0: NVIDIA GB10",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39"
+  },
+  "parameters": {
+    "fixture": "toy-hifi",
+    "genome_size": "500k",
+    "min_overlap": "1000",
+    "packed_kmer_size": 4,
+    "read_type": "pacbio-corr",
+    "threads": 1
+  },
+  "scope": {
+    "direct_cuda_runtime_link_in_flye": false,
+    "external_cuda_backend_invoked": true,
+    "full_flye_cuda_assembly_success": false,
+    "full_flye_speed_claim": false,
+    "packed_fixture_only": true,
+    "real_vertex_index_upload": false,
+    "silent_cpu_fallback": false
+  },
+  "validation": {
+    "candidate_record_abi": "candidate-record-v1",
+    "validated_on_utc": "2026-06-30T04:12:00Z"
+  }
+}

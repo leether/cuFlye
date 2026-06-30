@@ -1,6 +1,6 @@
 # cuFlye CUDA Candidate Backend Stub v0
 
-Status: active
+Status: superseded by `docs/abi/cuda-candidate-adapter-shell-v0.md`
 
 Introduced: M1d
 
@@ -56,16 +56,18 @@ contains:
 - the requested `CUFLYE_CUDA_MEMORY_BUDGET_BYTES`;
 - `CUDA candidate kernel is not implemented yet`.
 
-## Next Contract
+## Superseding Contract
 
-The next CUDA milestone should replace this stub with a real backend adapter
-that:
+M2a replaced this stub with an external packed adapter shell. See
+`docs/abi/cuda-candidate-adapter-shell-v0.md`.
 
-- queries CUDA device properties;
-- enforces a device-memory budget;
-- emits candidate-record-v1 compatible records;
-- passes `tools/validate_candidate_dump.py`;
-- passes `tools/diff_candidate_dumps.py` against the CPU oracle.
+The first real candidate backend beyond the shell should:
+
+- query CUDA device properties;
+- enforce a device-memory budget;
+- emit candidate-record-v1 compatible records;
+- pass `tools/validate_candidate_dump.py`;
+- pass `tools/diff_candidate_dumps.py` against the CPU oracle.
 
 M1e provides the standalone runtime probe for the first two bullets; see
 `docs/abi/cuda-runtime-probe-v0.md`.
