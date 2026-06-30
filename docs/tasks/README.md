@@ -7,11 +7,12 @@ change is considered complete.
 
 Active cards:
 
-- `2026-06-30-cuflye-m1f-cuda-candidate-smoke.md`: build the first CUDA kernel
-  that emits a small candidate-record-v1 TSV matching a CPU oracle sample.
+- None.
 
 Completed cards:
 
+- `2026-06-30-cuflye-m1f-cuda-candidate-smoke.md`: build the first CUDA kernel
+  that emits a small candidate-record-v1 TSV matching a CPU oracle sample.
 - `2026-06-30-cuflye-m1e-cuda-runtime-probe.md`: build and validate a
   standalone CUDA Runtime API probe on DGX.
 - `2026-06-30-cuflye-m1d-cuda-backend-stub.md`: add a fail-fast CUDA backend

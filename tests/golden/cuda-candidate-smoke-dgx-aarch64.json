@@ -1,0 +1,59 @@
+{
+  "abi": {
+    "document": "docs/abi/candidate-record-v1.md",
+    "name": "candidate-record-v1",
+    "validator": "tools/validate_candidate_dump.py"
+  },
+  "build": {
+    "cuda_arch": "sm_121",
+    "cuda_home": "/usr/local/cuda",
+    "manifest": "out/m1f/23bc8f7/build_manifest.json",
+    "nvcc": "/usr/local/cuda/bin/nvcc",
+    "nvcc_version": "Cuda compilation tools, release 13.0, V13.0.88",
+    "output_binary": "out/m1f/23bc8f7/bin/cuflye-cuda-candidate-smoke",
+    "repo_commit": "23bc8f7d8608d6d7a2e008c58ece516708f5d6e4"
+  },
+  "candidate_smoke": {
+    "adapter": "cuda-candidate-smoke-v0",
+    "cpu_sample": "out/m1f/23bc8f7/cpu-sample.tsv",
+    "device_allocation_bytes": 24576,
+    "diff_report": "out/m1f/23bc8f7/cpu-vs-gpu.candidate-diff.json",
+    "diff_status": "match",
+    "gpu_output": "out/m1f/23bc8f7/gpu-candidates.tsv",
+    "memory_budget_bytes": 1048576,
+    "memory_budget_satisfied": true,
+    "raw_sha256": "bb486a72536cfd97978db29354b4f28220e62e4f9f4fa7b9a1b84ecc5182200b",
+    "record_size_bytes": 48,
+    "records": 256,
+    "runtime_json": "out/m1f/23bc8f7/cuda-candidate-smoke.json",
+    "size_bytes": 8034
+  },
+  "fixture": {
+    "cpu_oracle_dump": "out/m1b/f311460/runs/toy-default/candidates.tsv",
+    "name": "toy-hifi",
+    "source": "upstream-flye/flye/tests/data/ecoli_500kb_reads_hifi.fastq.gz"
+  },
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "nvidia_smi": "GPU 0: NVIDIA GB10",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39"
+  },
+  "negative_budget_probe": {
+    "memory_budget_bytes": 1,
+    "status": "failed_as_expected",
+    "stderr_excerpt": "cuFlye CUDA candidate smoke failed: CUDA candidate smoke memory budget is smaller than required device allocation"
+  },
+  "scope": {
+    "flye_backend_replaced": false,
+    "full_candidate_dump": false,
+    "gpu_kmer_lookup": false,
+    "performance_claim": false
+  },
+  "validation": {
+    "cpu_sample_validator": "out/m1f/23bc8f7/cpu-sample.validator.json",
+    "gpu_output_validator": "out/m1f/23bc8f7/gpu-candidates.validator.json",
+    "raw_sorted_by_canonical_key": true,
+    "validated_on_utc": "2026-06-30T00:26:35Z"
+  }
+}

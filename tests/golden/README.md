@@ -22,3 +22,7 @@ summaries, not full candidate TSV files.
 CUDA runtime proof:
 
 - Runtime probe manifest: `cuda-runtime-probe-dgx-aarch64.json`
+
+CUDA candidate smoke proof:
+
+- Candidate smoke manifest: `cuda-candidate-smoke-dgx-aarch64.json`

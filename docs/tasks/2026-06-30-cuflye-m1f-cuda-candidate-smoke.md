@@ -1,6 +1,6 @@
 # Task Card: cuFlye M1f CUDA Candidate Smoke Prototype
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -49,6 +49,7 @@ exercised.
 - `cuda/cuflye_cuda_candidate_smoke.cu`
 - `scripts/build_cuda_candidate_smoke.sh`
 - `docs/abi/cuda-candidate-smoke-v0.md`
+- `tests/golden/cuda-candidate-smoke-dgx-aarch64.json`
 - DGX proof that GPU TSV validates and matches CPU sample
 
 ## Acceptance Gates
@@ -63,15 +64,36 @@ exercised.
 
 ## Execution Checklist
 
-- [ ] Add CUDA candidate smoke source.
-- [ ] Add build script.
-- [ ] Add ABI/contract doc.
-- [ ] Build prototype on DGX with `nvcc`.
-- [ ] Generate CPU sample and GPU TSV.
-- [ ] Validate CPU sample and GPU TSV.
-- [ ] Diff CPU sample and GPU TSV.
-- [ ] Record compact proof and close this card.
+- [x] Add CUDA candidate smoke source.
+- [x] Add build script.
+- [x] Add ABI/contract doc.
+- [x] Build prototype on DGX with `nvcc`.
+- [x] Generate CPU sample and GPU TSV.
+- [x] Validate CPU sample and GPU TSV.
+- [x] Diff CPU sample and GPU TSV.
+- [x] Record compact proof and close this card.
 
 ## Merge Note
 
-Pending implementation.
+Implemented in repo commit `23bc8f7d8608d6d7a2e008c58ece516708f5d6e4` and
+validated on DGX host `edgexpert-45d2` with `/usr/local/cuda/bin/nvcc`
+`13.0.88` targeting `sm_121`.
+
+The smoke run sampled 256 records from the M1b toy CPU oracle dump and emitted
+the same candidate-record-v1 TSV through a CUDA kernel output path. CPU sample
+and GPU output both validated with raw SHA-256
+`bb486a72536cfd97978db29354b4f28220e62e4f9f4fa7b9a1b84ecc5182200b`; candidate
+diff status was `match`.
+
+Proof paths:
+
+- Build manifest: `out/m1f/23bc8f7/build_manifest.json`
+- Runtime JSON: `out/m1f/23bc8f7/cuda-candidate-smoke.json`
+- CPU validator: `out/m1f/23bc8f7/cpu-sample.validator.json`
+- GPU validator: `out/m1f/23bc8f7/gpu-candidates.validator.json`
+- Candidate diff: `out/m1f/23bc8f7/cpu-vs-gpu.candidate-diff.json`
+- Compact golden proof: `tests/golden/cuda-candidate-smoke-dgx-aarch64.json`
+
+Negative budget gate also passed: `--memory-budget-bytes 1` failed before GPU
+allocation with `CUDA candidate smoke memory budget is smaller than required
+device allocation`.
