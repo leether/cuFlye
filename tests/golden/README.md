@@ -38,3 +38,7 @@ CUDA k-mer encode smoke proof:
 CUDA read-window smoke proof:
 
 - Read-window smoke manifest: `cuda-read-window-smoke-dgx-aarch64.json`
+
+CUDA candidate-core benchmark proof:
+
+- Candidate-core benchmark manifest: `cuda-candidate-core-bench-dgx-aarch64.json`

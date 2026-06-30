@@ -1,6 +1,6 @@
 # Task Card: cuFlye M1j CUDA Candidate Core Benchmark
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -61,15 +61,46 @@ a focused benchmark for the parallel candidate scan itself.
 
 ## Execution Checklist
 
-- [ ] Add CUDA candidate-core benchmark source.
-- [ ] Add build script.
-- [ ] Add ABI/benchmark contract doc.
-- [ ] Build benchmark on DGX with `nvcc`.
-- [ ] Run benchmark on DGX.
-- [ ] Verify matched counts.
-- [ ] Verify CUDA speedup over CPU.
-- [ ] Record compact proof and close this card.
+- [x] Add CUDA candidate-core benchmark source.
+- [x] Add build script.
+- [x] Add ABI/benchmark contract doc.
+- [x] Build benchmark on DGX with `nvcc`.
+- [x] Run benchmark on DGX.
+- [x] Verify matched counts.
+- [x] Verify CUDA speedup over CPU.
+- [x] Record compact proof and close this card.
 
 ## Merge Note
 
-Pending implementation.
+Implemented in repo commit `e4274ffe947c801eb2de22f8290c75eb914989a9` and
+validated on DGX host `edgexpert-45d2` with `/usr/local/cuda/bin/nvcc`
+`13.0.88` targeting `sm_121`.
+
+Benchmark dimensions:
+
+- Query keys: 8,192
+- Index keys: 32,768
+- Pair count: 268,435,456
+- Key space: 4,096
+- Trials: 5 measured, 1 warmup
+- CUDA launch: 65,535 blocks, 256 threads per block
+
+Correctness gate passed: CPU and CUDA both counted 65,536 matches.
+
+Performance gate passed:
+
+- CPU best: 68.864532 ms
+- CUDA kernel best: 1.249088 ms
+- CUDA total best: 1.272772 ms
+- CPU vs CUDA kernel speedup: 55.131848x
+- CPU vs CUDA total speedup: 54.105945x
+
+Proof paths:
+
+- Build manifest: `out/m1j/e4274ff/build_manifest.json`
+- Benchmark JSON: `out/m1j/e4274ff/cuda-candidate-core-bench.json`
+- Compact golden proof: `tests/golden/cuda-candidate-core-bench-dgx-aarch64.json`
+
+Scope caveat: this is a candidate equality-scan core benchmark, not a full Flye
+speed claim. It excludes candidate TSV serialization, full `VertexIndex`
+construction, CPU chaining, repeat graph construction, and polishing.

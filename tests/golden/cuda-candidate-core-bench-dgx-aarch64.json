@@ -1,0 +1,56 @@
+{
+  "benchmark": {
+    "adapter": "cuda-candidate-core-bench-v0",
+    "blocks": 65535,
+    "candidate_core_gpu_faster_than_cpu": true,
+    "counts_match": true,
+    "cpu_matches": 65536,
+    "cpu_ms_avg": 68.896283,
+    "cpu_ms_best": 68.864532,
+    "gpu_kernel_ms_avg": 1.24992,
+    "gpu_kernel_ms_best": 1.249088,
+    "gpu_matches": 65536,
+    "gpu_total_ms_avg": 1.273566,
+    "gpu_total_ms_best": 1.272772,
+    "index_entries": 32768,
+    "json": "out/m1j/e4274ff/cuda-candidate-core-bench.json",
+    "key_space": 4096,
+    "pair_count": 268435456,
+    "queries": 8192,
+    "speedup_cpu_vs_gpu_kernel_best": 55.131848,
+    "speedup_cpu_vs_gpu_total_best": 54.105945,
+    "threads_per_block": 256,
+    "trials": 5,
+    "warmup_trials": 1
+  },
+  "build": {
+    "cuda_arch": "sm_121",
+    "cuda_home": "/usr/local/cuda",
+    "manifest": "out/m1j/e4274ff/build_manifest.json",
+    "nvcc": "/usr/local/cuda/bin/nvcc",
+    "nvcc_version": "Cuda compilation tools, release 13.0, V13.0.88",
+    "output_binary": "out/m1j/e4274ff/bin/cuflye-cuda-candidate-core-bench",
+    "repo_commit": "e4274ffe947c801eb2de22f8290c75eb914989a9"
+  },
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "nvidia_smi": "GPU 0: NVIDIA GB10",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39"
+  },
+  "scope": {
+    "candidate_tsv_serialization": false,
+    "cpu_chaining": false,
+    "full_flye_speed_claim": false,
+    "full_vertex_index_construction": false,
+    "graph_construction": false,
+    "lookup_key_equality_scan_only": true,
+    "polishing": false
+  },
+  "validation": {
+    "accepted_speedup_gate": "speedup_cpu_vs_gpu_total_best > 1",
+    "counts_match": true,
+    "json_validated": true,
+    "validated_on_utc": "2026-06-30T01:17:52Z"
+  }
+}

@@ -7,11 +7,12 @@ change is considered complete.
 
 Active cards:
 
-- `2026-06-30-cuflye-m1j-cuda-candidate-core-benchmark.md`: benchmark the
-  candidate equality-scan core and prove a bounded CUDA-over-CPU speedup.
+- None.
 
 Completed cards:
 
+- `2026-06-30-cuflye-m1j-cuda-candidate-core-benchmark.md`: benchmark the
+  candidate equality-scan core and prove a bounded CUDA-over-CPU speedup.
 - `2026-06-30-cuflye-m1i-cuda-read-window-smoke.md`: slide bounded read
   sequences on GPU to generate query k-mers before candidate equality join.
 - `2026-06-30-cuflye-m1h-cuda-kmer-encoding-smoke.md`: compute Flye-style
