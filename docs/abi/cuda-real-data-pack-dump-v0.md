@@ -111,8 +111,7 @@ M2b does not:
 - prove candidate parity for the CUDA backend on real Flye data;
 - prove speedup for an integrated Flye stage.
 
-## Next Contract
+## Follow-On Contract
 
-M2c should consume a `pack-dump-v0` bundle with a CUDA backend that supports
-real query lengths or chunked read windows, then compare its output to
-`cpu-candidates.tsv`.
+M2c consumes a `pack-dump-v0` bundle with a CUDA backend that supports dynamic
+read-base storage, then compares its output to `cpu-candidates.tsv`.

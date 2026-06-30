@@ -7,7 +7,9 @@ change is considered complete.
 
 Active cards:
 
-- None.
+- `2026-06-30-cuflye-m2c-real-pack-cuda-consumer.md`: make the CUDA
+  read-window backend consume a real `pack-dump-v0` bundle and match the
+  packed CPU oracle.
 
 Completed cards:
 

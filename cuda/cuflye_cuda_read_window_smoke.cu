@@ -19,14 +19,13 @@
 namespace
 {
 static const uint32_t MAX_KMER_SIZE = 32;
-static const uint32_t MAX_READ_SIZE = 256;
 
-struct QueryRead
+struct QueryReadMeta
 {
 	int64_t queryId;
+	uint64_t sequenceOffset;
 	uint32_t length;
-	char sequence[MAX_READ_SIZE + 1];
-	char padding[3];
+	char padding[4];
 };
 
 struct IndexWindow
@@ -68,6 +67,13 @@ struct Options
 	unsigned long long memoryBudgetBytes = 0;
 };
 
+struct QueryReadSet
+{
+	std::vector<QueryReadMeta> reads;
+	std::vector<char> bases;
+	size_t maxReadLength = 0;
+};
+
 __host__ __device__ uint64_t dnaBaseToBits(char base)
 {
 	switch (base)
@@ -90,7 +96,7 @@ __host__ __device__ uint64_t dnaBaseToBits(char base)
 }
 
 __host__ __device__ uint64_t encodeKmerAt(const char* sequence,
-										  uint32_t start,
+										  uint64_t start,
 										  uint32_t kmerSize)
 {
 	uint64_t representation = 0;
@@ -145,8 +151,9 @@ __device__ size_t findReadIndex(size_t windowIndex,
 	return readCount - 1;
 }
 
-__global__ void generateCandidateRecordsKernel(const QueryRead* reads,
+__global__ void generateCandidateRecordsKernel(const QueryReadMeta* reads,
 											   size_t readCount,
+											   const char* readBases,
 											   const uint64_t* readWindowOffsets,
 											   const IndexWindow* indexEntries,
 											   size_t indexCount,
@@ -163,11 +170,12 @@ __global__ void generateCandidateRecordsKernel(const QueryRead* reads,
 	size_t queryWindowIndex = pairIndex / indexCount;
 	size_t targetIndex = pairIndex % indexCount;
 	size_t readIndex = findReadIndex(queryWindowIndex, readWindowOffsets, readCount);
-	uint32_t queryPos = static_cast<uint32_t>(queryWindowIndex - readWindowOffsets[readIndex]);
+	uint64_t queryPos = static_cast<uint64_t>(queryWindowIndex - readWindowOffsets[readIndex]);
 
-	const QueryRead* query = &reads[readIndex];
+	const QueryReadMeta* query = &reads[readIndex];
+	const char* querySequence = readBases + query->sequenceOffset;
 	const IndexWindow* target = &indexEntries[targetIndex];
-	uint64_t queryKmer = encodeKmerAt(query->sequence, queryPos, kmerSize);
+	uint64_t queryKmer = encodeKmerAt(querySequence, queryPos, kmerSize);
 	uint64_t queryLookupKmer = standardForm(queryKmer, kmerSize);
 
 	if (isRepetitiveLookupKmer(queryLookupKmer, repetitiveKmers, repetitiveCount, kmerSize))
@@ -394,8 +402,8 @@ std::vector<std::string> parseLineFields(std::string line,
 }
 
 void validateDnaSequence(const std::string& sequence,
-						 uint32_t minSize,
-						 uint32_t maxSize,
+						 size_t minSize,
+						 size_t maxSize,
 						 const std::string& path,
 						 size_t lineNumber)
 {
@@ -415,34 +423,48 @@ void validateDnaSequence(const std::string& sequence,
 	}
 }
 
+void appendReadBases(std::vector<char>& bases, const std::string& sequence)
+{
+	bases.insert(bases.end(), sequence.begin(), sequence.end());
+}
+
 void copySequence(char* destination, size_t capacity, const std::string& sequence)
 {
 	std::memset(destination, 0, capacity);
 	std::memcpy(destination, sequence.data(), sequence.size());
 }
 
-std::vector<QueryRead> readReads(const std::string& path, uint32_t kmerSize)
+QueryReadSet readReads(const std::string& path, uint32_t kmerSize)
 {
 	std::ifstream input(path);
 	if (!input) throw std::runtime_error("Can't open read TSV: " + path);
 
-	std::vector<QueryRead> reads;
+	QueryReadSet readSet;
 	std::string line;
 	size_t lineNumber = 0;
 	while (std::getline(input, line))
 	{
 		++lineNumber;
 		std::vector<std::string> fields = parseLineFields(line, lineNumber, path, 2);
-		validateDnaSequence(fields[1], kmerSize, MAX_READ_SIZE, path, lineNumber);
-		QueryRead read;
+		validateDnaSequence(fields[1], kmerSize, std::numeric_limits<size_t>::max(),
+							path, lineNumber);
+		if (fields[1].size() > std::numeric_limits<uint32_t>::max())
+		{
+			throw std::runtime_error(path + ":" + std::to_string(lineNumber) +
+									 ": read length exceeds uint32 range");
+		}
+		QueryReadMeta read;
 		std::memset(&read, 0, sizeof(read));
 		read.queryId = parseInt64Field(fields[0], "query_id");
+		read.sequenceOffset = static_cast<uint64_t>(readSet.bases.size());
 		read.length = static_cast<uint32_t>(fields[1].size());
-		copySequence(read.sequence, MAX_READ_SIZE + 1, fields[1]);
-		reads.push_back(read);
+		appendReadBases(readSet.bases, fields[1]);
+		if (fields[1].size() > readSet.maxReadLength) readSet.maxReadLength = fields[1].size();
+		readSet.reads.push_back(read);
 	}
-	if (reads.empty()) throw std::runtime_error("read TSV is empty: " + path);
-	return reads;
+	if (readSet.reads.empty()) throw std::runtime_error("read TSV is empty: " + path);
+	if (readSet.bases.empty()) throw std::runtime_error("read TSV has no bases: " + path);
+	return readSet;
 }
 
 std::vector<IndexWindow> readIndex(const std::string& path, uint32_t kmerSize)
@@ -498,13 +520,13 @@ std::vector<RepetitiveWindow> readRepetitiveKmers(const std::string& path, uint3
 	return repetitive;
 }
 
-std::vector<uint64_t> buildReadWindowOffsets(const std::vector<QueryRead>& reads,
+std::vector<uint64_t> buildReadWindowOffsets(const std::vector<QueryReadMeta>& reads,
 											 uint32_t kmerSize)
 {
 	std::vector<uint64_t> offsets;
 	offsets.reserve(reads.size() + 1);
 	offsets.push_back(0);
-	for (const QueryRead& read : reads)
+	for (const QueryReadMeta& read : reads)
 	{
 		if (read.length < kmerSize) throw std::runtime_error("read shorter than k-mer size");
 		uint64_t windows = static_cast<uint64_t>(read.length - kmerSize + 1);
@@ -526,19 +548,20 @@ bool hostIsRepetitive(uint64_t lookupKmer,
 	return false;
 }
 
-std::vector<CandidateRecord> generateCpuOracle(const std::vector<QueryRead>& reads,
+std::vector<CandidateRecord> generateCpuOracle(const QueryReadSet& readSet,
 											   const std::vector<uint64_t>& readWindowOffsets,
 											   const std::vector<IndexWindow>& indexEntries,
 											   const std::vector<RepetitiveWindow>& repetitiveKmers,
 											   uint32_t kmerSize)
 {
 	std::vector<CandidateRecord> records;
-	for (size_t readIndex = 0; readIndex < reads.size(); ++readIndex)
+	for (size_t readIndex = 0; readIndex < readSet.reads.size(); ++readIndex)
 	{
-		const QueryRead& query = reads[readIndex];
+		const QueryReadMeta& query = readSet.reads[readIndex];
+		const char* querySequence = readSet.bases.data() + query.sequenceOffset;
 		for (uint64_t queryPos = 0; queryPos < readWindowOffsets[readIndex + 1] - readWindowOffsets[readIndex]; ++queryPos)
 		{
-			uint64_t queryKmer = encodeKmerAt(query.sequence, static_cast<uint32_t>(queryPos), kmerSize);
+			uint64_t queryKmer = encodeKmerAt(querySequence, queryPos, kmerSize);
 			uint64_t queryLookupKmer = standardForm(queryKmer, kmerSize);
 			if (hostIsRepetitive(queryLookupKmer, repetitiveKmers, kmerSize)) continue;
 			for (const IndexWindow& target : indexEntries)
@@ -619,6 +642,8 @@ std::string buildJson(const Options& options,
 					  size_t requiredBytes,
 					  size_t readCount,
 					  size_t queryWindows,
+					  size_t readBaseBytes,
+					  size_t maxReadLength,
 					  size_t indexCount,
 					  size_t repetitiveCount,
 					  size_t pairCount,
@@ -635,11 +660,14 @@ std::string buildJson(const Options& options,
 	json << "  \"kmer_size\": " << options.kmerSize << ",\n";
 	json << "  \"reads\": " << readCount << ",\n";
 	json << "  \"query_windows\": " << queryWindows << ",\n";
+	json << "  \"read_base_bytes\": " << readBaseBytes << ",\n";
+	json << "  \"max_read_length\": " << maxReadLength << ",\n";
 	json << "  \"index_entries\": " << indexCount << ",\n";
 	json << "  \"repetitive_kmers\": " << repetitiveCount << ",\n";
 	json << "  \"pair_count\": " << pairCount << ",\n";
 	json << "  \"records\": " << outputCount << ",\n";
-	json << "  \"read_record_size_bytes\": " << sizeof(QueryRead) << ",\n";
+	json << "  \"read_record_size_bytes\": " << sizeof(QueryReadMeta) << ",\n";
+	json << "  \"read_meta_record_size_bytes\": " << sizeof(QueryReadMeta) << ",\n";
 	json << "  \"index_record_size_bytes\": " << sizeof(IndexWindow) << ",\n";
 	json << "  \"candidate_record_size_bytes\": " << sizeof(CandidateRecord) << ",\n";
 	json << "  \"device_allocation_bytes\": " << requiredBytes << ",\n";
@@ -650,6 +678,7 @@ std::string buildJson(const Options& options,
 	else json << "null";
 	json << ",\n";
 	json << "  \"memory_budget_satisfied\": true,\n";
+	json << "  \"dynamic_read_bases\": true,\n";
 	json << "  \"device_side_read_windowing\": true,\n";
 	json << "  \"device_side_kmer_encoding\": true,\n";
 	json << "  \"device_side_standard_form\": true,\n";
@@ -697,8 +726,8 @@ int main(int argc, char** argv)
 	try
 	{
 		Options options = parseArgs(argc, argv);
-		std::vector<QueryRead> reads = readReads(options.readsTsv, options.kmerSize);
-		std::vector<uint64_t> readWindowOffsets = buildReadWindowOffsets(reads, options.kmerSize);
+		QueryReadSet readSet = readReads(options.readsTsv, options.kmerSize);
+		std::vector<uint64_t> readWindowOffsets = buildReadWindowOffsets(readSet.reads, options.kmerSize);
 		std::vector<IndexWindow> indexEntries = readIndex(options.indexTsv, options.kmerSize);
 		std::vector<RepetitiveWindow> repetitiveKmers =
 			readRepetitiveKmers(options.repetitiveTsv, options.kmerSize);
@@ -707,10 +736,13 @@ int main(int argc, char** argv)
 		size_t pairCount = checkedMultiply(queryWindows, indexEntries.size(), "query/index pair");
 		if (pairCount == 0) throw std::runtime_error("query/index pair count is zero");
 
-		std::vector<CandidateRecord> cpuRecords =
-			generateCpuOracle(reads, readWindowOffsets, indexEntries, repetitiveKmers, options.kmerSize);
-		if (cpuRecords.empty()) throw std::runtime_error("CPU oracle emitted no candidate records");
-		writeCandidateTsv(options.cpuOutputTsv, cpuRecords);
+		if (!options.cpuOutputTsv.empty())
+		{
+			std::vector<CandidateRecord> cpuRecords =
+				generateCpuOracle(readSet, readWindowOffsets, indexEntries, repetitiveKmers, options.kmerSize);
+			if (cpuRecords.empty()) throw std::runtime_error("CPU oracle emitted no candidate records");
+			writeCandidateTsv(options.cpuOutputTsv, cpuRecords);
+		}
 
 		checkCuda(cudaSetDevice(options.device), "cudaSetDevice failed");
 		cudaDeviceProp prop;
@@ -721,7 +753,8 @@ int main(int argc, char** argv)
 		size_t totalBytes = 0;
 		checkCuda(cudaMemGetInfo(&freeBytes, &totalBytes), "cudaMemGetInfo failed");
 
-		size_t readBytes = checkedMultiply(reads.size(), sizeof(QueryRead), "read buffer");
+		size_t readBytes = checkedMultiply(readSet.reads.size(), sizeof(QueryReadMeta), "read metadata buffer");
+		size_t readBaseBytes = checkedMultiply(readSet.bases.size(), sizeof(char), "read base buffer");
 		size_t offsetBytes = checkedMultiply(readWindowOffsets.size(), sizeof(uint64_t), "read window offset buffer");
 		size_t indexBytes = checkedMultiply(indexEntries.size(), sizeof(IndexWindow), "index buffer");
 		size_t repetitiveBytes = checkedMultiply(repetitiveKmers.size(), sizeof(RepetitiveWindow),
@@ -729,6 +762,7 @@ int main(int argc, char** argv)
 		size_t outputBytes = checkedMultiply(pairCount, sizeof(CandidateRecord), "output buffer");
 		size_t flagBytes = checkedMultiply(pairCount, sizeof(uint8_t), "valid flag buffer");
 		size_t requiredBytes = checkedAdd(readBytes, offsetBytes, "device allocation");
+		requiredBytes = checkedAdd(requiredBytes, readBaseBytes, "device allocation");
 		requiredBytes = checkedAdd(requiredBytes, indexBytes, "device allocation");
 		requiredBytes = checkedAdd(requiredBytes, repetitiveBytes, "device allocation");
 		requiredBytes = checkedAdd(requiredBytes, outputBytes, "device allocation");
@@ -743,7 +777,8 @@ int main(int argc, char** argv)
 			throw std::runtime_error("CUDA read window smoke required device allocation exceeds free device memory");
 		}
 
-		cuflye::cuda_raii::DeviceBuffer<QueryRead> deviceReads(readBytes, "reads");
+		cuflye::cuda_raii::DeviceBuffer<QueryReadMeta> deviceReads(readBytes, "read metadata");
+		cuflye::cuda_raii::DeviceBuffer<char> deviceReadBases(readBaseBytes, "read bases");
 		cuflye::cuda_raii::DeviceBuffer<uint64_t> deviceReadWindowOffsets(offsetBytes,
 																		  "read offsets");
 		cuflye::cuda_raii::DeviceBuffer<IndexWindow> deviceIndex(indexBytes, "index");
@@ -752,8 +787,11 @@ int main(int argc, char** argv)
 		cuflye::cuda_raii::DeviceBuffer<CandidateRecord> deviceOutput(outputBytes, "output");
 		cuflye::cuda_raii::DeviceBuffer<uint8_t> deviceFlags(flagBytes, "flags");
 
-		checkCuda(cudaMemcpy(deviceReads.get(), reads.data(), readBytes, cudaMemcpyHostToDevice),
+		checkCuda(cudaMemcpy(deviceReads.get(), readSet.reads.data(), readBytes, cudaMemcpyHostToDevice),
 				  "cudaMemcpy reads host-to-device failed");
+		checkCuda(cudaMemcpy(deviceReadBases.get(), readSet.bases.data(), readBaseBytes,
+							 cudaMemcpyHostToDevice),
+				  "cudaMemcpy read bases host-to-device failed");
 		checkCuda(cudaMemcpy(deviceReadWindowOffsets.get(), readWindowOffsets.data(), offsetBytes,
 							 cudaMemcpyHostToDevice),
 				  "cudaMemcpy read offsets host-to-device failed");
@@ -771,7 +809,8 @@ int main(int argc, char** argv)
 		const int blocks = static_cast<int>((pairCount + threadsPerBlock - 1) / threadsPerBlock);
 		generateCandidateRecordsKernel<<<blocks, threadsPerBlock>>>(
 			deviceReads.get(),
-			reads.size(),
+			readSet.reads.size(),
+			deviceReadBases.get(),
 			deviceReadWindowOffsets.get(),
 			deviceIndex.get(),
 			indexEntries.size(),
@@ -795,7 +834,8 @@ int main(int argc, char** argv)
 		writeCandidateTsv(options.outputTsv, gpuRecords);
 
 		std::string json = buildJson(options, prop, freeBytes, totalBytes, requiredBytes,
-									 reads.size(), queryWindows, indexEntries.size(),
+									 readSet.reads.size(), queryWindows, readBaseBytes,
+									 readSet.maxReadLength, indexEntries.size(),
 									 repetitiveKmers.size(), pairCount, gpuRecords.size());
 		writeText(options.jsonOutput, json);
 		std::cout << json;

@@ -4,7 +4,7 @@ Status: active
 
 Introduced: M1i
 
-Scope: standalone CUDA kernel that slides fixed-size windows across bounded read
+Scope: standalone CUDA kernel that slides windows across packed read
 sequences, computes Flye-style k-mers and standard-form lookup keys, and
 generates a candidate-record-v1 TSV against a flattened index fixture.
 
@@ -36,7 +36,7 @@ Optional arguments:
 
 The prototype must:
 
-- parse bounded read sequences into fixed-width structs;
+- parse packed read sequences into read metadata plus a flat base buffer;
 - compute query windows on device;
 - compute forward k-mer representation, reverse complement, and standard form
   on device;
@@ -58,5 +58,25 @@ M1i does not:
 - replace the Flye backend stub;
 - claim performance improvement.
 
-The only correctness claim is that CUDA device code can perform bounded
-read-window generation before candidate equality join.
+## M2c Extension
+
+M2c removes the original fixed `MAX_READ_SIZE=256` read storage limit. The
+backend still accepts the same `reads.tsv` format, but internally uploads:
+
+- `QueryReadMeta[]`: query id, read length, and sequence offset;
+- `char[]`: concatenated read bases.
+
+Runtime JSON includes:
+
+- `dynamic_read_bases: true`;
+- `read_base_bytes`;
+- `max_read_length`;
+- `read_meta_record_size_bytes`.
+
+The host CPU oracle is generated only when `--cpu-output-tsv` is supplied. This
+keeps proof runs able to compare CPU/GPU output while avoiding hidden CPU oracle
+work when Flye invokes the external CUDA backend.
+
+The correctness claim after M2c is that CUDA device code can perform
+read-window generation on both bounded fixtures and one real `pack-dump-v0`
+query bundle before candidate equality join.
