@@ -124,3 +124,5 @@ M5 read-to-graph alignment proof:
   `cuflye-m5a-read-alignment-oracle-dgx-aarch64.json`
 - Read alignment replay fixture manifest:
   `cuflye-m5b-read-alignment-replay-fixture-dgx-aarch64.json`
+- CUDA read alignment chain benchmark manifest:
+  `cuflye-m5c-cuda-read-alignment-chain-benchmark-dgx-aarch64.json`

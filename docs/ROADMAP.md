@@ -1118,3 +1118,60 @@ M5c: implement the first CUDA/CPU benchmark prototype for the bounded
 read-alignment chain replay fixture, preserving the replay oracle output while
 measuring whether the chain DP hot path has a real GPU advantage.
 ```
+
+Completed.
+
+M5c adds a standalone CUDA/C++ binary,
+`cuflye-cuda-read-alignment-chain-replay`, for
+`read-alignment-replay-fixture-v0`. It supports explicit `cpu` and `cuda`
+backends, emits `read-alignment-v1`, consumes M5b's recorded
+`chain-divergence.tsv` acceptance decisions, and records warm benchmark timing.
+
+The DGX proof built the prototype with `/usr/local/cuda/bin/nvcc` for
+`sm_121` and ran the M5b toy-hifi read `200` fixture:
+
+```text
+input_records=4
+output_records=3
+canonical_sha256=c8aa478626cad18a598140a00a39effba464c187109a2b71a2509806ff7aa802
+cpu vs oracle diff=match
+cuda vs oracle diff=match
+cpu vs cuda diff=match
+```
+
+Warm benchmark timing with `5` warmups and `200` timed runs:
+
+```text
+cpu_mean_total_before_json_ms=0.000482
+cpu_mean_core_ms=0.000482
+cuda_mean_total_before_json_ms=0.137072
+cuda_mean_kernel_ms=0.012329
+cuda_total_speedup_vs_cpu=0.003516x
+cuda_core_speedup_vs_cpu=0.039095x
+```
+
+The bad-schema negative gate and CUDA memory-budget negative gate both failed
+closed before writing success JSON/TSV.
+
+Allowed M5c claim:
+
+```text
+cuFlye can replay one M5b read-to-graph chain DP fixture through a standalone
+CUDA backend and reproduce the read-alignment-v1 oracle exactly.
+```
+
+Forbidden M5c claim:
+
+```text
+M5c does not prove CUDA is faster for this shape, multi-read batching, graph
+mutation consumption, default GPU mode, edlib/base realignment replay, or
+end-to-end Flye speedup.
+```
+
+Next highest-ROI task:
+
+```text
+M5d: collect and benchmark a deterministic multi-read read-alignment replay
+fixture batch, then add packed CUDA execution so the chain DP proof has enough
+parallel work to test whether GPU occupancy can beat the CPU baseline.
+```

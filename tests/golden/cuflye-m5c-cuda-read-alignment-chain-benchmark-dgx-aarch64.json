@@ -1,0 +1,177 @@
+{
+  "acceptance": {
+    "bad_schema_fails_closed": true,
+    "cpu_output_validates_read_alignment_v1": true,
+    "cpu_vs_cuda_diff_match": true,
+    "cpu_vs_oracle_diff_match": true,
+    "cuda_output_validates_read_alignment_v1": true,
+    "cuda_prototype_builds_on_dgx": true,
+    "cuda_vs_oracle_diff_match": true,
+    "memory_budget_fails_closed": true,
+    "warm_benchmark_timing_recorded": true,
+    "whole_flye_speedup_claimed": false
+  },
+  "benefit_assessment_plain_language": "M5c proves the CUDA read-alignment chain DP boundary is semantically correct, but the single-read fixture is too small for GPU advantage; CPU remains faster in both total and core timing.",
+  "build": {
+    "cuda_arch": "sm_121",
+    "manifest": "/tmp/cuflye-m5c-proof-20260630T223044Z/out/m5c/cuda_read_alignment_chain_replay_build_manifest.json",
+    "nvcc": "/usr/local/cuda/bin/nvcc",
+    "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:57:39_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+    "output_binary": "/tmp/cuflye-m5c-proof-20260630T223044Z/out/m5c/bin/cuflye-cuda-read-alignment-chain-replay"
+  },
+  "claims": {
+    "allowed": "cuFlye can replay one M5b read-to-graph chain DP fixture through a standalone CUDA backend and reproduce the read-alignment-v1 oracle exactly.",
+    "forbidden": "M5c does not prove CUDA is faster for this shape, multi-read batching, graph mutation consumption, default GPU mode, edlib/base realignment replay, or end-to-end Flye speedup."
+  },
+  "cpu": {
+    "benchmark": {
+      "max_total_before_json_ms": 0.000592,
+      "mean_core_ms": 0.000482,
+      "mean_total_before_json_ms": 0.000482,
+      "min_total_before_json_ms": 0.000464,
+      "timed_runs": 200,
+      "warmup_runs": 5
+    },
+    "run_json": "/tmp/cuflye-m5c-proof-20260630T223044Z/out/m5c/read200/cpu/run.json",
+    "timing": {
+      "cpu_chain": 0.00048,
+      "device_allocation": 0.0,
+      "device_to_host": 0.0,
+      "finalize": 0.0,
+      "host_to_device": 0.0,
+      "kernel": 0.0,
+      "setup": 0.0,
+      "total_before_json": 0.00048,
+      "write_output": 0.092016
+    },
+    "validation": {
+      "abi": "read-alignment-v1",
+      "canonical_sha256": "c8aa478626cad18a598140a00a39effba464c187109a2b71a2509806ff7aa802",
+      "chains": 1,
+      "edges": 3,
+      "path": "/tmp/cuflye-m5c-proof-20260630T223044Z/out/m5c/read200/cpu/read-alignment.tsv",
+      "raw_sorted_by_canonical_key": true,
+      "reads": 1,
+      "records": 3
+    }
+  },
+  "created_at_utc": "2026-06-30T22:30:44Z",
+  "cuda": {
+    "benchmark": {
+      "max_total_before_json_ms": 0.156594,
+      "mean_core_ms": 0.012329,
+      "mean_total_before_json_ms": 0.137072,
+      "min_total_before_json_ms": 0.130897,
+      "timed_runs": 200,
+      "warmup_runs": 5
+    },
+    "device": {
+      "free_bytes": 1864126464,
+      "id": 0,
+      "name": "NVIDIA GB10",
+      "total_bytes": 130594660352
+    },
+    "memory": {
+      "required_bytes": 716
+    },
+    "run_json": "/tmp/cuflye-m5c-proof-20260630T223044Z/out/m5c/read200/cuda/run.json",
+    "timing": {
+      "cpu_chain": 0.0,
+      "device_allocation": 0.087729,
+      "device_to_host": 0.016112,
+      "finalize": 0.00024,
+      "host_to_device": 0.0136,
+      "kernel": 0.01224,
+      "setup": 0.005792,
+      "total_before_json": 0.135713,
+      "write_output": 0.113697
+    },
+    "validation": {
+      "abi": "read-alignment-v1",
+      "canonical_sha256": "c8aa478626cad18a598140a00a39effba464c187109a2b71a2509806ff7aa802",
+      "chains": 1,
+      "edges": 3,
+      "path": "/tmp/cuflye-m5c-proof-20260630T223044Z/out/m5c/read200/cuda/read-alignment.tsv",
+      "raw_sorted_by_canonical_key": true,
+      "reads": 1,
+      "records": 3
+    }
+  },
+  "dgx_proof": {
+    "proof_dir": "/tmp/cuflye-m5c-proof-20260630T223044Z",
+    "summary": "/tmp/cuflye-m5c-proof-20260630T223044Z/out/m5c/dgx-cuda-read-alignment-chain-benchmark-proof.json"
+  },
+  "diffs": {
+    "cpu_vs_cuda": {
+      "left": "/tmp/cuflye-m5c-proof-20260630T223044Z/out/m5c/read200/cpu/read-alignment.tsv",
+      "left_records": 3,
+      "left_sha256": "c8aa478626cad18a598140a00a39effba464c187109a2b71a2509806ff7aa802",
+      "right": "/tmp/cuflye-m5c-proof-20260630T223044Z/out/m5c/read200/cuda/read-alignment.tsv",
+      "right_records": 3,
+      "right_sha256": "c8aa478626cad18a598140a00a39effba464c187109a2b71a2509806ff7aa802",
+      "status": "match"
+    },
+    "cpu_vs_oracle": {
+      "left": "/tmp/cuflye-m5b-proof-20260630T221339Z/out/m5b/runs/toy-hifi-read200/read-alignment-replay-fixture/oracle.read-alignment.tsv",
+      "left_records": 3,
+      "left_sha256": "c8aa478626cad18a598140a00a39effba464c187109a2b71a2509806ff7aa802",
+      "right": "/tmp/cuflye-m5c-proof-20260630T223044Z/out/m5c/read200/cpu/read-alignment.tsv",
+      "right_records": 3,
+      "right_sha256": "c8aa478626cad18a598140a00a39effba464c187109a2b71a2509806ff7aa802",
+      "status": "match"
+    },
+    "cuda_vs_oracle": {
+      "left": "/tmp/cuflye-m5b-proof-20260630T221339Z/out/m5b/runs/toy-hifi-read200/read-alignment-replay-fixture/oracle.read-alignment.tsv",
+      "left_records": 3,
+      "left_sha256": "c8aa478626cad18a598140a00a39effba464c187109a2b71a2509806ff7aa802",
+      "right": "/tmp/cuflye-m5c-proof-20260630T223044Z/out/m5c/read200/cuda/read-alignment.tsv",
+      "right_records": 3,
+      "right_sha256": "c8aa478626cad18a598140a00a39effba464c187109a2b71a2509806ff7aa802",
+      "status": "match"
+    }
+  },
+  "fixture": {
+    "canonical_sha256": "c8aa478626cad18a598140a00a39effba464c187109a2b71a2509806ff7aa802",
+    "cpu_output_records": 3,
+    "cuda_output_records": 3,
+    "input_records": 4,
+    "query_id": 200,
+    "source_fixture": "/tmp/cuflye-m5b-proof-20260630T221339Z/out/m5b/runs/toy-hifi-read200/read-alignment-replay-fixture"
+  },
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "nvidia_smi": "NVIDIA GB10, GPU-36e1e91e-fa5c-6e0d-d076-203391a7bb03",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+    "python": "3.12.3"
+  },
+  "milestone": "M5c",
+  "negative": {
+    "bad_schema": {
+      "exit_status": 1,
+      "json_exists": false,
+      "message_found": true,
+      "tsv_exists": false
+    },
+    "memory_budget": {
+      "exit_status": 1,
+      "json_exists": false,
+      "message_found": true,
+      "tsv_exists": false
+    }
+  },
+  "performance": {
+    "cpu_mean_core_ms": 0.000482,
+    "cpu_mean_total_before_json_ms": 0.000482,
+    "cuda_core_slowdown_vs_cpu": 25.57883817427386,
+    "cuda_core_speedup_vs_cpu": 0.03909481709789926,
+    "cuda_mean_kernel_ms": 0.012329,
+    "cuda_mean_total_before_json_ms": 0.137072,
+    "cuda_total_slowdown_vs_cpu": 284.3817427385892,
+    "cuda_total_speedup_vs_cpu": 0.0035164001400723706
+  },
+  "repo": {
+    "base_commit": "cf8ef2a729e982ae7f6964946c34987409d71009",
+    "remote": "https://github.com/leether/cuFlye.git"
+  }
+}

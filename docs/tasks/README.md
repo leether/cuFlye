@@ -15,6 +15,10 @@ Proposed cards:
 
 Completed cards:
 
+- `2026-07-01-cuflye-m5c-cuda-read-alignment-chain-benchmark.md`:
+  implement the first CUDA/CPU benchmark prototype for the bounded M5b
+  read-alignment replay fixture while preserving the `read-alignment-v1`
+  oracle.
 - `2026-07-01-cuflye-m5b-read-alignment-replay-fixture.md`:
   isolate one bounded read-to-graph alignment chain fixture and replay it
   outside full Flye before CUDA read-alignment work starts.
