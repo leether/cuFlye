@@ -130,3 +130,5 @@ M5 read-to-graph alignment proof:
   `cuflye-m5d-read-alignment-replicated-batch-dgx-aarch64.json`
 - Real multi-read replay batch manifest:
   `cuflye-m5e-real-multiread-replay-batch-dgx-aarch64.json`
+- Heterogeneous read alignment batch manifest:
+  `cuflye-m5f-heterogeneous-read-alignment-batch-dgx-aarch64.json`

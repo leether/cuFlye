@@ -116,6 +116,7 @@ struct Options
 	uint32_t replicateFixture = 1;
 	bool hasMemoryBudget = false;
 	unsigned long long memoryBudgetBytes = 0;
+	bool allowHeterogeneousBatch = false;
 };
 
 struct RunSummary
@@ -138,7 +139,10 @@ struct RunSummary
 	uint32_t timedRuns = 0;
 	size_t batchSize = 1;
 	size_t inputRecords = 0;
+	size_t minInputRecords = 0;
+	size_t maxInputRecords = 0;
 	size_t totalInputRecords = 0;
+	size_t shapeGroups = 1;
 	size_t candidateChains = 0;
 	size_t preDivergenceAcceptedChains = 0;
 	size_t acceptedChains = 0;
@@ -156,7 +160,20 @@ struct BatchFixtureOutput
 	std::string outputTsv;
 	int64_t queryId = 0;
 	size_t inputRecords = 0;
+	size_t chainDivergenceRows = 0;
 	size_t outputRecords = 0;
+	ReplayParams params{};
+};
+
+struct BatchShapeOutputSummary
+{
+	size_t inputRecords = 0;
+	size_t chainDivergenceRows = 0;
+	ReplayParams params{};
+	size_t fixtureCount = 0;
+	size_t totalInputRecords = 0;
+	size_t outputRecords = 0;
+	std::vector<int64_t> queryIds;
 };
 
 struct CpuChain
@@ -359,6 +376,21 @@ bool sameReplayParams(const ReplayParams& lhs, const ReplayParams& rhs)
 	       lhs.minimumOverlap == rhs.minimumOverlap && lhs.maxSeparation == rhs.maxSeparation;
 }
 
+std::string replayShapeKey(size_t inputRecords, size_t chainDivergenceRows,
+                           const ReplayParams& params)
+{
+	std::ostringstream key;
+	key << inputRecords << ":" << chainDivergenceRows << ":" << params.maximumJump << ":"
+	    << params.maxReadOverlap << ":" << params.minimumOverlap << ":" << params.maxSeparation;
+	return key.str();
+}
+
+std::string replayShapeKey(const LoadedFixture& fixture)
+{
+	return replayShapeKey(fixture.overlaps.size(), fixture.divergenceAccepted.size(),
+	                      fixture.manifest.params);
+}
+
 std::vector<EdgeOverlap> loadEdgeOverlaps(const std::string& path, int64_t queryId)
 {
 	std::ifstream input(path);
@@ -493,7 +525,7 @@ std::vector<std::string> loadFixtureList(const std::string& path)
 	return fixtures;
 }
 
-std::vector<LoadedFixture> loadBatchFixtures(const std::string& path)
+std::vector<LoadedFixture> loadBatchFixtures(const std::string& path, bool allowHeterogeneous)
 {
 	std::vector<std::string> fixtureDirs = loadFixtureList(path);
 	std::vector<LoadedFixture> fixtures;
@@ -505,6 +537,10 @@ std::vector<LoadedFixture> loadBatchFixtures(const std::string& path)
 	if (fixtures.empty())
 	{
 		throw std::runtime_error("batch fixture list is empty after loading");
+	}
+	if (allowHeterogeneous)
+	{
+		return fixtures;
 	}
 	size_t overlapCount = fixtures.front().overlaps.size();
 	size_t divergenceCount = fixtures.front().divergenceAccepted.size();
@@ -956,6 +992,36 @@ size_t checkedAdd(size_t lhs, size_t rhs, const std::string& label)
 	return lhs + rhs;
 }
 
+std::vector<std::vector<size_t>>
+groupFixtureIndicesByShape(const std::vector<LoadedFixture>& fixtures)
+{
+	std::map<std::string, std::vector<size_t>> grouped;
+	for (size_t index = 0; index < fixtures.size(); ++index)
+	{
+		grouped[replayShapeKey(fixtures[index])].push_back(index);
+	}
+
+	std::vector<std::vector<size_t>> groups;
+	groups.reserve(grouped.size());
+	for (const auto& item : grouped)
+	{
+		groups.push_back(item.second);
+	}
+	return groups;
+}
+
+std::vector<LoadedFixture> selectFixturesByIndex(const std::vector<LoadedFixture>& fixtures,
+                                                 const std::vector<size_t>& indices)
+{
+	std::vector<LoadedFixture> selected;
+	selected.reserve(indices.size());
+	for (size_t index : indices)
+	{
+		selected.push_back(fixtures[index]);
+	}
+	return selected;
+}
+
 RunSummary runCpu(const Options& options, const LoadedFixture& fixture,
                   std::vector<OutputSegment>& segments)
 {
@@ -963,6 +1029,8 @@ RunSummary runCpu(const Options& options, const LoadedFixture& fixture,
 	summary.backend = "cpu";
 	summary.batchSize = options.replicateFixture;
 	summary.inputRecords = fixture.overlaps.size();
+	summary.minInputRecords = summary.inputRecords;
+	summary.maxInputRecords = summary.inputRecords;
 	summary.totalInputRecords = checkedMul(fixture.overlaps.size(), options.replicateFixture,
 	                                       "CPU replicated total input records");
 	auto start = Clock::now();
@@ -1008,6 +1076,8 @@ RunSummary runCpuBatch(const Options& options, const std::vector<LoadedFixture>&
 	summary.backend = "cpu";
 	summary.batchSize = fixtures.size();
 	summary.inputRecords = fixtures.front().overlaps.size();
+	summary.minInputRecords = summary.inputRecords;
+	summary.maxInputRecords = summary.inputRecords;
 	summary.totalInputRecords =
 	    checkedMul(summary.inputRecords, fixtures.size(), "CPU batch total input records");
 
@@ -1068,6 +1138,8 @@ RunSummary runCuda(const Options& options, const LoadedFixture& fixture,
 	summary.device = options.device;
 	summary.batchSize = options.replicateFixture;
 	summary.inputRecords = fixture.overlaps.size();
+	summary.minInputRecords = summary.inputRecords;
+	summary.maxInputRecords = summary.inputRecords;
 	summary.totalInputRecords = checkedMul(fixture.overlaps.size(), options.replicateFixture,
 	                                       "CUDA replicated total input records");
 	size_t overlapCount = fixture.overlaps.size();
@@ -1221,6 +1293,8 @@ RunSummary runCudaBatch(const Options& options, const std::vector<LoadedFixture>
 	summary.device = options.device;
 	summary.batchSize = fixtures.size();
 	summary.inputRecords = fixtures.front().overlaps.size();
+	summary.minInputRecords = summary.inputRecords;
+	summary.maxInputRecords = summary.inputRecords;
 	summary.totalInputRecords =
 	    checkedMul(summary.inputRecords, fixtures.size(), "CUDA batch total input records");
 	size_t overlapCount = fixtures.front().overlaps.size();
@@ -1392,6 +1466,77 @@ RunSummary runCudaBatch(const Options& options, const std::vector<LoadedFixture>
 	return summary;
 }
 
+RunSummary runGroupedBatch(const Options& options, const std::vector<LoadedFixture>& fixtures,
+                           std::vector<std::vector<OutputSegment>>& segmentsByFixture)
+{
+	if (fixtures.empty())
+	{
+		throw std::runtime_error("batch fixture set is empty");
+	}
+	std::vector<std::vector<size_t>> groups = groupFixtureIndicesByShape(fixtures);
+	RunSummary summary;
+	summary.backend = options.backend;
+	summary.device = options.device;
+	summary.batchSize = fixtures.size();
+	summary.shapeGroups = groups.size();
+	summary.minInputRecords = fixtures.front().overlaps.size();
+	summary.maxInputRecords = fixtures.front().overlaps.size();
+	segmentsByFixture.clear();
+	segmentsByFixture.resize(fixtures.size());
+	bool deviceFieldsInitialized = false;
+
+	for (const LoadedFixture& fixture : fixtures)
+	{
+		summary.totalInputRecords = checkedAdd(summary.totalInputRecords, fixture.overlaps.size(),
+		                                       "heterogeneous batch total input records");
+		summary.minInputRecords = std::min(summary.minInputRecords, fixture.overlaps.size());
+		summary.maxInputRecords = std::max(summary.maxInputRecords, fixture.overlaps.size());
+	}
+	if (groups.size() == 1)
+	{
+		summary.inputRecords = fixtures.front().overlaps.size();
+	}
+
+	for (const std::vector<size_t>& group : groups)
+	{
+		std::vector<LoadedFixture> selected = selectFixturesByIndex(fixtures, group);
+		std::vector<std::vector<OutputSegment>> groupSegments;
+		RunSummary groupSummary = options.backend == "cuda"
+		                              ? runCudaBatch(options, selected, groupSegments)
+		                              : runCpuBatch(options, selected, groupSegments);
+		if (groupSegments.size() != group.size())
+		{
+			throw std::runtime_error("heterogeneous batch group output count mismatch");
+		}
+		for (size_t index = 0; index < group.size(); ++index)
+		{
+			segmentsByFixture[group[index]] = std::move(groupSegments[index]);
+		}
+
+		summary.setupMs += groupSummary.setupMs;
+		summary.deviceAllocationMs += groupSummary.deviceAllocationMs;
+		summary.hostToDeviceMs += groupSummary.hostToDeviceMs;
+		summary.kernelMs += groupSummary.kernelMs;
+		summary.cpuChainMs += groupSummary.cpuChainMs;
+		summary.deviceToHostMs += groupSummary.deviceToHostMs;
+		summary.finalizeMs += groupSummary.finalizeMs;
+		summary.totalBeforeJsonMs += groupSummary.totalBeforeJsonMs;
+		summary.candidateChains += groupSummary.candidateChains;
+		summary.preDivergenceAcceptedChains += groupSummary.preDivergenceAcceptedChains;
+		summary.acceptedChains += groupSummary.acceptedChains;
+		summary.outputRecords += groupSummary.outputRecords;
+		summary.requiredBytes = std::max(summary.requiredBytes, groupSummary.requiredBytes);
+		if (groupSummary.backend == "cuda" && !deviceFieldsInitialized)
+		{
+			summary.deviceName = groupSummary.deviceName;
+			summary.freeBytes = groupSummary.freeBytes;
+			summary.totalBytes = groupSummary.totalBytes;
+			deviceFieldsInitialized = true;
+		}
+	}
+	return summary;
+}
+
 void attachBenchmarkStats(RunSummary& summary, const std::vector<RunSummary>& timedRuns,
                           uint32_t warmupRuns)
 {
@@ -1450,7 +1595,11 @@ RunSummary runBatchBenchmark(const Options& options, const std::vector<LoadedFix
 	std::vector<std::vector<OutputSegment>> scratch;
 	for (uint32_t index = 0; index < options.warmupRuns; ++index)
 	{
-		if (options.backend == "cuda")
+		if (options.allowHeterogeneousBatch)
+		{
+			(void)runGroupedBatch(options, fixtures, scratch);
+		}
+		else if (options.backend == "cuda")
 		{
 			(void)runCudaBatch(options, fixtures, scratch);
 		}
@@ -1463,9 +1612,11 @@ RunSummary runBatchBenchmark(const Options& options, const std::vector<LoadedFix
 	std::vector<RunSummary> timedRuns;
 	for (uint32_t index = 0; index < options.benchmarkRuns; ++index)
 	{
-		RunSummary summary = options.backend == "cuda"
-		                         ? runCudaBatch(options, fixtures, segmentsByFixture)
-		                         : runCpuBatch(options, fixtures, segmentsByFixture);
+		RunSummary summary =
+		    options.allowHeterogeneousBatch
+		        ? runGroupedBatch(options, fixtures, segmentsByFixture)
+		        : (options.backend == "cuda" ? runCudaBatch(options, fixtures, segmentsByFixture)
+		                                     : runCpuBatch(options, fixtures, segmentsByFixture));
 		timedRuns.push_back(summary);
 	}
 	RunSummary summary = timedRuns.back();
@@ -1576,10 +1727,44 @@ writeBatchReadAlignments(const Options& options, const std::vector<LoadedFixture
 		output.outputTsv = outputTsv;
 		output.queryId = fixture.manifest.queryId;
 		output.inputRecords = fixture.overlaps.size();
+		output.chainDivergenceRows = fixture.divergenceAccepted.size();
 		output.outputRecords = segmentsByFixture[index].size();
+		output.params = fixture.manifest.params;
 		outputs.push_back(output);
 	}
 	return outputs;
+}
+
+std::vector<BatchShapeOutputSummary>
+summarizeBatchShapes(const std::vector<BatchFixtureOutput>& fixtureOutputs)
+{
+	std::map<std::string, BatchShapeOutputSummary> grouped;
+	for (const BatchFixtureOutput& fixture : fixtureOutputs)
+	{
+		std::string key =
+		    replayShapeKey(fixture.inputRecords, fixture.chainDivergenceRows, fixture.params);
+		BatchShapeOutputSummary& shape = grouped[key];
+		if (shape.fixtureCount == 0)
+		{
+			shape.inputRecords = fixture.inputRecords;
+			shape.chainDivergenceRows = fixture.chainDivergenceRows;
+			shape.params = fixture.params;
+		}
+		++shape.fixtureCount;
+		shape.totalInputRecords =
+		    checkedAdd(shape.totalInputRecords, fixture.inputRecords, "shape total input records");
+		shape.outputRecords =
+		    checkedAdd(shape.outputRecords, fixture.outputRecords, "shape output records");
+		shape.queryIds.push_back(fixture.queryId);
+	}
+
+	std::vector<BatchShapeOutputSummary> shapes;
+	shapes.reserve(grouped.size());
+	for (auto& item : grouped)
+	{
+		shapes.push_back(std::move(item.second));
+	}
+	return shapes;
 }
 
 void writeBatchJsonSummary(const std::string& path, const Options& options,
@@ -1592,6 +1777,7 @@ void writeBatchJsonSummary(const std::string& path, const Options& options,
 	{
 		throw std::runtime_error("cannot write batch JSON summary: " + path);
 	}
+	std::vector<BatchShapeOutputSummary> shapeSummaries = summarizeBatchShapes(fixtureOutputs);
 	output << std::fixed << std::setprecision(6);
 	output << "{\n"
 	       << "  \"schema\": \"cuflye-cuda-read-alignment-chain-replay-batch-v0\",\n"
@@ -1601,7 +1787,19 @@ void writeBatchJsonSummary(const std::string& path, const Options& options,
 	       << "  \"batch_output_dir\": \"" << jsonEscape(options.batchOutputDir) << "\",\n"
 	       << "  \"fixture_count\": " << fixtureOutputs.size() << ",\n"
 	       << "  \"batch_size\": " << summary.batchSize << ",\n"
-	       << "  \"input_records_per_fixture\": " << summary.inputRecords << ",\n"
+	       << "  \"heterogeneous_batch\": " << (options.allowHeterogeneousBatch ? "true" : "false")
+	       << ",\n"
+	       << "  \"shape_group_count\": " << summary.shapeGroups << ",\n";
+	if (summary.inputRecords == 0)
+	{
+		output << "  \"input_records_per_fixture\": null,\n";
+	}
+	else
+	{
+		output << "  \"input_records_per_fixture\": " << summary.inputRecords << ",\n";
+	}
+	output << "  \"min_input_records_per_fixture\": " << summary.minInputRecords << ",\n"
+	       << "  \"max_input_records_per_fixture\": " << summary.maxInputRecords << ",\n"
 	       << "  \"total_input_records\": " << summary.totalInputRecords << ",\n"
 	       << "  \"candidate_chains\": " << summary.candidateChains << ",\n"
 	       << "  \"pre_divergence_accepted_chains\": " << summary.preDivergenceAcceptedChains
@@ -1653,13 +1851,47 @@ void writeBatchJsonSummary(const std::string& path, const Options& options,
 	       << "  },\n"
 	       << "  \"supported_shape\": {\n"
 	       << "    \"real_multi_fixture_batch\": true,\n"
-	       << "    \"same_alignment_input_records_required\": true,\n"
-	       << "    \"same_chain_divergence_count_required\": true,\n"
-	       << "    \"same_replay_parameters_required\": true,\n"
+	       << "    \"heterogeneous_grouping_enabled\": "
+	       << (options.allowHeterogeneousBatch ? "true" : "false") << ",\n"
+	       << "    \"same_alignment_input_records_required\": "
+	       << (options.allowHeterogeneousBatch ? "false" : "true") << ",\n"
+	       << "    \"same_chain_divergence_count_required\": "
+	       << (options.allowHeterogeneousBatch ? "false" : "true") << ",\n"
+	       << "    \"same_replay_parameters_required\": "
+	       << (options.allowHeterogeneousBatch ? "false" : "true") << ",\n"
+	       << "    \"same_shape_required_within_group\": true,\n"
 	       << "    \"uses_fixture_divergence_acceptance\": true,\n"
 	       << "    \"representative_output_only\": false,\n"
 	       << "    \"max_replay_records\": " << MAX_REPLAY_RECORDS << "\n"
 	       << "  },\n"
+	       << "  \"shape_groups\": [\n";
+	for (size_t index = 0; index < shapeSummaries.size(); ++index)
+	{
+		const BatchShapeOutputSummary& shape = shapeSummaries[index];
+		output << "    {\n"
+		       << "      \"input_records_per_fixture\": " << shape.inputRecords << ",\n"
+		       << "      \"chain_divergence_rows\": " << shape.chainDivergenceRows << ",\n"
+		       << "      \"fixture_count\": " << shape.fixtureCount << ",\n"
+		       << "      \"total_input_records\": " << shape.totalInputRecords << ",\n"
+		       << "      \"output_records\": " << shape.outputRecords << ",\n"
+		       << "      \"replay_parameters\": {\n"
+		       << "        \"maximum_jump\": " << shape.params.maximumJump << ",\n"
+		       << "        \"max_read_overlap\": " << shape.params.maxReadOverlap << ",\n"
+		       << "        \"minimum_overlap\": " << shape.params.minimumOverlap << ",\n"
+		       << "        \"max_separation\": " << shape.params.maxSeparation << "\n"
+		       << "      },\n"
+		       << "      \"query_ids\": [";
+		for (size_t queryIndex = 0; queryIndex < shape.queryIds.size(); ++queryIndex)
+		{
+			if (queryIndex != 0) output << ", ";
+			output << shape.queryIds[queryIndex];
+		}
+		output << "]\n"
+		       << "    }";
+		if (index + 1 != shapeSummaries.size()) output << ",";
+		output << "\n";
+	}
+	output << "  ],\n"
 	       << "  \"fixtures\": [\n";
 	for (size_t index = 0; index < fixtureOutputs.size(); ++index)
 	{
@@ -1669,6 +1901,7 @@ void writeBatchJsonSummary(const std::string& path, const Options& options,
 		       << "      \"output_tsv\": \"" << jsonEscape(fixture.outputTsv) << "\",\n"
 		       << "      \"query_id\": " << fixture.queryId << ",\n"
 		       << "      \"input_records\": " << fixture.inputRecords << ",\n"
+		       << "      \"chain_divergence_rows\": " << fixture.chainDivergenceRows << ",\n"
 		       << "      \"output_records\": " << fixture.outputRecords << "\n"
 		       << "    }";
 		if (index + 1 != fixtureOutputs.size()) output << ",";
@@ -1703,6 +1936,8 @@ void parseArgs(int argc, char** argv, Options& options)
 			options.batchOutputDir = nextValue();
 		else if (arg == "--batch-json-output")
 			options.batchJsonOutput = nextValue();
+		else if (arg == "--allow-heterogeneous-batch")
+			options.allowHeterogeneousBatch = true;
 		else if (arg == "--backend")
 			options.backend = nextValue();
 		else if (arg == "--device")
@@ -1736,6 +1971,7 @@ void parseArgs(int argc, char** argv, Options& options)
 			          << "--batch-fixtures-file FILE --batch-output-dir DIR "
 			          << "--batch-json-output PATH [--backend cpu|cuda] "
 			          << "[--device ID] [--warmup-runs N] [--benchmark-runs N] "
+			          << "[--allow-heterogeneous-batch] "
 			          << "[--memory-budget-bytes BYTES]\n";
 			std::exit(0);
 		}
@@ -1774,6 +2010,10 @@ void parseArgs(int argc, char** argv, Options& options)
 	}
 	else
 	{
+		if (options.allowHeterogeneousBatch)
+		{
+			throw std::runtime_error("--allow-heterogeneous-batch is only supported in batch mode");
+		}
 		if (options.fixtureDir.empty()) throw std::runtime_error("--fixture-dir is required");
 		if (options.outputTsv.empty()) throw std::runtime_error("--output-tsv is required");
 		if (options.jsonOutput.empty()) throw std::runtime_error("--json-output is required");
@@ -1805,7 +2045,8 @@ int main(int argc, char** argv)
 		parseArgs(argc, argv, options);
 		if (!options.batchFixturesFile.empty())
 		{
-			std::vector<LoadedFixture> fixtures = loadBatchFixtures(options.batchFixturesFile);
+			std::vector<LoadedFixture> fixtures =
+			    loadBatchFixtures(options.batchFixturesFile, options.allowHeterogeneousBatch);
 			std::vector<std::vector<OutputSegment>> segmentsByFixture;
 			RunSummary summary = runBatchBenchmark(options, fixtures, segmentsByFixture);
 
@@ -1819,8 +2060,16 @@ int main(int argc, char** argv)
 			std::cout << "cuFlye read-alignment chain replay batch: ok\n"
 			          << "  backend: " << summary.backend << "\n"
 			          << "  fixture count: " << outputs.size() << "\n"
-			          << "  input records per fixture: " << summary.inputRecords << "\n"
-			          << "  total input records: " << summary.totalInputRecords << "\n"
+			          << "  shape groups: " << summary.shapeGroups << "\n";
+			if (summary.inputRecords == 0)
+			{
+				std::cout << "  input records per fixture: heterogeneous\n";
+			}
+			else
+			{
+				std::cout << "  input records per fixture: " << summary.inputRecords << "\n";
+			}
+			std::cout << "  total input records: " << summary.totalInputRecords << "\n"
 			          << "  output records: " << summary.outputRecords << "\n"
 			          << "  mean total before JSON: " << summary.benchmarkMeanTotalMs << " ms\n";
 			return 0;

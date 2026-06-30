@@ -15,6 +15,9 @@ Proposed cards:
 
 Completed cards:
 
+- `2026-07-01-cuflye-m5f-heterogeneous-read-alignment-batch.md`: allow a
+  heterogeneous real read-alignment fixture list to be grouped by supported
+  CUDA shape while preserving per-read oracle diffs.
 - `2026-07-01-cuflye-m5e-real-multiread-replay-batch.md`: replace
   replicated-batch read-alignment evidence with real multi-read fixture harvest
   and packed CUDA execution while preserving per-read oracle diffs.

@@ -1320,3 +1320,82 @@ harvesting larger same-shape batches from non-toy data, adding heterogeneous
 packing, or moving read-alignment replay into a persistent worker before any
 graph-consumption integration.
 ```
+
+Completed as explicit heterogeneous shape-group execution.
+
+M5f adds `--allow-heterogeneous-batch` to
+`cuflye-cuda-read-alignment-chain-replay`. Default mixed-shape batch input
+still fails closed. With the explicit flag, the runner groups fixtures by the
+CUDA-supported shape key:
+
+```text
+alignment_input_records
+chain_divergence_rows
+maximum_jump
+max_read_overlap
+minimum_overlap
+max_separation
+```
+
+Each group runs through the existing packed CPU/CUDA batch path, and output is
+written back as one `read-alignment-v1` TSV per original fixture. Batch JSON now
+records `heterogeneous_batch`, `shape_group_count`, min/max input records, and
+one `shape_groups` entry per grouped launch.
+
+The DGX proof reused the M5e toy-hifi multi-query harvest and ran all `68` real
+fixtures:
+
+```text
+shape_group_count=4
+input_records=1: fixture_count=30, total_input_records=30
+input_records=2: fixture_count=11, total_input_records=22
+input_records=3: fixture_count=19, total_input_records=57
+input_records=4: fixture_count=8,  total_input_records=32
+total_input_records=141
+output_records=114
+```
+
+Every CPU heterogeneous output and CUDA heterogeneous output validated as
+`read-alignment-v1`. CPU vs oracle, CUDA vs oracle, and CPU vs CUDA canonical
+diffs were `match` for all `68` reads.
+
+Warm benchmark timing with `5` warmups and `200` timed runs:
+
+```text
+cpu_mean_total_before_json_ms=0.021866
+cpu_mean_core_ms=0.021866
+cuda_mean_total_before_json_ms=0.899946
+cuda_mean_kernel_ms=0.044258
+cuda_total_speedup_vs_cpu=0.024297x
+cuda_total_slowdown_vs_cpu=41.157322x
+cuda_core_speedup_vs_cpu=0.494058x
+cuda_required_bytes=9595
+```
+
+The default mixed-shape negative gate failed closed without
+`--allow-heterogeneous-batch`, and the CUDA memory-budget negative gate failed
+closed before writing success JSON/TSV.
+
+Allowed M5f claim:
+
+```text
+cuFlye can explicitly group a heterogeneous 68-read real replay fixture list
+into 4 supported CUDA shape groups, run packed CPU/CUDA batches per group, and
+preserve every per-read read-alignment-v1 oracle diff.
+```
+
+Forbidden M5f claim:
+
+```text
+M5f does not prove heterogeneous-batch CUDA speedup, default GPU mode, graph
+mutation consumption, edlib/base realignment replay, or end-to-end Flye
+acceleration.
+```
+
+Next highest-ROI task:
+
+```text
+M5g: remove grouped-launch overhead or increase batch scale. Prefer a
+persistent grouped read-alignment worker with reusable device buffers, then
+test on larger non-toy fixture harvests before graph-consumption integration.
+```

@@ -48,6 +48,7 @@ M5e adds real multi-fixture batch mode:
 --batch-fixtures-file FILE
 --batch-output-dir DIR
 --batch-json-output PATH
+--allow-heterogeneous-batch
 ```
 
 The fixture list is a newline-delimited file of
@@ -62,6 +63,12 @@ lines starting with `#` are comments. Batch mode emits one
 Batch mode does not allow `--replicate-fixture`; it is for real multiple
 fixtures, not copies of one fixture.
 
+By default, batch mode still requires one same-shape fixture group and fails
+closed if input record counts, chain-divergence row counts, or replay
+parameters differ. `--allow-heterogeneous-batch` explicitly enables grouped
+execution: fixtures are partitioned by the same shape key, each group is run as
+one packed CPU/CUDA batch, and outputs are written back per original fixture.
+
 ## Supported Shape
 
 - Fixture schema must be `cuflye-read-alignment-replay-fixture-v0`.
@@ -75,6 +82,9 @@ fixtures, not copies of one fixture.
   `alignment_input_records`, the same `chain-divergence.tsv` row count, and the
   same replay parameters. Heterogeneous batches fail closed until a later
   scheduler/packing contract exists.
+- In M5f grouped mode, a heterogeneous fixture list is supported only when
+  `--allow-heterogeneous-batch` is set. Every group must still satisfy the
+  same-shape CUDA kernel contract internally.
 
 Unsupported shapes must fail closed before writing a successful JSON summary.
 
@@ -101,7 +111,10 @@ Batch JSON uses schema
   candidate chains, accepted chains, and output records;
 - batch fixture list path and batch output directory;
 - one fixture entry per selected read with fixture dir, output TSV, query id,
-  input record count, and output record count;
+  input record count, chain-divergence row count, and output record count;
+- `heterogeneous_batch`, `shape_group_count`, min/max input records per
+  fixture, and a `shape_groups` array with query ids and replay parameters for
+  every group;
 - CUDA device, memory, timing, and benchmark fields when backend is CUDA;
 - supported-shape flags documenting same-shape requirements and that the output
   is not representative-only.

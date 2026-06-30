@@ -1,0 +1,1000 @@
+{
+  "acceptance": {
+    "batch_json_records_shape_groups_and_paths": true,
+    "cpu_heterogeneous_outputs_validate_read_alignment_v1": true,
+    "cpu_vs_cuda_per_fixture_diff_match": true,
+    "cpu_vs_oracle_per_fixture_diff_match": true,
+    "cuda_heterogeneous_outputs_validate_read_alignment_v1": true,
+    "cuda_replay_binary_builds_on_dgx": true,
+    "cuda_vs_oracle_per_fixture_diff_match": true,
+    "default_mixed_shape_batch_fails_closed": true,
+    "explicit_heterogeneous_mode_runs_all_selected_real_fixtures": true,
+    "heterogeneous_batch_cuda_faster_than_cpu": false,
+    "memory_budget_fails_closed": true,
+    "whole_flye_speedup_claimed": false
+  },
+  "benefit_assessment_plain_language": "M5f still does not make the toy-hifi read-alignment batch faster. Its CUDA-side benefit is coverage and scheduler correctness: cuFlye now accepts an explicit heterogeneous real fixture list, groups 68 real reads into 4 supported CUDA shape groups, runs packed CPU/CUDA batches per group, and preserves every per-read oracle diff. The batch is still only 141 input records and four CUDA launches, so launch/copy/setup overhead dominates; the next ROI target is larger non-toy batches or a persistent grouped worker.",
+  "build": {
+    "cuda_arch": "sm_121",
+    "cuda_manifest": "/tmp/cuflye-m5f-proof-20260630T231847Z/out/m5f/cuda_read_alignment_chain_replay_build_manifest.json",
+    "nvcc": "/usr/local/cuda/bin/nvcc",
+    "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:57:39_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+    "output_binary": "/tmp/cuflye-m5f-proof-20260630T231847Z/out/m5f/bin/cuflye-cuda-read-alignment-chain-replay"
+  },
+  "claims": {
+    "allowed": "cuFlye can explicitly group a heterogeneous 68-read real replay fixture list into 4 supported CUDA shape groups, run packed CPU/CUDA batches per group, and preserve every per-read read-alignment-v1 oracle diff.",
+    "forbidden": "M5f does not prove heterogeneous-batch CUDA speedup, default GPU mode, graph mutation consumption, edlib/base realignment replay, or end-to-end Flye acceleration."
+  },
+  "cpu": {
+    "benchmark": {
+      "max_total_before_json_ms": 0.033601,
+      "mean_core_ms": 0.021866,
+      "mean_total_before_json_ms": 0.021866,
+      "min_total_before_json_ms": 0.020864,
+      "timed_runs": 200,
+      "warmup_runs": 5
+    },
+    "run_json": "/tmp/cuflye-m5f-proof-20260630T231847Z/out/m5f/heterogeneous/cpu/run.json"
+  },
+  "created_at_utc": "2026-06-30T23:21:02Z",
+  "cuda": {
+    "benchmark": {
+      "max_total_before_json_ms": 1.150231,
+      "mean_core_ms": 0.044258,
+      "mean_total_before_json_ms": 0.899946,
+      "min_total_before_json_ms": 0.876116,
+      "timed_runs": 200,
+      "warmup_runs": 5
+    },
+    "device": {
+      "free_bytes": 2058350592,
+      "id": 0,
+      "name": "NVIDIA GB10",
+      "total_bytes": 130594660352
+    },
+    "memory": {
+      "required_bytes": 9595
+    },
+    "run_json": "/tmp/cuflye-m5f-proof-20260630T231847Z/out/m5f/heterogeneous/cuda/run.json"
+  },
+  "dgx_proof": {
+    "proof_dir": "/tmp/cuflye-m5f-proof-20260630T231847Z",
+    "summary": "/tmp/cuflye-m5f-proof-20260630T231847Z/out/m5f/dgx-heterogeneous-read-alignment-batch-proof.json"
+  },
+  "diffs": {
+    "all_diff_match": true,
+    "fixture_count": 68,
+    "per_fixture_summary": "/tmp/cuflye-m5f-proof-20260630T231847Z/out/m5f/heterogeneous/per-fixture-diff-summary.json"
+  },
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "nvidia_smi": "NVIDIA GB10, GPU-36e1e91e-fa5c-6e0d-d076-203391a7bb03",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+    "python": "3.12.3"
+  },
+  "milestone": "M5f",
+  "negative": {
+    "default_mixed_shape_without_opt_in": {
+      "exit_status": 1,
+      "json_exists": false,
+      "message_found": true,
+      "output_dir_exists": false,
+      "stderr": "error: unsupported read-alignment batch: alignment_input_records differ\n",
+      "stdout": ""
+    },
+    "memory_budget": {
+      "exit_status": 1,
+      "json_exists": false,
+      "message_found": true,
+      "output_dir_exists": false,
+      "stderr": "error: CUDA memory budget exceeded for read-alignment batch\n",
+      "stdout": ""
+    }
+  },
+  "next_optimization_target": "M5g should remove grouped-launch overhead or increase batch scale: prefer a persistent grouped read-alignment worker with reusable device buffers, then test on larger non-toy fixture harvests.",
+  "repo": {
+    "base_commit": "6831748e9268f07f5def21a68332ea1ab46c2184",
+    "remote": "https://github.com/leether/cuFlye.git"
+  },
+  "selected_batch": {
+    "fixture_count": 68,
+    "heterogeneous_batch": true,
+    "max_input_records_per_fixture": 4,
+    "min_input_records_per_fixture": 1,
+    "output_records": 114,
+    "per_fixture": [
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "d0b566298ac82ded20a89345589d78ba6e383a8dd7556c57235adcda6b3acf25",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 5
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "ffd9f9807fc1678f2969ed35ee4c5e3677c7d62ca880c3699296b12b0c81e751",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 6
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "c14a949ec10e201583c3031b9cbf0c3457e1b250c8367ae48c0a23e70875d2a6",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 7
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "09a7aed1f0e6a163333e37aa90d73b71dd6b42a82cc79ee3da5f74e95faa7beb",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 8
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "7a66effece4f336176ed7d2142e78a1d5b95fb55991ac187a0ffe9f89118271b",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 9
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "96a0697975804d1e8edbf376c58618d85bdf8131a576b99e9d3396824828da97",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 10
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "c179983f2eb30a63889200bc507d627aab22665dc500646638866c83291bbc8f",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 11
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "1eefa7a3ab072d9c46292a4e382aedffea7b48cd361737750b6396ddf78248b8",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 12
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "43ad907da677c823f1fbe6fc6bae119d40c90af629956b94163038c97a577840",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 13
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "eafe7b9a0a6c53f92702fc655281a5a3d5aa9a79e14ee5eb85cee885be36863c",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 14
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "535bc75727a2fe4734d4b86ab6d35f0be975f089a129e107cae6eb6ed0884fd2",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 15
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "7671e75287f341fc5962e6122a54f4054838dcf8cafb46837712f128611ba5d3",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 16
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "2e66679a75b246abb99e412660104d49890bf9c780a760c475b480712ae67239",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 17
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "5f1ad76b9be8f259f4d62b563db40d5dda47e92d7359a16d0f43d6823f77e3ca",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 18
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "b5d024ad17ab1a4c1629b73c094efb45156c2edada4037163748c9104bcdb0f3",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 19
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "65864b702498817a5eb50846c44681b4b2161cececbf9605cec7bfca3972a543",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 20
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "5eb8040bde01f8eb7f0183c97476e77cf767dc3d65b340ca35e605351c2d9cdc",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 21
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "9e497cbb0967a4949aac8a2351644f7cf6d6bd904efdbde926dc4c4b5f776522",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 22
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "19d29b2658e56ac2f4a86ea2b8c5cd4a63821d1a617c7969b6de0f61987b9b7a",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 23
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "d860bc1d7028e188793c26fc1c024460d518f1e08fa56bfaade0ead7a20a820b",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 24
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "3bfffcdc7578b2e0ee78907562521ea7335ab6d2d4e432c42d87310711da8efe",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 25
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "b75f843e285ec87051d565470239b45ee3035bade3cdc0fb1cf02cad8aac850c",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 26
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "8ed1bace929928996f22ea5e585482254f49d7830758becbf31ab8c35dd1be8a",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 27
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "c3c54fc88e0637bd42707f001587fd50c4d0d28095e8c30975f53b67a4c2bc36",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 28
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "1e888a0bcecf2c1ffa82b4577b7baf2b8f09975023f5e1bb66d5161c3655833b",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 29
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "89bde3a95517ec78b03a69624bf161dd75eff2108146c76d73f257d1401b6230",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 30
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "2aca46afdf79e6b9f4611648136eb556b61ddaccb01ffbe65afa01925afa2f8a",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 31
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "3267778f3e22574d49fe68012dbfa6e3b8dc55e97f0f21cfadbaef15eb824b80",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 32
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "d87f05e075e1162c6a74310e7072052701c6ea9b4f9d9f0ed6c857c6e0609bba",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 33
+      },
+      {
+        "alignment_input_records": 1,
+        "canonical_sha256": "b23aa19c32b6c32f07cdf58ea7fdb6869985e66fa7caaff797fbddeb98c1625a",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 1,
+        "query_id": 34
+      },
+      {
+        "alignment_input_records": 4,
+        "canonical_sha256": "c8aa478626cad18a598140a00a39effba464c187109a2b71a2509806ff7aa802",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 3,
+        "query_id": 200
+      },
+      {
+        "alignment_input_records": 2,
+        "canonical_sha256": "b4d437190c033d199b1cd1592c786e8bbe35b679af2d3a41c0ac84610bc613fb",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 204
+      },
+      {
+        "alignment_input_records": 4,
+        "canonical_sha256": "8ef11fc188c58b96e4ae26850f4148a95d67837d45425364980ea1e1293a1d8c",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 3,
+        "query_id": 262
+      },
+      {
+        "alignment_input_records": 2,
+        "canonical_sha256": "863a0f7b53c2cc8829a779b34d58f494039214dc79e79c589abf446fed7677a5",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 306
+      },
+      {
+        "alignment_input_records": 2,
+        "canonical_sha256": "1a7b27d3151324dde2f9b6d5d0426f5bd38ec97f3c01927c733951d46485c033",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 441
+      },
+      {
+        "alignment_input_records": 2,
+        "canonical_sha256": "d28deceff88747db84d5e3c9ba3be7d73f1883acda38550485d5005695978ae3",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 516
+      },
+      {
+        "alignment_input_records": 3,
+        "canonical_sha256": "68eac42c4cf11fb5e6c6c6cbd8448cf2388fb65aea493174ae0bd136be9de01c",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 667
+      },
+      {
+        "alignment_input_records": 3,
+        "canonical_sha256": "c414b300cc1a5b656057b8117698f79e9a009c7a6c2abe4a1e2a27854060930f",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 1069
+      },
+      {
+        "alignment_input_records": 3,
+        "canonical_sha256": "2f795ece5de61fdc30d2439d05c7f9b87373207dd80e695b2354257deaba6f05",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 1100
+      },
+      {
+        "alignment_input_records": 2,
+        "canonical_sha256": "7cd1e1f725000d074310cff716e8969dfd6b4883a8db728bff7fb431c5909419",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 1123
+      },
+      {
+        "alignment_input_records": 2,
+        "canonical_sha256": "827983ffc90097ec53d523bb46205c51d34dc186dbcde549f9ceb784003cecc0",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 1157
+      },
+      {
+        "alignment_input_records": 3,
+        "canonical_sha256": "bcfa10e260099bfc098ac54dbee044ff3f568e39fb05d7b9f28e971a3af1bd0b",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 1229
+      },
+      {
+        "alignment_input_records": 3,
+        "canonical_sha256": "39a8ce0bcd68d2eef96ce0e3a0a2a936954d68f67673edc9b2eabda34c276296",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 1252
+      },
+      {
+        "alignment_input_records": 3,
+        "canonical_sha256": "503f252807af2f15c35454c0c9941793d31cbfcf8fa7ffb3f2ed5aa56b176df1",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 1279
+      },
+      {
+        "alignment_input_records": 2,
+        "canonical_sha256": "05e3e8566cfec30e34e52831f423ec32882daf27411d4215a0229c430a6e99c8",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 1389
+      },
+      {
+        "alignment_input_records": 2,
+        "canonical_sha256": "18efd31b2528466f9022dd38f20e33a2391c5647d6bc88f07272b3bce6cd4b18",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 1410
+      },
+      {
+        "alignment_input_records": 3,
+        "canonical_sha256": "1c236be1864ac7651895d38412f801b45d9606dd8b45b6cd97e6f11696c93534",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 1480
+      },
+      {
+        "alignment_input_records": 3,
+        "canonical_sha256": "ac4510068d2cf11043e6e81e25f939f2c73d643dc576477001e9e14aca599d2c",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 1500
+      },
+      {
+        "alignment_input_records": 3,
+        "canonical_sha256": "0deb33261385222debdf1f3ee2a5bac55277d05db56d990196fa1de3f11d72c2",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 1584
+      },
+      {
+        "alignment_input_records": 3,
+        "canonical_sha256": "0ae02808673f9310f67cbd2a5d6eaa1ef6cad58ceb7d998fe0853659f7fce74b",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 1716
+      },
+      {
+        "alignment_input_records": 4,
+        "canonical_sha256": "e5726b24d7b7b8cc3a3fc73858437150013932d1eae026fb9da27e0e2ff2502d",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 3,
+        "query_id": 1768
+      },
+      {
+        "alignment_input_records": 3,
+        "canonical_sha256": "ff19d5dd835354922cb0444a6ddfa651601e4af9f5520e4de22352b4774e1eec",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 1820
+      },
+      {
+        "alignment_input_records": 3,
+        "canonical_sha256": "0907487539a0afd22574c0e91c42e78d88d3c2dcca7ca11b05abbd4bb92ad57d",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 1909
+      },
+      {
+        "alignment_input_records": 3,
+        "canonical_sha256": "4c9df98b04cc54d79f932ec224226f70b78212cc3443a6f59c5fc8fd842747e9",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 1930
+      },
+      {
+        "alignment_input_records": 2,
+        "canonical_sha256": "cd443dc82bc42c855275f57fd7bd103ed9021dd0c37a79ecb8f7cb5d0ff6eca8",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 1986
+      },
+      {
+        "alignment_input_records": 3,
+        "canonical_sha256": "b12e241022c858fd965a37609a51c2811db68a4e4c63c3ad497843b82634dc72",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 1989
+      },
+      {
+        "alignment_input_records": 4,
+        "canonical_sha256": "5ca79cf0ae0e2d56e7b41f49e0c25649d50a59ca852ca0624ad38b85b8f098ed",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 3,
+        "query_id": 2003
+      },
+      {
+        "alignment_input_records": 2,
+        "canonical_sha256": "b04495d4278f485021236890803ae456ad24f01988406e11d15a88acbe4e803c",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 2067
+      },
+      {
+        "alignment_input_records": 3,
+        "canonical_sha256": "2b2d19b7c973a759f022b018d4f110a11fdf4ee495fd52df42869489550af64e",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 2080
+      },
+      {
+        "alignment_input_records": 3,
+        "canonical_sha256": "5fb651c99381b67f15a6d8b523462b289bf1bc567f328bf7314729ca98709bf5",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 2214
+      },
+      {
+        "alignment_input_records": 4,
+        "canonical_sha256": "c6f19e217e3a129a79b553444bda63d360b17482a7afbab44f8e9e1766e92e02",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 3,
+        "query_id": 2245
+      },
+      {
+        "alignment_input_records": 2,
+        "canonical_sha256": "af7ba1e29777690ff351ee5a74305b62bbfa7181ba138111b1605e9f296b8abb",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 2311
+      },
+      {
+        "alignment_input_records": 3,
+        "canonical_sha256": "b6c825eda4f628d660b2a9fda08d036301c9986b129739f0074aec58c20ec9c0",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 2332
+      },
+      {
+        "alignment_input_records": 3,
+        "canonical_sha256": "c2928660ec852c17f150bfc8488df7345d844ef5433258ce3308572e657ee266",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 2345
+      },
+      {
+        "alignment_input_records": 3,
+        "canonical_sha256": "cd09b5a9bf4b1a52122e43fe9e42435d4d1a8fd6e508a55027d7848d9d471fd7",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 2,
+        "query_id": 2390
+      },
+      {
+        "alignment_input_records": 4,
+        "canonical_sha256": "cecf8ddba256fd9fcdaba491d6a86424b660deee69b045d4e1cfb6f21c7e2376",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 3,
+        "query_id": 2537
+      },
+      {
+        "alignment_input_records": 4,
+        "canonical_sha256": "d04b2fec4782bfec51224dd1003cc61f0a89fa9ae0e1c05eced42a1abd44d7fd",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 3,
+        "query_id": 3347
+      },
+      {
+        "alignment_input_records": 4,
+        "canonical_sha256": "c817d867dfa173d28f76ebe9b19274e2d54db650ed87fa5bc3811a17a1e3e67f",
+        "diffs": {
+          "cpu_vs_cuda": "match",
+          "cpu_vs_oracle": "match",
+          "cuda_vs_oracle": "match"
+        },
+        "output_records": 3,
+        "query_id": 3512
+      }
+    ],
+    "shape_group_count": 4,
+    "shape_groups": [
+      {
+        "chain_divergence_rows": 1,
+        "fixture_count": 30,
+        "input_records_per_fixture": 1,
+        "output_records": 30,
+        "query_ids": [
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34
+        ],
+        "replay_parameters": {
+          "max_read_overlap": 50,
+          "max_separation": 500,
+          "maximum_jump": 1500,
+          "minimum_overlap": 1000
+        },
+        "total_input_records": 30
+      },
+      {
+        "chain_divergence_rows": 1,
+        "fixture_count": 11,
+        "input_records_per_fixture": 2,
+        "output_records": 22,
+        "query_ids": [
+          204,
+          306,
+          441,
+          516,
+          1123,
+          1157,
+          1389,
+          1410,
+          1986,
+          2067,
+          2311
+        ],
+        "replay_parameters": {
+          "max_read_overlap": 50,
+          "max_separation": 500,
+          "maximum_jump": 1500,
+          "minimum_overlap": 1000
+        },
+        "total_input_records": 22
+      },
+      {
+        "chain_divergence_rows": 1,
+        "fixture_count": 19,
+        "input_records_per_fixture": 3,
+        "output_records": 38,
+        "query_ids": [
+          667,
+          1069,
+          1100,
+          1229,
+          1252,
+          1279,
+          1480,
+          1500,
+          1584,
+          1716,
+          1820,
+          1909,
+          1930,
+          1989,
+          2080,
+          2214,
+          2332,
+          2345,
+          2390
+        ],
+        "replay_parameters": {
+          "max_read_overlap": 50,
+          "max_separation": 500,
+          "maximum_jump": 1500,
+          "minimum_overlap": 1000
+        },
+        "total_input_records": 57
+      },
+      {
+        "chain_divergence_rows": 1,
+        "fixture_count": 8,
+        "input_records_per_fixture": 4,
+        "output_records": 24,
+        "query_ids": [
+          200,
+          262,
+          1768,
+          2003,
+          2245,
+          2537,
+          3347,
+          3512
+        ],
+        "replay_parameters": {
+          "max_read_overlap": 50,
+          "max_separation": 500,
+          "maximum_jump": 1500,
+          "minimum_overlap": 1000
+        },
+        "total_input_records": 32
+      }
+    ],
+    "total_input_records": 141
+  },
+  "source_fixtures": {
+    "fixture_list": "/tmp/cuflye-m5f-proof-20260630T231847Z/out/m5f/heterogeneous/all-real-fixtures.list",
+    "fixture_root": "/tmp/cuflye-m5e-proof-20260630T230250Z/out/m5e/runs/toy-hifi-multiread/read-alignment-replay-fixtures",
+    "m5e_proof_dir": "/tmp/cuflye-m5e-proof-20260630T230250Z"
+  },
+  "speed": {
+    "cuda_core_slower_than_cpu": 2.0240556114515686,
+    "cuda_core_speedup_vs_cpu": 0.4940575715124949,
+    "cuda_total_slower_than_cpu": 41.157321869569195,
+    "cuda_total_speedup_vs_cpu": 0.024297013376358135
+  }
+}
