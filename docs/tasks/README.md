@@ -7,16 +7,20 @@ change is considered complete.
 
 Active cards:
 
-- `2026-07-01-cuflye-m4t-substitution-session-timing-attribution.md`:
-  add timing attribution to graph-facing substitution sessions before choosing
-  the next performance optimization path.
+- None.
 
 Proposed cards:
 
-- None. M4t is in progress.
+- `2026-07-01-cuflye-m4u-substitution-worker-overhead-reduction.md`:
+  reduce the worker process and file-IO overhead exposed by M4t before expanding
+  graph-facing substitution scope.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m4t-substitution-session-timing-attribution.md`:
+  add per-decision timing attribution to graph-facing substitution sessions and
+  prove exact artifact preservation while identifying worker/process overhead
+  as the next optimization target.
 - `2026-07-01-cuflye-m4s-substitution-supported-shape-expansion.md`:
   expand verified graph-facing substitution from one selected query to a
   deterministic supported-shape session ledger with substituted, skipped, and

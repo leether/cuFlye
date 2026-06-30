@@ -103,3 +103,5 @@ M4 overlap-range oracle proof:
   `cuflye-m4r-verified-overlap-vector-substitution-smoke-dgx-aarch64.json`
 - Substitution session ledger manifest:
   `cuflye-m4s-substitution-session-ledger-dgx-aarch64.json`
+- Substitution session timing attribution manifest:
+  `cuflye-m4t-substitution-session-timing-attribution-dgx-aarch64.json`

@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4t Substitution Session Timing Attribution
 
-Status: in_progress
+Status: completed
 
 Created: 2026-07-01
 
@@ -48,15 +48,15 @@ M4s safety gate.
 
 ## Acceptance Gates
 
-- [ ] Timing fields are documented in the session ledger ABI.
-- [ ] Selected-query ledger entries include non-negative timing fields.
-- [ ] Positive session still substitutes selected supported queries and matches
+- [x] Timing fields are documented in the session ledger ABI.
+- [x] Selected-query ledger entries include non-negative timing fields.
+- [x] Positive session still substitutes selected supported queries and matches
   CPU canonical artifacts.
-- [ ] Negative mismatch and unsupported-shape sessions still fail closed.
-- [ ] Proof manifest reports per-query and aggregate timing attribution.
-- [ ] The benefit assessment explicitly states whether M4t shows speedup,
+- [x] Negative mismatch and unsupported-shape sessions still fail closed.
+- [x] Proof manifest reports per-query and aggregate timing attribution.
+- [x] The benefit assessment explicitly states whether M4t shows speedup,
   overhead, or an unclear result.
-- [ ] Local and DGX syntax/style/ownership gates pass.
+- [x] Local and DGX syntax/style/ownership gates pass.
 
 ## C++ Style Constraints
 
@@ -69,7 +69,56 @@ M4s safety gate.
 
 ## Deliverables
 
-- Updated session ledger ABI documentation.
-- Flye seam patch for timing attribution.
-- DGX proof manifest with positive and negative timing runs.
-- Roadmap, Task Card, golden index, and plain-language benefit assessment.
+- [x] Updated session ledger ABI documentation.
+- [x] Flye seam patch for timing attribution.
+- [x] DGX proof manifest with positive and negative timing runs.
+- [x] Roadmap, Task Card, golden index, and plain-language benefit assessment.
+
+## Completion Notes
+
+Implementation commit: `2c01201de057170273ad0c633d3579e1f29ce683`
+
+DGX proof:
+`tests/golden/cuflye-m4t-substitution-session-timing-attribution-dgx-aarch64.json`
+
+Positive session:
+
+- CPU toy-raw baseline elapsed: `87s`
+- substitution/timing toy-raw elapsed: `99s`
+- wall-clock ratio: `1.137931`
+- selected toy-raw query ids: `353,381`
+- substituted query ids: `353,381`
+- ledger decision counts:
+  - `substituted`: `2`
+  - `skipped-already-substituted`: `5`
+  - `skipped-not-selected`: `1892`
+  - `skipped-unsupported-non-selected-shape`: `987`
+- canonical Flye graph/output artifacts matched the CPU toy-raw baseline.
+
+Selected-query timing:
+
+- query `353`: CPU overlap `1.307334 ms`, worker process `452.297705 ms`,
+  seam total `469.227281 ms`
+- query `381`: CPU overlap `18.568655 ms`, worker process `376.389273 ms`,
+  seam total `395.499113 ms`
+
+Mismatch negative proof:
+
+- `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_PROOF_FAULT=drop-first-substitution-overlap`
+- substitution recorded `status=failed`, `state=failed-closed`, and
+  non-negative timing fields.
+- ledger recorded a `failed-closed` decision.
+
+Unsupported-shape negative proof:
+
+- `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_PROOF_FAULT=force-unsupported-selected-shape`
+- selected query failed closed before worker invocation.
+- selected unsupported entry recorded `worker_process_ms=0`.
+- ledger recorded `failed-closed-unsupported-selected-shape`.
+
+Plain-language CUDA benefit: M4t does not show end-to-end Flye speedup. It gives
+the project a useful timing ruler. The CUDA substitution path still preserves
+exact Flye artifacts, but the current seam spends hundreds of milliseconds per
+selected query in external worker/process and file/validation overhead. The next
+highest-ROI work is reducing that overhead before increasing substitution
+scope.

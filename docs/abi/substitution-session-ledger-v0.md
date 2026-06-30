@@ -1,6 +1,6 @@
 # Substitution Session Ledger v0
 
-Status: accepted in M4s; timing attribution proposed for M4t
+Status: accepted in M4s; timing attribution accepted in M4t
 
 Introduced: M4s
 
@@ -165,6 +165,16 @@ best-effort observations and must not affect substitution eligibility.
 
 All timing fields are milliseconds and must be non-negative. They are intended
 for ROI attribution, not deterministic correctness checks.
+
+## M4t Benefit Assessment
+
+In plain terms, M4t is still not a speed claim. Its value is attribution:
+cuFlye can now tell whether a graph-facing substitution attempt is spending time
+in CPU overlap generation, request/file IO, external worker process execution,
+validation, shadow comparison, rehydration, substitution comparison, or ledger
+writing. The M4t DGX proof showed exact artifact preservation, but the positive
+substitution run was slower than the CPU baseline, so the next optimization
+should reduce seam overhead before broadening substitution scope.
 
 ## M4s Benefit Assessment
 

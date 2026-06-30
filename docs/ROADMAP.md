@@ -581,4 +581,55 @@ Next highest-ROI task:
 M4t: add timing attribution to substitution sessions so cuFlye can separate CPU
 overlap time, CUDA worker time, process/IO overhead, validation overhead, and
 ledger overhead before choosing the next performance optimization.
+Completed.
+```
+
+M4t proof on DGX preserved the M4s safety gates and added per-decision timing
+attribution to the substitution ledger. The positive toy-raw session selected
+query ids `353,381`, substituted both, and preserved canonical Flye artifacts
+against the CPU baseline. Ledger decision counts were unchanged from M4s:
+
+```text
+substituted: 2
+skipped-already-substituted: 5
+skipped-not-selected: 1892
+skipped-unsupported-non-selected-shape: 987
+```
+
+The timing result was not a speedup. CPU toy-raw baseline elapsed `87s`; the
+substitution/timing run elapsed `99s` (`1.137931x` CPU wall time). Selected
+query timing showed the current seam is dominated by external worker/process
+overhead:
+
+```text
+query 353: cpu_overlap_ms=1.307334, worker_process_ms=452.297705, seam_total_ms=469.227281
+query 381: cpu_overlap_ms=18.568655, worker_process_ms=376.389273, seam_total_ms=395.499113
+```
+
+The mismatch negative proof injected `drop-first-substitution-overlap` and
+failed closed with timing attribution. The unsupported-shape negative proof
+injected `force-unsupported-selected-shape`, failed closed before worker
+invocation, and recorded `worker_process_ms=0`.
+
+Allowed M4t claim:
+
+```text
+cuFlye can attach non-negative timing attribution to graph-facing substitution
+decisions, preserve exact Flye artifacts for two selected supported toy-raw
+queries, and keep mismatch and unsupported-shape negative paths fail-closed.
+```
+
+Forbidden M4t claim:
+
+```text
+M4t does not prove default GPU mode, unsupported-shape CUDA substitution, or
+end-to-end Flye speedup.
+```
+
+Next highest-ROI task:
+
+```text
+M4u: reduce selected-query substitution seam overhead, especially external
+worker process startup and request/response file IO, before expanding
+graph-facing substitution scope.
 ```
