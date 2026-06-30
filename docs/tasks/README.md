@@ -7,11 +7,12 @@ change is considered complete.
 
 Active cards:
 
-- `2026-06-30-cuflye-m3e-sampled-pack-batch-planner.md`: generate sampled
-  real-pack fixtures and plan heterogeneous worker requests.
+- None.
 
 Completed cards:
 
+- `2026-06-30-cuflye-m3e-sampled-pack-batch-planner.md`: generate sampled
+  real-pack fixtures and plan heterogeneous worker requests.
 - `2026-06-30-cuflye-m3d-worker-device-buffer-arena.md`: reuse worker device
   buffers across warm requests while preserving candidate equivalence.
 - `2026-06-30-cuflye-m3c-device-prefix-compaction.md`: move sparse output

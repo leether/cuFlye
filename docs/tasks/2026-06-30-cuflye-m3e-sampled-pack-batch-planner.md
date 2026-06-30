@@ -1,6 +1,6 @@
 # Task Card: cuFlye M3e Sampled Pack Batch Planner
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -90,10 +90,51 @@ this limitation explicitly.
 
 ## Execution Checklist
 
-- [ ] Add sampled pack and batch planner tool.
-- [ ] Add local tool validation gates.
-- [ ] Build worker and read-window smoke on DGX.
-- [ ] Generate sampled real-pack fixtures on DGX.
-- [ ] Generate CPU oracle and worker outputs for every sample.
-- [ ] Validate and diff every sampled output.
-- [ ] Record compact proof and close this card.
+- [x] Add sampled pack and batch planner tool.
+- [x] Add local tool validation gates.
+- [x] Build worker and read-window smoke on DGX.
+- [x] Generate sampled real-pack fixtures on DGX.
+- [x] Generate CPU oracle and worker outputs for every sample.
+- [x] Validate and diff every sampled output.
+- [x] Record compact proof and close this card.
+
+## Merge Note
+
+Implemented in repo commit `ac43e84bf197f6ec8cf7581ab008ec69c5120f0b` and
+validated on DGX host `edgexpert-45d2` with `/usr/local/cuda/bin/nvcc`
+`13.0.88` targeting `sm_121`.
+
+Sampled pack proof:
+
+- Source pack:
+  `/tmp/cuflye-m2b-1782793203/out/m2b/proof/pack/query_neg253`
+- Source query id: `-253`
+- Source read length: `3339`
+- K-mer size: `17`
+- Samples: `full`, `tail1536`, `mid1024`, `head768`
+- Planner order: `estimated-pair-desc`
+- Request order: `full`, `tail1536`, `mid1024`, `head768`
+- CPU fallback requests: `0`
+- Worker requests processed in one process: `4`
+- Warm sampled requests: `3`
+- Warm arena allocations: `0`, `0`, `0`
+- Warm arena reuses: `7`, `7`, `7`
+- Records per sample:
+  - `full`: `15571`
+  - `tail1536`: `6870`
+  - `mid1024`: `4417`
+  - `head768`: `3962`
+- Worker/CPU candidate diffs: `match` for every sample
+- Best warm worker vs CPU oracle speedup: `41.08x`
+- Warm backend totals before JSON:
+  - `tail1536`: `3.856 ms`
+  - `mid1024`: `2.070 ms`
+  - `head768`: `1.673 ms`
+
+Tracked compact proof:
+
+- `tests/golden/cuflye-m3e-sampled-pack-batch-planner-dgx-aarch64.json`
+
+M3e proves heterogeneous sampled real-pack request planning and worker execution.
+It still does not claim multiple independent Flye query ids or full Flye
+assembly speedup.

@@ -1,0 +1,796 @@
+{
+    "acceptance": {
+        "batch_plan_reports_zero_cpu_fallback_requests": true,
+        "cpu_oracles_validate_candidate_record_v1": true,
+        "no_large_tsv_committed": true,
+        "planner_defaults_to_estimated_pair_desc": true,
+        "planner_emits_at_least_three_sampled_pack_requests": true,
+        "planner_records_request_order": true,
+        "planner_rejects_invalid_sample_lengths": true,
+        "read_window_smoke_build_still_succeeds": true,
+        "smoke_gpu_outputs_match_cpu_oracles": true,
+        "warm_sample_faster_than_cpu_oracle": true,
+        "warm_sample_reuses_worker_arena": true,
+        "worker_builds_with_nvcc": true,
+        "worker_outputs_match_cpu_oracles": true,
+        "worker_outputs_validate_candidate_record_v1": true
+    },
+    "baseline": {
+        "m3d_real_canonical_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+        "m3d_warm_backend_total_before_json_ms": 18.643,
+        "m3d_warm_device_allocation_ms": 0.001
+    },
+    "batch_plan": {
+        "cpu_fallback_requests": 0,
+        "order": "estimated-pair-desc",
+        "path": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/sampled/batch-plan.with-oracles.json",
+        "request_count": 4,
+        "request_order": [
+            "full",
+            "tail1536",
+            "mid1024",
+            "head768"
+        ],
+        "requests_jsonl": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/sampled/requests.jsonl"
+    },
+    "claim": "cuFlye can plan heterogeneous sampled real-pack worker requests, execute them in one CUDA worker process, and preserve candidate-record-v1 equivalence for every sample.",
+    "created_at_utc": "2026-06-30T13:19:46.521925+00:00",
+    "cuda_build": {
+        "read_window_smoke": {
+            "created_at_utc": "2026-06-30T13:17:57.829095+00:00",
+            "cuda_arch": "sm_121",
+            "cuda_home": "/usr/local/cuda",
+            "host": "edgexpert-45d2",
+            "machine": "aarch64",
+            "nvcc": "/usr/local/cuda/bin/nvcc",
+            "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:57:39_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+            "output_binary": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/bin/cuflye-cuda-read-window-smoke",
+            "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+            "python": "3.12.3",
+            "repo_commit": "ac43e84bf197f6ec8cf7581ab008ec69c5120f0b",
+            "repo_root": "/tmp/cuflye-m3e-proof-1782825472-git"
+        },
+        "worker": {
+            "created_at_utc": "2026-06-30T13:18:00.383684+00:00",
+            "cuda_arch": "sm_121",
+            "cuda_home": "/usr/local/cuda",
+            "host": "edgexpert-45d2",
+            "machine": "aarch64",
+            "nvcc": "/usr/local/cuda/bin/nvcc",
+            "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:57:39_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+            "output_binary": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/bin/cuflye-cuda-worker",
+            "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+            "python": "3.12.3",
+            "repo_commit": "ac43e84bf197f6ec8cf7581ab008ec69c5120f0b",
+            "repo_root": "/tmp/cuflye-m3e-proof-1782825472-git"
+        }
+    },
+    "derived_metrics": {
+        "all_worker_diffs_match": true,
+        "all_worker_outputs_validate": true,
+        "best_warm_worker_vs_cpu_oracle_speedup": 41.080653526970956,
+        "canonical_sha256_by_sample": {
+            "full": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+            "head768": "92231b443d1d907e860a2dfb48b46f945327e7fc0cf57a0678119d4605342256",
+            "mid1024": "dcb6de718cf9b7bf55e418bae417a379ff27efc09a643e39754e23c8962f573d",
+            "tail1536": "27d1687d886ff6c76e561cbb4c48b864eb987c8990fa47e0ac1214ffdf5181d3"
+        },
+        "max_warm_backend_total_before_json_ms": 3.856,
+        "min_warm_backend_total_before_json_ms": 1.673,
+        "records_per_sample": {
+            "full": 15571,
+            "head768": 3962,
+            "mid1024": 4417,
+            "tail1536": 6870
+        },
+        "sample_count": 4,
+        "warm_arena_allocation_counts": [
+            0,
+            0,
+            0
+        ],
+        "warm_arena_reuse_counts": [
+            7,
+            7,
+            7
+        ],
+        "warm_sample_count": 3
+    },
+    "host": {
+        "machine": "aarch64",
+        "name": "edgexpert-45d2",
+        "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39"
+    },
+    "limitations": [
+        "Samples are deterministic windows derived from the existing M2b query_neg253 real pack.",
+        "This proof does not claim multiple independent Flye query ids were captured.",
+        "This proof does not claim full Flye assembly acceleration."
+    ],
+    "milestone": "M3e sampled pack batch planner",
+    "non_claims": [
+        "No downstream graph equivalence claim.",
+        "No in-process CUDA inside Flye.",
+        "No CPU fallback in worker requests."
+    ],
+    "repo": {
+        "commit": "ac43e84bf197f6ec8cf7581ab008ec69c5120f0b",
+        "root": "/tmp/cuflye-m3e-proof-1782825472-git",
+        "status_short": ""
+    },
+    "samples": [
+        {
+            "canonical_sha256": "92231b443d1d907e860a2dfb48b46f945327e7fc0cf57a0678119d4605342256",
+            "cpu_oracle_ms": 47.86,
+            "cpu_vs_smoke_gpu_diff": "match",
+            "cpu_vs_worker_diff": "match",
+            "diffs": {
+                "cpu_vs_smoke_gpu": {
+                    "left": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/oracle/head768.cpu.candidates.tsv",
+                    "left_records": 3962,
+                    "left_sha256": "92231b443d1d907e860a2dfb48b46f945327e7fc0cf57a0678119d4605342256",
+                    "right": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/oracle/head768.smoke-gpu.candidates.tsv",
+                    "right_records": 3962,
+                    "right_sha256": "92231b443d1d907e860a2dfb48b46f945327e7fc0cf57a0678119d4605342256",
+                    "status": "match"
+                },
+                "cpu_vs_worker": {
+                    "left": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/oracle/head768.cpu.candidates.tsv",
+                    "left_records": 3962,
+                    "left_sha256": "92231b443d1d907e860a2dfb48b46f945327e7fc0cf57a0678119d4605342256",
+                    "right": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/sampled/worker/head768.worker.candidates.tsv",
+                    "right_records": 3962,
+                    "right_sha256": "92231b443d1d907e860a2dfb48b46f945327e7fc0cf57a0678119d4605342256",
+                    "status": "match"
+                }
+            },
+            "estimated_pair_count": 2979424,
+            "index_entries": 3962,
+            "lookup_kmers": 752,
+            "query_windows": 752,
+            "records": 3962,
+            "response": {
+                "backend_json": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/sampled/worker/head768.backend.json",
+                "candidate_abi": "candidate-record-v1",
+                "dense_pair_output_materialized": false,
+                "device": 0,
+                "device_allocation_bytes": 15435152,
+                "device_name": "NVIDIA GB10",
+                "host_prefix_offsets_materialized": false,
+                "memory_budget_satisfied": true,
+                "output_strategy": "sparse-offsets-v1",
+                "output_tsv": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/sampled/worker/head768.worker.candidates.tsv",
+                "prefix_strategy": "device-exclusive-scan-v1",
+                "records": 3962,
+                "request_id": "sample-004-head768",
+                "request_ordinal": 4,
+                "schema": "cuflye-worker-response-v0",
+                "status": "ok",
+                "timing_ms": {
+                    "backend_total_before_json": 1.673,
+                    "cuda_setup": 0.0,
+                    "device_allocation": 0.0,
+                    "device_prefix_sum": 0.14,
+                    "device_to_host": 0.022,
+                    "emit_kernel": 0.03,
+                    "flag_device_to_host": 0.0,
+                    "host_output_allocation": 0.002,
+                    "host_prefix_sum": 0.0,
+                    "host_to_device": 0.034,
+                    "input_parse": 0.565,
+                    "kernel": 0.359,
+                    "mark_kernel": 0.329,
+                    "offsets_host_to_device": 0.0,
+                    "output_count_device_to_host": 0.012,
+                    "output_device_to_host": 0.01,
+                    "request_total": 1.691,
+                    "sparse_output_allocation": 0.0,
+                    "worker_uptime": 274.455,
+                    "write_output": 0.511
+                },
+                "worker_context_setup_ms": 242.658,
+                "worker_cuda_context_warm": true,
+                "worker_device_arena_allocations": 0,
+                "worker_device_arena_capacity_bytes": 260459496,
+                "worker_device_arena_enabled": true,
+                "worker_device_arena_reuses": 7
+            },
+            "sample_label": "head768",
+            "sample_length": 768,
+            "sample_offset": 0,
+            "smoke_gpu_total_before_json_ms": 352.972,
+            "validations": {
+                "cpu": {
+                    "abi": "candidate-record-v1",
+                    "canonical_sha256": "92231b443d1d907e860a2dfb48b46f945327e7fc0cf57a0678119d4605342256",
+                    "first_record": [
+                        -253,
+                        2,
+                        14842839419,
+                        -1165,
+                        2591,
+                        "-"
+                    ],
+                    "last_record": [
+                        -253,
+                        749,
+                        9613016996,
+                        574,
+                        533,
+                        "+"
+                    ],
+                    "path": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/oracle/head768.cpu.candidates.tsv",
+                    "raw_sha256": "1a8dd8a740264b7b16ee5a79e923516330252b08186c252aa453b6e594d03368",
+                    "raw_sorted_by_canonical_key": false,
+                    "records": 3962,
+                    "size_bytes": 126566
+                },
+                "smoke_gpu": {
+                    "abi": "candidate-record-v1",
+                    "canonical_sha256": "92231b443d1d907e860a2dfb48b46f945327e7fc0cf57a0678119d4605342256",
+                    "first_record": [
+                        -253,
+                        2,
+                        14842839419,
+                        -1165,
+                        2591,
+                        "-"
+                    ],
+                    "last_record": [
+                        -253,
+                        749,
+                        9613016996,
+                        574,
+                        533,
+                        "+"
+                    ],
+                    "path": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/oracle/head768.smoke-gpu.candidates.tsv",
+                    "raw_sha256": "1a8dd8a740264b7b16ee5a79e923516330252b08186c252aa453b6e594d03368",
+                    "raw_sorted_by_canonical_key": false,
+                    "records": 3962,
+                    "size_bytes": 126566
+                },
+                "worker": {
+                    "abi": "candidate-record-v1",
+                    "canonical_sha256": "92231b443d1d907e860a2dfb48b46f945327e7fc0cf57a0678119d4605342256",
+                    "first_record": [
+                        -253,
+                        2,
+                        14842839419,
+                        -1165,
+                        2591,
+                        "-"
+                    ],
+                    "last_record": [
+                        -253,
+                        749,
+                        9613016996,
+                        574,
+                        533,
+                        "+"
+                    ],
+                    "path": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/sampled/worker/head768.worker.candidates.tsv",
+                    "raw_sha256": "1a8dd8a740264b7b16ee5a79e923516330252b08186c252aa453b6e594d03368",
+                    "raw_sorted_by_canonical_key": false,
+                    "records": 3962,
+                    "size_bytes": 126566
+                }
+            },
+            "worker_arena_allocations": 0,
+            "worker_arena_reuses": 7,
+            "worker_backend_total_before_json_ms": 1.673,
+            "worker_context_warm": true,
+            "worker_device_allocation_ms": 0.0,
+            "worker_request_total_ms": 1.691,
+            "worker_vs_cpu_oracle_speedup": 28.607292289300656
+        },
+        {
+            "canonical_sha256": "dcb6de718cf9b7bf55e418bae417a379ff27efc09a643e39754e23c8962f573d",
+            "cpu_oracle_ms": 68.386,
+            "cpu_vs_smoke_gpu_diff": "match",
+            "cpu_vs_worker_diff": "match",
+            "diffs": {
+                "cpu_vs_smoke_gpu": {
+                    "left": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/oracle/mid1024.cpu.candidates.tsv",
+                    "left_records": 4417,
+                    "left_sha256": "dcb6de718cf9b7bf55e418bae417a379ff27efc09a643e39754e23c8962f573d",
+                    "right": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/oracle/mid1024.smoke-gpu.candidates.tsv",
+                    "right_records": 4417,
+                    "right_sha256": "dcb6de718cf9b7bf55e418bae417a379ff27efc09a643e39754e23c8962f573d",
+                    "status": "match"
+                },
+                "cpu_vs_worker": {
+                    "left": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/oracle/mid1024.cpu.candidates.tsv",
+                    "left_records": 4417,
+                    "left_sha256": "dcb6de718cf9b7bf55e418bae417a379ff27efc09a643e39754e23c8962f573d",
+                    "right": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/sampled/worker/mid1024.worker.candidates.tsv",
+                    "right_records": 4417,
+                    "right_sha256": "dcb6de718cf9b7bf55e418bae417a379ff27efc09a643e39754e23c8962f573d",
+                    "status": "match"
+                }
+            },
+            "estimated_pair_count": 4452336,
+            "index_entries": 4417,
+            "lookup_kmers": 1008,
+            "query_windows": 1008,
+            "records": 4417,
+            "response": {
+                "backend_json": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/sampled/worker/mid1024.backend.json",
+                "candidate_abi": "candidate-record-v1",
+                "dense_pair_output_materialized": false,
+                "device": 0,
+                "device_allocation_bytes": 22897128,
+                "device_name": "NVIDIA GB10",
+                "host_prefix_offsets_materialized": false,
+                "memory_budget_satisfied": true,
+                "output_strategy": "sparse-offsets-v1",
+                "output_tsv": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/sampled/worker/mid1024.worker.candidates.tsv",
+                "prefix_strategy": "device-exclusive-scan-v1",
+                "records": 4417,
+                "request_id": "sample-003-mid1024",
+                "request_ordinal": 3,
+                "schema": "cuflye-worker-response-v0",
+                "status": "ok",
+                "timing_ms": {
+                    "backend_total_before_json": 2.07,
+                    "cuda_setup": 0.0,
+                    "device_allocation": 0.0,
+                    "device_prefix_sum": 0.209,
+                    "device_to_host": 0.024,
+                    "emit_kernel": 0.053,
+                    "flag_device_to_host": 0.0,
+                    "host_output_allocation": 0.002,
+                    "host_prefix_sum": 0.0,
+                    "host_to_device": 0.036,
+                    "input_parse": 0.643,
+                    "kernel": 0.541,
+                    "mark_kernel": 0.489,
+                    "offsets_host_to_device": 0.0,
+                    "output_count_device_to_host": 0.013,
+                    "output_device_to_host": 0.01,
+                    "request_total": 2.089,
+                    "sparse_output_allocation": 0.0,
+                    "worker_uptime": 272.74,
+                    "write_output": 0.57
+                },
+                "worker_context_setup_ms": 242.658,
+                "worker_cuda_context_warm": true,
+                "worker_device_arena_allocations": 0,
+                "worker_device_arena_capacity_bytes": 260459496,
+                "worker_device_arena_enabled": true,
+                "worker_device_arena_reuses": 7
+            },
+            "sample_label": "mid1024",
+            "sample_length": 1024,
+            "sample_offset": 1000,
+            "smoke_gpu_total_before_json_ms": 315.435,
+            "validations": {
+                "cpu": {
+                    "abi": "candidate-record-v1",
+                    "canonical_sha256": "dcb6de718cf9b7bf55e418bae417a379ff27efc09a643e39754e23c8962f573d",
+                    "first_record": [
+                        -253,
+                        0,
+                        5422586765,
+                        -1065,
+                        836,
+                        "-"
+                    ],
+                    "last_record": [
+                        -253,
+                        1006,
+                        16228642190,
+                        3573,
+                        109,
+                        "+"
+                    ],
+                    "path": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/oracle/mid1024.cpu.candidates.tsv",
+                    "raw_sha256": "a9e0c1acf38a3362f6e05ecd5bd3dd90ddaf85151124eff2cca02c96eef65bc3",
+                    "raw_sorted_by_canonical_key": false,
+                    "records": 4417,
+                    "size_bytes": 142451
+                },
+                "smoke_gpu": {
+                    "abi": "candidate-record-v1",
+                    "canonical_sha256": "dcb6de718cf9b7bf55e418bae417a379ff27efc09a643e39754e23c8962f573d",
+                    "first_record": [
+                        -253,
+                        0,
+                        5422586765,
+                        -1065,
+                        836,
+                        "-"
+                    ],
+                    "last_record": [
+                        -253,
+                        1006,
+                        16228642190,
+                        3573,
+                        109,
+                        "+"
+                    ],
+                    "path": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/oracle/mid1024.smoke-gpu.candidates.tsv",
+                    "raw_sha256": "a9e0c1acf38a3362f6e05ecd5bd3dd90ddaf85151124eff2cca02c96eef65bc3",
+                    "raw_sorted_by_canonical_key": false,
+                    "records": 4417,
+                    "size_bytes": 142451
+                },
+                "worker": {
+                    "abi": "candidate-record-v1",
+                    "canonical_sha256": "dcb6de718cf9b7bf55e418bae417a379ff27efc09a643e39754e23c8962f573d",
+                    "first_record": [
+                        -253,
+                        0,
+                        5422586765,
+                        -1065,
+                        836,
+                        "-"
+                    ],
+                    "last_record": [
+                        -253,
+                        1006,
+                        16228642190,
+                        3573,
+                        109,
+                        "+"
+                    ],
+                    "path": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/sampled/worker/mid1024.worker.candidates.tsv",
+                    "raw_sha256": "a9e0c1acf38a3362f6e05ecd5bd3dd90ddaf85151124eff2cca02c96eef65bc3",
+                    "raw_sorted_by_canonical_key": false,
+                    "records": 4417,
+                    "size_bytes": 142451
+                }
+            },
+            "worker_arena_allocations": 0,
+            "worker_arena_reuses": 7,
+            "worker_backend_total_before_json_ms": 2.07,
+            "worker_context_warm": true,
+            "worker_device_allocation_ms": 0.0,
+            "worker_request_total_ms": 2.089,
+            "worker_vs_cpu_oracle_speedup": 33.03671497584541
+        },
+        {
+            "canonical_sha256": "27d1687d886ff6c76e561cbb4c48b864eb987c8990fa47e0ac1214ffdf5181d3",
+            "cpu_oracle_ms": 158.407,
+            "cpu_vs_smoke_gpu_diff": "match",
+            "cpu_vs_worker_diff": "match",
+            "diffs": {
+                "cpu_vs_smoke_gpu": {
+                    "left": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/oracle/tail1536.cpu.candidates.tsv",
+                    "left_records": 6870,
+                    "left_sha256": "27d1687d886ff6c76e561cbb4c48b864eb987c8990fa47e0ac1214ffdf5181d3",
+                    "right": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/oracle/tail1536.smoke-gpu.candidates.tsv",
+                    "right_records": 6870,
+                    "right_sha256": "27d1687d886ff6c76e561cbb4c48b864eb987c8990fa47e0ac1214ffdf5181d3",
+                    "status": "match"
+                },
+                "cpu_vs_worker": {
+                    "left": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/oracle/tail1536.cpu.candidates.tsv",
+                    "left_records": 6870,
+                    "left_sha256": "27d1687d886ff6c76e561cbb4c48b864eb987c8990fa47e0ac1214ffdf5181d3",
+                    "right": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/sampled/worker/tail1536.worker.candidates.tsv",
+                    "right_records": 6870,
+                    "right_sha256": "27d1687d886ff6c76e561cbb4c48b864eb987c8990fa47e0ac1214ffdf5181d3",
+                    "status": "match"
+                }
+            },
+            "estimated_pair_count": 10442400,
+            "index_entries": 6870,
+            "lookup_kmers": 1520,
+            "query_windows": 1520,
+            "records": 6870,
+            "response": {
+                "backend_json": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/sampled/worker/tail1536.backend.json",
+                "candidate_abi": "candidate-record-v1",
+                "dense_pair_output_materialized": false,
+                "device": 0,
+                "device_allocation_bytes": 53310624,
+                "device_name": "NVIDIA GB10",
+                "host_prefix_offsets_materialized": false,
+                "memory_budget_satisfied": true,
+                "output_strategy": "sparse-offsets-v1",
+                "output_tsv": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/sampled/worker/tail1536.worker.candidates.tsv",
+                "prefix_strategy": "device-exclusive-scan-v1",
+                "records": 6870,
+                "request_id": "sample-002-tail1536",
+                "request_ordinal": 2,
+                "schema": "cuflye-worker-response-v0",
+                "status": "ok",
+                "timing_ms": {
+                    "backend_total_before_json": 3.856,
+                    "cuda_setup": 0.0,
+                    "device_allocation": 0.0,
+                    "device_prefix_sum": 0.626,
+                    "device_to_host": 0.027,
+                    "emit_kernel": 0.124,
+                    "flag_device_to_host": 0.0,
+                    "host_output_allocation": 0.004,
+                    "host_prefix_sum": 0.0,
+                    "host_to_device": 0.054,
+                    "input_parse": 0.935,
+                    "kernel": 1.262,
+                    "mark_kernel": 1.138,
+                    "offsets_host_to_device": 0.0,
+                    "output_count_device_to_host": 0.014,
+                    "output_device_to_host": 0.013,
+                    "request_total": 3.877,
+                    "sparse_output_allocation": 0.0,
+                    "worker_uptime": 270.637,
+                    "write_output": 0.889
+                },
+                "worker_context_setup_ms": 242.658,
+                "worker_cuda_context_warm": true,
+                "worker_device_arena_allocations": 0,
+                "worker_device_arena_capacity_bytes": 260459496,
+                "worker_device_arena_enabled": true,
+                "worker_device_arena_reuses": 7
+            },
+            "sample_label": "tail1536",
+            "sample_length": 1536,
+            "sample_offset": 1803,
+            "smoke_gpu_total_before_json_ms": 410.933,
+            "validations": {
+                "cpu": {
+                    "abi": "candidate-record-v1",
+                    "canonical_sha256": "27d1687d886ff6c76e561cbb4c48b864eb987c8990fa47e0ac1214ffdf5181d3",
+                    "first_record": [
+                        -253,
+                        0,
+                        11725258334,
+                        -1796,
+                        1185,
+                        "-"
+                    ],
+                    "last_record": [
+                        -253,
+                        1517,
+                        3728940512,
+                        3573,
+                        1417,
+                        "+"
+                    ],
+                    "path": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/oracle/tail1536.cpu.candidates.tsv",
+                    "raw_sha256": "8a06bbed03e72b67755fb1f311f0c3461525bb67d357b2ab293db695010f3f23",
+                    "raw_sorted_by_canonical_key": false,
+                    "records": 6870,
+                    "size_bytes": 222912
+                },
+                "smoke_gpu": {
+                    "abi": "candidate-record-v1",
+                    "canonical_sha256": "27d1687d886ff6c76e561cbb4c48b864eb987c8990fa47e0ac1214ffdf5181d3",
+                    "first_record": [
+                        -253,
+                        0,
+                        11725258334,
+                        -1796,
+                        1185,
+                        "-"
+                    ],
+                    "last_record": [
+                        -253,
+                        1517,
+                        3728940512,
+                        3573,
+                        1417,
+                        "+"
+                    ],
+                    "path": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/oracle/tail1536.smoke-gpu.candidates.tsv",
+                    "raw_sha256": "8a06bbed03e72b67755fb1f311f0c3461525bb67d357b2ab293db695010f3f23",
+                    "raw_sorted_by_canonical_key": false,
+                    "records": 6870,
+                    "size_bytes": 222912
+                },
+                "worker": {
+                    "abi": "candidate-record-v1",
+                    "canonical_sha256": "27d1687d886ff6c76e561cbb4c48b864eb987c8990fa47e0ac1214ffdf5181d3",
+                    "first_record": [
+                        -253,
+                        0,
+                        11725258334,
+                        -1796,
+                        1185,
+                        "-"
+                    ],
+                    "last_record": [
+                        -253,
+                        1517,
+                        3728940512,
+                        3573,
+                        1417,
+                        "+"
+                    ],
+                    "path": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/sampled/worker/tail1536.worker.candidates.tsv",
+                    "raw_sha256": "8a06bbed03e72b67755fb1f311f0c3461525bb67d357b2ab293db695010f3f23",
+                    "raw_sorted_by_canonical_key": false,
+                    "records": 6870,
+                    "size_bytes": 222912
+                }
+            },
+            "worker_arena_allocations": 0,
+            "worker_arena_reuses": 7,
+            "worker_backend_total_before_json_ms": 3.856,
+            "worker_context_warm": true,
+            "worker_device_allocation_ms": 0.0,
+            "worker_request_total_ms": 3.877,
+            "worker_vs_cpu_oracle_speedup": 41.080653526970956
+        },
+        {
+            "canonical_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+            "cpu_oracle_ms": 941.81,
+            "cpu_vs_smoke_gpu_diff": "match",
+            "cpu_vs_worker_diff": "match",
+            "diffs": {
+                "cpu_vs_smoke_gpu": {
+                    "left": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/oracle/full.cpu.candidates.tsv",
+                    "left_records": 15571,
+                    "left_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+                    "right": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/oracle/full.smoke-gpu.candidates.tsv",
+                    "right_records": 15571,
+                    "right_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+                    "status": "match"
+                },
+                "cpu_vs_worker": {
+                    "left": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/oracle/full.cpu.candidates.tsv",
+                    "left_records": 15571,
+                    "left_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+                    "right": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/sampled/worker/full.worker.candidates.tsv",
+                    "right_records": 15571,
+                    "right_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+                    "status": "match"
+                }
+            },
+            "estimated_pair_count": 51742433,
+            "index_entries": 15571,
+            "lookup_kmers": 3323,
+            "query_windows": 3323,
+            "records": 15571,
+            "response": {
+                "backend_json": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/sampled/worker/full.backend.json",
+                "candidate_abi": "candidate-record-v1",
+                "dense_pair_output_materialized": false,
+                "device": 0,
+                "device_allocation_bytes": 262082800,
+                "device_name": "NVIDIA GB10",
+                "host_prefix_offsets_materialized": false,
+                "memory_budget_satisfied": true,
+                "output_strategy": "sparse-offsets-v1",
+                "output_tsv": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/sampled/worker/full.worker.candidates.tsv",
+                "prefix_strategy": "device-exclusive-scan-v1",
+                "records": 15571,
+                "request_id": "sample-001-full",
+                "request_ordinal": 1,
+                "schema": "cuflye-worker-response-v0",
+                "status": "ok",
+                "timing_ms": {
+                    "backend_total_before_json": 24.025,
+                    "cuda_setup": 0.0,
+                    "device_allocation": 8.844,
+                    "device_prefix_sum": 3.37,
+                    "device_to_host": 0.05,
+                    "emit_kernel": 0.536,
+                    "flag_device_to_host": 0.0,
+                    "host_output_allocation": 0.198,
+                    "host_prefix_sum": 0.0,
+                    "host_to_device": 0.285,
+                    "input_parse": 2.712,
+                    "kernel": 6.33,
+                    "mark_kernel": 5.794,
+                    "offsets_host_to_device": 0.0,
+                    "output_count_device_to_host": 0.027,
+                    "output_device_to_host": 0.023,
+                    "request_total": 24.08,
+                    "sparse_output_allocation": 0.002,
+                    "worker_uptime": 266.738,
+                    "write_output": 2.152
+                },
+                "worker_context_setup_ms": 242.658,
+                "worker_cuda_context_warm": false,
+                "worker_device_arena_allocations": 7,
+                "worker_device_arena_capacity_bytes": 260459496,
+                "worker_device_arena_enabled": true,
+                "worker_device_arena_reuses": 0
+            },
+            "sample_label": "full",
+            "sample_length": 3339,
+            "sample_offset": 0,
+            "smoke_gpu_total_before_json_ms": 1208.619,
+            "validations": {
+                "cpu": {
+                    "abi": "candidate-record-v1",
+                    "canonical_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+                    "first_record": [
+                        -253,
+                        2,
+                        14842839419,
+                        -1165,
+                        2591,
+                        "-"
+                    ],
+                    "last_record": [
+                        -253,
+                        3320,
+                        3728940512,
+                        3573,
+                        1417,
+                        "+"
+                    ],
+                    "path": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/oracle/full.cpu.candidates.tsv",
+                    "raw_sha256": "f24d05c6fccc494f0b45d24330d6ed24e80b984b7ff281b31b4bb302ae162191",
+                    "raw_sorted_by_canonical_key": false,
+                    "records": 15571,
+                    "size_bytes": 510990
+                },
+                "smoke_gpu": {
+                    "abi": "candidate-record-v1",
+                    "canonical_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+                    "first_record": [
+                        -253,
+                        2,
+                        14842839419,
+                        -1165,
+                        2591,
+                        "-"
+                    ],
+                    "last_record": [
+                        -253,
+                        3320,
+                        3728940512,
+                        3573,
+                        1417,
+                        "+"
+                    ],
+                    "path": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/oracle/full.smoke-gpu.candidates.tsv",
+                    "raw_sha256": "f24d05c6fccc494f0b45d24330d6ed24e80b984b7ff281b31b4bb302ae162191",
+                    "raw_sorted_by_canonical_key": false,
+                    "records": 15571,
+                    "size_bytes": 510990
+                },
+                "worker": {
+                    "abi": "candidate-record-v1",
+                    "canonical_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+                    "first_record": [
+                        -253,
+                        2,
+                        14842839419,
+                        -1165,
+                        2591,
+                        "-"
+                    ],
+                    "last_record": [
+                        -253,
+                        3320,
+                        3728940512,
+                        3573,
+                        1417,
+                        "+"
+                    ],
+                    "path": "/tmp/cuflye-m3e-proof-1782825472-git/out/m3e/sampled/worker/full.worker.candidates.tsv",
+                    "raw_sha256": "f24d05c6fccc494f0b45d24330d6ed24e80b984b7ff281b31b4bb302ae162191",
+                    "raw_sorted_by_canonical_key": false,
+                    "records": 15571,
+                    "size_bytes": 510990
+                }
+            },
+            "worker_arena_allocations": 7,
+            "worker_arena_reuses": 0,
+            "worker_backend_total_before_json_ms": 24.025,
+            "worker_context_warm": false,
+            "worker_device_allocation_ms": 8.844,
+            "worker_request_total_ms": 24.08,
+            "worker_vs_cpu_oracle_speedup": 39.201248699271595
+        }
+    ],
+    "schema": "cuflye-dgx-proof-v1",
+    "source_pack": {
+        "kmer_size": 17,
+        "path": "/tmp/cuflye-m2b-1782793203/out/m2b/proof/pack/query_neg253",
+        "query_id": -253,
+        "source_read_length": 3339
+    },
+    "status": "passed",
+    "worker_time": {
+        "elapsed": "0:00.39",
+        "exit_status": 0,
+        "max_rss_kbytes": 103820,
+        "raw": "\tCommand being timed: \"./out/m3e/bin/cuflye-cuda-worker --requests-jsonl out/m3e/sampled/requests.jsonl\"\n\tUser time (seconds): 0.03\n\tSystem time (seconds): 0.34\n\tPercent of CPU this job got: 96%\n\tElapsed (wall clock) time (h:mm:ss or m:ss): 0:00.39\n\tAverage shared text size (kbytes): 0\n\tAverage unshared data size (kbytes): 0\n\tAverage stack size (kbytes): 0\n\tAverage total size (kbytes): 0\n\tMaximum resident set size (kbytes): 103820\n\tAverage resident set size (kbytes): 0\n\tMajor (requiring I/O) page faults: 0\n\tMinor (reclaiming a frame) page faults: 18412\n\tVoluntary context switches: 47\n\tInvoluntary context switches: 7\n\tSwaps: 0\n\tFile system inputs: 0\n\tFile system outputs: 2048\n\tSocket messages sent: 0\n\tSocket messages received: 0\n\tSignals delivered: 0\n\tPage size (bytes): 4096\n\tExit status: 0\n"
+    }
+}

@@ -86,13 +86,19 @@ Completed:
 - M3d: worker-side reusable device buffers remove stable-shape allocation
   churn: warm backend total before JSON `18.643 ms`, warm device allocation
   `0.001 ms`, arena allocations `0`, arena reuses `7`, candidate diff `match`.
+- M3e: sampled real-pack batch planning derives four heterogeneous request
+  shapes from the M2b `query_neg253` pack, orders them by estimated pair count,
+  runs them in one CUDA worker process, and preserves candidate-list
+  equivalence for every sample. Warm sampled requests reuse the worker arena
+  with zero new allocations, and the best warm worker request is `41.08x`
+  faster than its sampled CPU oracle.
 
 Current allowed performance claim:
 
 ```text
 cuFlye's CUDA candidate-generation worker is faster than the CPU oracle for the
-measured warm real-pack query fixture while preserving candidate-list
-equivalence.
+measured real-pack and sampled real-read candidate fixtures while preserving
+candidate-list equivalence.
 ```
 
 Current forbidden claim:
@@ -264,12 +270,12 @@ Use precise milestone labels:
 Next highest-ROI task:
 
 ```text
-M3e: add a multi-query sampled-pack fixture set and batch-planner proof so the
-worker arena/device-prefix path is measured across distinct real read queries,
-not just repeated identical requests.
+M4a: define the overlap-range ABI and add a CPU overlap oracle dump for
+OverlapDetector::getSeqOverlaps so the next CUDA work can compare chained
+overlap ranges, not only raw candidate hits.
 ```
 
-Acceptance should remain candidate-list equivalence plus honest timing
-breakdown. The immediate target is proving that the M3d worker advantage holds
-across multiple sampled query shapes; do not claim full assembly speed until
-downstream graph equivalence is proven.
+Acceptance should start with deterministic CPU overlap dumps, validator and
+canonical diff tooling, and a small DGX proof. The immediate target is a stable
+M4 contract; do not port chain DP or claim graph equivalence until the CPU
+overlap-range oracle is machine-checkable.
