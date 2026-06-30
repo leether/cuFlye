@@ -247,6 +247,8 @@ def main() -> int:
                         help="Sample as LABEL:OFFSET:LENGTH; LENGTH may be full")
     parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--memory-budget-bytes", type=int)
+    parser.add_argument("--order", choices=("estimated-pair-desc", "input"),
+                        default="estimated-pair-desc")
     parser.add_argument("--plan-json", type=Path)
     parser.add_argument("--requests-jsonl", type=Path)
     args = parser.parse_args()
@@ -281,6 +283,17 @@ def main() -> int:
         )
         for spec in sample_specs
     ]
+    request_samples = list(samples)
+    if args.order == "estimated-pair-desc":
+        request_samples.sort(
+            key=lambda sample: (
+                sample["estimated_pair_count"],
+                sample["sample_length"],
+                sample["sample_label"],
+            ),
+            reverse=True,
+        )
+
     requests = [
         build_worker_request(
             out_dir=out_dir,
@@ -289,7 +302,7 @@ def main() -> int:
             device=args.device,
             memory_budget_bytes=args.memory_budget_bytes,
         )
-        for index, sample in enumerate(samples)
+        for index, sample in enumerate(request_samples)
     ]
 
     write_text(
@@ -305,7 +318,9 @@ def main() -> int:
         "kmer_size": args.kmer_size,
         "device": args.device,
         "memory_budget_bytes": args.memory_budget_bytes,
+        "order": args.order,
         "request_count": len(requests),
+        "request_order": [sample["sample_label"] for sample in request_samples],
         "cpu_fallback_requests": 0,
         "requests_jsonl": str(requests_jsonl),
         "samples": samples,

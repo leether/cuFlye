@@ -75,6 +75,8 @@ this limitation explicitly.
 
 - Tool rejects invalid sample lengths and missing pack files.
 - Tool emits at least three sampled pack requests from the real M2b pack.
+- Batch plan records request order and defaults to descending estimated pair
+  count for arena reuse.
 - Worker builds on DGX with `nvcc`.
 - Existing read-window smoke build still succeeds.
 - CPU oracle output validates as candidate-record-v1 for every sampled pack.
