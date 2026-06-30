@@ -250,10 +250,11 @@ Use precise milestone labels:
 Next highest-ROI task:
 
 ```text
-M2d: make Flye invoke the external CUDA packed backend on one real
-`pack-dump-v0` query, parse candidate records into Flye's candidate boundary,
-then fail closed before downstream graph logic.
+M2e: add a real-pack adapter-boundary timing proof that compares Flye's packed
+CPU candidate generation, standalone CUDA candidate generation, and external
+adapter overhead on the same `pack-dump-v0` query.
 ```
 
-Acceptance should remain adapter-boundary proof plus candidate-list equivalence,
-not full assembly speed.
+Acceptance should remain candidate-list equivalence plus honest timing
+breakdown. Do not claim full assembly speed until downstream graph equivalence
+is proven.

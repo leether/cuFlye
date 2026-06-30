@@ -7,12 +7,13 @@ change is considered complete.
 
 Active cards:
 
-- `2026-06-30-cuflye-m2d-external-pack-query-stop.md`: make Flye invoke the
-  external CUDA packed backend on one real packed query, parse records into the
-  candidate boundary, and fail closed before downstream graph logic.
+- None.
 
 Completed cards:
 
+- `2026-06-30-cuflye-m2d-external-pack-query-stop.md`: make Flye invoke the
+  external CUDA packed backend on one real packed query, parse records into the
+  candidate boundary, and fail closed before downstream graph logic.
 - `2026-06-30-cuflye-m2c-real-pack-cuda-consumer.md`: make the CUDA
   read-window backend consume a real `pack-dump-v0` bundle and match the
   packed CPU oracle.

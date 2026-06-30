@@ -1,0 +1,135 @@
+{
+  "adapter_boundary": {
+    "candidate_tsv": "/tmp/cuflye-m2d-1782796509/out/m2d/proof/real-pack.gpu.tsv",
+    "emitted_records": 15571,
+    "json": "/tmp/cuflye-m2d-1782796509/out/m2d/proof/real-pack.cuda.json",
+    "query_id": -253
+  },
+  "claim": "Flye invoked the external CUDA packed backend on one real pack-dump-v0 query, parsed matching candidate records at the Flye candidate boundary, and failed closed before downstream graph logic.",
+  "created_at_utc": "2026-06-30T05:20:47.617944+00:00",
+  "cuda_build": {
+    "cuda_arch": "sm_121",
+    "nvcc": "/usr/local/cuda/bin/nvcc",
+    "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:57:39_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+    "output_binary": "/tmp/cuflye-m2d-1782796509/out/m2d/proof/bin/cuflye-cuda-read-window-smoke"
+  },
+  "cuda_runtime": {
+    "adapter": "cuda-read-window-smoke-v0",
+    "compute_capability": "12.1",
+    "device_allocation_bytes": 2536379140,
+    "device_name": "NVIDIA GB10",
+    "dynamic_read_bases": true,
+    "index_entries": 15571,
+    "kmer_size": 17,
+    "max_read_length": 3339,
+    "memory_budget_bytes": 4294967296,
+    "memory_budget_satisfied": true,
+    "pair_count": 51742433,
+    "query_windows": 3323,
+    "reads": 1,
+    "records": 15571,
+    "status": "ok"
+  },
+  "diff": {
+    "left": "/tmp/cuflye-m2b-1782793203/out/m2b/proof/pack/query_neg253/cpu-candidates.tsv",
+    "left_records": 15571,
+    "left_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+    "right": "/tmp/cuflye-m2d-1782796509/out/m2d/proof/real-pack.gpu.tsv",
+    "right_records": 15571,
+    "right_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+    "status": "match"
+  },
+  "flye_build": {
+    "applied_patches": [
+      "0001-cuflye-candidate-dump.patch",
+      "0002-cuflye-candidate-backend-seam.patch",
+      "0003-cuflye-cuda-backend-stub.patch",
+      "0004-cuflye-cuda-adapter-shell.patch",
+      "0005-cuflye-real-data-pack-dump.patch",
+      "0006-cuflye-external-pack-query-stop.patch"
+    ],
+    "flye_commit": "886b8c17412c",
+    "flye_tags": [
+      "2.9.6"
+    ],
+    "flye_version": "2.9.6-b1802",
+    "gxx": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+    "jobs": 4,
+    "make_args": [
+      "THREADS=4",
+      "aarch64=1",
+      "arm_neon=1"
+    ]
+  },
+  "host": {
+    "machine": "aarch64",
+    "name": "edgexpert-45d2",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39"
+  },
+  "milestone": "M2d external pack query stop",
+  "non_claims": [
+    "No full assembly equivalence claim.",
+    "No end-to-end Flye speedup claim.",
+    "No in-process CUDA runtime linkage inside Flye."
+  ],
+  "real_pack": {
+    "manifest": {
+      "absent_windows": 2100,
+      "adapter": "pack-dump-v0",
+      "candidate_records": 15571,
+      "index_entries": 15571,
+      "kmer_size": 17,
+      "query_id": -253,
+      "query_length": 3339,
+      "query_windows": 3322,
+      "repetitive_kmers": 0,
+      "repetitive_windows": 0,
+      "status": "captured_and_failed_closed",
+      "trivial_hits": 1092
+    },
+    "source_dir": "/tmp/cuflye-m2b-1782793203/out/m2b/proof/pack/query_neg253"
+  },
+  "repo": {
+    "commit": "cf8cb8b081e23ba1bb4f6c182b2c5283c5be1e76",
+    "root": "/tmp/cuflye-m2d-1782796509"
+  },
+  "run": {
+    "adapter_mode": "external-packed-v0",
+    "candidate_backend": "cuda",
+    "exit_status": 1,
+    "expected_nonzero_exit": true,
+    "fixture": "toy-hifi",
+    "read_type": "pacbio-corr",
+    "run_dir": "/tmp/cuflye-m2d-1782796509/out/m2d/proof/runs/toy-external-real-pack-stop",
+    "stderr_excerpt": "[2026-06-30 01:19:45] ERROR: Caught unhandled exception: cuFlye CUDA adapter stopped after packed query; adapter=external-packed-v0; stop_after_packed_query=1; query_id=-253; emitted_records=15571; candidate_tsv=/tmp/cuflye-m2d-1782796509/out/m2d/proof/real-pack.gpu.tsv; json=/tmp/cuflye-m2d-1782796509/out/m2d/proof/real-pack.cuda.json",
+    "stop_after_packed_query": "1",
+    "threads": 1
+  },
+  "schema": "cuflye-dgx-proof-v1",
+  "status": "passed",
+  "validation": {
+    "abi": "candidate-record-v1",
+    "canonical_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+    "first_record": [
+      -253,
+      2,
+      14842839419,
+      -1165,
+      2591,
+      "-"
+    ],
+    "last_record": [
+      -253,
+      3320,
+      3728940512,
+      3573,
+      1417,
+      "+"
+    ],
+    "path": "/tmp/cuflye-m2d-1782796509/out/m2d/proof/real-pack.gpu.tsv",
+    "raw_sha256": "f24d05c6fccc494f0b45d24330d6ed24e80b984b7ff281b31b4bb302ae162191",
+    "raw_sorted_by_canonical_key": false,
+    "records": 15571,
+    "size_bytes": 510990
+  }
+}

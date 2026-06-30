@@ -1,6 +1,6 @@
 # Task Card: cuFlye M2d External Pack Query Stop
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -93,8 +93,42 @@ stop intentionally so no unproven downstream assembly path runs.
 - [x] Add stop-after-packed-query Flye patch.
 - [x] Add runner flag and metadata capture.
 - [x] Update ABI docs.
-- [ ] Build patched Flye on DGX.
-- [ ] Build CUDA backend on DGX.
-- [ ] Run stop-after-query proof against the M2b real pack.
-- [ ] Validate and diff outputs.
-- [ ] Record compact golden proof and close this card.
+- [x] Build patched Flye on DGX.
+- [x] Build CUDA backend on DGX.
+- [x] Run stop-after-query proof against the M2b real pack.
+- [x] Validate and diff outputs.
+- [x] Record compact golden proof and close this card.
+
+## Merge Note
+
+Implemented in repo commit `cf8cb8b081e23ba1bb4f6c182b2c5283c5be1e76` and
+validated on DGX host `edgexpert-45d2` with Flye `2.9.6` patched through
+`0006-cuflye-external-pack-query-stop.patch`.
+
+DGX proof:
+
+- Host: `edgexpert-45d2`, `aarch64`
+- Flye build: `g++ 13.3.0`, `-std=c++11`, `THREADS=4`, `aarch64=1`,
+  `arm_neon=1`
+- CUDA build: `/usr/local/cuda/bin/nvcc` `13.0.88`, target `sm_121`
+- Device: `NVIDIA GB10`, compute capability `12.1`
+- Source pack:
+  `/tmp/cuflye-m2b-1782793203/out/m2b/proof/pack/query_neg253`
+- Query id: `-253`
+- Query length: `3339`
+- K-mer size: `17`
+- Pair comparisons: `51742433`
+- Device allocation bytes: `2536379140`
+- Candidate records emitted by CUDA: `15571`
+- Flye adapter stop diagnostic:
+  `adapter=external-packed-v0; stop_after_packed_query=1; query_id=-253; emitted_records=15571`
+- GPU candidate canonical SHA-256:
+  `5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae`
+- Flye packed CPU vs GPU diff: `match`
+
+Tracked compact proof:
+
+- `tests/golden/cuflye-m2d-external-pack-query-stop-dgx-aarch64.json`
+
+This closes the adapter-boundary proof only. It does not claim full assembly
+equivalence or end-to-end Flye speedup.
