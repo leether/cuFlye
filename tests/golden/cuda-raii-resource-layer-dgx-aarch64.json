@@ -1,0 +1,145 @@
+{
+  "build_manifests": {
+    "candidate-core-bench": "candidate-core-bench.build.json",
+    "candidate-smoke": "candidate-smoke.build.json",
+    "kmer-encode": "kmer-encode.build.json",
+    "kmer-join": "kmer-join.build.json",
+    "read-window": "read-window.build.json"
+  },
+  "cuda_arch": "sm_121",
+  "device": "NVIDIA GB10",
+  "diffs": {
+    "candidate-smoke.diff": {
+      "left_records": 6,
+      "left_sha256": "f0ef59dafc1a8efa5f007443d4c11191e3f03b2500c87874b40fa89f2803010d",
+      "right_records": 6,
+      "right_sha256": "f0ef59dafc1a8efa5f007443d4c11191e3f03b2500c87874b40fa89f2803010d",
+      "status": "match"
+    },
+    "kmer-encode.cpu-vs-gpu.diff": {
+      "left_records": 6,
+      "left_sha256": "c07761a6cf2dca8d2c3d511b938b454d8e272e0f035a147a59674f1c1c2c67ad",
+      "right_records": 6,
+      "right_sha256": "c07761a6cf2dca8d2c3d511b938b454d8e272e0f035a147a59674f1c1c2c67ad",
+      "status": "match"
+    },
+    "kmer-encode.expected-vs-cpu.diff": {
+      "left_records": 6,
+      "left_sha256": "c07761a6cf2dca8d2c3d511b938b454d8e272e0f035a147a59674f1c1c2c67ad",
+      "right_records": 6,
+      "right_sha256": "c07761a6cf2dca8d2c3d511b938b454d8e272e0f035a147a59674f1c1c2c67ad",
+      "status": "match"
+    },
+    "kmer-join.cpu-vs-gpu.diff": {
+      "left_records": 6,
+      "left_sha256": "c07761a6cf2dca8d2c3d511b938b454d8e272e0f035a147a59674f1c1c2c67ad",
+      "right_records": 6,
+      "right_sha256": "c07761a6cf2dca8d2c3d511b938b454d8e272e0f035a147a59674f1c1c2c67ad",
+      "status": "match"
+    },
+    "kmer-join.expected-vs-cpu.diff": {
+      "left_records": 6,
+      "left_sha256": "c07761a6cf2dca8d2c3d511b938b454d8e272e0f035a147a59674f1c1c2c67ad",
+      "right_records": 6,
+      "right_sha256": "c07761a6cf2dca8d2c3d511b938b454d8e272e0f035a147a59674f1c1c2c67ad",
+      "status": "match"
+    },
+    "read-window.cpu-vs-gpu.diff": {
+      "left_records": 6,
+      "left_sha256": "f0ef59dafc1a8efa5f007443d4c11191e3f03b2500c87874b40fa89f2803010d",
+      "right_records": 6,
+      "right_sha256": "f0ef59dafc1a8efa5f007443d4c11191e3f03b2500c87874b40fa89f2803010d",
+      "status": "match"
+    },
+    "read-window.expected-vs-cpu.diff": {
+      "left_records": 6,
+      "left_sha256": "f0ef59dafc1a8efa5f007443d4c11191e3f03b2500c87874b40fa89f2803010d",
+      "right_records": 6,
+      "right_sha256": "f0ef59dafc1a8efa5f007443d4c11191e3f03b2500c87874b40fa89f2803010d",
+      "status": "match"
+    }
+  },
+  "host": "edgexpert-45d2",
+  "machine": "aarch64",
+  "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:57:39_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+  "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+  "proof_root": "out/raii/1ee3514",
+  "repo_commit": "1ee3514710371194aa49779869076c07775ee3e1",
+  "repo_commit_short": "1ee3514",
+  "runtime": {
+    "candidate-core-bench": {
+      "adapter": "cuda-candidate-core-bench-v0",
+      "candidate_core_gpu_faster_than_cpu": true,
+      "counts_match": true,
+      "cpu_matches": 65536,
+      "gpu_matches": 65536,
+      "index_entries": 32768,
+      "pair_count": 268435456,
+      "queries": 8192,
+      "speedup_cpu_vs_gpu_total_best": 53.97548,
+      "status": "ok"
+    },
+    "candidate-smoke": {
+      "adapter": "cuda-candidate-smoke-v0",
+      "device_allocation_bytes": 576,
+      "memory_budget_bytes": 1048576,
+      "records": 6,
+      "status": "ok"
+    },
+    "kmer-encode": {
+      "adapter": "cuda-kmer-encode-smoke-v0",
+      "device_allocation_bytes": 3949,
+      "index_entries": 10,
+      "memory_budget_bytes": 1048576,
+      "pair_count": 60,
+      "queries": 6,
+      "records": 6,
+      "status": "ok"
+    },
+    "kmer-join": {
+      "adapter": "cuda-kmer-join-smoke-v0",
+      "device_allocation_bytes": 3460,
+      "index_entries": 10,
+      "memory_budget_bytes": 1048576,
+      "pair_count": 60,
+      "queries": 6,
+      "records": 6,
+      "status": "ok"
+    },
+    "read-window": {
+      "adapter": "cuda-read-window-smoke-v0",
+      "device_allocation_bytes": 12511,
+      "index_entries": 10,
+      "memory_budget_bytes": 1048576,
+      "pair_count": 230,
+      "query_windows": 23,
+      "reads": 2,
+      "records": 6,
+      "status": "ok"
+    }
+  },
+  "schema": "cuflye-cuda-raii-resource-layer-proof-v0",
+  "status": "ok",
+  "validators": {
+    "candidate-smoke.validator": {
+      "abi": "candidate-record-v1",
+      "raw_sha256": "f0ef59dafc1a8efa5f007443d4c11191e3f03b2500c87874b40fa89f2803010d",
+      "records": 6
+    },
+    "kmer-encode.gpu.validator": {
+      "abi": "candidate-record-v1",
+      "raw_sha256": "c07761a6cf2dca8d2c3d511b938b454d8e272e0f035a147a59674f1c1c2c67ad",
+      "records": 6
+    },
+    "kmer-join.gpu.validator": {
+      "abi": "candidate-record-v1",
+      "raw_sha256": "c07761a6cf2dca8d2c3d511b938b454d8e272e0f035a147a59674f1c1c2c67ad",
+      "records": 6
+    },
+    "read-window.gpu.validator": {
+      "abi": "candidate-record-v1",
+      "raw_sha256": "f0ef59dafc1a8efa5f007443d4c11191e3f03b2500c87874b40fa89f2803010d",
+      "records": 6
+    }
+  }
+}

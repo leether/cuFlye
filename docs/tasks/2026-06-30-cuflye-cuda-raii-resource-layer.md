@@ -53,7 +53,7 @@ the ownership pattern for the integrated candidate backend.
 - No raw owning `device* = nullptr` pointer variables remain in CUDA prototype
   `main` functions.
 - Local static checks pass.
-- DGX CUDA build/run is still required before treating this as runtime-proven.
+- DGX CUDA build/run passes before treating this as runtime-proven.
 
 ## Scan Commands
 
@@ -91,7 +91,40 @@ Local verification:
 - `git diff --check` passed.
 - Static resource scans passed with the findings above.
 - Local `nvcc` was not installed on the Mac workspace, so CUDA compilation and
-  smoke execution were not run in this turn.
+  smoke execution were run on DGX instead.
+
+DGX verification:
+
+- Host: `edgexpert-45d2`
+- Proof checkout: `/tmp/cuflye-raii-1782795353`
+- Proof root: `out/raii/1ee3514`
+- Commit: `1ee3514710371194aa49779869076c07775ee3e1`
+- CUDA compiler: `/usr/local/cuda/bin/nvcc` `13.0.88`
+- CUDA arch: `sm_121`
+- Device: `NVIDIA GB10`
+
+Builds passed:
+
+- `cuflye-cuda-candidate-smoke`
+- `cuflye-cuda-kmer-join-smoke`
+- `cuflye-cuda-kmer-encode-smoke`
+- `cuflye-cuda-read-window-smoke`
+- `cuflye-cuda-candidate-core-bench`
+
+Runtime gates passed:
+
+- Candidate smoke: 6 records, GPU output validated as candidate-record-v1, CPU
+  sample vs GPU diff `match`.
+- K-mer join smoke: expected vs CPU diff `match`; CPU vs GPU diff `match`.
+- K-mer encode smoke: expected vs CPU diff `match`; CPU vs GPU diff `match`.
+- Read-window smoke: expected vs CPU diff `match`; CPU vs GPU diff `match`.
+- Candidate-core benchmark: CPU and GPU both counted 65,536 matches over
+  268,435,456 query/index pairs; best total CUDA speedup over CPU was
+  `53.975480x`.
+
+Tracked compact proof:
+
+- `tests/golden/cuda-raii-resource-layer-dgx-aarch64.json`
 
 ## Follow-Up
 

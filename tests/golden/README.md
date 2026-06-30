@@ -42,3 +42,7 @@ CUDA read-window smoke proof:
 CUDA candidate-core benchmark proof:
 
 - Candidate-core benchmark manifest: `cuda-candidate-core-bench-dgx-aarch64.json`
+
+CUDA RAII resource-layer proof:
+
+- CUDA RAII resource-layer manifest: `cuda-raii-resource-layer-dgx-aarch64.json`
