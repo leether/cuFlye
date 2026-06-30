@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4l Overlap Worker Validated Consumption Gate
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -78,12 +78,35 @@ output passes the same ABI and diff gates used in the golden proof.
 
 ## Execution Checklist
 
-- [ ] Define validation mode and seam-summary eligibility fields.
-- [ ] Add Flye patch for worker output validation and fail-closed summaries.
-- [ ] Extend fixture runner controls and metadata.
-- [ ] Build patched Flye on DGX.
-- [ ] Prove default CPU fixture behavior remains unchanged.
-- [ ] Prove positive batch mode validates and marks worker output eligible.
-- [ ] Prove negative validation mode fails closed and marks worker output
+- [x] Define validation mode and seam-summary eligibility fields.
+- [x] Add Flye patch for worker output validation and fail-closed summaries.
+- [x] Extend fixture runner controls and metadata.
+- [x] Build patched Flye on DGX.
+- [x] Prove default CPU fixture behavior remains unchanged.
+- [x] Prove positive batch mode validates and marks worker output eligible.
+- [x] Prove negative validation mode fails closed and marks worker output
   ineligible.
-- [ ] Record compact DGX proof and close this card.
+- [x] Record compact DGX proof and close this card.
+
+## Merge Note
+
+Implementation commit: `fbc26e67cc8e4d0c5a1c38804ec06de9fb255ccb`
+
+DGX proof:
+`tests/golden/cuflye-m4l-overlap-worker-validated-consumption-gate-dgx-aarch64.json`
+
+Results:
+
+- Default `toy-hifi` CPU run completed and all 9 canonical artifact hashes
+  matched the M0 golden manifest.
+- Positive `toy-raw` batch worker run validated 9 worker TSV outputs in Flye,
+  marked `worker_output_consumption_eligible=true`, and still recorded
+  `graph_mutation_consumed_worker_output=false`.
+- External Python validation confirmed all 9 positive worker outputs
+  canonical-diffed `match` against their CPU oracles.
+- Negative proof used a wrapper that ran the real worker, then removed one
+  overlap record from `query_381`. Flye validation recorded `failed`, marked
+  `worker_output_consumption_eligible=false`, wrote
+  `status=validation-failed-before-graph-mutation`, and exited non-zero before
+  graph mutation.
+- DGX build, patch-series, syntax/style, and ownership gates passed.

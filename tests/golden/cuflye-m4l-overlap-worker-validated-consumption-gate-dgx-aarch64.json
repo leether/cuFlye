@@ -1,0 +1,812 @@
+{
+  "acceptance": {
+    "cuda_worker_build_succeeds": true,
+    "default_cpu_artifacts_match_m0_golden": true,
+    "default_cpu_toy_hifi_completes": true,
+    "flye_patch_series_builds_through_0012": true,
+    "local_and_dgx_syntax_style_gates_pass": true,
+    "negative_expected_failure_recorded": true,
+    "negative_graph_consumption_false": true,
+    "negative_records_at_least_one_failed_fixture": true,
+    "negative_seam_status_validation_failed": true,
+    "negative_validation_status_failed": true,
+    "negative_worker_output_consumption_ineligible": true,
+    "negative_worker_response_status_ok_before_corruption": true,
+    "no_large_tsv_committed": true,
+    "ownership_scan_no_new_direct_resource_api": true,
+    "patched_flye_build_succeeds_on_dgx": true,
+    "positive_captured_query_ids_match_allowlist": true,
+    "positive_expected_failure_recorded": true,
+    "positive_external_all_worker_outputs_diff_match_oracle": true,
+    "positive_flye_side_all_fixtures_pass": true,
+    "positive_graph_consumption_false": true,
+    "positive_validation_status_passed": true,
+    "positive_worker_mode_stops_before_graph_mutation": true,
+    "positive_worker_output_consumption_eligible": true,
+    "positive_worker_response_status_ok": true,
+    "positive_worker_uses_one_launch_per_timed_run": true
+  },
+  "builds": {
+    "cuda_worker": {
+      "created_at_utc": "2026-06-30T16:00:37.855446+00:00",
+      "cuda_arch": "sm_121",
+      "cuda_home": "/usr/local/cuda",
+      "host": "edgexpert-45d2",
+      "machine": "aarch64",
+      "nvcc": "/usr/local/cuda/bin/nvcc",
+      "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:57:39_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+      "output_binary": "/tmp/cuflye-m4l-proof-1782835223-git/out/m4l/bin/cuflye-cuda-overlap-chain-replay",
+      "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+      "python": "3.12.3",
+      "repo_commit": "fbc26e6238e0db2b6d726dd24695b98ff2692205",
+      "repo_root": "/tmp/cuflye-m4l-proof-1782835223-git"
+    },
+    "flye": {
+      "actual_branch": "flye",
+      "actual_commit": "886b8c17412c",
+      "actual_tags": [
+        "2.9.6"
+      ],
+      "applied_patches": [
+        "0001-cuflye-candidate-dump.patch",
+        "0002-cuflye-candidate-backend-seam.patch",
+        "0003-cuflye-cuda-backend-stub.patch",
+        "0004-cuflye-cuda-adapter-shell.patch",
+        "0005-cuflye-real-data-pack-dump.patch",
+        "0006-cuflye-external-pack-query-stop.patch",
+        "0007-cuflye-overlap-range-dump.patch",
+        "0008-cuflye-overlap-replay-fixture-dump.patch",
+        "0009-cuflye-overlap-replay-max-fixtures.patch",
+        "0010-cuflye-flye-overlap-worker-seam.patch",
+        "0011-cuflye-flye-overlap-worker-batch-allowlist.patch",
+        "0012-cuflye-overlap-worker-validation-gate.patch"
+      ],
+      "apply_patches": true,
+      "created_at_utc": "2026-06-30T16:01:04.230662+00:00",
+      "expected_commit_prefix": "886b8c1",
+      "expected_ref": "2.9.6",
+      "flye_dir": "/tmp/cuflye-m4l-proof-1782835223-git/out/m4l/upstream-flye",
+      "flye_version": "2.9.6-b1802",
+      "gcc": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "gxx": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "host": "edgexpert-45d2",
+      "jobs": 8,
+      "machine": "aarch64",
+      "make": "GNU Make 4.3",
+      "make_args": [
+        "THREADS=8",
+        "aarch64=1",
+        "arm_neon=1"
+      ],
+      "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+      "python": "3.12.3",
+      "repo_root": "/tmp/cuflye-m4l-proof-1782835223-git"
+    }
+  },
+  "claims": {
+    "allowed": [
+      "Flye can validate every packed overlap worker output as overlap-range-v1 and canonical-diff it against the captured CPU oracle before marking worker output consumption-eligible.",
+      "A passing validation gate records worker_output_consumption_eligible=true while still recording graph_mutation_consumed_worker_output=false.",
+      "A mismatching worker output prevents consumption eligibility, writes failed validation/seam summaries, and fails closed before graph mutation."
+    ],
+    "next_optimization_target": "M4m should decide whether to enable a shadow consumption path or broaden the validation-gated batch across more heterogeneous replay fixtures.",
+    "not_claimed": [
+      "No Flye graph consumption of GPU overlap output.",
+      "No end-to-end GPU Flye mode.",
+      "No arbitrary dataset overlap-chain speed claim.",
+      "No base-level alignment replay.",
+      "No bad-mapping trim replay."
+    ]
+  },
+  "created_at_utc": "2026-06-30T16:05:06.825246+00:00",
+  "default_cpu_regression": {
+    "artifact_count": 9,
+    "artifact_hashes_match_m0_golden": true,
+    "artifacts": [
+      {
+        "canonical_sha256": "f24373e93e70d4e2dc26fd4e035f6f319b5c4957eb79233d74c49e63d1099af6",
+        "kind": "fasta",
+        "path": "00-assembly/draft_assembly.fasta"
+      },
+      {
+        "canonical_sha256": "62952fa5ecbf84b4f5a5470da16d95f85a962e8cb722aa532610ba87431a56ef",
+        "kind": "repeat_graph_dump",
+        "path": "20-repeat/repeat_graph_dump"
+      },
+      {
+        "canonical_sha256": "26740f1d782591fdcd5c5aef11f591d4559df353b7b31409b6f579caa17bffc5",
+        "kind": "plain",
+        "path": "20-repeat/read_alignment_dump"
+      },
+      {
+        "canonical_sha256": "ed90d197289573e3f83c2ebd038115d9371b74d465f903ec4649caa013b4b6d3",
+        "kind": "fasta",
+        "path": "20-repeat/repeat_graph_edges.fasta"
+      },
+      {
+        "canonical_sha256": "faa40610465dc27b5a52d9ea892f61d4ad6ab5cb35ea83ab9430e63ca2084ff1",
+        "kind": "gfa",
+        "path": "30-contigger/graph_final.gfa"
+      },
+      {
+        "canonical_sha256": "cc51357bbf92798b7c29574b809fb0926e7a4fba078183a8d40b3f919b5066b3",
+        "kind": "fasta",
+        "path": "30-contigger/graph_final.fasta"
+      },
+      {
+        "canonical_sha256": "59e1db047711152e2c70c03a8b7cfbdd3f2595a2dee81cd958b4ec6485158db7",
+        "kind": "fasta",
+        "path": "assembly.fasta"
+      },
+      {
+        "canonical_sha256": "5daa37903ecde55d19951c4f2f0f205dc1992abd59b59744e369998d07ee971f",
+        "kind": "plain",
+        "path": "assembly_info.txt"
+      },
+      {
+        "canonical_sha256": "e0c4c0d4e0d6b65936eb911a7267bbba5c68f15b2ab28ff0e66f043de3b9e40c",
+        "kind": "gfa",
+        "path": "assembly_graph.gfa"
+      }
+    ],
+    "fixture": "toy-hifi",
+    "run_dir": "out/m4l/runs/toy-default"
+  },
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "nvidia_smi": "GPU 0: NVIDIA GB10 (UUID: GPU-36e1e91e-fa5c-6e0d-d076-203391a7bb03)",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+    "python": "3.12.3"
+  },
+  "milestone": "M4l-overlap-worker-validated-consumption-gate",
+  "negative_validation_run": {
+    "corruption": "wrapper runs the real worker, then removes the last overlap record from the first worker output TSV",
+    "failed_fixtures": [
+      {
+        "canonical_diff_status": "mismatch",
+        "error": "worker output canonical records differ from oracle",
+        "fixture_dir": "out/m4l/replay-fixtures-fail/query_381",
+        "fixture_name": "query_381",
+        "oracle_abi_valid": true,
+        "oracle_path": "out/m4l/replay-fixtures-fail/query_381/oracle.overlaps.tsv",
+        "oracle_records": 60,
+        "status": "failed",
+        "worker_abi_valid": true,
+        "worker_path": "out/m4l/overlap-worker-fail/worker-output/query_381/overlaps.tsv",
+        "worker_records": 59
+      }
+    ],
+    "fixture": "toy-raw",
+    "request": {
+      "adapter_mode": "overlap-replay-batch-v0",
+      "backend": "cuda",
+      "batch_execution": "packed",
+      "batch_fixtures_file": "out/m4l/overlap-worker-fail/worker-fixtures.txt",
+      "batch_json_output": "out/m4l/overlap-worker-fail/worker-batch.json",
+      "batch_output_dir": "out/m4l/overlap-worker-fail/worker-output",
+      "benchmark_runs": 2,
+      "captured_query_ids_file": "out/m4l/overlap-worker-fail/worker-query-ids.txt",
+      "cuda_kernel_mode": "serial",
+      "device": 0,
+      "expected_fixture_count": 9,
+      "overlap_abi": "overlap-range-v1",
+      "replay_query_ids": "381,-71,649,443,596,752,-819,695,548",
+      "request_id": "flye-overlap-worker-9",
+      "response_json": "out/m4l/overlap-worker-fail/worker-response.json",
+      "schema": "cuflye-overlap-worker-request-v0",
+      "warmup_runs": 1
+    },
+    "response": {
+      "adapter_mode": "overlap-replay-batch-v0",
+      "batch_execution": "packed",
+      "batch_json_output": "out/m4l/overlap-worker-fail/worker-batch.json",
+      "batch_output_dir": "out/m4l/overlap-worker-fail/worker-output",
+      "cuda_kernel_mode": "serial",
+      "fixture_count": 9,
+      "kernel_launches_per_timed_run": 1,
+      "output_records": 382,
+      "overlap_abi": "overlap-range-v1",
+      "request_id": "flye-overlap-worker-9",
+      "request_ordinal": 1,
+      "schema": "cuflye-overlap-worker-response-v0",
+      "status": "ok",
+      "timing_ms": {
+        "backend_mean_total_before_write": 6.844494,
+        "backend_timed_total_before_write": 13.688988,
+        "kernel": 6.764782,
+        "parse": 17.23862,
+        "request_total": 40.170448,
+        "worker_overhead": 26.48146,
+        "worker_uptime": 345.380651,
+        "write_output": 0.521203
+      },
+      "worker_context_setup_ms": 305.209995,
+      "worker_cuda_context_warm": false,
+      "worker_device_arena_allocations": 7,
+      "worker_device_arena_capacity_bytes": 3217966,
+      "worker_device_arena_enabled": true,
+      "worker_device_arena_reuses": 14
+    },
+    "run_metadata": {
+      "command": [
+        "out/m4l/upstream-flye/bin/flye",
+        "--pacbio-raw",
+        "out/m4l/upstream-flye/flye/tests/data/ecoli_500kb_reads.fastq.gz",
+        "-g",
+        "500k",
+        "-o",
+        "out/m4l/runs/toy-worker-validation-fail",
+        "-t",
+        "1",
+        "-m",
+        "1000",
+        "--debug"
+      ],
+      "elapsed_seconds": 47,
+      "exit_status": 1,
+      "expected_failure": true,
+      "finished_at_utc": "2026-06-30T16:04:06.244468+00:00",
+      "fixture": "toy-raw",
+      "flye_commit": "886b8c17412cdf3a2868a28237bca6c5ad1da156",
+      "flye_dir": "/tmp/cuflye-m4l-proof-1782835223-git/out/m4l/upstream-flye",
+      "flye_tags": [
+        "2.9.6"
+      ],
+      "genome_size": "500k",
+      "host": "edgexpert-45d2",
+      "machine": "aarch64",
+      "min_overlap": "1000",
+      "nvidia_smi": "GPU 0: NVIDIA GB10 (UUID: GPU-36e1e91e-fa5c-6e0d-d076-203391a7bb03)",
+      "overlap_replay_dump_dir": "/tmp/cuflye-m4l-proof-1782835223-git/out/m4l/replay-fixtures-fail",
+      "overlap_replay_max_fixtures": "9",
+      "overlap_replay_query_ids": "381,-71,649,443,596,752,-819,695,548",
+      "overlap_worker_benchmark_runs": "2",
+      "overlap_worker_bin": "/tmp/cuflye-m4l-proof-1782835223-git/out/m4l/bin/cuflye-corrupt-overlap-worker.sh",
+      "overlap_worker_device": "0",
+      "overlap_worker_kernel_mode": "serial",
+      "overlap_worker_mode": "packed-replay-v0",
+      "overlap_worker_output_dir": "/tmp/cuflye-m4l-proof-1782835223-git/out/m4l/overlap-worker-fail",
+      "overlap_worker_validation_mode": "oracle-diff-v0",
+      "overlap_worker_warmup_runs": "1",
+      "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+      "python": "3.12.3",
+      "read_type": "pacbio-raw",
+      "reads": "/tmp/cuflye-m4l-proof-1782835223-git/out/m4l/upstream-flye/flye/tests/data/ecoli_500kb_reads.fastq.gz",
+      "repo_commit": "fbc26e6238e0db2b6d726dd24695b98ff2692205",
+      "repo_root": "/tmp/cuflye-m4l-proof-1782835223-git",
+      "started_at_utc": "2026-06-30T16:03:19.490041+00:00",
+      "threads": 1
+    },
+    "seam_summary": {
+      "batch_json_output": "out/m4l/overlap-worker-fail/worker-batch.json",
+      "batch_output_dir": "out/m4l/overlap-worker-fail/worker-output",
+      "captured_query_ids_file": "out/m4l/overlap-worker-fail/worker-query-ids.txt",
+      "fixture_count": 9,
+      "fixture_list": "out/m4l/overlap-worker-fail/worker-fixtures.txt",
+      "graph_mutation_consumed_worker_output": false,
+      "replay_query_ids": "381,-71,649,443,596,752,-819,695,548",
+      "request_json": "out/m4l/overlap-worker-fail/worker-request.json",
+      "response_json": "out/m4l/overlap-worker-fail/worker-response.json",
+      "schema": "cuflye-flye-overlap-worker-seam-v0",
+      "status": "validation-failed-before-graph-mutation",
+      "validation_json": "out/m4l/overlap-worker-fail/worker-validation.json",
+      "validation_mode": "oracle-diff-v0",
+      "validation_status": "failed",
+      "worker_output_consumption_eligible": false
+    },
+    "worker_validation": {
+      "fixture_count": 9,
+      "fixtures": [
+        {
+          "canonical_diff_status": "match",
+          "fixture_dir": "out/m4l/replay-fixtures-fail/query_neg71",
+          "fixture_name": "query_neg71",
+          "oracle_abi_valid": true,
+          "oracle_path": "out/m4l/replay-fixtures-fail/query_neg71/oracle.overlaps.tsv",
+          "oracle_records": 51,
+          "status": "passed",
+          "worker_abi_valid": true,
+          "worker_path": "out/m4l/overlap-worker-fail/worker-output/query_neg71/overlaps.tsv",
+          "worker_records": 51
+        },
+        {
+          "canonical_diff_status": "match",
+          "fixture_dir": "out/m4l/replay-fixtures-fail/query_neg819",
+          "fixture_name": "query_neg819",
+          "oracle_abi_valid": true,
+          "oracle_path": "out/m4l/replay-fixtures-fail/query_neg819/oracle.overlaps.tsv",
+          "oracle_records": 38,
+          "status": "passed",
+          "worker_abi_valid": true,
+          "worker_path": "out/m4l/overlap-worker-fail/worker-output/query_neg819/overlaps.tsv",
+          "worker_records": 38
+        },
+        {
+          "canonical_diff_status": "match",
+          "fixture_dir": "out/m4l/replay-fixtures-fail/query_443",
+          "fixture_name": "query_443",
+          "oracle_abi_valid": true,
+          "oracle_path": "out/m4l/replay-fixtures-fail/query_443/oracle.overlaps.tsv",
+          "oracle_records": 41,
+          "status": "passed",
+          "worker_abi_valid": true,
+          "worker_path": "out/m4l/overlap-worker-fail/worker-output/query_443/overlaps.tsv",
+          "worker_records": 41
+        },
+        {
+          "canonical_diff_status": "match",
+          "fixture_dir": "out/m4l/replay-fixtures-fail/query_548",
+          "fixture_name": "query_548",
+          "oracle_abi_valid": true,
+          "oracle_path": "out/m4l/replay-fixtures-fail/query_548/oracle.overlaps.tsv",
+          "oracle_records": 37,
+          "status": "passed",
+          "worker_abi_valid": true,
+          "worker_path": "out/m4l/overlap-worker-fail/worker-output/query_548/overlaps.tsv",
+          "worker_records": 37
+        },
+        {
+          "canonical_diff_status": "match",
+          "fixture_dir": "out/m4l/replay-fixtures-fail/query_752",
+          "fixture_name": "query_752",
+          "oracle_abi_valid": true,
+          "oracle_path": "out/m4l/replay-fixtures-fail/query_752/oracle.overlaps.tsv",
+          "oracle_records": 32,
+          "status": "passed",
+          "worker_abi_valid": true,
+          "worker_path": "out/m4l/overlap-worker-fail/worker-output/query_752/overlaps.tsv",
+          "worker_records": 32
+        },
+        {
+          "canonical_diff_status": "match",
+          "fixture_dir": "out/m4l/replay-fixtures-fail/query_596",
+          "fixture_name": "query_596",
+          "oracle_abi_valid": true,
+          "oracle_path": "out/m4l/replay-fixtures-fail/query_596/oracle.overlaps.tsv",
+          "oracle_records": 41,
+          "status": "passed",
+          "worker_abi_valid": true,
+          "worker_path": "out/m4l/overlap-worker-fail/worker-output/query_596/overlaps.tsv",
+          "worker_records": 41
+        },
+        {
+          "canonical_diff_status": "mismatch",
+          "error": "worker output canonical records differ from oracle",
+          "fixture_dir": "out/m4l/replay-fixtures-fail/query_381",
+          "fixture_name": "query_381",
+          "oracle_abi_valid": true,
+          "oracle_path": "out/m4l/replay-fixtures-fail/query_381/oracle.overlaps.tsv",
+          "oracle_records": 60,
+          "status": "failed",
+          "worker_abi_valid": true,
+          "worker_path": "out/m4l/overlap-worker-fail/worker-output/query_381/overlaps.tsv",
+          "worker_records": 59
+        },
+        {
+          "canonical_diff_status": "match",
+          "fixture_dir": "out/m4l/replay-fixtures-fail/query_649",
+          "fixture_name": "query_649",
+          "oracle_abi_valid": true,
+          "oracle_path": "out/m4l/replay-fixtures-fail/query_649/oracle.overlaps.tsv",
+          "oracle_records": 47,
+          "status": "passed",
+          "worker_abi_valid": true,
+          "worker_path": "out/m4l/overlap-worker-fail/worker-output/query_649/overlaps.tsv",
+          "worker_records": 47
+        },
+        {
+          "canonical_diff_status": "match",
+          "fixture_dir": "out/m4l/replay-fixtures-fail/query_695",
+          "fixture_name": "query_695",
+          "oracle_abi_valid": true,
+          "oracle_path": "out/m4l/replay-fixtures-fail/query_695/oracle.overlaps.tsv",
+          "oracle_records": 35,
+          "status": "passed",
+          "worker_abi_valid": true,
+          "worker_path": "out/m4l/overlap-worker-fail/worker-output/query_695/overlaps.tsv",
+          "worker_records": 35
+        }
+      ],
+      "graph_mutation_consumed_worker_output": false,
+      "mode": "oracle-diff-v0",
+      "overlap_abi": "overlap-range-v1",
+      "schema": "cuflye-overlap-worker-validation-v0",
+      "status": "failed",
+      "worker_output_consumption_eligible": false
+    },
+    "worker_wrapper": "out/m4l/bin/cuflye-corrupt-overlap-worker.sh"
+  },
+  "positive_validation_run": {
+    "batch_summary": {
+      "arena": {
+        "allocations": 7,
+        "capacity_bytes": 3217966,
+        "reuses": 154
+      },
+      "batch_execution": "packed",
+      "cuda_kernel_mode": "serial",
+      "fixture_count": 9,
+      "kernel_launches_per_timed_run": 1,
+      "output_records": null,
+      "packed_layout": {
+        "candidate_records": 54694,
+        "filtered_positions": 0,
+        "param_records": 9,
+        "target_groups": 892
+      },
+      "timing_ms": {
+        "max_total_before_write": 6.886206,
+        "mean_core": 6.765388,
+        "mean_total_before_write": 6.844911,
+        "min_total_before_write": 6.837102,
+        "parse": 16.608009,
+        "setup": 4.8e-05,
+        "write_output": 0.505362
+      }
+    },
+    "captured_query_ids": [
+      -71,
+      -819,
+      443,
+      548,
+      752,
+      596,
+      381,
+      649,
+      695
+    ],
+    "external_validation": {
+      "all_diff_match_oracle": true,
+      "fixture_count": 9,
+      "per_fixture": [
+        {
+          "diff_left_sha256": "69658d3a37f37115e460cd33ef52044b7e4a4a8a31c8b3d1d888d951448fe399",
+          "diff_right_sha256": "69658d3a37f37115e460cd33ef52044b7e4a4a8a31c8b3d1d888d951448fe399",
+          "diff_status": "match",
+          "name": "query_381",
+          "oracle_canonical_sha256": "69658d3a37f37115e460cd33ef52044b7e4a4a8a31c8b3d1d888d951448fe399",
+          "oracle_records": 60,
+          "worker_canonical_sha256": "69658d3a37f37115e460cd33ef52044b7e4a4a8a31c8b3d1d888d951448fe399",
+          "worker_records": 60
+        },
+        {
+          "diff_left_sha256": "b15528f35df0f85b4ef8aa1e0a5966472047f09f20209d80e684be3271593858",
+          "diff_right_sha256": "b15528f35df0f85b4ef8aa1e0a5966472047f09f20209d80e684be3271593858",
+          "diff_status": "match",
+          "name": "query_443",
+          "oracle_canonical_sha256": "b15528f35df0f85b4ef8aa1e0a5966472047f09f20209d80e684be3271593858",
+          "oracle_records": 41,
+          "worker_canonical_sha256": "b15528f35df0f85b4ef8aa1e0a5966472047f09f20209d80e684be3271593858",
+          "worker_records": 41
+        },
+        {
+          "diff_left_sha256": "4bc42e9b445cec08ef6eede2fc0ac2c285735480953ef4881bf33eacba57f0b1",
+          "diff_right_sha256": "4bc42e9b445cec08ef6eede2fc0ac2c285735480953ef4881bf33eacba57f0b1",
+          "diff_status": "match",
+          "name": "query_548",
+          "oracle_canonical_sha256": "4bc42e9b445cec08ef6eede2fc0ac2c285735480953ef4881bf33eacba57f0b1",
+          "oracle_records": 37,
+          "worker_canonical_sha256": "4bc42e9b445cec08ef6eede2fc0ac2c285735480953ef4881bf33eacba57f0b1",
+          "worker_records": 37
+        },
+        {
+          "diff_left_sha256": "3eb60b184f54edd59c875af4b78129dc14765687b506ee27e3354dfa3a69aada",
+          "diff_right_sha256": "3eb60b184f54edd59c875af4b78129dc14765687b506ee27e3354dfa3a69aada",
+          "diff_status": "match",
+          "name": "query_596",
+          "oracle_canonical_sha256": "3eb60b184f54edd59c875af4b78129dc14765687b506ee27e3354dfa3a69aada",
+          "oracle_records": 41,
+          "worker_canonical_sha256": "3eb60b184f54edd59c875af4b78129dc14765687b506ee27e3354dfa3a69aada",
+          "worker_records": 41
+        },
+        {
+          "diff_left_sha256": "57da34f3cf7d51c2bc1e8cfb5c9bd40b658b0755663046c92e421a027b82ecbb",
+          "diff_right_sha256": "57da34f3cf7d51c2bc1e8cfb5c9bd40b658b0755663046c92e421a027b82ecbb",
+          "diff_status": "match",
+          "name": "query_649",
+          "oracle_canonical_sha256": "57da34f3cf7d51c2bc1e8cfb5c9bd40b658b0755663046c92e421a027b82ecbb",
+          "oracle_records": 47,
+          "worker_canonical_sha256": "57da34f3cf7d51c2bc1e8cfb5c9bd40b658b0755663046c92e421a027b82ecbb",
+          "worker_records": 47
+        },
+        {
+          "diff_left_sha256": "b63b08c697c5a1b9b52e08672dca8d64291423a3010cda5930491a4b0211d0e4",
+          "diff_right_sha256": "b63b08c697c5a1b9b52e08672dca8d64291423a3010cda5930491a4b0211d0e4",
+          "diff_status": "match",
+          "name": "query_695",
+          "oracle_canonical_sha256": "b63b08c697c5a1b9b52e08672dca8d64291423a3010cda5930491a4b0211d0e4",
+          "oracle_records": 35,
+          "worker_canonical_sha256": "b63b08c697c5a1b9b52e08672dca8d64291423a3010cda5930491a4b0211d0e4",
+          "worker_records": 35
+        },
+        {
+          "diff_left_sha256": "96c5b20a064a238445fe3abe67d8375ac531768aca81b36e16ecd5a2b224f6cc",
+          "diff_right_sha256": "96c5b20a064a238445fe3abe67d8375ac531768aca81b36e16ecd5a2b224f6cc",
+          "diff_status": "match",
+          "name": "query_752",
+          "oracle_canonical_sha256": "96c5b20a064a238445fe3abe67d8375ac531768aca81b36e16ecd5a2b224f6cc",
+          "oracle_records": 32,
+          "worker_canonical_sha256": "96c5b20a064a238445fe3abe67d8375ac531768aca81b36e16ecd5a2b224f6cc",
+          "worker_records": 32
+        },
+        {
+          "diff_left_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+          "diff_right_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+          "diff_status": "match",
+          "name": "query_neg71",
+          "oracle_canonical_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+          "oracle_records": 51,
+          "worker_canonical_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+          "worker_records": 51
+        },
+        {
+          "diff_left_sha256": "b88d0f14b6dc23e82cfd1b19a5b9e00c3930809ad3e2be10980c47f869b85f33",
+          "diff_right_sha256": "b88d0f14b6dc23e82cfd1b19a5b9e00c3930809ad3e2be10980c47f869b85f33",
+          "diff_status": "match",
+          "name": "query_neg819",
+          "oracle_canonical_sha256": "b88d0f14b6dc23e82cfd1b19a5b9e00c3930809ad3e2be10980c47f869b85f33",
+          "oracle_records": 38,
+          "worker_canonical_sha256": "b88d0f14b6dc23e82cfd1b19a5b9e00c3930809ad3e2be10980c47f869b85f33",
+          "worker_records": 38
+        }
+      ]
+    },
+    "fixture": "toy-raw",
+    "request": {
+      "adapter_mode": "overlap-replay-batch-v0",
+      "backend": "cuda",
+      "batch_execution": "packed",
+      "batch_fixtures_file": "out/m4l/overlap-worker-pass/worker-fixtures.txt",
+      "batch_json_output": "out/m4l/overlap-worker-pass/worker-batch.json",
+      "batch_output_dir": "out/m4l/overlap-worker-pass/worker-output",
+      "benchmark_runs": 20,
+      "captured_query_ids_file": "out/m4l/overlap-worker-pass/worker-query-ids.txt",
+      "cuda_kernel_mode": "serial",
+      "device": 0,
+      "expected_fixture_count": 9,
+      "overlap_abi": "overlap-range-v1",
+      "replay_query_ids": "381,-71,649,443,596,752,-819,695,548",
+      "request_id": "flye-overlap-worker-9",
+      "response_json": "out/m4l/overlap-worker-pass/worker-response.json",
+      "schema": "cuflye-overlap-worker-request-v0",
+      "warmup_runs": 3
+    },
+    "requested_query_ids": [
+      381,
+      -71,
+      649,
+      443,
+      596,
+      752,
+      -819,
+      695,
+      548
+    ],
+    "response": {
+      "adapter_mode": "overlap-replay-batch-v0",
+      "batch_execution": "packed",
+      "batch_json_output": "out/m4l/overlap-worker-pass/worker-batch.json",
+      "batch_output_dir": "out/m4l/overlap-worker-pass/worker-output",
+      "cuda_kernel_mode": "serial",
+      "fixture_count": 9,
+      "kernel_launches_per_timed_run": 1,
+      "output_records": 382,
+      "overlap_abi": "overlap-range-v1",
+      "request_id": "flye-overlap-worker-9",
+      "request_ordinal": 1,
+      "schema": "cuflye-overlap-worker-response-v0",
+      "status": "ok",
+      "timing_ms": {
+        "backend_mean_total_before_write": 6.844911,
+        "backend_timed_total_before_write": 136.898216,
+        "kernel": 6.765388,
+        "parse": 16.608009,
+        "request_total": 176.164453,
+        "worker_overhead": 39.266237,
+        "worker_uptime": 470.293294,
+        "write_output": 0.505362
+      },
+      "worker_context_setup_ms": 294.128633,
+      "worker_cuda_context_warm": false,
+      "worker_device_arena_allocations": 7,
+      "worker_device_arena_capacity_bytes": 3217966,
+      "worker_device_arena_enabled": true,
+      "worker_device_arena_reuses": 154
+    },
+    "run_metadata": {
+      "command": [
+        "out/m4l/upstream-flye/bin/flye",
+        "--pacbio-raw",
+        "out/m4l/upstream-flye/flye/tests/data/ecoli_500kb_reads.fastq.gz",
+        "-g",
+        "500k",
+        "-o",
+        "out/m4l/runs/toy-worker-validation-pass",
+        "-t",
+        "1",
+        "-m",
+        "1000",
+        "--debug"
+      ],
+      "elapsed_seconds": 58,
+      "exit_status": 1,
+      "expected_failure": true,
+      "finished_at_utc": "2026-06-30T16:02:57.484706+00:00",
+      "fixture": "toy-raw",
+      "flye_commit": "886b8c17412cdf3a2868a28237bca6c5ad1da156",
+      "flye_dir": "/tmp/cuflye-m4l-proof-1782835223-git/out/m4l/upstream-flye",
+      "flye_tags": [
+        "2.9.6"
+      ],
+      "genome_size": "500k",
+      "host": "edgexpert-45d2",
+      "machine": "aarch64",
+      "min_overlap": "1000",
+      "nvidia_smi": "GPU 0: NVIDIA GB10 (UUID: GPU-36e1e91e-fa5c-6e0d-d076-203391a7bb03)",
+      "overlap_replay_dump_dir": "/tmp/cuflye-m4l-proof-1782835223-git/out/m4l/replay-fixtures-pass",
+      "overlap_replay_max_fixtures": "9",
+      "overlap_replay_query_ids": "381,-71,649,443,596,752,-819,695,548",
+      "overlap_worker_benchmark_runs": "20",
+      "overlap_worker_bin": "/tmp/cuflye-m4l-proof-1782835223-git/out/m4l/bin/cuflye-cuda-overlap-chain-replay",
+      "overlap_worker_device": "0",
+      "overlap_worker_kernel_mode": "serial",
+      "overlap_worker_mode": "packed-replay-v0",
+      "overlap_worker_output_dir": "/tmp/cuflye-m4l-proof-1782835223-git/out/m4l/overlap-worker-pass",
+      "overlap_worker_validation_mode": "oracle-diff-v0",
+      "overlap_worker_warmup_runs": "3",
+      "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+      "python": "3.12.3",
+      "read_type": "pacbio-raw",
+      "reads": "/tmp/cuflye-m4l-proof-1782835223-git/out/m4l/upstream-flye/flye/tests/data/ecoli_500kb_reads.fastq.gz",
+      "repo_commit": "fbc26e6238e0db2b6d726dd24695b98ff2692205",
+      "repo_root": "/tmp/cuflye-m4l-proof-1782835223-git",
+      "started_at_utc": "2026-06-30T16:01:59.133330+00:00",
+      "threads": 1
+    },
+    "seam_summary": {
+      "batch_json_output": "out/m4l/overlap-worker-pass/worker-batch.json",
+      "batch_output_dir": "out/m4l/overlap-worker-pass/worker-output",
+      "captured_query_ids_file": "out/m4l/overlap-worker-pass/worker-query-ids.txt",
+      "fixture_count": 9,
+      "fixture_list": "out/m4l/overlap-worker-pass/worker-fixtures.txt",
+      "graph_mutation_consumed_worker_output": false,
+      "replay_query_ids": "381,-71,649,443,596,752,-819,695,548",
+      "request_json": "out/m4l/overlap-worker-pass/worker-request.json",
+      "response_json": "out/m4l/overlap-worker-pass/worker-response.json",
+      "schema": "cuflye-flye-overlap-worker-seam-v0",
+      "status": "stopped-before-graph-mutation",
+      "validation_json": "out/m4l/overlap-worker-pass/worker-validation.json",
+      "validation_mode": "oracle-diff-v0",
+      "validation_status": "passed",
+      "worker_output_consumption_eligible": true
+    },
+    "worker_validation": {
+      "fixture_count": 9,
+      "fixtures": [
+        {
+          "canonical_diff_status": "match",
+          "fixture_dir": "out/m4l/replay-fixtures-pass/query_neg71",
+          "fixture_name": "query_neg71",
+          "oracle_abi_valid": true,
+          "oracle_path": "out/m4l/replay-fixtures-pass/query_neg71/oracle.overlaps.tsv",
+          "oracle_records": 51,
+          "status": "passed",
+          "worker_abi_valid": true,
+          "worker_path": "out/m4l/overlap-worker-pass/worker-output/query_neg71/overlaps.tsv",
+          "worker_records": 51
+        },
+        {
+          "canonical_diff_status": "match",
+          "fixture_dir": "out/m4l/replay-fixtures-pass/query_neg819",
+          "fixture_name": "query_neg819",
+          "oracle_abi_valid": true,
+          "oracle_path": "out/m4l/replay-fixtures-pass/query_neg819/oracle.overlaps.tsv",
+          "oracle_records": 38,
+          "status": "passed",
+          "worker_abi_valid": true,
+          "worker_path": "out/m4l/overlap-worker-pass/worker-output/query_neg819/overlaps.tsv",
+          "worker_records": 38
+        },
+        {
+          "canonical_diff_status": "match",
+          "fixture_dir": "out/m4l/replay-fixtures-pass/query_443",
+          "fixture_name": "query_443",
+          "oracle_abi_valid": true,
+          "oracle_path": "out/m4l/replay-fixtures-pass/query_443/oracle.overlaps.tsv",
+          "oracle_records": 41,
+          "status": "passed",
+          "worker_abi_valid": true,
+          "worker_path": "out/m4l/overlap-worker-pass/worker-output/query_443/overlaps.tsv",
+          "worker_records": 41
+        },
+        {
+          "canonical_diff_status": "match",
+          "fixture_dir": "out/m4l/replay-fixtures-pass/query_548",
+          "fixture_name": "query_548",
+          "oracle_abi_valid": true,
+          "oracle_path": "out/m4l/replay-fixtures-pass/query_548/oracle.overlaps.tsv",
+          "oracle_records": 37,
+          "status": "passed",
+          "worker_abi_valid": true,
+          "worker_path": "out/m4l/overlap-worker-pass/worker-output/query_548/overlaps.tsv",
+          "worker_records": 37
+        },
+        {
+          "canonical_diff_status": "match",
+          "fixture_dir": "out/m4l/replay-fixtures-pass/query_752",
+          "fixture_name": "query_752",
+          "oracle_abi_valid": true,
+          "oracle_path": "out/m4l/replay-fixtures-pass/query_752/oracle.overlaps.tsv",
+          "oracle_records": 32,
+          "status": "passed",
+          "worker_abi_valid": true,
+          "worker_path": "out/m4l/overlap-worker-pass/worker-output/query_752/overlaps.tsv",
+          "worker_records": 32
+        },
+        {
+          "canonical_diff_status": "match",
+          "fixture_dir": "out/m4l/replay-fixtures-pass/query_596",
+          "fixture_name": "query_596",
+          "oracle_abi_valid": true,
+          "oracle_path": "out/m4l/replay-fixtures-pass/query_596/oracle.overlaps.tsv",
+          "oracle_records": 41,
+          "status": "passed",
+          "worker_abi_valid": true,
+          "worker_path": "out/m4l/overlap-worker-pass/worker-output/query_596/overlaps.tsv",
+          "worker_records": 41
+        },
+        {
+          "canonical_diff_status": "match",
+          "fixture_dir": "out/m4l/replay-fixtures-pass/query_381",
+          "fixture_name": "query_381",
+          "oracle_abi_valid": true,
+          "oracle_path": "out/m4l/replay-fixtures-pass/query_381/oracle.overlaps.tsv",
+          "oracle_records": 60,
+          "status": "passed",
+          "worker_abi_valid": true,
+          "worker_path": "out/m4l/overlap-worker-pass/worker-output/query_381/overlaps.tsv",
+          "worker_records": 60
+        },
+        {
+          "canonical_diff_status": "match",
+          "fixture_dir": "out/m4l/replay-fixtures-pass/query_649",
+          "fixture_name": "query_649",
+          "oracle_abi_valid": true,
+          "oracle_path": "out/m4l/replay-fixtures-pass/query_649/oracle.overlaps.tsv",
+          "oracle_records": 47,
+          "status": "passed",
+          "worker_abi_valid": true,
+          "worker_path": "out/m4l/overlap-worker-pass/worker-output/query_649/overlaps.tsv",
+          "worker_records": 47
+        },
+        {
+          "canonical_diff_status": "match",
+          "fixture_dir": "out/m4l/replay-fixtures-pass/query_695",
+          "fixture_name": "query_695",
+          "oracle_abi_valid": true,
+          "oracle_path": "out/m4l/replay-fixtures-pass/query_695/oracle.overlaps.tsv",
+          "oracle_records": 35,
+          "status": "passed",
+          "worker_abi_valid": true,
+          "worker_path": "out/m4l/overlap-worker-pass/worker-output/query_695/overlaps.tsv",
+          "worker_records": 35
+        }
+      ],
+      "graph_mutation_consumed_worker_output": false,
+      "mode": "oracle-diff-v0",
+      "overlap_abi": "overlap-range-v1",
+      "schema": "cuflye-overlap-worker-validation-v0",
+      "status": "passed",
+      "worker_output_consumption_eligible": true
+    }
+  },
+  "repo": {
+    "commit": "fbc26e6238e0db2b6d726dd24695b98ff2692205",
+    "remote_dir": "/tmp/cuflye-m4l-proof-1782835223-git",
+    "root": "/tmp/cuflye-m4l-proof-1782835223-git",
+    "status_short": "## main...origin/main [ahead 1]"
+  },
+  "schema": "cuflye-dgx-proof-v1",
+  "status": "passed"
+}

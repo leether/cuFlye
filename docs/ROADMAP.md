@@ -161,6 +161,16 @@ Completed:
   golden set. The Flye-generated packed worker request reported
   `6.84245 ms` backend mean total before write versus the M4h CPU replay batch
   baseline `14.977639 ms`, a bounded replay speedup of `2.188929x`.
+- M4l: Flye can validate packed CUDA overlap worker output before marking it
+  consumption-eligible. The DGX positive proof validated all 9 worker TSVs as
+  `overlap-range-v1`, canonical-diffed every output `match` against its CPU
+  oracle, wrote `worker_output_consumption_eligible=true`, and still recorded
+  `graph_mutation_consumed_worker_output=false`. The DGX negative proof ran the
+  real worker through a wrapper that removed one overlap record from `query_381`;
+  Flye validation caught the mismatch, wrote
+  `status=validation-failed-before-graph-mutation`, marked
+  `worker_output_consumption_eligible=false`, and exited non-zero before graph
+  mutation.
 
 Current allowed performance claim:
 
@@ -206,6 +216,11 @@ cuFlye can now request a packed multi-query CUDA overlap worker batch from the
 Flye seam using an explicit query-id allowlist. This preserves the M4h bounded
 overlap-chain replay speedup at the Flye request boundary, while still refusing
 to feed GPU overlap output into Flye graph logic.
+
+cuFlye now has a Flye-side validation gate for packed CUDA overlap worker
+output. Passing output can be marked consumption-eligible, and mismatching
+output fails closed before graph mutation. This is still not a graph-consumption
+claim.
 ```
 
 Current forbidden claim:
@@ -378,11 +393,12 @@ Use precise milestone labels:
 Next highest-ROI task:
 
 ```text
-M4l: add a validated consumption gate before any future graph-consumption path
-can treat CUDA overlap worker output as consumption-eligible.
+M4m: parse validated CUDA overlap worker output into a Flye-side shadow overlap
+range structure and compare it against CPU overlap ranges without changing graph
+mutation.
 ```
 
-Acceptance should preserve exact per-fixture `overlap-range-v1` hashes, require
-ABI validation and oracle diff checks before marking worker output
-consumption-eligible, include a negative fail-closed validation case, and still
-stop before graph mutation.
+Acceptance should require M4l validation status `passed` before shadow parsing,
+prove shadow records match CPU overlap ranges for every selected query, include
+a negative shadow mismatch case, and still record
+`graph_mutation_consumed_worker_output=false`.

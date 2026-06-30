@@ -7,16 +7,19 @@ change is considered complete.
 
 Active cards:
 
-- `2026-06-30-cuflye-m4l-overlap-worker-validated-consumption-gate.md`: add a
-  fail-closed validation gate before any future graph-consumption path can treat
-  CUDA overlap worker output as consumption-eligible.
+- None. M4l is complete; M4m is proposed.
 
 Proposed cards:
 
-- None. M4l is active.
+- `2026-06-30-cuflye-m4m-overlap-worker-shadow-consumption.md`: parse
+  validated worker output into a Flye-side shadow overlap range structure and
+  compare it against CPU overlap ranges without changing graph mutation.
 
 Completed cards:
 
+- `2026-06-30-cuflye-m4l-overlap-worker-validated-consumption-gate.md`: add a
+  fail-closed validation gate before any future graph-consumption path can treat
+  CUDA overlap worker output as consumption-eligible.
 - `2026-06-30-cuflye-m4k-flye-overlap-worker-batch-seam.md`: make the Flye
   seam collect an explicit replay-match query allowlist and invoke the packed
   overlap worker as a batch before graph mutation.
