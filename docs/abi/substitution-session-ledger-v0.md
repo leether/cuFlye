@@ -1,7 +1,7 @@
 # Substitution Session Ledger v0
 
 Status: accepted in M4s; timing attribution accepted in M4t; session batch
-cache proposed for M4u
+cache accepted in M4u
 
 Introduced: M4s
 
@@ -196,6 +196,15 @@ validation, shadow comparison, rehydration, substitution comparison, or ledger
 writing. The M4t DGX proof showed exact artifact preservation, but the positive
 substitution run was slower than the CPU baseline, so the next optimization
 should reduce seam overhead before broadening substitution scope.
+
+## M4u Benefit Assessment
+
+M4u reduces selected-query seam overhead but still does not prove end-to-end
+Flye speedup. The DGX proof showed one selected query deferred, one selected
+query substituted from a batch worker run, and one later selected query
+substituted from the verified batch cache with `worker_process_ms=0`. Selected
+substitution worker-process average fell by `46.808247%` versus M4t, while
+canonical Flye artifacts still matched CPU.
 
 ## M4s Benefit Assessment
 

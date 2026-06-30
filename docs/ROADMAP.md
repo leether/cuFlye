@@ -632,4 +632,66 @@ Next highest-ROI task:
 M4u: reduce selected-query substitution seam overhead, especially external
 worker process startup and request/response file IO, before expanding
 graph-facing substitution scope.
+Completed.
+```
+
+M4u added an opt-in session batch/cache substitution mode:
+
+```text
+CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE=verified-overlap-range-session-batch-v0
+```
+
+The positive DGX proof preserved exact canonical Flye artifacts. It recorded one
+selected query deferred while waiting for the allowlist-sized batch, one selected
+query substituted from the batch worker run, and one later selected query
+substituted from the verified batch cache:
+
+```text
+deferred-session-batch-waiting: 1
+substituted-from-session-batch-run: 1
+substituted-from-session-batch-cache: 1
+skipped-already-substituted: 4
+skipped-not-selected: 1892
+skipped-unsupported-non-selected-shape: 987
+```
+
+The timing result showed integration progress but not end-to-end Flye speedup.
+CPU toy-raw baseline elapsed `84s`; batch/cache substitution elapsed `91s`
+(`1.083333x` CPU wall time). Selected substitution timing improved versus M4t:
+
+```text
+M4t selected worker_process_ms avg: 414.343489
+M4u selected worker_process_ms avg: 220.396566
+worker_process avg reduction: 46.808247%
+M4t selected seam_total_ms avg: 432.363197
+M4u selected seam_total_ms avg: 228.892051
+seam_total avg reduction: 47.060237%
+```
+
+The mismatch negative proof injected `drop-first-substitution-overlap`; query
+`353` deferred and query `381` failed closed at exact substitution comparison.
+The unsupported-shape negative proof injected `force-unsupported-selected-shape`
+and failed closed before worker invocation with `worker_process_ms=0`.
+
+Allowed M4u claim:
+
+```text
+cuFlye can amortize one verified session batch worker run across a later cached
+selected substitution, preserve exact Flye artifacts, and reduce selected
+substitution seam overhead versus M4t.
+```
+
+Forbidden M4u claim:
+
+```text
+M4u does not prove default GPU mode, unsupported-shape CUDA substitution, or
+end-to-end Flye speedup.
+```
+
+Next highest-ROI task:
+
+```text
+M4v: introduce an explicit persistent overlap-worker lifecycle so warm
+sequential batch requests avoid paying external worker process startup cost each
+time.
 ```

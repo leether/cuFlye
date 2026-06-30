@@ -7,16 +7,20 @@ change is considered complete.
 
 Active cards:
 
-- `2026-07-01-cuflye-m4u-substitution-worker-overhead-reduction.md`:
-  reduce the worker process and file-IO overhead exposed by M4t before expanding
-  graph-facing substitution scope.
+- None.
 
 Proposed cards:
 
-- None. M4u is in progress.
+- `2026-07-01-cuflye-m4v-persistent-overlap-worker-lifecycle.md`:
+  move beyond cache-only amortization by reducing per-batch external worker
+  process startup cost with an explicit persistent-worker lifecycle.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m4u-substitution-worker-overhead-reduction.md`:
+  add opt-in session batch/cache substitution, preserving exact artifacts while
+  reducing selected substitution worker-process and seam-total average timing
+  versus M4t.
 - `2026-07-01-cuflye-m4t-substitution-session-timing-attribution.md`:
   add per-decision timing attribution to graph-facing substitution sessions and
   prove exact artifact preservation while identifying worker/process overhead
