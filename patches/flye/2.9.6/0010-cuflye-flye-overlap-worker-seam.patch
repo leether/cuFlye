@@ -1,0 +1,245 @@
+--- a/src/sequence/overlap.cpp
++++ b/src/sequence/overlap.cpp
+@@ -168,6 +168,57 @@
+ 		return maxFixtures;
+ 	}
+ 
++	std::vector<std::string>& overlapReplayCapturedFixtures()
++	{
++		static std::vector<std::string> fixtures;
++		return fixtures;
++	}
++
++	const char* overlapWorkerMode()
++	{
++		static const char* mode = std::getenv("CUFLYE_OVERLAP_WORKER_MODE");
++		return mode;
++	}
++
++	bool overlapWorkerEnabled()
++	{
++		const char* mode = overlapWorkerMode();
++		if (!mode || !mode[0]) return false;
++		if (std::strcmp(mode, "packed-replay-v0") == 0) return true;
++		throw std::runtime_error(std::string("Unsupported CUFLYE_OVERLAP_WORKER_MODE: ") +
++								 mode);
++	}
++
++	const char* overlapEnvRequired(const char* name)
++	{
++		const char* value = std::getenv(name);
++		if (!value || !value[0])
++		{
++			throw std::runtime_error(std::string(
++				"cuFlye overlap worker seam selected; missing required environment variable ") +
++				name);
++		}
++		return value;
++	}
++
++	std::string jsonEscape(const std::string& text)
++	{
++		std::ostringstream escaped;
++		for (char ch : text)
++		{
++			switch (ch)
++			{
++			case '\\': escaped << "\\\\"; break;
++			case '"': escaped << "\\\""; break;
++			case '\n': escaped << "\\n"; break;
++			case '\r': escaped << "\\r"; break;
++			case '\t': escaped << "\\t"; break;
++			default: escaped << ch; break;
++			}
++		}
++		return escaped.str();
++	}
++
+ 	const char* boolJson(bool value)
+ 	{
+ 		return value ? "true" : "false";
+@@ -270,6 +321,161 @@
+ 		}
+ 	}
+ 
++	void ensureParentDirectory(const std::string& path)
++	{
++		size_t slash = path.find_last_of('/');
++		if (slash == std::string::npos || slash == 0) return;
++		ensureDirectory(path.substr(0, slash));
++	}
++
++	void writeTextFile(const std::string& path, const std::string& text)
++	{
++		ensureParentDirectory(path);
++		std::ofstream output(path);
++		if (!output)
++		{
++			throw std::runtime_error("cuFlye overlap worker seam cannot write: " +
++									 path);
++		}
++		output << text;
++	}
++
++	std::string overlapWorkerOutputDir(const std::string& dumpRoot)
++	{
++		const char* outputDir = std::getenv("CUFLYE_OVERLAP_WORKER_OUTPUT_DIR");
++		if (outputDir && outputDir[0]) return outputDir;
++		if (overlapWorkerEnabled())
++		{
++			return overlapEnvRequired("CUFLYE_OVERLAP_WORKER_OUTPUT_DIR");
++		}
++		return joinPath(dumpRoot, "overlap-worker");
++	}
++
++	void writeOverlapWorkerFixtureList(const std::string& path,
++									   const std::vector<std::string>& fixtures)
++	{
++		std::ostringstream text;
++		for (const auto& fixture : fixtures) text << fixture << "\n";
++		writeTextFile(path, text.str());
++	}
++
++	void writeOverlapWorkerRequestJson(const std::string& path,
++									   const std::string& requestId,
++									   const std::string& fixtureList,
++									   const std::string& batchOutputDir,
++									   const std::string& batchJson,
++									   const std::string& responseJson,
++									   size_t expectedFixtureCount)
++	{
++		std::string defaultDevice = cudaEnvOrDefault("CUFLYE_CUDA_DEVICE", "0");
++		std::string device = cudaEnvOrDefault("CUFLYE_OVERLAP_WORKER_DEVICE",
++											  defaultDevice.c_str());
++		std::string kernelMode = cudaEnvOrDefault("CUFLYE_OVERLAP_WORKER_KERNEL_MODE",
++												  "serial");
++		std::string warmupRuns = cudaEnvOrDefault("CUFLYE_OVERLAP_WORKER_WARMUP_RUNS",
++												  "0");
++		std::string benchmarkRuns = cudaEnvOrDefault("CUFLYE_OVERLAP_WORKER_BENCHMARK_RUNS",
++													 "1");
++		const char* memoryBudget = std::getenv("CUFLYE_OVERLAP_WORKER_MEMORY_BUDGET_BYTES");
++
++		std::ostringstream json;
++		json << "{\n"
++			 << "  \"schema\": \"cuflye-overlap-worker-request-v0\",\n"
++			 << "  \"request_id\": \"" << jsonEscape(requestId) << "\",\n"
++			 << "  \"adapter_mode\": \"overlap-replay-batch-v0\",\n"
++			 << "  \"overlap_abi\": \"overlap-range-v1\",\n"
++			 << "  \"backend\": \"cuda\",\n"
++			 << "  \"batch_execution\": \"packed\",\n"
++			 << "  \"cuda_kernel_mode\": \"" << jsonEscape(kernelMode) << "\",\n"
++			 << "  \"device\": " << device << ",\n"
++			 << "  \"warmup_runs\": " << warmupRuns << ",\n"
++			 << "  \"benchmark_runs\": " << benchmarkRuns << ",\n"
++			 << "  \"expected_fixture_count\": " << expectedFixtureCount << ",\n";
++		if (memoryBudget && memoryBudget[0])
++		{
++			json << "  \"memory_budget_bytes\": " << memoryBudget << ",\n";
++		}
++		json << "  \"batch_fixtures_file\": \"" << jsonEscape(fixtureList) << "\",\n"
++			 << "  \"batch_output_dir\": \"" << jsonEscape(batchOutputDir) << "\",\n"
++			 << "  \"batch_json_output\": \"" << jsonEscape(batchJson) << "\",\n"
++			 << "  \"response_json\": \"" << jsonEscape(responseJson) << "\"\n"
++			 << "}\n";
++		writeTextFile(path, json.str());
++	}
++
++	void writeOverlapWorkerSeamSummary(const std::string& path,
++									   const std::string& requestJson,
++									   const std::string& responseJson,
++									   const std::string& fixtureList,
++									   const std::string& batchJson,
++									   const std::string& batchOutputDir,
++									   size_t fixtureCount)
++	{
++		std::ostringstream json;
++		json << "{\n"
++			 << "  \"schema\": \"cuflye-flye-overlap-worker-seam-v0\",\n"
++			 << "  \"status\": \"stopped-before-graph-mutation\",\n"
++			 << "  \"fixture_count\": " << fixtureCount << ",\n"
++			 << "  \"request_json\": \"" << jsonEscape(requestJson) << "\",\n"
++			 << "  \"response_json\": \"" << jsonEscape(responseJson) << "\",\n"
++			 << "  \"fixture_list\": \"" << jsonEscape(fixtureList) << "\",\n"
++			 << "  \"batch_json_output\": \"" << jsonEscape(batchJson) << "\",\n"
++			 << "  \"batch_output_dir\": \"" << jsonEscape(batchOutputDir) << "\",\n"
++			 << "  \"graph_mutation_consumed_worker_output\": false\n"
++			 << "}\n";
++		writeTextFile(path, json.str());
++	}
++
++	void maybeInvokeOverlapWorker(const std::string& dumpRoot, size_t dumpIndex)
++	{
++		if (!overlapWorkerEnabled()) return;
++		if (dumpIndex + 1 < overlapReplayMaxFixtures()) return;
++
++		auto& fixtures = overlapReplayCapturedFixtures();
++		if (fixtures.empty())
++		{
++			throw std::runtime_error("cuFlye overlap worker seam has no fixtures");
++		}
++
++		std::string workerBin = overlapEnvRequired("CUFLYE_OVERLAP_WORKER_BIN");
++		std::string outputRoot = overlapWorkerOutputDir(dumpRoot);
++		ensureDirectory(outputRoot);
++
++		std::string fixtureList = joinPath(outputRoot, "worker-fixtures.txt");
++		std::string requestJson = joinPath(outputRoot, "worker-request.json");
++		std::string responseJson = joinPath(outputRoot, "worker-response.json");
++		std::string batchJson = joinPath(outputRoot, "worker-batch.json");
++		std::string batchOutputDir = joinPath(outputRoot, "worker-output");
++		std::string stdoutLog = joinPath(outputRoot, "worker-stdout.log");
++		std::string stderrLog = joinPath(outputRoot, "worker-stderr.log");
++		std::string seamSummary = joinPath(outputRoot, "seam-summary.json");
++		std::string requestId = "flye-overlap-worker-" + std::to_string(fixtures.size());
++
++		writeOverlapWorkerFixtureList(fixtureList, fixtures);
++		writeOverlapWorkerRequestJson(requestJson, requestId, fixtureList,
++									  batchOutputDir, batchJson, responseJson,
++									  fixtures.size());
++
++		std::string command = shellQuote(workerBin) + " --worker-request-json " +
++							  shellQuote(requestJson) + " > " + shellQuote(stdoutLog) +
++							  " 2> " + shellQuote(stderrLog);
++		int status = std::system(command.c_str());
++		if (status != 0)
++		{
++			throw std::runtime_error(
++				"cuFlye overlap worker seam fail-closed; worker exited non-zero; "
++				"request_json=" + requestJson + "; response_json=" + responseJson);
++		}
++		ensureReadableFile(responseJson, "overlap worker response JSON");
++		writeOverlapWorkerSeamSummary(seamSummary, requestJson, responseJson,
++									  fixtureList, batchJson, batchOutputDir,
++									  fixtures.size());
++		throw std::runtime_error(
++			"cuFlye overlap worker seam stopped before graph mutation; "
++			"request_json=" + requestJson + "; response_json=" + responseJson +
++			"; seam_summary=" + seamSummary);
++	}
++
+ 	std::vector<std::string> splitTabLine(const std::string& line)
+ 	{
+ 		std::vector<std::string> fields;
+@@ -671,6 +877,12 @@
+ 								  float maxDivergence,
+ 								  float sampleRate)
+ 	{
++		if (overlapWorkerEnabled())
++		{
++			overlapEnvRequired("CUFLYE_OVERLAP_REPLAY_DUMP_DIR");
++			overlapEnvRequired("CUFLYE_OVERLAP_REPLAY_MAX_FIXTURES");
++			overlapEnvRequired("CUFLYE_OVERLAP_WORKER_OUTPUT_DIR");
++		}
+ 		const char* dumpRoot = overlapReplayDumpDir();
+ 		if (!dumpRoot || !dumpRoot[0]) return;
+ 		if (overlaps.empty()) return;
+@@ -782,6 +994,9 @@
+ 						<< "}\n";
+ 		}
+ 
++		overlapReplayCapturedFixtures().push_back(queryDir);
++		maybeInvokeOverlapWorker(dumpRoot, dumpIndex);
++
+ 		if (cudaEnvFlag("CUFLYE_OVERLAP_REPLAY_STOP_AFTER_DUMP"))
+ 		{
+ 			throw std::runtime_error(

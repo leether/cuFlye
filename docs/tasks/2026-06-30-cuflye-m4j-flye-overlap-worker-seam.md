@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4j Flye Overlap Worker Seam
 
-Status: proposed
+Status: active
 
 Created: 2026-06-30
 
@@ -34,6 +34,8 @@ validate it, and stop before graph logic consumes it.
 - Validate worker output against CPU overlap oracle before any future graph
   consumption.
 - Record compact DGX proof.
+- Add a patch-series entry for Flye `2.9.6`.
+- Extend the fixture runner with explicit M4j seam environment controls.
 
 ## Out of Scope
 
@@ -53,3 +55,33 @@ validate it, and stop before graph logic consumes it.
 - Worker output validates as `overlap-range-v1` and canonical-diffs `match`
   against the CPU oracle.
 - Local and DGX gates pass.
+
+## C++ Style Constraints
+
+- Keep Flye patch code C++11-compatible with the upstream source tree.
+- Use standard containers and stack objects for CPU-owned memory.
+- Do not add raw owning pointers, direct `new`/`delete`, or direct
+  `malloc`/`free`.
+- Keep external process invocation file-backed and explicit.
+- Do not silently fall back to CPU when worker mode is requested.
+- Throw before graph mutation after a successful proof-mode worker response.
+
+## Deliverables
+
+- Flye overlap worker seam ABI doc.
+- Flye `2.9.6` patch that generates an M4i worker request and stops.
+- Fixture runner options for the seam environment.
+- DGX proof showing default CPU behavior and explicit worker proof mode.
+- This Task Card completed after proof.
+
+## Execution Checklist
+
+- [ ] Document Flye-side seam environment and outputs.
+- [ ] Add Flye patch for request generation, worker invocation, and stop.
+- [ ] Extend fixture runner options and metadata.
+- [ ] Build patched Flye on DGX.
+- [ ] Prove default CPU fixture behavior remains unchanged.
+- [ ] Prove explicit worker proof mode records response and stops before graph
+  mutation.
+- [ ] Validate and diff worker outputs.
+- [ ] Record compact DGX proof and close this card.

@@ -51,8 +51,25 @@ Options:
                        Set CUFLYE_CUDA_PACK_QUERY_ID
   --cuda-stop-after-packed-query
                        Set CUFLYE_CUDA_STOP_AFTER_PACKED_QUERY=1
+  --overlap-worker-mode MODE
+                       Set CUFLYE_OVERLAP_WORKER_MODE for M4j seam proof
+  --overlap-worker-bin PATH
+                       Set CUFLYE_OVERLAP_WORKER_BIN
+  --overlap-worker-output-dir PATH
+                       Set CUFLYE_OVERLAP_WORKER_OUTPUT_DIR
+  --overlap-worker-device ID
+                       Set CUFLYE_OVERLAP_WORKER_DEVICE
+  --overlap-worker-kernel-mode MODE
+                       Set CUFLYE_OVERLAP_WORKER_KERNEL_MODE
+  --overlap-worker-warmup-runs N
+                       Set CUFLYE_OVERLAP_WORKER_WARMUP_RUNS
+  --overlap-worker-benchmark-runs N
+                       Set CUFLYE_OVERLAP_WORKER_BENCHMARK_RUNS
+  --overlap-worker-memory-budget-bytes N
+                       Set CUFLYE_OVERLAP_WORKER_MEMORY_BUDGET_BYTES
   --extra-arg ARG      Extra Flye argument. May be repeated.
   --force              Remove existing output directory before running
+  --expect-failure     Record non-zero Flye exit as expected metadata
   -h, --help           Show this help
 
 Examples:
@@ -74,6 +91,7 @@ genome_size="500k"
 reads=""
 read_type=""
 force=0
+expect_failure=0
 candidate_dump=""
 overlap_dump=""
 overlap_replay_dump_dir="${CUFLYE_OVERLAP_REPLAY_DUMP_DIR:-}"
@@ -92,6 +110,14 @@ cuda_packed_kmer_size="${CUFLYE_CUDA_PACKED_KMER_SIZE:-}"
 cuda_pack_dump_dir="${CUFLYE_CUDA_PACK_DUMP_DIR:-}"
 cuda_pack_query_id="${CUFLYE_CUDA_PACK_QUERY_ID:-}"
 cuda_stop_after_packed_query="${CUFLYE_CUDA_STOP_AFTER_PACKED_QUERY:-}"
+overlap_worker_mode="${CUFLYE_OVERLAP_WORKER_MODE:-}"
+overlap_worker_bin="${CUFLYE_OVERLAP_WORKER_BIN:-}"
+overlap_worker_output_dir="${CUFLYE_OVERLAP_WORKER_OUTPUT_DIR:-}"
+overlap_worker_device="${CUFLYE_OVERLAP_WORKER_DEVICE:-}"
+overlap_worker_kernel_mode="${CUFLYE_OVERLAP_WORKER_KERNEL_MODE:-}"
+overlap_worker_warmup_runs="${CUFLYE_OVERLAP_WORKER_WARMUP_RUNS:-}"
+overlap_worker_benchmark_runs="${CUFLYE_OVERLAP_WORKER_BENCHMARK_RUNS:-}"
+overlap_worker_memory_budget_bytes="${CUFLYE_OVERLAP_WORKER_MEMORY_BUDGET_BYTES:-}"
 extra_args=()
 
 while [ "$#" -gt 0 ]; do
@@ -200,12 +226,48 @@ while [ "$#" -gt 0 ]; do
       cuda_stop_after_packed_query=1
       shift
       ;;
+    --overlap-worker-mode)
+      overlap_worker_mode="$2"
+      shift 2
+      ;;
+    --overlap-worker-bin)
+      overlap_worker_bin="$2"
+      shift 2
+      ;;
+    --overlap-worker-output-dir)
+      overlap_worker_output_dir="$2"
+      shift 2
+      ;;
+    --overlap-worker-device)
+      overlap_worker_device="$2"
+      shift 2
+      ;;
+    --overlap-worker-kernel-mode)
+      overlap_worker_kernel_mode="$2"
+      shift 2
+      ;;
+    --overlap-worker-warmup-runs)
+      overlap_worker_warmup_runs="$2"
+      shift 2
+      ;;
+    --overlap-worker-benchmark-runs)
+      overlap_worker_benchmark_runs="$2"
+      shift 2
+      ;;
+    --overlap-worker-memory-budget-bytes)
+      overlap_worker_memory_budget_bytes="$2"
+      shift 2
+      ;;
     --extra-arg)
       extra_args+=("$2")
       shift 2
       ;;
     --force)
       force=1
+      shift
+      ;;
+    --expect-failure)
+      expect_failure=1
       shift
       ;;
     -h|--help)
@@ -297,6 +359,10 @@ if [ -n "${cuda_pack_dump_dir}" ]; then
   rm -rf "${cuda_pack_dump_dir}"
   mkdir -p "${cuda_pack_dump_dir}"
 fi
+if [ -n "${overlap_worker_output_dir}" ]; then
+  rm -rf "${overlap_worker_output_dir}"
+  mkdir -p "${overlap_worker_output_dir}"
+fi
 
 read_flag=""
 case "${read_type}" in
@@ -384,9 +450,33 @@ fi
 if [ -n "${cuda_stop_after_packed_query}" ]; then
   export CUFLYE_CUDA_STOP_AFTER_PACKED_QUERY="${cuda_stop_after_packed_query}"
 fi
+if [ -n "${overlap_worker_mode}" ]; then
+  export CUFLYE_OVERLAP_WORKER_MODE="${overlap_worker_mode}"
+fi
+if [ -n "${overlap_worker_bin}" ]; then
+  export CUFLYE_OVERLAP_WORKER_BIN="${overlap_worker_bin}"
+fi
+if [ -n "${overlap_worker_output_dir}" ]; then
+  export CUFLYE_OVERLAP_WORKER_OUTPUT_DIR="${overlap_worker_output_dir}"
+fi
+if [ -n "${overlap_worker_device}" ]; then
+  export CUFLYE_OVERLAP_WORKER_DEVICE="${overlap_worker_device}"
+fi
+if [ -n "${overlap_worker_kernel_mode}" ]; then
+  export CUFLYE_OVERLAP_WORKER_KERNEL_MODE="${overlap_worker_kernel_mode}"
+fi
+if [ -n "${overlap_worker_warmup_runs}" ]; then
+  export CUFLYE_OVERLAP_WORKER_WARMUP_RUNS="${overlap_worker_warmup_runs}"
+fi
+if [ -n "${overlap_worker_benchmark_runs}" ]; then
+  export CUFLYE_OVERLAP_WORKER_BENCHMARK_RUNS="${overlap_worker_benchmark_runs}"
+fi
+if [ -n "${overlap_worker_memory_budget_bytes}" ]; then
+  export CUFLYE_OVERLAP_WORKER_MEMORY_BUDGET_BYTES="${overlap_worker_memory_budget_bytes}"
+fi
 
 metadata_tmp="${out_dir}/run_metadata.pre.json"
-python3 - "$metadata_tmp" "$repo_root" "$flye_dir" "$fixture" "$reads" "$read_type" "$genome_size" "$min_overlap" "$threads" "$candidate_dump" "$overlap_dump" "$overlap_replay_dump_dir" "$overlap_replay_query_id" "$overlap_replay_stop_after_dump" "$candidate_backend" "$cuda_device" "$cuda_memory_budget_bytes" "$cuda_adapter_mode" "$cuda_backend_bin" "$cuda_packed_fixture_dir" "$cuda_adapter_output_tsv" "$cuda_adapter_json" "$cuda_packed_kmer_size" "$cuda_pack_dump_dir" "$cuda_pack_query_id" "$cuda_stop_after_packed_query" "${cmd[@]}" <<'PY'
+python3 - "$metadata_tmp" "$repo_root" "$flye_dir" "$fixture" "$reads" "$read_type" "$genome_size" "$min_overlap" "$threads" "$candidate_dump" "$overlap_dump" "$overlap_replay_dump_dir" "$overlap_replay_query_id" "$overlap_replay_max_fixtures" "$overlap_replay_stop_after_dump" "$candidate_backend" "$cuda_device" "$cuda_memory_budget_bytes" "$cuda_adapter_mode" "$cuda_backend_bin" "$cuda_packed_fixture_dir" "$cuda_adapter_output_tsv" "$cuda_adapter_json" "$cuda_packed_kmer_size" "$cuda_pack_dump_dir" "$cuda_pack_query_id" "$cuda_stop_after_packed_query" "$overlap_worker_mode" "$overlap_worker_bin" "$overlap_worker_output_dir" "$overlap_worker_device" "$overlap_worker_kernel_mode" "$overlap_worker_warmup_runs" "$overlap_worker_benchmark_runs" "$overlap_worker_memory_budget_bytes" "${cmd[@]}" <<'PY'
 import json
 import os
 import platform
@@ -395,7 +485,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 
-metadata_path, repo_root, flye_dir, fixture, reads, read_type, genome_size, min_overlap, threads, candidate_dump, overlap_dump, overlap_replay_dump_dir, overlap_replay_query_id, overlap_replay_stop_after_dump, candidate_backend, cuda_device, cuda_memory_budget_bytes, cuda_adapter_mode, cuda_backend_bin, cuda_packed_fixture_dir, cuda_adapter_output_tsv, cuda_adapter_json, cuda_packed_kmer_size, cuda_pack_dump_dir, cuda_pack_query_id, cuda_stop_after_packed_query, *cmd = sys.argv[1:]
+metadata_path, repo_root, flye_dir, fixture, reads, read_type, genome_size, min_overlap, threads, candidate_dump, overlap_dump, overlap_replay_dump_dir, overlap_replay_query_id, overlap_replay_max_fixtures, overlap_replay_stop_after_dump, candidate_backend, cuda_device, cuda_memory_budget_bytes, cuda_adapter_mode, cuda_backend_bin, cuda_packed_fixture_dir, cuda_adapter_output_tsv, cuda_adapter_json, cuda_packed_kmer_size, cuda_pack_dump_dir, cuda_pack_query_id, cuda_stop_after_packed_query, overlap_worker_mode, overlap_worker_bin, overlap_worker_output_dir, overlap_worker_device, overlap_worker_kernel_mode, overlap_worker_warmup_runs, overlap_worker_benchmark_runs, overlap_worker_memory_budget_bytes, *cmd = sys.argv[1:]
 
 def run(cmdline):
     try:
@@ -431,6 +521,8 @@ if overlap_replay_dump_dir:
     payload["overlap_replay_dump_dir"] = os.path.abspath(overlap_replay_dump_dir)
 if overlap_replay_query_id:
     payload["overlap_replay_query_id"] = overlap_replay_query_id
+if overlap_replay_max_fixtures:
+    payload["overlap_replay_max_fixtures"] = overlap_replay_max_fixtures
 if overlap_replay_stop_after_dump:
     payload["overlap_replay_stop_after_dump"] = overlap_replay_stop_after_dump
 if candidate_backend:
@@ -457,6 +549,22 @@ if cuda_pack_query_id:
     payload["cuda_pack_query_id"] = cuda_pack_query_id
 if cuda_stop_after_packed_query:
     payload["cuda_stop_after_packed_query"] = cuda_stop_after_packed_query
+if overlap_worker_mode:
+    payload["overlap_worker_mode"] = overlap_worker_mode
+if overlap_worker_bin:
+    payload["overlap_worker_bin"] = os.path.abspath(overlap_worker_bin)
+if overlap_worker_output_dir:
+    payload["overlap_worker_output_dir"] = os.path.abspath(overlap_worker_output_dir)
+if overlap_worker_device:
+    payload["overlap_worker_device"] = overlap_worker_device
+if overlap_worker_kernel_mode:
+    payload["overlap_worker_kernel_mode"] = overlap_worker_kernel_mode
+if overlap_worker_warmup_runs:
+    payload["overlap_worker_warmup_runs"] = overlap_worker_warmup_runs
+if overlap_worker_benchmark_runs:
+    payload["overlap_worker_benchmark_runs"] = overlap_worker_benchmark_runs
+if overlap_worker_memory_budget_bytes:
+    payload["overlap_worker_memory_budget_bytes"] = overlap_worker_memory_budget_bytes
 
 with open(metadata_path, "w", encoding="utf-8") as handle:
     json.dump(payload, handle, indent=2, sort_keys=True)
@@ -465,29 +573,40 @@ PY
 
 start_epoch="$(date +%s)"
 time_log="${out_dir}/time.log"
+run_status=0
 
+set +e
 if /usr/bin/time -v true >/dev/null 2>&1; then
   /usr/bin/time -v "${cmd[@]}" > "${out_dir}/stdout.log" 2> >(tee "${out_dir}/stderr.log" > "${time_log}")
+  run_status=$?
 elif /usr/bin/time -l true >/dev/null 2>&1; then
   /usr/bin/time -l "${cmd[@]}" > "${out_dir}/stdout.log" 2> >(tee "${out_dir}/stderr.log" > "${time_log}")
+  run_status=$?
 else
   "${cmd[@]}" > "${out_dir}/stdout.log" 2> "${out_dir}/stderr.log"
+  run_status=$?
+fi
+set -e
+
+if [ "${run_status}" -ne 0 ] && [ "${expect_failure}" != "1" ]; then
+  exit "${run_status}"
 fi
 
 end_epoch="$(date +%s)"
 elapsed_seconds="$((end_epoch - start_epoch))"
 
-python3 - "$metadata_tmp" "${out_dir}/run_metadata.json" "$elapsed_seconds" <<'PY'
+python3 - "$metadata_tmp" "${out_dir}/run_metadata.json" "$elapsed_seconds" "$run_status" "$expect_failure" <<'PY'
 import json
 import sys
 from datetime import datetime, timezone
 
-src, dst, elapsed = sys.argv[1:]
+src, dst, elapsed, run_status, expect_failure = sys.argv[1:]
 with open(src, "r", encoding="utf-8") as handle:
     payload = json.load(handle)
 payload["finished_at_utc"] = datetime.now(timezone.utc).isoformat()
 payload["elapsed_seconds"] = int(elapsed)
-payload["exit_status"] = 0
+payload["exit_status"] = int(run_status)
+payload["expected_failure"] = expect_failure == "1"
 with open(dst, "w", encoding="utf-8") as handle:
     json.dump(payload, handle, indent=2, sort_keys=True)
     handle.write("\n")
@@ -523,3 +642,7 @@ fi
 echo "Flye fixture run complete: ${out_dir}"
 echo "Metadata: ${out_dir}/run_metadata.json"
 echo "Artifact hashes: ${out_dir}/artifact_hashes.json"
+
+if [ "${run_status}" -ne 0 ]; then
+  exit "${run_status}"
+fi
