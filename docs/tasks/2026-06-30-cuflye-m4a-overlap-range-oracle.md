@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4a Overlap Range Oracle
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -81,11 +81,36 @@ stable oracle with validator and canonical diff tooling.
 
 ## Execution Checklist
 
-- [ ] Define overlap-range ABI.
-- [ ] Add overlap validator and diff tools.
-- [ ] Add Flye overlap dump patch.
-- [ ] Add run script overlap dump option.
-- [ ] Run local syntax/style gates.
-- [ ] Build and run patched Flye on DGX.
-- [ ] Validate and diff overlap dumps.
-- [ ] Record compact proof and close this card.
+- [x] Define overlap-range ABI.
+- [x] Add overlap validator and diff tools.
+- [x] Add Flye overlap dump patch.
+- [x] Add run script overlap dump option.
+- [x] Run local syntax/style gates.
+- [x] Build and run patched Flye on DGX.
+- [x] Validate and diff overlap dumps.
+- [x] Record compact proof and close this card.
+
+## Merge Note
+
+Implementation commit: `2d1b50da40eb3006d9fa3cbf025f328eb97330ac`
+
+DGX proof manifest:
+`tests/golden/cuflye-m4a-overlap-range-oracle-dgx-aarch64.json`
+
+Proof summary:
+
+- Host: `edgexpert-45d2` (`aarch64`)
+- Flye: `2.9.6-b1802`, patched through
+  `0007-cuflye-overlap-range-dump.patch`
+- Default toy run without `CUFLYE_OVERLAP_DUMP`: completed
+- Overlap dump runs: two deterministic toy runs completed
+- Records per run: `53,728`
+- Raw SHA-256 for both dumps:
+  `c9eb5a013a6380714f0c2bb592ac692f49ab030fb658bdf4ede4a9e10d8489e3`
+- Canonical SHA-256 for both dumps:
+  `71477479f412c90463aa60d8565b52da10f9dfec98d96387525ed50ae937c22b`
+- Canonical diff: `match`
+- Malformed overlap row validation: rejected as expected
+
+This card does not claim CUDA overlap chaining or Flye end-to-end speedup. It
+only establishes the CPU overlap-range oracle boundary needed for M4b.

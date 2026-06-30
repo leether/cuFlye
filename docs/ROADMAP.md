@@ -92,6 +92,11 @@ Completed:
   equivalence for every sample. Warm sampled requests reuse the worker arena
   with zero new allocations, and the best warm worker request is `41.08x`
   faster than its sampled CPU oracle.
+- M4a: `overlap-range-v1` defines Flye CPU overlap-range records after
+  `OverlapDetector::getSeqOverlaps`, and DGX toy runs produce deterministic
+  oracle dumps: `53,728` records per run, canonical SHA-256
+  `71477479f412c90463aa60d8565b52da10f9dfec98d96387525ed50ae937c22b`,
+  canonical diff `match`.
 
 Current allowed performance claim:
 
@@ -99,6 +104,10 @@ Current allowed performance claim:
 cuFlye's CUDA candidate-generation worker is faster than the CPU oracle for the
 measured real-pack and sampled real-read candidate fixtures while preserving
 candidate-list equivalence.
+
+cuFlye also has a deterministic CPU overlap-range oracle for the upstream toy
+fixture; this is a correctness boundary for future CUDA overlap chaining, not a
+GPU speed claim.
 ```
 
 Current forbidden claim:
@@ -168,7 +177,7 @@ chaining semantics.
 
 Work items:
 
-- Define an overlap-range ABI.
+- Define an overlap-range ABI. Completed in M4a.
 - Port or batch the chain DP used by `OverlapDetector::getSeqOverlaps`.
 - Preserve gap penalties, jump thresholds, minimum overlap, overhang filters,
   and divergence thresholds.
@@ -270,12 +279,11 @@ Use precise milestone labels:
 Next highest-ROI task:
 
 ```text
-M4a: define the overlap-range ABI and add a CPU overlap oracle dump for
-OverlapDetector::getSeqOverlaps so the next CUDA work can compare chained
-overlap ranges, not only raw candidate hits.
+M4b: build a bounded overlap-chain replay harness from Flye candidate records
+and compare CPU replay output to overlap-range-v1 before introducing CUDA.
 ```
 
-Acceptance should start with deterministic CPU overlap dumps, validator and
-canonical diff tooling, and a small DGX proof. The immediate target is a stable
-M4 contract; do not port chain DP or claim graph equivalence until the CPU
-overlap-range oracle is machine-checkable.
+Acceptance should start with a CPU replay that reproduces the M4a
+`overlap-range-v1` oracle on toy data. The immediate target is to isolate the
+chain DP contract outside a full Flye run; do not port the chain DP to CUDA or
+claim graph equivalence until that replay boundary is machine-checkable.

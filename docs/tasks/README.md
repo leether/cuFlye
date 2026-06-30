@@ -7,11 +7,12 @@ change is considered complete.
 
 Active cards:
 
-- `2026-06-30-cuflye-m4a-overlap-range-oracle.md`: define overlap-range ABI
-  and CPU oracle dump tooling before CUDA overlap chaining.
+- None.
 
 Completed cards:
 
+- `2026-06-30-cuflye-m4a-overlap-range-oracle.md`: define overlap-range ABI
+  and CPU oracle dump tooling before CUDA overlap chaining.
 - `2026-06-30-cuflye-m3e-sampled-pack-batch-planner.md`: generate sampled
   real-pack fixtures and plan heterogeneous worker requests.
 - `2026-06-30-cuflye-m3d-worker-device-buffer-arena.md`: reuse worker device

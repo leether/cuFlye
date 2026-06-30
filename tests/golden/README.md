@@ -62,3 +62,8 @@ M3 long-lived CUDA worker proof:
   `cuflye-m3d-worker-device-buffer-arena-dgx-aarch64.json`
 - Sampled pack batch planner manifest:
   `cuflye-m3e-sampled-pack-batch-planner-dgx-aarch64.json`
+
+M4 overlap-range oracle proof:
+
+- Overlap-range CPU oracle manifest:
+  `cuflye-m4a-overlap-range-oracle-dgx-aarch64.json`
