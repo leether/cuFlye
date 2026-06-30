@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4q OverlapRange Object Rehydration Dry Run
 
-Status: proposed
+Status: in_progress
 
 Created: 2026-07-01
 

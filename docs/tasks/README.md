@@ -7,13 +7,13 @@ change is considered complete.
 
 Active cards:
 
-- None. M4p is complete; M4q is proposed.
-
-Proposed cards:
-
 - `2026-07-01-cuflye-m4q-overlap-range-object-rehydration-dry-run.md`:
   convert validated typed overlap records into actual Flye `OverlapRange`
   objects in a no-mutation dry-run before graph consumption is enabled.
+
+Proposed cards:
+
+- None. M4q is in progress.
 
 Completed cards:
 

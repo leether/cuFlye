@@ -3,7 +3,7 @@
 Status: accepted in M4j; batch allowlist extension accepted in M4k; validation
 gate accepted in M4l; shadow consumption proof accepted in M4m; graph
 consumption guard dry-run accepted in M4o; typed rehydration dry-run accepted
-in M4p
+in M4p; `OverlapRange` object rehydration dry-run proposed in M4q
 
 Introduced: M4j
 
@@ -56,6 +56,8 @@ Optional environment:
 | `CUFLYE_OVERLAP_GRAPH_CONSUMPTION_MODE` | unset | Optional M4o proof mode. `dry-run-v0` evaluates graph-consumption preconditions and writes guard metadata without consuming worker output. |
 | `CUFLYE_OVERLAP_REHYDRATION_MODE` | unset | Optional M4p proof mode. `typed-overlap-v0` rehydrates validated worker records into a typed Flye-side overlap vector after the M4o guard passes. |
 | `CUFLYE_OVERLAP_REHYDRATION_PROOF_FAULT` | unset | Optional M4p negative-proof fault. `drop-first-worker-record` forces typed-vector mismatch after validation, shadow, and guard success. |
+| `CUFLYE_OVERLAP_OBJECT_REHYDRATION_MODE` | unset | Optional M4q proof mode. `overlap-range-object-v0` converts typed records into actual Flye `OverlapRange` objects after M4p passes. |
+| `CUFLYE_OVERLAP_OBJECT_REHYDRATION_PROOF_FAULT` | unset | Optional M4q negative-proof fault. `drop-first-overlap-range` forces object-vector mismatch after M4p success. |
 
 ## Generated Files
 
@@ -72,6 +74,7 @@ Given `CUFLYE_OVERLAP_WORKER_OUTPUT_DIR=/path/to/seam`, Flye writes:
 | `worker-shadow.json` | Flye-side shadow parse and comparison summary when `CUFLYE_OVERLAP_WORKER_SHADOW_MODE=canonical-overlap-v0`. |
 | `worker-graph-consumption-guard.json` | Dry-run graph-consumption guard summary when `CUFLYE_OVERLAP_GRAPH_CONSUMPTION_MODE=dry-run-v0`. |
 | `worker-rehydration.json` | Typed overlap-vector rehydration dry-run summary when `CUFLYE_OVERLAP_REHYDRATION_MODE=typed-overlap-v0`. |
+| `worker-object-rehydration.json` | Flye `OverlapRange` object-vector rehydration dry-run summary when `CUFLYE_OVERLAP_OBJECT_REHYDRATION_MODE=overlap-range-object-v0`. |
 | `worker-stdout.log` | Worker stdout. |
 | `worker-stderr.log` | Worker stderr. |
 | `seam-summary.json` | Flye-side seam metadata and stop proof. |
@@ -178,6 +181,25 @@ before graph mutation. The successful dry-run state is:
 This proves a representation boundary after the guard. It still does not feed
 GPU output into graph mutation.
 
+M4q adds optional `OverlapRange` object rehydration dry-run mode. When
+`CUFLYE_OVERLAP_OBJECT_REHYDRATION_MODE=overlap-range-object-v0`, Flye requires
+M4p typed rehydration to pass, converts typed records into actual upstream Flye
+`OverlapRange` objects, compares the object vector against CPU overlap records
+captured in memory, writes `worker-object-rehydration.json`, and still stops
+before graph mutation. The successful dry-run state is:
+
+```json
+{
+  "overlap_object_rehydration_status": "passed",
+  "overlap_object_rehydration_state": "not-consumed",
+  "overlap_object_rehydration_eligible": true,
+  "graph_mutation_consumed_worker_output": false
+}
+```
+
+This proves one more representation boundary. It still does not feed GPU output
+into graph mutation.
+
 ## Failure Semantics
 
 The seam fails closed when:
@@ -206,6 +228,12 @@ The seam fails closed when:
 - typed rehydration dry-run mode is selected before the M4o guard is eligible;
 - typed rehydration cannot represent a worker record in Flye-side types;
 - a rehydrated typed vector differs from CPU overlap records captured in
+  memory.
+- `CUFLYE_OVERLAP_OBJECT_REHYDRATION_MODE` is unsupported;
+- `CUFLYE_OVERLAP_OBJECT_REHYDRATION_PROOF_FAULT` is unsupported;
+- object rehydration dry-run mode is selected before M4p typed rehydration is
+  eligible;
+- an `OverlapRange` object vector differs from CPU overlap records captured in
   memory.
 
 There is no silent CPU fallback when the seam is explicitly enabled.
@@ -252,6 +280,25 @@ pass, Flye writes `worker-rehydration.json`, writes `seam-summary.json` with:
   "overlap_rehydration_status": "failed",
   "overlap_rehydration_state": "failed-closed",
   "overlap_rehydration_eligible": false,
+  "graph_mutation_consumed_worker_output": false
+}
+```
+
+and then exits non-zero before graph mutation.
+
+On object rehydration mismatch after M4p typed rehydration passes, Flye writes
+`worker-object-rehydration.json`, writes `seam-summary.json` with:
+
+```json
+{
+  "status": "object-rehydration-failed-before-graph-mutation",
+  "validation_status": "passed",
+  "shadow_status": "passed",
+  "graph_guard_status": "passed",
+  "overlap_rehydration_status": "passed",
+  "overlap_object_rehydration_status": "failed",
+  "overlap_object_rehydration_state": "failed-closed",
+  "overlap_object_rehydration_eligible": false,
   "graph_mutation_consumed_worker_output": false
 }
 ```
