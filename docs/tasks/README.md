@@ -15,6 +15,10 @@ Proposed cards:
 
 Completed cards:
 
+- `2026-07-01-cuflye-m4y-sparse-gpu-first-selection-audit-sampling.md`:
+  reduce GPU-first proof overhead with selected-only substitution ledger output,
+  use a bounded 7-query GPU-first selection set, preserve exact toy-raw
+  artifacts, and fail closed on sampled GPU-first audit mismatch.
 - `2026-07-01-cuflye-m4x-gpu-first-overlap-substitution-perf-gate.md`:
   reuse a verified file-backed CUDA session batch cache for a later allowlisted
   supported overlap query before live CPU overlap, preserve exact toy-raw

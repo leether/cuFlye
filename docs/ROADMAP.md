@@ -878,3 +878,80 @@ M4y: reduce proof overhead and broaden GPU-first selection to a bounded set of
 high-cost supported overlap calls, while keeping the sparse ledger and audit
 sampling explicit.
 ```
+
+Completed.
+
+M4y proof on DGX used toy-raw with
+`CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE=gpu-first-supported-v0`,
+`CUFLYE_OVERLAP_WORKER_LIFECYCLE_MODE=session-file-v0`, and
+`CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_LEDGER_MODE=selected-only-v0`.
+
+An initial 8-query set included `798`, but the worker validation gate rejected
+it fail-closed because the canonical worker output did not match the CPU oracle:
+
+```text
+query_798 oracle_records=49 worker_records=48 canonical_diff_status=mismatch
+```
+
+The accepted positive proof used the bounded 7-query allowlist
+`161,554,89,112,896,110,752`. It preserved exact toy-raw artifacts:
+
+```text
+Flye run diff: match
+```
+
+The sparse positive ledger evidence was:
+
+```text
+entries=35
+non_selected_entries=0
+deferred-session-batch-waiting=7
+substituted-from-session-batch-run=1
+gpu-first-from-session-batch-cache=6
+skipped-already-substituted=21
+```
+
+The sampled audit negative used
+`CUFLYE_OVERLAP_GPU_FIRST_AUDIT_MODE=oracle-file-v0`,
+`CUFLYE_OVERLAP_GPU_FIRST_AUDIT_QUERY_IDS=161`, and
+`CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_PROOF_FAULT=drop-first-gpu-first-overlap`.
+Non-audited GPU-first cache hits were accepted first; the audited `161` reuse
+then failed closed before graph mutation:
+
+```text
+status: gpu-first-substitution-failed-before-live-cpu-overlap
+error: gpu-first audit object vector differs from captured CPU oracle
+proof_fault_applied: true
+graph_mutation_consumed_worker_output: false
+```
+
+M4y reduces proof overhead and broadens the GPU-first surface, but still does
+not prove end-to-end Flye speedup. CPU toy-raw elapsed `72s`; the M4y positive
+run elapsed `74s` (`1.027778x` CPU wall time). The benefit is seam-level:
+6 later selected calls returned cached worker `OverlapRange` vectors with
+`cpu_overlap_ms=0` and `worker_process_ms=0`, and positive ledger volume fell
+from M4x's 2886-row full-ledger pattern to 35 selected rows.
+
+Allowed M4y claim:
+
+```text
+cuFlye can run a bounded multi-query GPU-first supported overlap substitution
+proof with sparse selected-only ledger output, preserve exact toy-raw artifacts,
+and fail closed on sampled GPU-first audit mismatch.
+```
+
+Forbidden M4y claim:
+
+```text
+M4y does not prove default GPU mode, broad unsupported-shape substitution,
+unsupported candidate acceptance, or end-to-end Flye speedup.
+```
+
+Next highest-ROI task:
+
+```text
+M4z: turn the bounded manual selection proof into an automated validation-safe
+GPU-first selection planner and compare serial versus parallel-reduce worker
+kernels, so the next proof can increase accepted cache hits without hand-picking
+unsafe query ids like 798.
+```

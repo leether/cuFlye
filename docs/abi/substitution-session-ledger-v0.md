@@ -1,7 +1,8 @@
 # Substitution Session Ledger v0
 
 Status: accepted in M4s; timing attribution accepted in M4t; session batch
-cache accepted in M4u; GPU-first cache reuse accepted in M4x
+cache accepted in M4u; GPU-first cache reuse accepted in M4x; sparse ledger and
+audit sampling accepted in M4y
 
 Introduced: M4s
 
@@ -59,6 +60,18 @@ the worker-derived object vector before live CPU overlap is computed. When
 object vector is compared against the captured CPU `oracle.overlaps.tsv` from
 the fixture before acceptance.
 
+M4y adds selected-only ledger volume control and GPU-first audit sampling:
+
+```text
+CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_LEDGER_MODE=selected-only-v0
+CUFLYE_OVERLAP_GPU_FIRST_AUDIT_QUERY_IDS=161,798
+```
+
+`selected-only-v0` suppresses non-selected skip rows but keeps selected,
+cached, GPU-first, and fail-closed rows. `CUFLYE_OVERLAP_GPU_FIRST_AUDIT_QUERY_IDS`
+requires `CUFLYE_OVERLAP_GPU_FIRST_AUDIT_MODE=oracle-file-v0`; when it is set,
+only listed GPU-first query ids pay the oracle comparison.
+
 The existing M4r single-smoke selector remains valid:
 
 ```text
@@ -97,6 +110,9 @@ The M4x GPU-first audit mismatch proof fault is:
 CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_PROOF_FAULT=drop-first-gpu-first-overlap
 ```
 
+M4y requires that fault to be paired with GPU-first audit mode. If audit query
+ids are set, the fault is applied only to queries inside the audit sample.
+
 ## Generated Files
 
 Given `CUFLYE_OVERLAP_WORKER_OUTPUT_DIR=/path/to/seam`, M4s writes:
@@ -112,6 +128,9 @@ Each ledger line is one compact JSON object:
 {
   "schema": "cuflye-overlap-vector-substitution-ledger-entry-v0",
   "mode": "verified-overlap-range-session-v0",
+  "ledger_mode": "full-v0",
+  "gpu_first_audit_mode": "",
+  "gpu_first_audit_query_ids": "",
   "query_id": 353,
   "selected": true,
   "supported_shape": true,
@@ -157,9 +176,10 @@ Possible `decision` values are:
   cached worker-derived `OverlapRange` vector before live CPU overlap was
   computed.
 - `skipped-not-selected`: query is outside the deterministic substitution
-  allowlist.
+  allowlist. This row is suppressed in `selected-only-v0` ledger mode.
 - `skipped-unsupported-non-selected-shape`: query is outside the allowlist and
-  its shape is outside the CUDA overlap-chain contract.
+  its shape is outside the CUDA overlap-chain contract. This row is suppressed
+  in `selected-only-v0` ledger mode.
 - `skipped-already-substituted`: a durable per-query substitution sentinel
   already exists, so later Flye subprocesses do not re-invoke the worker.
 - `failed-closed`: selected supported query reached substitution comparison but
@@ -212,6 +232,14 @@ best-effort observations and must not affect substitution eligibility.
 
 All timing fields are milliseconds and must be non-negative. They are intended
 for ROI attribution, not deterministic correctness checks.
+
+## Sparse Ledger Semantics
+
+The default ledger mode is `full-v0`, which preserves M4s behavior and records
+selected and non-selected decisions. `selected-only-v0` is an M4y proof-volume
+control for GPU-first performance runs. It omits only non-selected skip rows and
+keeps every row that can affect a selected query, cache reuse, fail-closed
+decision, or graph-facing substitution claim.
 
 ## M4t Benefit Assessment
 

@@ -113,3 +113,5 @@ M4 overlap-range oracle proof:
   `cuflye-m4w-true-persistent-overlap-worker-session-dgx-aarch64.json`
 - GPU-first overlap substitution perf-gate manifest:
   `cuflye-m4x-gpu-first-overlap-substitution-perf-gate-dgx-aarch64.json`
+- Sparse GPU-first selection and audit sampling manifest:
+  `cuflye-m4y-sparse-gpu-first-selection-audit-sampling-dgx-aarch64.json`

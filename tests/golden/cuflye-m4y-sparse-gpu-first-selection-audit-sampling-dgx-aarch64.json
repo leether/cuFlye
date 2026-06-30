@@ -1,0 +1,448 @@
+{
+  "acceptance": {
+    "audit_negative_fails_closed_before_graph_mutation": true,
+    "audit_sampling_catches_forced_mismatch": true,
+    "bounded_multi_query_gpu_first_selection_used": true,
+    "candidate_798_rejected_by_validation_fail_closed": true,
+    "cuda_overlap_worker_build_succeeds_on_dgx": true,
+    "gpu_first_cache_hits_recorded": true,
+    "local_and_dgx_syntax_style_ownership_gates_pass": true,
+    "patch_series_applies_and_builds_through_m4y": true,
+    "positive_toy_raw_artifacts_match_cpu": true,
+    "selected_cached_and_fail_closed_rows_preserved": true,
+    "selected_only_ledger_suppresses_non_selected_rows": true,
+    "wall_time_improved_vs_cpu": false
+  },
+  "audit_sample_negative": {
+    "exit_status": 1,
+    "expected_failure": true,
+    "ledger": {
+      "decision_counts": {
+        "deferred-session-batch-waiting": 7,
+        "failed-closed": 1,
+        "gpu-first-from-session-batch-cache": 4,
+        "skipped-already-substituted": 1,
+        "substituted-from-session-batch-run": 1
+      },
+      "entries": 14,
+      "failed_entries": [
+        {
+          "accepted": false,
+          "consumed": false,
+          "cpu_records": 36,
+          "decision": "failed-closed",
+          "error": "gpu-first audit object vector differs from captured CPU oracle",
+          "failed_closed": true,
+          "graph_facing_returned_worker_output": false,
+          "graph_mutation_consumed_worker_output": false,
+          "object_records": 35,
+          "query_id": 161,
+          "selected": true,
+          "supported_shape": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 0.0,
+            "seam_total_ms": 3.329649,
+            "substitution_comparison_ms": 1.450496,
+            "worker_process_ms": 0.0
+          },
+          "worker_records": 36
+        }
+      ],
+      "gpu_first_entries": [
+        {
+          "accepted": true,
+          "consumed": true,
+          "cpu_records": 0,
+          "decision": "gpu-first-from-session-batch-cache",
+          "error": null,
+          "failed_closed": false,
+          "graph_facing_returned_worker_output": true,
+          "graph_mutation_consumed_worker_output": true,
+          "object_records": 27,
+          "query_id": 112,
+          "selected": true,
+          "supported_shape": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 0.0,
+            "seam_total_ms": 3.461073,
+            "substitution_comparison_ms": 1.513952,
+            "worker_process_ms": 0.0
+          },
+          "worker_records": 27
+        },
+        {
+          "accepted": true,
+          "consumed": true,
+          "cpu_records": 0,
+          "decision": "gpu-first-from-session-batch-cache",
+          "error": null,
+          "failed_closed": false,
+          "graph_facing_returned_worker_output": true,
+          "graph_mutation_consumed_worker_output": true,
+          "object_records": 41,
+          "query_id": 110,
+          "selected": true,
+          "supported_shape": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 0.0,
+            "seam_total_ms": 3.444002,
+            "substitution_comparison_ms": 1.809217,
+            "worker_process_ms": 0.0
+          },
+          "worker_records": 41
+        },
+        {
+          "accepted": true,
+          "consumed": true,
+          "cpu_records": 0,
+          "decision": "gpu-first-from-session-batch-cache",
+          "error": null,
+          "failed_closed": false,
+          "graph_facing_returned_worker_output": true,
+          "graph_mutation_consumed_worker_output": true,
+          "object_records": 28,
+          "query_id": 896,
+          "selected": true,
+          "supported_shape": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 0.0,
+            "seam_total_ms": 3.258978,
+            "substitution_comparison_ms": 1.242609,
+            "worker_process_ms": 0.0
+          },
+          "worker_records": 28
+        },
+        {
+          "accepted": true,
+          "consumed": true,
+          "cpu_records": 0,
+          "decision": "gpu-first-from-session-batch-cache",
+          "error": null,
+          "failed_closed": false,
+          "graph_facing_returned_worker_output": true,
+          "graph_mutation_consumed_worker_output": true,
+          "object_records": 12,
+          "query_id": 89,
+          "selected": true,
+          "supported_shape": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 0.0,
+            "seam_total_ms": 3.365746,
+            "substitution_comparison_ms": 1.738833,
+            "worker_process_ms": 0.0
+          },
+          "worker_records": 12
+        }
+      ],
+      "ledger_modes": [
+        "selected-only-v0"
+      ],
+      "non_selected_entries": 0
+    },
+    "response": {
+      "cuda_kernel_mode": "serial",
+      "fixture_count": 7,
+      "output_records": 237,
+      "request_ordinal": 1,
+      "status": "ok",
+      "timing_ms": {
+        "backend_mean_total_before_write": 9.5689,
+        "kernel": 7.823107,
+        "request_total": 30.500301,
+        "worker_overhead": 20.931401
+      },
+      "worker_context_setup_ms": 313.3019,
+      "worker_cuda_context_warm": true
+    },
+    "run": "out/m4y/runs/m4y-audit-negative",
+    "seam_summary": {
+      "fixture_count": 7,
+      "graph_facing_returned_worker_output": false,
+      "graph_guard_status": "passed",
+      "graph_mutation_consumed_worker_output": false,
+      "overlap_gpu_first_audit_mode": "oracle-file-v0",
+      "overlap_gpu_first_audit_query_ids": "161",
+      "overlap_object_rehydration_status": "passed",
+      "overlap_rehydration_status": "passed",
+      "overlap_vector_substitution_decision": "failed-closed-before-graph-mutation",
+      "overlap_vector_substitution_ledger_mode": "selected-only-v0",
+      "overlap_vector_substitution_mode": "gpu-first-supported-v0",
+      "overlap_vector_substitution_selected_query_id": 161,
+      "overlap_vector_substitution_selected_source": "none",
+      "overlap_vector_substitution_state": "failed-closed",
+      "overlap_vector_substitution_status": "failed",
+      "shadow_status": "passed",
+      "status": "gpu-first-substitution-failed-before-live-cpu-overlap",
+      "validation_status": "passed"
+    },
+    "substitution_json": {
+      "cpu_records": 36,
+      "decision": "failed-closed-before-graph-mutation",
+      "error": "gpu-first audit object vector differs from captured CPU oracle",
+      "graph_mutation_consumed_worker_output": false,
+      "object_records": 35,
+      "proof_fault": "drop-first-gpu-first-overlap",
+      "proof_fault_applied": true,
+      "selected_query_id": 161,
+      "state": "failed-closed",
+      "status": "failed",
+      "worker_records": 36
+    }
+  },
+  "benefit_assessment_plain_language": "M4y turns M4x single GPU-first reuse into a bounded 7-query GPU-first proof. The positive run produced 6 GPU-first cache hits with cpu_overlap_ms=0 and worker_process_ms=0, while exact toy-raw Flye artifacts still matched CPU. selected-only-v0 reduced the positive ledger from the M4x 2886-row full ledger pattern to 35 selected rows, so proof IO/noise is much lower. It is still not an end-to-end speedup: CPU toy-raw took 72s and M4y positive took 74s, because most Flye work remains CPU-bound and the proof still pays session setup, validation, and instrumentation overhead.",
+  "builds": {
+    "cuda_overlap_worker": {
+      "arch": "sm_121",
+      "binary": "out/m4y/cuflye-cuda-overlap-chain-replay",
+      "manifest": "out/m4y/cuda_overlap_chain_replay_build_manifest.json",
+      "nvcc": "/usr/local/cuda/bin/nvcc"
+    },
+    "flye": {
+      "applied_patch_count": 24,
+      "flye_version": "2.9.6-b1802",
+      "last_applied_patches": [
+        "0022-cuflye-true-persistent-overlap-worker-session.patch",
+        "0023-cuflye-gpu-first-overlap-substitution-perf-gate.patch",
+        "0024-cuflye-sparse-gpu-first-selection-audit-sampling.patch"
+      ],
+      "manifest": "out/m4y/flye_build_manifest.json"
+    }
+  },
+  "claim_boundary": {
+    "allowed": "cuFlye can run a bounded multi-query GPU-first supported overlap substitution proof with sparse selected-only ledger output, preserve exact toy-raw artifacts, and fail closed on sampled GPU-first audit mismatch.",
+    "forbidden": "M4y does not prove default GPU mode, broad unsupported-shape substitution, unsupported candidate acceptance, or end-to-end Flye speedup."
+  },
+  "comparison": {
+    "cpu_elapsed_seconds": 72,
+    "gpu_first_cache_hits": 6,
+    "gpu_first_positive_elapsed_seconds": 74,
+    "gpu_first_positive_vs_cpu_wall_time_ratio": 1.0277777777777777,
+    "ledger_entry_reduction_vs_m4x": 0.9878724878724878,
+    "m4x_positive_ledger_entries": 2886,
+    "m4y_positive_ledger_entries": 35
+  },
+  "created_at_utc": "2026-06-30T21:42:04.773305+00:00",
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "nvcc": "/usr/local/cuda/bin/nvcc",
+    "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:57:39_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+    "nvidia_smi": "GPU 0: NVIDIA GB10 (UUID: GPU-36e1e91e-fa5c-6e0d-d076-203391a7bb03)",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39"
+  },
+  "milestone": "M4y",
+  "positive_gpu_first": {
+    "artifact_diff": "out/m4y/diff-cpu-vs-m4y-positive7.txt",
+    "artifact_diff_status": "match",
+    "ledger": {
+      "decision_counts": {
+        "deferred-session-batch-waiting": 7,
+        "gpu-first-from-session-batch-cache": 6,
+        "skipped-already-substituted": 21,
+        "substituted-from-session-batch-run": 1
+      },
+      "entries": 35,
+      "failed_entries": [],
+      "gpu_first_entries": [
+        {
+          "accepted": true,
+          "consumed": true,
+          "cpu_records": 0,
+          "decision": "gpu-first-from-session-batch-cache",
+          "error": null,
+          "failed_closed": false,
+          "graph_facing_returned_worker_output": true,
+          "graph_mutation_consumed_worker_output": true,
+          "object_records": 27,
+          "query_id": 112,
+          "selected": true,
+          "supported_shape": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 0.0,
+            "seam_total_ms": 2.564192,
+            "substitution_comparison_ms": 1.105888,
+            "worker_process_ms": 0.0
+          },
+          "worker_records": 27
+        },
+        {
+          "accepted": true,
+          "consumed": true,
+          "cpu_records": 0,
+          "decision": "gpu-first-from-session-batch-cache",
+          "error": null,
+          "failed_closed": false,
+          "graph_facing_returned_worker_output": true,
+          "graph_mutation_consumed_worker_output": true,
+          "object_records": 41,
+          "query_id": 110,
+          "selected": true,
+          "supported_shape": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 0.0,
+            "seam_total_ms": 3.841264,
+            "substitution_comparison_ms": 2.060144,
+            "worker_process_ms": 0.0
+          },
+          "worker_records": 41
+        },
+        {
+          "accepted": true,
+          "consumed": true,
+          "cpu_records": 0,
+          "decision": "gpu-first-from-session-batch-cache",
+          "error": null,
+          "failed_closed": false,
+          "graph_facing_returned_worker_output": true,
+          "graph_mutation_consumed_worker_output": true,
+          "object_records": 28,
+          "query_id": 896,
+          "selected": true,
+          "supported_shape": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 0.0,
+            "seam_total_ms": 3.789952,
+            "substitution_comparison_ms": 1.686656,
+            "worker_process_ms": 0.0
+          },
+          "worker_records": 28
+        },
+        {
+          "accepted": true,
+          "consumed": true,
+          "cpu_records": 0,
+          "decision": "gpu-first-from-session-batch-cache",
+          "error": null,
+          "failed_closed": false,
+          "graph_facing_returned_worker_output": true,
+          "graph_mutation_consumed_worker_output": true,
+          "object_records": 12,
+          "query_id": 89,
+          "selected": true,
+          "supported_shape": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 0.0,
+            "seam_total_ms": 2.40784,
+            "substitution_comparison_ms": 1.197664,
+            "worker_process_ms": 0.0
+          },
+          "worker_records": 12
+        },
+        {
+          "accepted": true,
+          "consumed": true,
+          "cpu_records": 0,
+          "decision": "gpu-first-from-session-batch-cache",
+          "error": null,
+          "failed_closed": false,
+          "graph_facing_returned_worker_output": true,
+          "graph_mutation_consumed_worker_output": true,
+          "object_records": 36,
+          "query_id": 161,
+          "selected": true,
+          "supported_shape": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 0.0,
+            "seam_total_ms": 4.061552,
+            "substitution_comparison_ms": 1.408512,
+            "worker_process_ms": 0.0
+          },
+          "worker_records": 36
+        },
+        {
+          "accepted": true,
+          "consumed": true,
+          "cpu_records": 0,
+          "decision": "gpu-first-from-session-batch-cache",
+          "error": null,
+          "failed_closed": false,
+          "graph_facing_returned_worker_output": true,
+          "graph_mutation_consumed_worker_output": true,
+          "object_records": 32,
+          "query_id": 752,
+          "selected": true,
+          "supported_shape": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 0.0,
+            "seam_total_ms": 2.904464,
+            "substitution_comparison_ms": 1.371152,
+            "worker_process_ms": 0.0
+          },
+          "worker_records": 32
+        }
+      ],
+      "ledger_modes": [
+        "selected-only-v0"
+      ],
+      "non_selected_entries": 0
+    },
+    "response": {
+      "cuda_kernel_mode": "serial",
+      "fixture_count": 7,
+      "output_records": 237,
+      "request_ordinal": 1,
+      "status": "ok",
+      "timing_ms": {
+        "backend_mean_total_before_write": 8.44512,
+        "kernel": 7.580368,
+        "request_total": 19.242721,
+        "worker_overhead": 10.797601
+      },
+      "worker_context_setup_ms": 287.961916,
+      "worker_cuda_context_warm": true
+    },
+    "run": "out/m4y/runs/m4y-positive7",
+    "seam_summary": {
+      "fixture_count": 7,
+      "graph_facing_returned_worker_output": true,
+      "graph_guard_status": "passed",
+      "graph_mutation_consumed_worker_output": true,
+      "overlap_gpu_first_audit_mode": "",
+      "overlap_gpu_first_audit_query_ids": "",
+      "overlap_object_rehydration_status": "passed",
+      "overlap_rehydration_status": "passed",
+      "overlap_vector_substitution_decision": "gpu-first-supported-overlap-vector-substituted",
+      "overlap_vector_substitution_ledger_mode": "selected-only-v0",
+      "overlap_vector_substitution_mode": "gpu-first-supported-v0",
+      "overlap_vector_substitution_selected_query_id": 752,
+      "overlap_vector_substitution_selected_source": "worker-overlap-range-object-vector-gpu-first",
+      "overlap_vector_substitution_state": "consumed",
+      "overlap_vector_substitution_status": "passed",
+      "shadow_status": "passed",
+      "status": "gpu-first-substitution-consumed-before-live-cpu-overlap",
+      "validation_status": "passed"
+    }
+  },
+  "proof_dir": "/tmp/cuflye-m4y-proof-20260630T212731Z",
+  "selection": {
+    "accepted_query_ids": [
+      161,
+      554,
+      89,
+      112,
+      896,
+      110,
+      752
+    ],
+    "initial_requested_query_ids": [
+      161,
+      798,
+      554,
+      89,
+      112,
+      896,
+      110,
+      752
+    ],
+    "rejected_candidates": [
+      {
+        "canonical_diff_status": "mismatch",
+        "error": "worker output canonical records differ from oracle",
+        "oracle_records": 49,
+        "query_id": 798,
+        "status": "failed",
+        "worker_records": 48
+      }
+    ]
+  }
+}

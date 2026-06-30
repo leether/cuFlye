@@ -1,0 +1,218 @@
+diff --git a/src/sequence/overlap.cpp b/src/sequence/overlap.cpp
+index 33ee3f6..e2744e3 100644
+--- a/src/sequence/overlap.cpp
++++ b/src/sequence/overlap.cpp
+@@ -702,6 +702,30 @@ namespace
+ 		return overlapWorkerVectorSubstitutionMode() == "gpu-first-supported-v0";
+ 	}
+ 
++	std::string overlapWorkerVectorSubstitutionLedgerMode()
++	{
++		static std::string mode = []()
++		{
++			const char* raw =
++				std::getenv("CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_LEDGER_MODE");
++			if (!raw || !raw[0]) return std::string("full-v0");
++			std::string selected(raw);
++			if (selected != "full-v0" && selected != "selected-only-v0")
++			{
++				throw std::runtime_error(
++					"Unsupported CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_LEDGER_MODE: " +
++					selected);
++			}
++			return selected;
++		}();
++		return mode;
++	}
++
++	bool overlapWorkerVectorSubstitutionSelectedOnlyLedgerEnabled()
++	{
++		return overlapWorkerVectorSubstitutionLedgerMode() == "selected-only-v0";
++	}
++
+ 	std::string overlapWorkerGpuFirstAuditMode()
+ 	{
+ 		static std::string mode = []()
+@@ -826,7 +850,8 @@ namespace
+ 		return stripped;
+ 	}
+ 
+-	std::vector<int64_t> parseOverlapReplayQueryIds(const char* raw)
++	std::vector<int64_t> parseOverlapQueryIdList(const char* raw,
++												 const std::string& envName)
+ 	{
+ 		std::vector<int64_t> ids;
+ 		if (!raw || !raw[0]) return ids;
+@@ -839,31 +864,34 @@ namespace
+ 			if (token.empty())
+ 			{
+ 				throw std::runtime_error(
+-					"CUFLYE_OVERLAP_REPLAY_QUERY_IDS contains an empty query id");
++					envName + " contains an empty query id");
+ 			}
+ 			size_t parsedChars = 0;
+ 			int64_t parsed = std::stoll(token, &parsedChars);
+ 			if (parsedChars != token.size())
+ 			{
+ 				throw std::runtime_error(
+-					"CUFLYE_OVERLAP_REPLAY_QUERY_IDS contains a non-integer query id: " +
+-					token);
++					envName + " contains a non-integer query id: " + token);
+ 			}
+ 			if (std::find(ids.begin(), ids.end(), parsed) != ids.end())
+ 			{
+ 				throw std::runtime_error(
+-					"CUFLYE_OVERLAP_REPLAY_QUERY_IDS contains a duplicate query id: " +
+-					token);
++					envName + " contains a duplicate query id: " + token);
+ 			}
+ 			ids.push_back(parsed);
+ 		}
+ 		if (ids.empty())
+ 		{
+-			throw std::runtime_error("CUFLYE_OVERLAP_REPLAY_QUERY_IDS is empty");
++			throw std::runtime_error(envName + " is empty");
+ 		}
+ 		return ids;
+ 	}
+ 
++	std::vector<int64_t> parseOverlapReplayQueryIds(const char* raw)
++	{
++		return parseOverlapQueryIdList(raw, "CUFLYE_OVERLAP_REPLAY_QUERY_IDS");
++	}
++
+ 	const std::vector<int64_t>& overlapReplayQueryIds()
+ 	{
+ 		static std::vector<int64_t> ids =
+@@ -899,6 +927,33 @@ namespace
+ 		return std::find(queryIds.begin(), queryIds.end(), queryId) != queryIds.end();
+ 	}
+ 
++	const std::vector<int64_t>& overlapWorkerGpuFirstAuditQueryIds()
++	{
++		static std::vector<int64_t> ids = parseOverlapQueryIdList(
++			std::getenv("CUFLYE_OVERLAP_GPU_FIRST_AUDIT_QUERY_IDS"),
++			"CUFLYE_OVERLAP_GPU_FIRST_AUDIT_QUERY_IDS");
++		return ids;
++	}
++
++	std::string overlapWorkerGpuFirstAuditQueryIdsRaw()
++	{
++		static std::string raw = []()
++		{
++			const char* value =
++				std::getenv("CUFLYE_OVERLAP_GPU_FIRST_AUDIT_QUERY_IDS");
++			return value && value[0] ? std::string(value) : std::string();
++		}();
++		return raw;
++	}
++
++	bool overlapWorkerGpuFirstAuditSelected(int64_t queryId)
++	{
++		if (!overlapWorkerGpuFirstAuditEnabled()) return false;
++		const auto& queryIds = overlapWorkerGpuFirstAuditQueryIds();
++		if (queryIds.empty()) return true;
++		return std::find(queryIds.begin(), queryIds.end(), queryId) != queryIds.end();
++	}
++
+ 	void validateOverlapWorkerReplayConfig()
+ 	{
+ 		if (!overlapWorkerEnabled()) return;
+@@ -916,9 +971,34 @@ namespace
+ 			overlapWorkerObjectRehydrationProofFault();
+ 			overlapWorkerVectorSubstitutionMode();
+ 			overlapWorkerVectorSubstitutionProofFault();
++			overlapWorkerVectorSubstitutionLedgerMode();
+ 			overlapWorkerGpuFirstAuditMode();
++			overlapWorkerGpuFirstAuditQueryIds();
+ 			overlapWorkerLifecycleMode();
+ 			const auto& queryIds = overlapReplayQueryIds();
++			if (overlapWorkerVectorSubstitutionSelectedOnlyLedgerEnabled() &&
++				!overlapWorkerVectorSubstitutionSessionEnabled())
++			{
++				throw std::runtime_error(
++					"CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_LEDGER_MODE=selected-only-v0 "
++					"requires a session substitution mode");
++			}
++			if (!overlapWorkerGpuFirstAuditQueryIds().empty() &&
++				!overlapWorkerGpuFirstAuditEnabled())
++			{
++				throw std::runtime_error(
++					"CUFLYE_OVERLAP_GPU_FIRST_AUDIT_QUERY_IDS requires "
++					"CUFLYE_OVERLAP_GPU_FIRST_AUDIT_MODE");
++			}
++			if (overlapWorkerVectorSubstitutionProofFault() ==
++					"drop-first-gpu-first-overlap" &&
++				!overlapWorkerGpuFirstAuditEnabled())
++			{
++				throw std::runtime_error(
++					"CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_PROOF_FAULT="
++					"drop-first-gpu-first-overlap requires "
++					"CUFLYE_OVERLAP_GPU_FIRST_AUDIT_MODE");
++			}
+ 			if (overlapWorkerVectorSubstitutionSessionEnabled() &&
+ 				queryIds.empty())
+ 			{
+@@ -2403,6 +2483,12 @@ namespace
+ 			 << "\"schema\":\"cuflye-overlap-vector-substitution-ledger-entry-v0\","
+ 			 << "\"mode\":\""
+ 			 << jsonEscape(overlapWorkerVectorSubstitutionMode()) << "\","
++			 << "\"ledger_mode\":\""
++			 << jsonEscape(overlapWorkerVectorSubstitutionLedgerMode()) << "\","
++			 << "\"gpu_first_audit_mode\":\""
++			 << jsonEscape(overlapWorkerGpuFirstAuditMode()) << "\","
++			 << "\"gpu_first_audit_query_ids\":\""
++			 << jsonEscape(overlapWorkerGpuFirstAuditQueryIdsRaw()) << "\","
+ 			 << "\"proof_fault\":\""
+ 			 << jsonEscape(overlapWorkerVectorSubstitutionProofFault()) << "\","
+ 			 << "\"query_id\":" << queryId << ","
+@@ -2621,12 +2707,15 @@ namespace
+ 
+ 		try
+ 		{
++			const bool auditSelected =
++				overlapWorkerGpuFirstAuditSelected(currentQueryId);
+ 			auto workerRecords = readCanonicalOverlapDump(result.workerPath);
+ 			result.workerRecords = workerRecords.size();
+ 			auto typedRecords = rehydrateTypedOverlapRecords(workerRecords,
+ 															 result.workerPath);
+ 			auto objectRecords = rehydrateOverlapRangeObjects(typedRecords);
+-			if (result.proofFault == "drop-first-gpu-first-overlap" &&
++			if (auditSelected &&
++				result.proofFault == "drop-first-gpu-first-overlap" &&
+ 				!objectRecords.empty())
+ 			{
+ 				objectRecords.erase(objectRecords.begin());
+@@ -2634,7 +2723,7 @@ namespace
+ 			}
+ 			result.objectRecords = objectRecords.size();
+ 
+-			if (overlapWorkerGpuFirstAuditEnabled())
++			if (auditSelected)
+ 			{
+ 				auto oracleRecords = readCanonicalOverlapDump(
+ 					joinPath(result.selectedFixtureDir, "oracle.overlaps.tsv"));
+@@ -2939,6 +3028,12 @@ namespace
+ 				 << boolJson(objectRehydration.eligible) << ",\n"
+ 				 << "  \"overlap_vector_substitution_mode\": \""
+ 				 << jsonEscape(overlapWorkerVectorSubstitutionMode()) << "\",\n"
++				 << "  \"overlap_vector_substitution_ledger_mode\": \""
++				 << jsonEscape(overlapWorkerVectorSubstitutionLedgerMode()) << "\",\n"
++				 << "  \"overlap_gpu_first_audit_mode\": \""
++				 << jsonEscape(overlapWorkerGpuFirstAuditMode()) << "\",\n"
++				 << "  \"overlap_gpu_first_audit_query_ids\": \""
++				 << jsonEscape(overlapWorkerGpuFirstAuditQueryIdsRaw()) << "\",\n"
+ 				 << "  \"overlap_vector_substitution_json\": \""
+ 				 << jsonEscape(vectorSubstitutionJson) << "\",\n"
+ 				 << "  \"overlap_vector_substitution_status\": \""
+@@ -4162,6 +4257,10 @@ namespace
+ 
+ 			if (!selectedQuery)
+ 			{
++				if (overlapWorkerVectorSubstitutionSelectedOnlyLedgerEnabled())
++				{
++					return substitution;
++				}
+ 				ensureDirectory(outputRoot);
+ 				ledgerTiming.seamTotalMs = overlapWorkerElapsedMs(decisionStart);
+ 				appendOverlapWorkerVectorSubstitutionLedgerEntry(
