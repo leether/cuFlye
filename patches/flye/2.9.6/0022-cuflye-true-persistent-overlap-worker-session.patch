@@ -1,0 +1,297 @@
+diff --git a/src/sequence/overlap.cpp b/src/sequence/overlap.cpp
+index d236195..f718d3b 100644
+--- a/src/sequence/overlap.cpp
++++ b/src/sequence/overlap.cpp
+@@ -7,6 +7,7 @@
+ #include <cassert>
+ #include <algorithm>
+ #include <atomic>
++#include <cerrno>
+ #include <thread>
+ #include <ctime>
+ #include <queue>
+@@ -700,7 +701,8 @@ namespace
+ 			const char* raw = std::getenv("CUFLYE_OVERLAP_WORKER_LIFECYCLE_MODE");
+ 			if (!raw || !raw[0]) return std::string();
+ 			std::string selected(raw);
+-			if (selected != "jsonl-persistent-v0")
++			if (selected != "jsonl-persistent-v0" &&
++				selected != "session-file-v0")
+ 			{
+ 				throw std::runtime_error(
+ 					"Unsupported CUFLYE_OVERLAP_WORKER_LIFECYCLE_MODE: " +
+@@ -716,6 +718,52 @@ namespace
+ 		return overlapWorkerLifecycleMode() == "jsonl-persistent-v0";
+ 	}
+ 
++	bool overlapWorkerFileSessionLifecycleEnabled()
++	{
++		return overlapWorkerLifecycleMode() == "session-file-v0";
++	}
++
++	std::string overlapWorkerFileSessionDir()
++	{
++		if (!overlapWorkerFileSessionLifecycleEnabled()) return std::string();
++		return overlapEnvRequired("CUFLYE_OVERLAP_WORKER_SESSION_DIR");
++	}
++
++	unsigned long parsePositiveOverlapWorkerEnv(const char* name,
++												unsigned long fallback)
++	{
++		const char* raw = std::getenv(name);
++		if (!raw || !raw[0]) return fallback;
++		std::string text(raw);
++		size_t parsedChars = 0;
++		if (!std::isdigit(static_cast<unsigned char>(text[0])))
++		{
++			throw std::runtime_error(std::string("Unsupported ") + name +
++									 ": expected positive integer, got " + text);
++		}
++		unsigned long parsed = std::stoul(text, &parsedChars);
++		if (parsedChars != text.size() || parsed == 0)
++		{
++			throw std::runtime_error(std::string("Unsupported ") + name +
++									 ": expected positive integer, got " + text);
++		}
++		return parsed;
++	}
++
++	unsigned long overlapWorkerFileSessionPollMs()
++	{
++		static unsigned long pollMs = parsePositiveOverlapWorkerEnv(
++			"CUFLYE_OVERLAP_WORKER_SESSION_POLL_MS", 2);
++		return pollMs;
++	}
++
++	unsigned long overlapWorkerFileSessionTimeoutMs()
++	{
++		static unsigned long timeoutMs = parsePositiveOverlapWorkerEnv(
++			"CUFLYE_OVERLAP_WORKER_SESSION_TIMEOUT_MS", 600000);
++		return timeoutMs;
++	}
++
+ 	std::string overlapWorkerVectorSubstitutionProofFault()
+ 	{
+ 		static std::string fault = []()
+@@ -852,14 +900,21 @@ namespace
+ 					"CUFLYE_OVERLAP_REPLAY_MAX_FIXTURES must equal the number of "
+ 					"CUFLYE_OVERLAP_REPLAY_QUERY_IDS entries in session-batch mode");
+ 			}
+-			if (overlapWorkerPersistentLifecycleEnabled() &&
++			if ((overlapWorkerPersistentLifecycleEnabled() ||
++				 overlapWorkerFileSessionLifecycleEnabled()) &&
+ 				!overlapWorkerVectorSubstitutionSessionBatchEnabled())
+ 			{
+ 				throw std::runtime_error(
+-					"CUFLYE_OVERLAP_WORKER_LIFECYCLE_MODE=jsonl-persistent-v0 "
+-					"requires CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE="
++					"CUFLYE_OVERLAP_WORKER_LIFECYCLE_MODE persistent lifecycle "
++					"modes require CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE="
+ 					"verified-overlap-range-session-batch-v0");
+ 			}
++			if (overlapWorkerFileSessionLifecycleEnabled())
++			{
++				overlapEnvRequired("CUFLYE_OVERLAP_WORKER_SESSION_DIR");
++				overlapWorkerFileSessionPollMs();
++				overlapWorkerFileSessionTimeoutMs();
++			}
+ 			if (!overlapWorkerVectorSubstitutionSessionEnabled() &&
+ 				!queryIds.empty() &&
+ 				overlapReplayMaxFixtures() != queryIds.size())
+@@ -1069,6 +1124,70 @@ namespace
+ 		return joinPath(dumpRoot, "overlap-worker");
+ 	}
+ 
++	std::string overlapWorkerFileSessionInboxDir()
++	{
++		return joinPath(overlapWorkerFileSessionDir(), "inbox");
++	}
++
++	std::string overlapWorkerFileSessionDoneDir()
++	{
++		return joinPath(overlapWorkerFileSessionDir(), "done");
++	}
++
++	void renamePath(const std::string& from, const std::string& to)
++	{
++		ensureParentDirectory(to);
++		if (std::rename(from.c_str(), to.c_str()) != 0)
++		{
++			throw std::runtime_error("cuFlye overlap worker seam cannot rename " +
++									 from + " to " + to + ": " +
++									 std::strerror(errno));
++		}
++	}
++
++	void waitForReadableFile(const std::string& path,
++							 const std::string& label,
++							 unsigned long timeoutMs,
++							 unsigned long pollMs)
++	{
++		auto waitStart = overlapWorkerTimingNow();
++		while (!fileExists(path))
++		{
++			if (overlapWorkerElapsedMs(waitStart) >
++				static_cast<double>(timeoutMs))
++			{
++				throw std::runtime_error(
++					"cuFlye overlap worker seam timed out waiting for " + label +
++					": " + path);
++			}
++			std::this_thread::sleep_for(std::chrono::milliseconds(pollMs));
++		}
++		ensureReadableFile(path, label);
++	}
++
++	void submitOverlapWorkerFileSessionRequest(
++		const std::string& requestId,
++		const std::string& requestJson,
++		const std::string& sessionSubmitPath,
++		std::string& readyPath,
++		std::string& donePath)
++	{
++		std::string readyName = requestId + ".ready";
++		std::string pendingPath = joinPath(
++			overlapWorkerFileSessionInboxDir(), readyName + ".pending");
++		readyPath = joinPath(overlapWorkerFileSessionInboxDir(), readyName);
++		donePath = joinPath(overlapWorkerFileSessionDoneDir(),
++							readyName + ".done");
++		writeTextFile(pendingPath, requestJson + "\n");
++		renamePath(pendingPath, readyPath);
++		writeTextFile(sessionSubmitPath,
++					  "schema=cuflye-overlap-worker-session-submit-v0\n"
++					  "request_id=" + requestId + "\n"
++					  "request_json=" + requestJson + "\n"
++					  "ready_file=" + readyPath + "\n"
++					  "done_file=" + donePath + "\n");
++	}
++
+ 	void writeOverlapWorkerFixtureList(const std::string& path,
+ 									   const std::vector<std::string>& fixtures)
+ 	{
+@@ -2611,7 +2730,13 @@ namespace
+ 		json
+ 			 << "  \"validation_mode\": \"" << jsonEscape(overlapWorkerValidationMode()) << "\",\n"
+ 			 << "  \"overlap_worker_lifecycle_mode\": \""
+-			 << jsonEscape(overlapWorkerLifecycleMode()) << "\",\n"
++			 << jsonEscape(overlapWorkerLifecycleMode()) << "\",\n";
++		if (overlapWorkerFileSessionLifecycleEnabled())
++		{
++			json << "  \"overlap_worker_session_dir\": \""
++				 << jsonEscape(overlapWorkerFileSessionDir()) << "\",\n";
++		}
++		json
+ 			 << "  \"validation_json\": \"" << jsonEscape(validationJson) << "\",\n"
+ 			 << "  \"validation_status\": \"" << jsonEscape(validationStatus) << "\",\n"
+ 			 << "  \"worker_output_consumption_eligible\": "
+@@ -2725,6 +2850,7 @@ namespace
+ 		OverlapWorkerSeamTiming timing;
+ 		timing.cpuOverlapMs = cpuOverlapMs;
+ 		auto seamStart = overlapWorkerTimingNow();
++		bool fileSessionLifecycle = overlapWorkerFileSessionLifecycleEnabled();
+ 
+ 		auto& fixtures = overlapReplayCapturedFixtures();
+ 		if (!overlapWorkerVectorSubstitutionSessionEnabled() &&
+@@ -2737,7 +2863,11 @@ namespace
+ 			throw std::runtime_error("cuFlye overlap worker seam has no fixtures");
+ 		}
+ 
+-		std::string workerBin = overlapEnvRequired("CUFLYE_OVERLAP_WORKER_BIN");
++		std::string workerBin;
++		if (!fileSessionLifecycle)
++		{
++			workerBin = overlapEnvRequired("CUFLYE_OVERLAP_WORKER_BIN");
++		}
+ 		std::string outputRoot = overlapWorkerOutputDir(dumpRoot);
+ 		std::string ledgerJsonl = joinPath(
+ 			outputRoot, "worker-vector-substitution-ledger.jsonl");
+@@ -2777,6 +2907,8 @@ namespace
+ 													 "worker-object-rehydration.json");
+ 		std::string vectorSubstitutionJson = joinPath(outputRoot,
+ 													  "worker-vector-substitution.json");
++		std::string sessionSubmitPath = joinPath(outputRoot,
++												 "worker-session-submit.path");
+ 		std::string stdoutLog = joinPath(outputRoot, "worker-stdout.log");
+ 		std::string stderrLog = joinPath(outputRoot, "worker-stderr.log");
+ 		std::string seamSummary = joinPath(outputRoot, "seam-summary.json");
+@@ -2910,29 +3042,62 @@ namespace
+ 		}
+ 		timing.requestIoMs = overlapWorkerElapsedMs(requestIoStart);
+ 
+-		std::string command = shellQuote(workerBin);
+-		if (overlapWorkerPersistentLifecycleEnabled())
+-		{
+-			command += " --worker-requests-jsonl " + shellQuote(requestsJsonl);
+-		}
+-		else
++		if (fileSessionLifecycle)
+ 		{
+-			command += " --worker-request-json " + shellQuote(requestJson);
++			waitForReadableFile(
++				joinPath(overlapWorkerFileSessionDir(), "session-ready.json"),
++				"overlap worker session ready JSON",
++				overlapWorkerFileSessionTimeoutMs(),
++				overlapWorkerFileSessionPollMs());
+ 		}
+-		command += " > " + shellQuote(stdoutLog) + " 2> " + shellQuote(stderrLog);
+ 		auto workerStart = overlapWorkerTimingNow();
+-		int status = std::system(command.c_str());
+-		timing.workerProcessMs = overlapWorkerElapsedMs(workerStart);
+-		if (status != 0)
+-		{
+-			throw std::runtime_error(
+-				"cuFlye overlap worker seam fail-closed; worker exited non-zero; "
+-				"request_json=" + requestJson + "; response_json=" + responseJson);
++		if (fileSessionLifecycle)
++		{
++			std::string sessionReadyPath;
++			std::string sessionDonePath;
++			submitOverlapWorkerFileSessionRequest(
++				requestId, requestJson, sessionSubmitPath,
++				sessionReadyPath, sessionDonePath);
++			waitForReadableFile(sessionDonePath,
++								"overlap worker session done file",
++								overlapWorkerFileSessionTimeoutMs(),
++								overlapWorkerFileSessionPollMs());
++			timing.workerProcessMs = overlapWorkerElapsedMs(workerStart);
++			std::string doneText = readTextFile(sessionDonePath);
++			if (doneText.find("status=ok\n") != 0)
++			{
++				throw std::runtime_error(
++					"cuFlye overlap worker seam fail-closed; worker session "
++					"reported non-ok status; request_json=" + requestJson +
++					"; response_json=" + responseJson +
++					"; done_file=" + sessionDonePath);
++			}
+ 		}
+-		if (overlapWorkerPersistentLifecycleEnabled())
++		else
+ 		{
+-			ensureReadableFile(warmupResponseJson,
+-							   "overlap worker warmup response JSON");
++			std::string command = shellQuote(workerBin);
++			if (overlapWorkerPersistentLifecycleEnabled())
++			{
++				command += " --worker-requests-jsonl " + shellQuote(requestsJsonl);
++			}
++			else
++			{
++				command += " --worker-request-json " + shellQuote(requestJson);
++			}
++			command += " > " + shellQuote(stdoutLog) + " 2> " + shellQuote(stderrLog);
++			int status = std::system(command.c_str());
++			timing.workerProcessMs = overlapWorkerElapsedMs(workerStart);
++			if (status != 0)
++			{
++				throw std::runtime_error(
++					"cuFlye overlap worker seam fail-closed; worker exited non-zero; "
++					"request_json=" + requestJson + "; response_json=" + responseJson);
++			}
++			if (overlapWorkerPersistentLifecycleEnabled())
++			{
++				ensureReadableFile(warmupResponseJson,
++								   "overlap worker warmup response JSON");
++			}
+ 		}
+ 		ensureReadableFile(responseJson, "overlap worker response JSON");
+ 

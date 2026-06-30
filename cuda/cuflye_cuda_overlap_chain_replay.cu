@@ -11,22 +11,27 @@
 #include <climits>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <dirent.h>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <limits>
 #include <map>
+#include <memory>
 #include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 namespace
 {
@@ -115,12 +120,16 @@ struct Options
 	std::string batchJsonOutput;
 	std::string workerRequestJson;
 	std::string workerRequestsJsonl;
+	std::string workerSessionDir;
 	std::string backend = "cuda";
 	std::string cudaKernelMode = "serial";
 	std::string batchExecution = "per-fixture";
 	int device = 0;
 	uint32_t warmupRuns = 0;
 	uint32_t benchmarkRuns = 1;
+	uint32_t workerSessionMaxRequests = 1;
+	uint32_t workerSessionPollMs = 2;
+	uint32_t workerSessionTimeoutMs = 600000;
 	bool hasMemoryBudget = false;
 	unsigned long long memoryBudgetBytes = 0;
 };
@@ -1732,6 +1741,7 @@ Options parseArgs(int argc, char** argv)
 		else if (arg == "--batch-json-output") options.batchJsonOutput = requireValue(arg);
 		else if (arg == "--worker-request-json") options.workerRequestJson = requireValue(arg);
 		else if (arg == "--worker-requests-jsonl") options.workerRequestsJsonl = requireValue(arg);
+		else if (arg == "--worker-session-dir") options.workerSessionDir = requireValue(arg);
 		else if (arg == "--backend") options.backend = requireValue(arg);
 		else if (arg == "--cuda-kernel-mode") options.cudaKernelMode = requireValue(arg);
 		else if (arg == "--batch-execution") options.batchExecution = requireValue(arg);
@@ -1749,6 +1759,21 @@ Options parseArgs(int argc, char** argv)
 			options.hasMemoryBudget = true;
 			options.memoryBudgetBytes = std::stoull(requireValue(arg));
 		}
+		else if (arg == "--worker-session-max-requests")
+		{
+			options.workerSessionMaxRequests = parseWorkerUInt32(
+				requireValue(arg), "--worker-session-max-requests");
+		}
+		else if (arg == "--worker-session-poll-ms")
+		{
+			options.workerSessionPollMs = parseWorkerUInt32(
+				requireValue(arg), "--worker-session-poll-ms");
+		}
+		else if (arg == "--worker-session-timeout-ms")
+		{
+			options.workerSessionTimeoutMs = parseWorkerUInt32(
+				requireValue(arg), "--worker-session-timeout-ms");
+		}
 		else if (arg == "-h" || arg == "--help")
 		{
 			std::cout << "Usage: cuflye-cuda-overlap-chain-replay "
@@ -1757,11 +1782,15 @@ Options parseArgs(int argc, char** argv)
 					  << "--batch-json-output PATH "
 					  << "or --worker-request-json PATH "
 					  << "or --worker-requests-jsonl PATH "
+					  << "or --worker-session-dir DIR "
 					  << "[--backend cpu|cuda] [--device ID] "
 					  << "[--cuda-kernel-mode serial|parallel-reduce] "
 					  << "[--batch-execution per-fixture|packed] "
 					  << "[--warmup-runs N] [--benchmark-runs N] "
-					  << "[--memory-budget-bytes N]\n";
+					  << "[--memory-budget-bytes N] "
+					  << "[--worker-session-max-requests N] "
+					  << "[--worker-session-poll-ms N] "
+					  << "[--worker-session-timeout-ms N]\n";
 			std::exit(0);
 		}
 		else
@@ -1772,12 +1801,18 @@ Options parseArgs(int argc, char** argv)
 	bool batchMode = !options.batchFixturesFile.empty() ||
 					 !options.batchOutputDir.empty() ||
 					 !options.batchJsonOutput.empty();
-	bool workerMode = !options.workerRequestJson.empty() || !options.workerRequestsJsonl.empty();
+	bool workerMode = !options.workerRequestJson.empty() ||
+					  !options.workerRequestsJsonl.empty() ||
+					  !options.workerSessionDir.empty();
 	if (workerMode)
 	{
-		if (!options.workerRequestJson.empty() && !options.workerRequestsJsonl.empty())
+		int workerInputs = 0;
+		if (!options.workerRequestJson.empty()) ++workerInputs;
+		if (!options.workerRequestsJsonl.empty()) ++workerInputs;
+		if (!options.workerSessionDir.empty()) ++workerInputs;
+		if (workerInputs != 1)
 		{
-			throw std::runtime_error("set only one worker request input");
+			throw std::runtime_error("set exactly one worker request input");
 		}
 		if (batchMode || !options.fixtureDir.empty() || !options.outputTsv.empty() ||
 			!options.jsonOutput.empty())
@@ -1837,6 +1872,18 @@ Options parseArgs(int argc, char** argv)
 	if (options.hasMemoryBudget && options.backend == "cpu")
 	{
 		throw std::runtime_error("--memory-budget-bytes is only supported for cuda backend");
+	}
+	if (!options.workerSessionDir.empty() && options.workerSessionMaxRequests == 0)
+	{
+		throw std::runtime_error("--worker-session-max-requests must be greater than zero");
+	}
+	if (!options.workerSessionDir.empty() && options.workerSessionPollMs == 0)
+	{
+		throw std::runtime_error("--worker-session-poll-ms must be greater than zero");
+	}
+	if (!options.workerSessionDir.empty() && options.workerSessionTimeoutMs == 0)
+	{
+		throw std::runtime_error("--worker-session-timeout-ms must be greater than zero");
 	}
 	return options;
 }
@@ -3144,8 +3191,239 @@ void emitOverlapWorkerResponse(const std::string& path, const std::string& respo
 	std::cout << response;
 }
 
+bool executeOverlapWorkerRequest(const OverlapWorkerRequest& request,
+								 size_t requestOrdinal,
+								 bool workerContextWarm,
+								 double workerContextSetupMs,
+								 Clock::time_point workerStart,
+								 CudaOverlapArena& arena)
+{
+	auto requestStart = Clock::now();
+	try
+	{
+		validateOverlapWorkerRequest(request);
+		double parseMs = 0.0;
+		std::vector<LoadedFixture> fixtures = loadWorkerFixtures(request, parseMs);
+		PackedBatchRunResult result =
+			runPackedBatchWithArena(request.options, fixtures, parseMs, arena);
+		double requestTotalMs = elapsedMs(requestStart, Clock::now());
+		double workerUptimeMs = elapsedMs(workerStart, Clock::now());
+		std::string response = buildOverlapWorkerResponseJson(request, result,
+															  requestOrdinal,
+															  workerContextWarm,
+															  workerContextSetupMs,
+															  workerUptimeMs,
+															  requestTotalMs);
+		emitOverlapWorkerResponse(request.responseJson, response);
+		return true;
+	}
+	catch (const std::exception& exc)
+	{
+		std::string response = buildOverlapWorkerErrorJson(request, requestOrdinal,
+														  exc.what());
+		emitOverlapWorkerResponse(request.responseJson, response);
+		return false;
+	}
+}
+
+std::string sessionInboxDir(const Options& options)
+{
+	return joinPath(options.workerSessionDir, "inbox");
+}
+
+std::string sessionProcessingDir(const Options& options)
+{
+	return joinPath(options.workerSessionDir, "processing");
+}
+
+std::string sessionDoneDir(const Options& options)
+{
+	return joinPath(options.workerSessionDir, "done");
+}
+
+bool hasSuffix(const std::string& value, const std::string& suffix)
+{
+	return value.size() >= suffix.size() &&
+		   value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
+std::vector<std::string> listSessionReadyFiles(const std::string& inbox)
+{
+	std::vector<std::string> readyFiles;
+	std::unique_ptr<DIR, int(*)(DIR*)> dir(::opendir(inbox.c_str()),
+										   ::closedir);
+	if (!dir)
+	{
+		if (errno == ENOENT) return readyFiles;
+		throw std::runtime_error("cannot read worker session inbox: " + inbox +
+								 ": " + std::strerror(errno));
+	}
+	while (dirent* entry = ::readdir(dir.get()))
+	{
+		std::string name = entry->d_name;
+		if (name == "." || name == "..") continue;
+		if (!hasSuffix(name, ".ready")) continue;
+		readyFiles.push_back(joinPath(inbox, name));
+	}
+	std::sort(readyFiles.begin(), readyFiles.end());
+	return readyFiles;
+}
+
+void renameFile(const std::string& from, const std::string& to)
+{
+	ensureParentDirectory(to);
+	if (::rename(from.c_str(), to.c_str()) != 0)
+	{
+		throw std::runtime_error("cannot rename " + from + " to " + to +
+								 ": " + std::strerror(errno));
+	}
+}
+
+void writeOverlapWorkerSessionStateJson(const std::string& path,
+										const Options& options,
+										const std::string& status,
+										size_t processedRequests,
+										double workerContextSetupMs,
+										const CudaOverlapArena& arena)
+{
+	std::ostringstream json;
+	json << std::fixed << std::setprecision(6);
+	json << "{\n"
+		 << "  \"schema\": \"cuflye-overlap-worker-session-v0\",\n"
+		 << "  \"status\": \"" << jsonEscape(status) << "\",\n"
+		 << "  \"worker_session_dir\": \"" << jsonEscape(options.workerSessionDir) << "\",\n"
+		 << "  \"worker_session_max_requests\": "
+		 << options.workerSessionMaxRequests << ",\n"
+		 << "  \"worker_session_processed_requests\": " << processedRequests << ",\n"
+		 << "  \"worker_session_poll_ms\": " << options.workerSessionPollMs << ",\n"
+		 << "  \"worker_session_timeout_ms\": "
+		 << options.workerSessionTimeoutMs << ",\n"
+		 << "  \"worker_context_setup_ms\": " << workerContextSetupMs << ",\n"
+		 << "  \"worker_device_arena_enabled\": true,\n"
+		 << "  \"worker_device_arena_capacity_bytes\": "
+		 << arena.capacityBytes() << ",\n"
+		 << "  \"device\": " << options.device << ",\n"
+		 << "  \"device_name\": \"" << jsonEscape(arena.deviceName) << "\",\n"
+		 << "  \"pid\": " << static_cast<long long>(::getpid()) << "\n"
+		 << "}\n";
+	writeTextFile(path, json.str());
+}
+
+int runOverlapWorkerSessionMain(const Options& cliOptions)
+{
+	ensureDirectory(cliOptions.workerSessionDir);
+	ensureDirectory(sessionInboxDir(cliOptions));
+	ensureDirectory(sessionProcessingDir(cliOptions));
+	ensureDirectory(sessionDoneDir(cliOptions));
+
+	CudaOverlapArena arena;
+	auto workerStart = Clock::now();
+	auto contextStart = Clock::now();
+	initializeArena(cliOptions, arena);
+	auto contextEnd = Clock::now();
+	double workerContextSetupMs = elapsedMs(contextStart, contextEnd);
+	writeOverlapWorkerSessionStateJson(
+		joinPath(cliOptions.workerSessionDir, "session-ready.json"),
+		cliOptions, "ready", 0, workerContextSetupMs, arena);
+
+	size_t processedRequests = 0;
+	auto idleStart = Clock::now();
+	while (processedRequests < cliOptions.workerSessionMaxRequests)
+	{
+		std::vector<std::string> readyFiles =
+			listSessionReadyFiles(sessionInboxDir(cliOptions));
+		if (readyFiles.empty())
+		{
+			double idleMs = elapsedMs(idleStart, Clock::now());
+			if (idleMs > static_cast<double>(cliOptions.workerSessionTimeoutMs))
+			{
+				writeOverlapWorkerSessionStateJson(
+					joinPath(cliOptions.workerSessionDir, "session-error.json"),
+					cliOptions, "timeout", processedRequests,
+					workerContextSetupMs, arena);
+				return 1;
+			}
+			std::this_thread::sleep_for(
+				std::chrono::milliseconds(cliOptions.workerSessionPollMs));
+			continue;
+		}
+
+		idleStart = Clock::now();
+		std::string readyPath = readyFiles.front();
+		std::string readyName = baseName(readyPath);
+		std::string processingPath = joinPath(sessionProcessingDir(cliOptions),
+											 readyName + ".processing");
+		std::string donePath = joinPath(sessionDoneDir(cliOptions),
+										readyName + ".done");
+		renameFile(readyPath, processingPath);
+		std::string requestJsonPath = trim(readTextFile(processingPath));
+		if (requestJsonPath.empty())
+		{
+			writeTextFile(donePath, "status=error\nerror=empty request path\n");
+			writeOverlapWorkerSessionStateJson(
+				joinPath(cliOptions.workerSessionDir, "session-error.json"),
+				cliOptions, "error", processedRequests,
+				workerContextSetupMs, arena);
+			return 1;
+		}
+		OverlapWorkerRequest request;
+		try
+		{
+			request = parseOverlapWorkerRequestObject(readTextFile(requestJsonPath));
+		}
+		catch (const std::exception& exc)
+		{
+			writeTextFile(donePath, "status=error\nrequest_json=" +
+								  requestJsonPath + "\nerror=" + exc.what() + "\n");
+			writeOverlapWorkerSessionStateJson(
+				joinPath(cliOptions.workerSessionDir, "session-error.json"),
+				cliOptions, "error", processedRequests,
+				workerContextSetupMs, arena);
+			return 1;
+		}
+		++processedRequests;
+		if (request.options.device != cliOptions.device)
+		{
+			std::string message =
+				"overlap worker session request device does not match session device";
+			emitOverlapWorkerResponse(
+				request.responseJson,
+				buildOverlapWorkerErrorJson(request, processedRequests, message));
+			writeTextFile(donePath, "status=error\nrequest_json=" +
+								  requestJsonPath + "\nerror=" + message + "\n");
+			writeOverlapWorkerSessionStateJson(
+				joinPath(cliOptions.workerSessionDir, "session-error.json"),
+				cliOptions, "error", processedRequests,
+				workerContextSetupMs, arena);
+			return 1;
+		}
+		bool ok = executeOverlapWorkerRequest(request, processedRequests,
+											  true, workerContextSetupMs,
+											  workerStart, arena);
+		writeTextFile(donePath, std::string("status=") + (ok ? "ok" : "error") +
+							  "\nrequest_json=" + requestJsonPath + "\n");
+		if (!ok)
+		{
+			writeOverlapWorkerSessionStateJson(
+				joinPath(cliOptions.workerSessionDir, "session-error.json"),
+				cliOptions, "error", processedRequests,
+				workerContextSetupMs, arena);
+			return 1;
+		}
+	}
+	writeOverlapWorkerSessionStateJson(
+		joinPath(cliOptions.workerSessionDir, "session-complete.json"),
+		cliOptions, "complete", processedRequests, workerContextSetupMs, arena);
+	return 0;
+}
+
 int runOverlapWorkerMain(const Options& cliOptions)
 {
+	if (!cliOptions.workerSessionDir.empty())
+	{
+		return runOverlapWorkerSessionMain(cliOptions);
+	}
+
 	std::vector<OverlapWorkerRequest> requests = loadOverlapWorkerRequests(cliOptions);
 	validateOverlapWorkerRequestSet(requests);
 
@@ -3161,29 +3439,12 @@ int runOverlapWorkerMain(const Options& cliOptions)
 		const auto& request = requests[index];
 		size_t requestOrdinal = index + 1;
 		bool workerContextWarm = requestOrdinal > 1;
-		auto requestStart = Clock::now();
-		try
+		bool ok = executeOverlapWorkerRequest(request, requestOrdinal,
+											  workerContextWarm,
+											  workerContextSetupMs,
+											  workerStart, arena);
+		if (!ok)
 		{
-			validateOverlapWorkerRequest(request);
-			double parseMs = 0.0;
-			std::vector<LoadedFixture> fixtures = loadWorkerFixtures(request, parseMs);
-			PackedBatchRunResult result =
-				runPackedBatchWithArena(request.options, fixtures, parseMs, arena);
-			double requestTotalMs = elapsedMs(requestStart, Clock::now());
-			double workerUptimeMs = elapsedMs(workerStart, Clock::now());
-			std::string response = buildOverlapWorkerResponseJson(request, result,
-																  requestOrdinal,
-																  workerContextWarm,
-																  workerContextSetupMs,
-																  workerUptimeMs,
-																  requestTotalMs);
-			emitOverlapWorkerResponse(request.responseJson, response);
-		}
-		catch (const std::exception& exc)
-		{
-			std::string response = buildOverlapWorkerErrorJson(request, requestOrdinal,
-															  exc.what());
-			emitOverlapWorkerResponse(request.responseJson, response);
 			return 1;
 		}
 	}
@@ -3196,7 +3457,9 @@ int main(int argc, char** argv)
 	try
 	{
 		Options options = parseArgs(argc, argv);
-		if (!options.workerRequestJson.empty() || !options.workerRequestsJsonl.empty())
+		if (!options.workerRequestJson.empty() ||
+			!options.workerRequestsJsonl.empty() ||
+			!options.workerSessionDir.empty())
 		{
 			return runOverlapWorkerMain(options);
 		}

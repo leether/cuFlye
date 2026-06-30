@@ -758,4 +758,62 @@ Next highest-ROI task:
 ```text
 M4w: turn the M4v warm-request lifecycle proof into a Flye-visible persistent
 worker session that avoids a duplicate warmup batch in the same proof path.
+Completed.
+```
+
+M4w proof on DGX used toy-raw query ids `353,381` in
+`verified-overlap-range-session-batch-v0` with
+`CUFLYE_OVERLAP_WORKER_LIFECYCLE_MODE=session-file-v0`. An external
+file-backed worker session initialized CUDA context before writing
+`session-ready.json`; Flye then submitted only the actual `worker-request.json`
+through the session inbox. The positive run generated no
+`worker-request-warmup.json`, no `worker-response-warmup.json`, and no
+`worker-requests.jsonl`.
+
+The actual response reported:
+
+```text
+request_ordinal: 1
+worker_cuda_context_warm: true
+worker_context_setup_ms: 304.411037 ms
+timing_ms.request_total: 9.025404 ms
+timing_ms.backend_mean_total_before_write: 6.148255 ms
+timing_ms.worker_overhead: 2.877149 ms
+```
+
+Flye-visible selected `worker_process_ms` fell to `14.157398 ms`, versus M4u's
+cold batch-run `440.793131 ms` and M4v's warmup-plus-actual process segment
+`463.398560 ms`. That is a `96.788199%` reduction versus M4u and a
+`96.944877%` reduction versus M4v for the selected worker/process segment.
+
+M4w is still not an end-to-end Flye speedup. CPU toy-raw elapsed `73s`; the
+M4w positive run elapsed `83s` (`1.136986x` CPU wall time), because the proof
+still computes CPU overlaps first as the live oracle and only then substitutes
+the verified GPU-derived overlap vector. The mismatch negative proof failed
+closed at exact substitution comparison, and the unsupported-shape negative
+proof failed closed before any worker/session submission with
+`worker_process_ms=0`.
+
+Allowed M4w claim:
+
+```text
+cuFlye can submit a verified Flye overlap worker request to a true file-backed
+persistent CUDA session without a duplicate warmup request, preserve exact
+toy-raw Flye artifacts, and fail closed on mismatch or unsupported selected
+shapes.
+```
+
+Forbidden M4w claim:
+
+```text
+M4w does not prove default GPU mode, broad unsupported-shape substitution, or
+end-to-end Flye speedup.
+```
+
+Next highest-ROI task:
+
+```text
+M4x: split the proof-only live CPU oracle from a bounded GPU-first supported
+overlap substitution path, so performance runs can avoid computing the selected
+CPU overlap before invoking CUDA while still retaining an audit gate.
 ```

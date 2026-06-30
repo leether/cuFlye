@@ -158,6 +158,47 @@ Each non-empty JSONL line is one `cuflye-overlap-worker-request-v0` object. M4i
 requires at least two requests in JSONL proof mode so the proof can distinguish
 first-request and warm-worker timing.
 
+File-backed session mode:
+
+```text
+cuflye-cuda-overlap-chain-replay \
+  --worker-session-dir /path/to/session \
+  --worker-session-max-requests 1 \
+  --worker-session-poll-ms 2 \
+  --worker-session-timeout-ms 600000
+```
+
+Session mode initializes the CUDA device context and worker arena before writing
+`/path/to/session/session-ready.json`. The worker then polls
+`/path/to/session/inbox/*.ready`. Each `.ready` file contains the path to one
+complete `cuflye-overlap-worker-request-v0` JSON file. The worker renames the
+ready file into `processing/`, executes the request, writes the normal
+`cuflye-overlap-worker-response-v0`, then writes
+`/path/to/session/done/<ready-file-name>.done`.
+
+The request response in session mode must report:
+
+- `request_ordinal` starting at `1` for the first submitted session request;
+- `worker_cuda_context_warm=true` because the session wrote `session-ready.json`
+  only after CUDA context setup;
+- `worker_context_setup_ms` from session startup, not from Flye submit time;
+- `timing_ms.request_total` for the actual request execution.
+
+The session state files use:
+
+```json
+{
+  "schema": "cuflye-overlap-worker-session-v0",
+  "status": "ready",
+  "worker_session_processed_requests": 0,
+  "worker_context_setup_ms": 123.0,
+  "worker_device_arena_enabled": true
+}
+```
+
+`session-complete.json` is written after the configured max request count is
+processed. `session-error.json` is written on timeout or failed request.
+
 ## Persistent Lifecycle Extension
 
 M4v lets a Flye seam opt into the existing JSONL worker mode as a bounded
@@ -187,6 +228,10 @@ The M4v Flye seam uses this as a warmup-plus-actual proof lifecycle: the first
 request exercises the same batch into `worker-output-warmup/`, and the second
 request writes the graph-facing proof output into `worker-output/`.
 
+M4w uses file-backed session mode instead of JSONL mode. The session worker is
+started before Flye, so Flye submits only the actual request and does not write
+a synthetic warmup request in the proof path.
+
 ## Ordering and Determinism
 
 Worker output must preserve `overlap-range-v1` semantics:
@@ -212,6 +257,9 @@ The worker must fail closed when:
 - required files or output paths are missing;
 - an optional expected fixture count does not match;
 - the input shape exceeds the declared memory budget;
+- a session request uses a different CUDA device than the running session;
+- a session `.ready` file is empty, unreadable, or points to an invalid request;
+- a session request fails validation or execution;
 - CUDA device selection, allocation, copy, kernel launch, or synchronization
   fails.
 

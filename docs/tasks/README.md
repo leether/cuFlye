@@ -11,12 +11,17 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m4w-true-persistent-overlap-worker-session.md`:
-  turn the M4v warm-request lifecycle proof into a Flye-visible persistent
-  worker session that avoids a duplicate warmup batch in the same proof path.
+- `2026-07-01-cuflye-m4x-gpu-first-overlap-substitution-perf-gate.md`:
+  split proof-only live CPU overlap from a bounded GPU-first supported
+  substitution path with an audit gate.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m4w-true-persistent-overlap-worker-session.md`:
+  submit a verified Flye overlap worker request to a true file-backed
+  persistent CUDA session without a duplicate warmup request, preserve exact
+  toy-raw artifacts, and reduce the selected worker/process segment versus
+  M4u/M4v.
 - `2026-07-01-cuflye-m4v-persistent-overlap-worker-lifecycle.md`:
   invoke the overlap worker through a two-request persistent JSONL lifecycle,
   keep the actual request warm, preserve exact toy-raw artifacts, and reduce

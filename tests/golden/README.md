@@ -109,3 +109,5 @@ M4 overlap-range oracle proof:
   `cuflye-m4u-substitution-worker-overhead-reduction-dgx-aarch64.json`
 - Persistent overlap worker lifecycle manifest:
   `cuflye-m4v-persistent-overlap-worker-lifecycle-dgx-aarch64.json`
+- True persistent overlap worker session manifest:
+  `cuflye-m4w-true-persistent-overlap-worker-session-dgx-aarch64.json`

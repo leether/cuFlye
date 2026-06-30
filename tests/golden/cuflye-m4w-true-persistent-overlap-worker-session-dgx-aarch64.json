@@ -1,0 +1,550 @@
+{
+  "acceptance": {
+    "cuda_overlap_worker_build_succeeds_on_dgx": true,
+    "flye_visible_worker_process_lower_than_m4u_batch_run": true,
+    "flye_visible_worker_process_lower_than_m4v_warmup_plus_actual": true,
+    "local_and_dgx_syntax_style_ownership_gates_pass": true,
+    "mismatch_negative_fails_closed": true,
+    "mismatch_session_completed_after_worker_request": true,
+    "patch_series_applies_and_builds_through_m4w": true,
+    "persistent_session_processed_one_actual_request": true,
+    "positive_actual_response_is_request_ordinal_1": true,
+    "positive_actual_response_reports_context_warm": true,
+    "positive_path_has_no_duplicate_warmup_request": true,
+    "positive_toy_raw_artifacts_match_cpu": true,
+    "session_ready_written_after_context_setup": true,
+    "unsupported_negative_fails_closed_before_worker": true
+  },
+  "benefit_assessment_plain_language": "M4w removes the duplicate warmup batch from the Flye proof path and moves CUDA context setup into a true external worker session. In the positive toy-raw run, Flye submitted only the actual request; the response was request ordinal 1 with CUDA context warm, no warmup JSONL or warmup output files were generated, and exact CPU artifacts still matched. The Flye-visible selected worker_process_ms fell to 14.157398 ms versus M4u 440.793131 ms and M4v 463.398560 ms. This is a real seam-level benefit, but it is still not an end-to-end Flye speedup: CPU toy-raw elapsed 73s and M4w elapsed 83s because the rest of Flye remains CPU-bound.",
+  "builds": {
+    "cuda_overlap_worker": {
+      "arch": "sm_121",
+      "binary": "out/m4w/bin/cuflye-cuda-overlap-chain-replay",
+      "manifest": "out/m4w/cuda_overlap_chain_replay_build_manifest.json",
+      "nvcc": "/usr/local/cuda/bin/nvcc"
+    },
+    "flye": {
+      "applied_patch_count": 22,
+      "last_applied_patches": [
+        "0020-cuflye-substitution-session-batch-cache.patch",
+        "0021-cuflye-persistent-overlap-worker-lifecycle.patch",
+        "0022-cuflye-true-persistent-overlap-worker-session.patch"
+      ],
+      "manifest": "out/m4w/flye_build_manifest.json"
+    }
+  },
+  "claims": {
+    "allowed": "cuFlye can submit a verified Flye overlap worker request to a true file-backed persistent CUDA session without a duplicate warmup request, preserve exact toy-raw artifacts, and fail closed on mismatch or unsupported selected shapes.",
+    "forbidden": "M4w does not prove default GPU mode, broad unsupported-shape substitution, or end-to-end Flye speedup."
+  },
+  "comparison": {
+    "cpu_elapsed_seconds": 73,
+    "m4u_batch_run_worker_process_ms": 440.793131,
+    "m4u_manifest": "tests/golden/cuflye-m4u-substitution-worker-overhead-reduction-dgx-aarch64.json",
+    "m4v_manifest": "tests/golden/cuflye-m4v-persistent-overlap-worker-lifecycle-dgx-aarch64.json",
+    "m4v_warm_actual_request_total_ms": 8.223469,
+    "m4v_warmup_plus_actual_worker_process_ms": 463.39856,
+    "m4w_positive_elapsed_seconds": 83,
+    "m4w_session_file_worker_process_ms": 14.157398,
+    "m4w_session_file_worker_process_reduction_vs_m4u_pct": 96.78819904296557,
+    "m4w_session_file_worker_process_reduction_vs_m4v_pct": 96.94487656586588,
+    "m4w_wall_ratio_vs_cpu": 1.1369863013698631
+  },
+  "created_at_utc": "2026-06-30T20:43:47.166700+00:00",
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "nvidia_smi": "GPU 0: NVIDIA GB10 (UUID: GPU-36e1e91e-fa5c-6e0d-d076-203391a7bb03)"
+  },
+  "milestone": "M4w",
+  "negative_mismatch_session": {
+    "ledger": {
+      "counts": {
+        "deferred-session-batch-waiting": 1,
+        "failed-closed": 1,
+        "skipped-not-selected": 38
+      },
+      "selected_entries": [
+        {
+          "decision": "deferred-session-batch-waiting",
+          "query_id": 353,
+          "reason": "waiting for selected supported fixtures to amortize worker invocation",
+          "selected": true,
+          "shape_supported": null,
+          "substitution": {
+            "consumed": null,
+            "cpu_records": null,
+            "decision": null,
+            "error": null,
+            "failed_closed": null,
+            "graph_facing_returned_worker_output": null,
+            "graph_mutation_consumed_worker_output": null,
+            "object_records": null,
+            "state": null,
+            "status": null,
+            "worker_records": null
+          },
+          "timing_ms": {
+            "cpu_overlap_ms": 0.530963,
+            "graph_guard_ms": 0.0,
+            "ledger_entry_build_ms": 0.008801,
+            "object_rehydration_ms": 0.0,
+            "request_io_ms": 1.031125,
+            "seam_total_ms": 1.032101,
+            "shadow_ms": 0.0,
+            "substitution_comparison_ms": 0.0,
+            "typed_rehydration_ms": 0.0,
+            "validation_ms": 0.0,
+            "worker_process_ms": 0.0
+          }
+        },
+        {
+          "decision": "failed-closed",
+          "query_id": 381,
+          "reason": "verified substitution object vector differs from current CPU overlaps",
+          "selected": true,
+          "shape_supported": null,
+          "substitution": {
+            "consumed": null,
+            "cpu_records": null,
+            "decision": null,
+            "error": null,
+            "failed_closed": null,
+            "graph_facing_returned_worker_output": null,
+            "graph_mutation_consumed_worker_output": null,
+            "object_records": null,
+            "state": null,
+            "status": null,
+            "worker_records": null
+          },
+          "timing_ms": {
+            "cpu_overlap_ms": 5.148714,
+            "graph_guard_ms": 1.243783,
+            "ledger_entry_build_ms": 0.005952,
+            "object_rehydration_ms": 1.254999,
+            "request_io_ms": 5.156697,
+            "seam_total_ms": 25.428461,
+            "shadow_ms": 1.779832,
+            "substitution_comparison_ms": 0.938484,
+            "typed_rehydration_ms": 1.377862,
+            "validation_ms": 1.276615,
+            "worker_process_ms": 12.381357
+          }
+        }
+      ]
+    },
+    "response_status": "ok",
+    "session_complete": {
+      "device": 0,
+      "device_name": "NVIDIA GB10",
+      "pid": 1255809,
+      "schema": "cuflye-overlap-worker-session-v0",
+      "status": "complete",
+      "worker_context_setup_ms": 298.081998,
+      "worker_device_arena_capacity_bytes": 511411,
+      "worker_device_arena_enabled": true,
+      "worker_session_dir": "out/m4w/session-mismatch",
+      "worker_session_max_requests": 1,
+      "worker_session_poll_ms": 1,
+      "worker_session_processed_requests": 1,
+      "worker_session_timeout_ms": 600000
+    }
+  },
+  "negative_unsupported_shape_session": {
+    "ledger": {
+      "counts": {
+        "failed-closed-unsupported-selected-shape": 1,
+        "skipped-not-selected": 1
+      },
+      "selected_entries": [
+        {
+          "decision": "failed-closed-unsupported-selected-shape",
+          "query_id": 353,
+          "reason": "proof fault forced unsupported selected shape",
+          "selected": true,
+          "shape_supported": null,
+          "substitution": {
+            "consumed": null,
+            "cpu_records": null,
+            "decision": null,
+            "error": null,
+            "failed_closed": null,
+            "graph_facing_returned_worker_output": null,
+            "graph_mutation_consumed_worker_output": null,
+            "object_records": null,
+            "state": null,
+            "status": null,
+            "worker_records": null
+          },
+          "timing_ms": {
+            "cpu_overlap_ms": 0.563267,
+            "graph_guard_ms": 0.0,
+            "ledger_entry_build_ms": 0.0072,
+            "object_rehydration_ms": 0.0,
+            "request_io_ms": 0.0,
+            "seam_total_ms": 3.579138,
+            "shadow_ms": 0.0,
+            "substitution_comparison_ms": 0.0,
+            "typed_rehydration_ms": 0.0,
+            "validation_ms": 0.0,
+            "worker_process_ms": 0.0
+          }
+        }
+      ]
+    },
+    "no_session_dir_created": true,
+    "no_session_submit": true,
+    "no_worker_response": true,
+    "output_files": [
+      "worker-vector-substitution-ledger.jsonl",
+      "worker-vector-substitution.json"
+    ]
+  },
+  "positive_session": {
+    "artifact_diff": "out/m4w/diff-cpu-vs-session-positive.txt",
+    "artifact_diff_status": "match",
+    "flye_visible_selected_seam_total_ms": 29.406929,
+    "flye_visible_selected_worker_process_ms": 14.157398,
+    "ledger": {
+      "counts": {
+        "deferred-session-batch-waiting": 1,
+        "skipped-already-substituted": 4,
+        "skipped-not-selected": 1892,
+        "skipped-unsupported-non-selected-shape": 987,
+        "substituted-from-session-batch-cache": 1,
+        "substituted-from-session-batch-run": 1
+      },
+      "selected_entries": [
+        {
+          "decision": "deferred-session-batch-waiting",
+          "query_id": 353,
+          "reason": "waiting for selected supported fixtures to amortize worker invocation",
+          "selected": true,
+          "shape_supported": null,
+          "substitution": {
+            "consumed": null,
+            "cpu_records": null,
+            "decision": null,
+            "error": null,
+            "failed_closed": null,
+            "graph_facing_returned_worker_output": null,
+            "graph_mutation_consumed_worker_output": null,
+            "object_records": null,
+            "state": null,
+            "status": null,
+            "worker_records": null
+          },
+          "timing_ms": {
+            "cpu_overlap_ms": 0.949956,
+            "graph_guard_ms": 0.0,
+            "ledger_entry_build_ms": 0.017185,
+            "object_rehydration_ms": 0.0,
+            "request_io_ms": 1.462007,
+            "seam_total_ms": 1.463287,
+            "shadow_ms": 0.0,
+            "substitution_comparison_ms": 0.0,
+            "typed_rehydration_ms": 0.0,
+            "validation_ms": 0.0,
+            "worker_process_ms": 0.0
+          }
+        },
+        {
+          "decision": "substituted-from-session-batch-run",
+          "query_id": 381,
+          "reason": "selected supported shape evaluated by worker",
+          "selected": true,
+          "shape_supported": null,
+          "substitution": {
+            "consumed": null,
+            "cpu_records": null,
+            "decision": null,
+            "error": null,
+            "failed_closed": null,
+            "graph_facing_returned_worker_output": null,
+            "graph_mutation_consumed_worker_output": null,
+            "object_records": null,
+            "state": null,
+            "status": null,
+            "worker_records": null
+          },
+          "timing_ms": {
+            "cpu_overlap_ms": 9.74728,
+            "graph_guard_ms": 1.205766,
+            "ledger_entry_build_ms": 0.012128,
+            "object_rehydration_ms": 1.399191,
+            "request_io_ms": 6.495072,
+            "seam_total_ms": 29.406929,
+            "shadow_ms": 1.555639,
+            "substitution_comparison_ms": 1.660744,
+            "typed_rehydration_ms": 1.301335,
+            "validation_ms": 1.590328,
+            "worker_process_ms": 14.157398
+          }
+        },
+        {
+          "decision": "substituted-from-session-batch-cache",
+          "query_id": 353,
+          "reason": "selected supported shape reused verified session batch output",
+          "selected": true,
+          "shape_supported": null,
+          "substitution": {
+            "consumed": null,
+            "cpu_records": null,
+            "decision": null,
+            "error": null,
+            "failed_closed": null,
+            "graph_facing_returned_worker_output": null,
+            "graph_mutation_consumed_worker_output": null,
+            "object_records": null,
+            "state": null,
+            "status": null,
+            "worker_records": null
+          },
+          "timing_ms": {
+            "cpu_overlap_ms": 0.739348,
+            "graph_guard_ms": 0.0,
+            "ledger_entry_build_ms": 0.012512,
+            "object_rehydration_ms": 0.0,
+            "request_io_ms": 1.546792,
+            "seam_total_ms": 3.154704,
+            "shadow_ms": 0.0,
+            "substitution_comparison_ms": 1.605688,
+            "typed_rehydration_ms": 0.0,
+            "validation_ms": 0.0,
+            "worker_process_ms": 0.0
+          }
+        },
+        {
+          "decision": "skipped-already-substituted",
+          "query_id": 353,
+          "reason": "query already has a durable substitution sentinel",
+          "selected": true,
+          "shape_supported": null,
+          "substitution": {
+            "consumed": null,
+            "cpu_records": null,
+            "decision": null,
+            "error": null,
+            "failed_closed": null,
+            "graph_facing_returned_worker_output": null,
+            "graph_mutation_consumed_worker_output": null,
+            "object_records": null,
+            "state": null,
+            "status": null,
+            "worker_records": null
+          },
+          "timing_ms": {
+            "cpu_overlap_ms": 0.864901,
+            "graph_guard_ms": 0.0,
+            "ledger_entry_build_ms": 0.01424,
+            "object_rehydration_ms": 0.0,
+            "request_io_ms": 0.0,
+            "seam_total_ms": 1.395975,
+            "shadow_ms": 0.0,
+            "substitution_comparison_ms": 0.0,
+            "typed_rehydration_ms": 0.0,
+            "validation_ms": 0.0,
+            "worker_process_ms": 0.0
+          }
+        },
+        {
+          "decision": "skipped-already-substituted",
+          "query_id": 381,
+          "reason": "query already has a durable substitution sentinel",
+          "selected": true,
+          "shape_supported": null,
+          "substitution": {
+            "consumed": null,
+            "cpu_records": null,
+            "decision": null,
+            "error": null,
+            "failed_closed": null,
+            "graph_facing_returned_worker_output": null,
+            "graph_mutation_consumed_worker_output": null,
+            "object_records": null,
+            "state": null,
+            "status": null,
+            "worker_records": null
+          },
+          "timing_ms": {
+            "cpu_overlap_ms": 10.779717,
+            "graph_guard_ms": 0.0,
+            "ledger_entry_build_ms": 0.016272,
+            "object_rehydration_ms": 0.0,
+            "request_io_ms": 0.0,
+            "seam_total_ms": 1.154566,
+            "shadow_ms": 0.0,
+            "substitution_comparison_ms": 0.0,
+            "typed_rehydration_ms": 0.0,
+            "validation_ms": 0.0,
+            "worker_process_ms": 0.0
+          }
+        },
+        {
+          "decision": "skipped-already-substituted",
+          "query_id": 353,
+          "reason": "query already has a durable substitution sentinel",
+          "selected": true,
+          "shape_supported": null,
+          "substitution": {
+            "consumed": null,
+            "cpu_records": null,
+            "decision": null,
+            "error": null,
+            "failed_closed": null,
+            "graph_facing_returned_worker_output": null,
+            "graph_mutation_consumed_worker_output": null,
+            "object_records": null,
+            "state": null,
+            "status": null,
+            "worker_records": null
+          },
+          "timing_ms": {
+            "cpu_overlap_ms": 3.504145,
+            "graph_guard_ms": 0.0,
+            "ledger_entry_build_ms": 0.012464,
+            "object_rehydration_ms": 0.0,
+            "request_io_ms": 0.0,
+            "seam_total_ms": 1.418231,
+            "shadow_ms": 0.0,
+            "substitution_comparison_ms": 0.0,
+            "typed_rehydration_ms": 0.0,
+            "validation_ms": 0.0,
+            "worker_process_ms": 0.0
+          }
+        },
+        {
+          "decision": "skipped-already-substituted",
+          "query_id": 381,
+          "reason": "query already has a durable substitution sentinel",
+          "selected": true,
+          "shape_supported": null,
+          "substitution": {
+            "consumed": null,
+            "cpu_records": null,
+            "decision": null,
+            "error": null,
+            "failed_closed": null,
+            "graph_facing_returned_worker_output": null,
+            "graph_mutation_consumed_worker_output": null,
+            "object_records": null,
+            "state": null,
+            "status": null,
+            "worker_records": null
+          },
+          "timing_ms": {
+            "cpu_overlap_ms": 2.666829,
+            "graph_guard_ms": 0.0,
+            "ledger_entry_build_ms": 0.01368,
+            "object_rehydration_ms": 0.0,
+            "request_io_ms": 0.0,
+            "seam_total_ms": 1.278214,
+            "shadow_ms": 0.0,
+            "substitution_comparison_ms": 0.0,
+            "typed_rehydration_ms": 0.0,
+            "validation_ms": 0.0,
+            "worker_process_ms": 0.0
+          }
+        }
+      ]
+    },
+    "no_duplicate_warmup_files": true,
+    "output_files": [
+      "seam-summary.json",
+      "worker-batch.json",
+      "worker-fixtures.txt",
+      "worker-graph-consumption-guard.json",
+      "worker-object-rehydration.json",
+      "worker-output",
+      "worker-query-ids.txt",
+      "worker-rehydration.json",
+      "worker-request.json",
+      "worker-response.json",
+      "worker-session-submit.path",
+      "worker-shadow.json",
+      "worker-validation.json",
+      "worker-vector-substitution-ledger.jsonl",
+      "worker-vector-substitution.json",
+      "worker-vector-substitution.query_353.consumed",
+      "worker-vector-substitution.query_381.consumed"
+    ],
+    "response": {
+      "request_id": "flye-overlap-worker-session-batch-2",
+      "request_ordinal": 1,
+      "status": "ok",
+      "timing_ms": {
+        "backend_mean_total_before_write": 6.148255,
+        "backend_timed_total_before_write": 6.148255,
+        "kernel": 5.663324,
+        "parse": 2.697837,
+        "request_total": 9.025404,
+        "worker_overhead": 2.877149,
+        "worker_uptime": 41504.384561,
+        "write_output": 0.110224
+      },
+      "worker_context_setup_ms": 304.411037,
+      "worker_cuda_context_warm": true,
+      "worker_device_arena_capacity_bytes": 511411
+    },
+    "session_complete": {
+      "device": 0,
+      "device_name": "NVIDIA GB10",
+      "pid": 1242379,
+      "schema": "cuflye-overlap-worker-session-v0",
+      "status": "complete",
+      "worker_context_setup_ms": 304.411037,
+      "worker_device_arena_capacity_bytes": 511411,
+      "worker_device_arena_enabled": true,
+      "worker_session_dir": "out/m4w/session-positive",
+      "worker_session_max_requests": 1,
+      "worker_session_poll_ms": 1,
+      "worker_session_processed_requests": 1,
+      "worker_session_timeout_ms": 600000
+    },
+    "session_ready": {
+      "device": 0,
+      "device_name": "NVIDIA GB10",
+      "pid": 1242379,
+      "schema": "cuflye-overlap-worker-session-v0",
+      "status": "ready",
+      "worker_context_setup_ms": 304.411037,
+      "worker_device_arena_capacity_bytes": 0,
+      "worker_device_arena_enabled": true,
+      "worker_session_dir": "out/m4w/session-positive",
+      "worker_session_max_requests": 1,
+      "worker_session_poll_ms": 1,
+      "worker_session_processed_requests": 0,
+      "worker_session_timeout_ms": 600000
+    }
+  },
+  "remote_proof_dir": "/tmp/cuflye-m4w-proof-20260630T202625Z",
+  "repo": {
+    "commit": "9033e2e7798a0a865aa677736d4c064430d573bf",
+    "status_short": "M cuda/cuflye_cuda_overlap_chain_replay.cu\n M docs/abi/cuda-overlap-worker-protocol-v0.md\n M docs/abi/flye-overlap-worker-seam-v0.md\n M docs/tasks/2026-07-01-cuflye-m4w-true-persistent-overlap-worker-session.md\n M scripts/run_flye_fixture.sh\n?? patches/flye/2.9.6/0022-cuflye-true-persistent-overlap-worker-session.patch"
+  },
+  "runs": {
+    "cpu_toy_raw": {
+      "elapsed_seconds": 73,
+      "exit_status": 0,
+      "metadata": "out/m4w/runs/toy-cpu/run_metadata.json"
+    },
+    "mismatch_negative": {
+      "elapsed_seconds": 43,
+      "exit_status": 1,
+      "expected_failure": true,
+      "metadata": "out/m4w/runs/toy-session-file-mismatch/run_metadata.json"
+    },
+    "positive_session_file": {
+      "elapsed_seconds": 83,
+      "exit_status": 0,
+      "metadata": "out/m4w/runs/toy-session-file-pass/run_metadata.json"
+    },
+    "unsupported_negative": {
+      "elapsed_seconds": 43,
+      "exit_status": 1,
+      "expected_failure": true,
+      "metadata": "out/m4w/runs/toy-session-file-unsupported/run_metadata.json"
+    }
+  },
+  "schema": "cuflye-dgx-proof-v1"
+}
