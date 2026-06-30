@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4v Persistent Overlap Worker Lifecycle
 
-Status: proposed
+Status: in_progress
 
 Created: 2026-07-01
 

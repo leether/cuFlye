@@ -7,13 +7,13 @@ change is considered complete.
 
 Active cards:
 
-- None.
-
-Proposed cards:
-
 - `2026-07-01-cuflye-m4v-persistent-overlap-worker-lifecycle.md`:
   move beyond cache-only amortization by reducing per-batch external worker
   process startup cost with an explicit persistent-worker lifecycle.
+
+Proposed cards:
+
+- None.
 
 Completed cards:
 

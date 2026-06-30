@@ -1,6 +1,6 @@
 # cuFlye CUDA Overlap Worker Protocol v0
 
-Status: draft for M4i
+Status: draft for M4i; persistent lifecycle extension drafted in M4v
 
 Introduced: M4i
 
@@ -157,6 +157,35 @@ cuflye-cuda-overlap-chain-replay --worker-requests-jsonl /path/to/requests.jsonl
 Each non-empty JSONL line is one `cuflye-overlap-worker-request-v0` object. M4i
 requires at least two requests in JSONL proof mode so the proof can distinguish
 first-request and warm-worker timing.
+
+## Persistent Lifecycle Extension
+
+M4v lets a Flye seam opt into the existing JSONL worker mode as a bounded
+persistent lifecycle:
+
+```text
+CUFLYE_OVERLAP_WORKER_LIFECYCLE_MODE=jsonl-persistent-v0
+```
+
+The lifecycle contract is intentionally narrow:
+
+- the worker process is started once for the JSONL file;
+- CUDA context and the device arena are initialized before the first request and
+  retained for later requests;
+- each JSONL line is still a complete file-backed request with its own output
+  directory, batch JSON, and response JSON;
+- the response for request ordinal `1` is cold
+  (`worker_cuda_context_warm=false`);
+- the response for request ordinal `2` or later is warm
+  (`worker_cuda_context_warm=true`);
+- the response must report `timing_ms.request_total`, separating per-request
+  warm lifecycle cost from whole-process startup cost;
+- any failed request exits the worker non-zero and writes a failure response
+  when possible.
+
+The M4v Flye seam uses this as a warmup-plus-actual proof lifecycle: the first
+request exercises the same batch into `worker-output-warmup/`, and the second
+request writes the graph-facing proof output into `worker-output/`.
 
 ## Ordering and Determinism
 

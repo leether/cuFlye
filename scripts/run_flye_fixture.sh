@@ -73,6 +73,8 @@ Options:
                        Set CUFLYE_OVERLAP_WORKER_VALIDATION_MODE
   --overlap-worker-shadow-mode MODE
                        Set CUFLYE_OVERLAP_WORKER_SHADOW_MODE
+  --overlap-worker-lifecycle-mode MODE
+                       Set CUFLYE_OVERLAP_WORKER_LIFECYCLE_MODE
   --overlap-graph-consumption-mode MODE
                        Set CUFLYE_OVERLAP_GRAPH_CONSUMPTION_MODE
   --overlap-rehydration-mode MODE
@@ -141,6 +143,7 @@ overlap_worker_benchmark_runs="${CUFLYE_OVERLAP_WORKER_BENCHMARK_RUNS:-}"
 overlap_worker_memory_budget_bytes="${CUFLYE_OVERLAP_WORKER_MEMORY_BUDGET_BYTES:-}"
 overlap_worker_validation_mode="${CUFLYE_OVERLAP_WORKER_VALIDATION_MODE:-}"
 overlap_worker_shadow_mode="${CUFLYE_OVERLAP_WORKER_SHADOW_MODE:-}"
+overlap_worker_lifecycle_mode="${CUFLYE_OVERLAP_WORKER_LIFECYCLE_MODE:-}"
 overlap_graph_consumption_mode="${CUFLYE_OVERLAP_GRAPH_CONSUMPTION_MODE:-}"
 overlap_rehydration_mode="${CUFLYE_OVERLAP_REHYDRATION_MODE:-}"
 overlap_rehydration_proof_fault="${CUFLYE_OVERLAP_REHYDRATION_PROOF_FAULT:-}"
@@ -298,6 +301,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --overlap-worker-shadow-mode)
       overlap_worker_shadow_mode="$2"
+      shift 2
+      ;;
+    --overlap-worker-lifecycle-mode)
+      overlap_worker_lifecycle_mode="$2"
       shift 2
       ;;
     --overlap-graph-consumption-mode)
@@ -553,6 +560,9 @@ fi
 if [ -n "${overlap_worker_shadow_mode}" ]; then
   export CUFLYE_OVERLAP_WORKER_SHADOW_MODE="${overlap_worker_shadow_mode}"
 fi
+if [ -n "${overlap_worker_lifecycle_mode}" ]; then
+  export CUFLYE_OVERLAP_WORKER_LIFECYCLE_MODE="${overlap_worker_lifecycle_mode}"
+fi
 if [ -n "${overlap_graph_consumption_mode}" ]; then
   export CUFLYE_OVERLAP_GRAPH_CONSUMPTION_MODE="${overlap_graph_consumption_mode}"
 fi
@@ -576,7 +586,7 @@ if [ -n "${overlap_vector_substitution_proof_fault}" ]; then
 fi
 
 metadata_tmp="${out_dir}/run_metadata.pre.json"
-python3 - "$metadata_tmp" "$repo_root" "$flye_dir" "$fixture" "$reads" "$read_type" "$genome_size" "$min_overlap" "$threads" "$candidate_dump" "$overlap_dump" "$overlap_replay_dump_dir" "$overlap_replay_query_id" "$overlap_replay_query_ids" "$overlap_replay_max_fixtures" "$overlap_replay_stop_after_dump" "$candidate_backend" "$cuda_device" "$cuda_memory_budget_bytes" "$cuda_adapter_mode" "$cuda_backend_bin" "$cuda_packed_fixture_dir" "$cuda_adapter_output_tsv" "$cuda_adapter_json" "$cuda_packed_kmer_size" "$cuda_pack_dump_dir" "$cuda_pack_query_id" "$cuda_stop_after_packed_query" "$overlap_worker_mode" "$overlap_worker_bin" "$overlap_worker_output_dir" "$overlap_worker_device" "$overlap_worker_kernel_mode" "$overlap_worker_warmup_runs" "$overlap_worker_benchmark_runs" "$overlap_worker_memory_budget_bytes" "$overlap_worker_validation_mode" "$overlap_worker_shadow_mode" "$overlap_graph_consumption_mode" "$overlap_rehydration_mode" "$overlap_rehydration_proof_fault" "$overlap_object_rehydration_mode" "$overlap_object_rehydration_proof_fault" "$overlap_vector_substitution_mode" "$overlap_vector_substitution_proof_fault" "${cmd[@]}" <<'PY'
+python3 - "$metadata_tmp" "$repo_root" "$flye_dir" "$fixture" "$reads" "$read_type" "$genome_size" "$min_overlap" "$threads" "$candidate_dump" "$overlap_dump" "$overlap_replay_dump_dir" "$overlap_replay_query_id" "$overlap_replay_query_ids" "$overlap_replay_max_fixtures" "$overlap_replay_stop_after_dump" "$candidate_backend" "$cuda_device" "$cuda_memory_budget_bytes" "$cuda_adapter_mode" "$cuda_backend_bin" "$cuda_packed_fixture_dir" "$cuda_adapter_output_tsv" "$cuda_adapter_json" "$cuda_packed_kmer_size" "$cuda_pack_dump_dir" "$cuda_pack_query_id" "$cuda_stop_after_packed_query" "$overlap_worker_mode" "$overlap_worker_bin" "$overlap_worker_output_dir" "$overlap_worker_device" "$overlap_worker_kernel_mode" "$overlap_worker_warmup_runs" "$overlap_worker_benchmark_runs" "$overlap_worker_memory_budget_bytes" "$overlap_worker_validation_mode" "$overlap_worker_shadow_mode" "$overlap_worker_lifecycle_mode" "$overlap_graph_consumption_mode" "$overlap_rehydration_mode" "$overlap_rehydration_proof_fault" "$overlap_object_rehydration_mode" "$overlap_object_rehydration_proof_fault" "$overlap_vector_substitution_mode" "$overlap_vector_substitution_proof_fault" "${cmd[@]}" <<'PY'
 import json
 import os
 import platform
@@ -585,7 +595,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 
-metadata_path, repo_root, flye_dir, fixture, reads, read_type, genome_size, min_overlap, threads, candidate_dump, overlap_dump, overlap_replay_dump_dir, overlap_replay_query_id, overlap_replay_query_ids, overlap_replay_max_fixtures, overlap_replay_stop_after_dump, candidate_backend, cuda_device, cuda_memory_budget_bytes, cuda_adapter_mode, cuda_backend_bin, cuda_packed_fixture_dir, cuda_adapter_output_tsv, cuda_adapter_json, cuda_packed_kmer_size, cuda_pack_dump_dir, cuda_pack_query_id, cuda_stop_after_packed_query, overlap_worker_mode, overlap_worker_bin, overlap_worker_output_dir, overlap_worker_device, overlap_worker_kernel_mode, overlap_worker_warmup_runs, overlap_worker_benchmark_runs, overlap_worker_memory_budget_bytes, overlap_worker_validation_mode, overlap_worker_shadow_mode, overlap_graph_consumption_mode, overlap_rehydration_mode, overlap_rehydration_proof_fault, overlap_object_rehydration_mode, overlap_object_rehydration_proof_fault, overlap_vector_substitution_mode, overlap_vector_substitution_proof_fault, *cmd = sys.argv[1:]
+metadata_path, repo_root, flye_dir, fixture, reads, read_type, genome_size, min_overlap, threads, candidate_dump, overlap_dump, overlap_replay_dump_dir, overlap_replay_query_id, overlap_replay_query_ids, overlap_replay_max_fixtures, overlap_replay_stop_after_dump, candidate_backend, cuda_device, cuda_memory_budget_bytes, cuda_adapter_mode, cuda_backend_bin, cuda_packed_fixture_dir, cuda_adapter_output_tsv, cuda_adapter_json, cuda_packed_kmer_size, cuda_pack_dump_dir, cuda_pack_query_id, cuda_stop_after_packed_query, overlap_worker_mode, overlap_worker_bin, overlap_worker_output_dir, overlap_worker_device, overlap_worker_kernel_mode, overlap_worker_warmup_runs, overlap_worker_benchmark_runs, overlap_worker_memory_budget_bytes, overlap_worker_validation_mode, overlap_worker_shadow_mode, overlap_worker_lifecycle_mode, overlap_graph_consumption_mode, overlap_rehydration_mode, overlap_rehydration_proof_fault, overlap_object_rehydration_mode, overlap_object_rehydration_proof_fault, overlap_vector_substitution_mode, overlap_vector_substitution_proof_fault, *cmd = sys.argv[1:]
 
 def run(cmdline):
     try:
@@ -671,6 +681,8 @@ if overlap_worker_validation_mode:
     payload["overlap_worker_validation_mode"] = overlap_worker_validation_mode
 if overlap_worker_shadow_mode:
     payload["overlap_worker_shadow_mode"] = overlap_worker_shadow_mode
+if overlap_worker_lifecycle_mode:
+    payload["overlap_worker_lifecycle_mode"] = overlap_worker_lifecycle_mode
 if overlap_graph_consumption_mode:
     payload["overlap_graph_consumption_mode"] = overlap_graph_consumption_mode
 if overlap_rehydration_mode:

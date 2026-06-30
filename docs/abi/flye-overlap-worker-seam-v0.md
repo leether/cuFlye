@@ -6,7 +6,8 @@ consumption guard dry-run accepted in M4o; typed rehydration dry-run accepted
 in M4p; `OverlapRange` object rehydration dry-run accepted in M4q; verified
 overlap-vector substitution smoke accepted in M4r; substitution session ledger
 accepted in M4s; substitution timing attribution accepted in M4t; substitution
-session batch cache accepted in M4u
+session batch cache accepted in M4u; persistent JSONL worker lifecycle drafted
+in M4v
 
 Introduced: M4j
 
@@ -56,12 +57,13 @@ Optional environment:
 | `CUFLYE_OVERLAP_WORKER_MEMORY_BUDGET_BYTES` | unset | Optional worker memory budget. |
 | `CUFLYE_OVERLAP_WORKER_VALIDATION_MODE` | `oracle-diff-v0` | Validate every worker output as `overlap-range-v1` and canonical-diff it against the captured CPU oracle before marking worker output consumption-eligible. |
 | `CUFLYE_OVERLAP_WORKER_SHADOW_MODE` | unset | Optional M4m proof mode. `canonical-overlap-v0` parses worker output into Flye-side canonical overlap records and compares them against CPU overlap ranges captured in memory. |
+| `CUFLYE_OVERLAP_WORKER_LIFECYCLE_MODE` | unset | Optional M4v proof mode. `jsonl-persistent-v0` invokes the overlap worker once with a two-request JSONL lifecycle: a cold warmup request followed by the actual warm request. This mode requires `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE=verified-overlap-range-session-batch-v0`. |
 | `CUFLYE_OVERLAP_GRAPH_CONSUMPTION_MODE` | unset | Optional M4o proof mode. `dry-run-v0` evaluates graph-consumption preconditions and writes guard metadata without consuming worker output. |
 | `CUFLYE_OVERLAP_REHYDRATION_MODE` | unset | Optional M4p proof mode. `typed-overlap-v0` rehydrates validated worker records into a typed Flye-side overlap vector after the M4o guard passes. |
 | `CUFLYE_OVERLAP_REHYDRATION_PROOF_FAULT` | unset | Optional M4p negative-proof fault. `drop-first-worker-record` forces typed-vector mismatch after validation, shadow, and guard success. |
 | `CUFLYE_OVERLAP_OBJECT_REHYDRATION_MODE` | unset | Optional M4q proof mode. `overlap-range-object-v0` converts typed records into actual Flye `OverlapRange` objects after M4p passes. |
 | `CUFLYE_OVERLAP_OBJECT_REHYDRATION_PROOF_FAULT` | unset | Optional M4q negative-proof fault. `drop-first-overlap-range` forces object-vector mismatch after M4p success. |
-| `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE` | unset | Optional M4r/M4s mode. `verified-overlap-range-v0` returns the verified worker-derived `OverlapRange` vector for one selected query after M4q passes. `verified-overlap-range-session-v0` records a per-query session ledger and evaluates each allowlisted supported query separately. |
+| `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE` | unset | Optional M4r/M4s/M4u mode. `verified-overlap-range-v0` returns the verified worker-derived `OverlapRange` vector for one selected query after M4q passes. `verified-overlap-range-session-v0` records a per-query session ledger and evaluates each allowlisted supported query separately. `verified-overlap-range-session-batch-v0` verifies one allowlisted supported batch, reuses that batch output for later selected queries through a run-local cache, and is required by the M4v persistent lifecycle proof. |
 | `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_PROOF_FAULT` | unset | Optional M4r/M4s negative-proof fault. `drop-first-substitution-overlap` forces substitution mismatch after M4q success. `force-unsupported-selected-shape` forces the selected query through the unsupported-shape fail-closed gate before worker invocation. |
 
 ## Generated Files
@@ -74,7 +76,11 @@ Given `CUFLYE_OVERLAP_WORKER_OUTPUT_DIR=/path/to/seam`, Flye writes:
 | `worker-query-ids.txt` | Captured signed query ids, one per replay fixture. |
 | `worker-request.json` | `cuflye-overlap-worker-request-v0` request. |
 | `worker-response.json` | `cuflye-overlap-worker-response-v0` response. |
+| `worker-requests.jsonl` | M4v two-request persistent lifecycle input when `CUFLYE_OVERLAP_WORKER_LIFECYCLE_MODE=jsonl-persistent-v0`. |
+| `worker-request-warmup.json` | M4v cold warmup request, using the same fixture/query batch but separate warmup outputs. |
+| `worker-response-warmup.json` | M4v cold warmup response. |
 | `worker-batch.json` | Underlying packed batch runner JSON. |
+| `worker-batch-warmup.json` | M4v warmup batch runner JSON. |
 | `worker-validation.json` | Flye-side ABI validation and CPU-oracle canonical diff summary for every worker output. |
 | `worker-shadow.json` | Flye-side shadow parse and comparison summary when `CUFLYE_OVERLAP_WORKER_SHADOW_MODE=canonical-overlap-v0`. |
 | `worker-graph-consumption-guard.json` | Dry-run graph-consumption guard summary when `CUFLYE_OVERLAP_GRAPH_CONSUMPTION_MODE=dry-run-v0`. |
@@ -88,6 +94,7 @@ Given `CUFLYE_OVERLAP_WORKER_OUTPUT_DIR=/path/to/seam`, Flye writes:
 | `worker-stderr.log` | Worker stderr. |
 | `seam-summary.json` | Flye-side seam metadata and stop proof. |
 | `worker-output/` | Per-fixture worker overlap TSV output directories. |
+| `worker-output-warmup/` | Per-fixture warmup overlap TSV output directories for M4v persistent lifecycle proof. |
 
 The generated request uses:
 
@@ -231,6 +238,22 @@ worker. The successful smoke state is:
 This is a graph-facing smoke substitution. It is still opt-in and CPU-verified;
 it is not a production GPU mode or a speed claim.
 
+M4s/M4u extend substitution into session-batch mode. When
+`CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE=verified-overlap-range-session-batch-v0`,
+Flye waits until all allowlisted supported fixtures are captured, sends them as
+one worker batch, validates and rehydrates that batch once, and keeps the
+verified batch output in a run-local cache. Later selected supported queries can
+reuse the verified batch output without starting another worker process.
+
+M4v adds optional persistent worker lifecycle proof mode. When
+`CUFLYE_OVERLAP_WORKER_LIFECYCLE_MODE=jsonl-persistent-v0` is set with session
+batch substitution, Flye writes `worker-request-warmup.json` and
+`worker-request.json`, combines them into `worker-requests.jsonl`, and invokes
+the worker once with `--worker-requests-jsonl`. The warmup request writes only
+to `worker-output-warmup/`; the actual request writes to `worker-output/` and
+continues through the existing validation, shadow, graph guard, rehydration,
+object rehydration, and exact substitution gates.
+
 ## Failure Semantics
 
 The seam fails closed when:
@@ -245,6 +268,11 @@ The seam fails closed when:
 - fixture count has not reached `CUFLYE_OVERLAP_REPLAY_MAX_FIXTURES`;
 - the worker binary exits non-zero;
 - the worker response file is missing or unreadable.
+- `CUFLYE_OVERLAP_WORKER_LIFECYCLE_MODE` is unsupported;
+- persistent lifecycle mode is selected outside
+  `verified-overlap-range-session-batch-v0`;
+- persistent lifecycle mode is selected and the warmup response file is missing
+  or unreadable;
 - `CUFLYE_OVERLAP_WORKER_VALIDATION_MODE` is unsupported;
 - any worker output is missing, malformed, empty, not `overlap-range-v1`, or
   canonical-diffs `mismatch` against its captured `oracle.overlaps.tsv`.
