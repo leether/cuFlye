@@ -1,0 +1,66 @@
+diff --git a/src/sequence/overlap.cpp b/src/sequence/overlap.cpp
+index 38a8fff..d328c20 100644
+--- a/src/sequence/overlap.cpp
++++ b/src/sequence/overlap.cpp
+@@ -121,6 +121,18 @@ namespace
+ 		return dumpPath;
+ 	}
+ 
++	std::mutex& overlapDumpMutex()
++	{
++		static std::mutex dumpMutex;
++		return dumpMutex;
++	}
++
++	const char* overlapDumpPath()
++	{
++		static const char* dumpPath = std::getenv("CUFLYE_OVERLAP_DUMP");
++		return dumpPath;
++	}
++
+ 	CandidateBackend candidateBackend()
+ 	{
+ 		static CandidateBackend backend = []()
+@@ -565,6 +577,34 @@ namespace
+ 		}
+ 	}
+ 
++	void dumpOverlapRanges(const std::vector<OverlapRange>& overlaps)
++	{
++		const char* dumpPath = overlapDumpPath();
++		if (!dumpPath || !dumpPath[0]) return;
++
++		std::lock_guard<std::mutex> lock(overlapDumpMutex());
++		std::ofstream fout(dumpPath, std::ios::out | std::ios::app);
++		if (!fout)
++		{
++			throw std::runtime_error("Can't open CUFLYE_OVERLAP_DUMP path");
++		}
++
++		fout << std::setprecision(9);
++		for (const auto& ovlp : overlaps)
++		{
++			fout << ovlp.curId.signedId() << "\t"
++				 << ovlp.curBegin << "\t"
++				 << ovlp.curEnd << "\t"
++				 << ovlp.curLen << "\t"
++				 << ovlp.extId.signedId() << "\t"
++				 << ovlp.extBegin << "\t"
++				 << ovlp.extEnd << "\t"
++				 << ovlp.extLen << "\t"
++				 << ovlp.score << "\t"
++				 << ovlp.seqDivergence << "\n";
++		}
++	}
++
+ 	template <class Matches>
+ 	void collectCandidateMatchesCudaAdapter(const FastaRecord& fastaRec,
+ 											const VertexIndex& vertexIndex,
+@@ -1078,6 +1118,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
+ 			divStats.add(ovlp.seqDivergence);
+ 		}
+ 	}
++	dumpOverlapRanges(detectedOverlaps);
+ 	return detectedOverlaps;
+ }
+ 

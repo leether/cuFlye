@@ -7,7 +7,8 @@ change is considered complete.
 
 Active cards:
 
-- None.
+- `2026-06-30-cuflye-m4a-overlap-range-oracle.md`: define overlap-range ABI
+  and CPU oracle dump tooling before CUDA overlap chaining.
 
 Completed cards:
 

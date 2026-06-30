@@ -19,6 +19,7 @@ Options:
                        pacbio-hifi, nano-raw, nano-hq, nano-corr, subassemblies
   --candidate-dump PATH
                        Enable cuFlye patched candidate dump at PATH
+  --overlap-dump PATH  Enable cuFlye patched overlap-range dump at PATH
   --candidate-backend NAME
                        Set CUFLYE_CANDIDATE_BACKEND for patched Flye
   --cuda-device ID     Set CUFLYE_CUDA_DEVICE for CUDA backend experiments
@@ -66,6 +67,7 @@ reads=""
 read_type=""
 force=0
 candidate_dump=""
+overlap_dump=""
 candidate_backend="${CUFLYE_CANDIDATE_BACKEND:-}"
 cuda_device="${CUFLYE_CUDA_DEVICE:-}"
 cuda_memory_budget_bytes="${CUFLYE_CUDA_MEMORY_BUDGET_BYTES:-}"
@@ -116,6 +118,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --candidate-dump)
       candidate_dump="$2"
+      shift 2
+      ;;
+    --overlap-dump)
+      overlap_dump="$2"
       shift 2
       ;;
     --candidate-backend)
@@ -243,6 +249,10 @@ if [ -n "${candidate_dump}" ]; then
   mkdir -p "$(dirname "${candidate_dump}")"
   rm -f "${candidate_dump}"
 fi
+if [ -n "${overlap_dump}" ]; then
+  mkdir -p "$(dirname "${overlap_dump}")"
+  rm -f "${overlap_dump}"
+fi
 if [ -n "${cuda_adapter_output_tsv}" ]; then
   mkdir -p "$(dirname "${cuda_adapter_output_tsv}")"
   rm -f "${cuda_adapter_output_tsv}"
@@ -291,6 +301,9 @@ printf '\n' >> "${out_dir}/command.sh"
 if [ -n "${candidate_dump}" ]; then
   export CUFLYE_CANDIDATE_DUMP="${candidate_dump}"
 fi
+if [ -n "${overlap_dump}" ]; then
+  export CUFLYE_OVERLAP_DUMP="${overlap_dump}"
+fi
 if [ -n "${candidate_backend}" ]; then
   export CUFLYE_CANDIDATE_BACKEND="${candidate_backend}"
 fi
@@ -329,7 +342,7 @@ if [ -n "${cuda_stop_after_packed_query}" ]; then
 fi
 
 metadata_tmp="${out_dir}/run_metadata.pre.json"
-python3 - "$metadata_tmp" "$repo_root" "$flye_dir" "$fixture" "$reads" "$read_type" "$genome_size" "$min_overlap" "$threads" "$candidate_dump" "$candidate_backend" "$cuda_device" "$cuda_memory_budget_bytes" "$cuda_adapter_mode" "$cuda_backend_bin" "$cuda_packed_fixture_dir" "$cuda_adapter_output_tsv" "$cuda_adapter_json" "$cuda_packed_kmer_size" "$cuda_pack_dump_dir" "$cuda_pack_query_id" "$cuda_stop_after_packed_query" "${cmd[@]}" <<'PY'
+python3 - "$metadata_tmp" "$repo_root" "$flye_dir" "$fixture" "$reads" "$read_type" "$genome_size" "$min_overlap" "$threads" "$candidate_dump" "$overlap_dump" "$candidate_backend" "$cuda_device" "$cuda_memory_budget_bytes" "$cuda_adapter_mode" "$cuda_backend_bin" "$cuda_packed_fixture_dir" "$cuda_adapter_output_tsv" "$cuda_adapter_json" "$cuda_packed_kmer_size" "$cuda_pack_dump_dir" "$cuda_pack_query_id" "$cuda_stop_after_packed_query" "${cmd[@]}" <<'PY'
 import json
 import os
 import platform
@@ -338,7 +351,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 
-metadata_path, repo_root, flye_dir, fixture, reads, read_type, genome_size, min_overlap, threads, candidate_dump, candidate_backend, cuda_device, cuda_memory_budget_bytes, cuda_adapter_mode, cuda_backend_bin, cuda_packed_fixture_dir, cuda_adapter_output_tsv, cuda_adapter_json, cuda_packed_kmer_size, cuda_pack_dump_dir, cuda_pack_query_id, cuda_stop_after_packed_query, *cmd = sys.argv[1:]
+metadata_path, repo_root, flye_dir, fixture, reads, read_type, genome_size, min_overlap, threads, candidate_dump, overlap_dump, candidate_backend, cuda_device, cuda_memory_budget_bytes, cuda_adapter_mode, cuda_backend_bin, cuda_packed_fixture_dir, cuda_adapter_output_tsv, cuda_adapter_json, cuda_packed_kmer_size, cuda_pack_dump_dir, cuda_pack_query_id, cuda_stop_after_packed_query, *cmd = sys.argv[1:]
 
 def run(cmdline):
     try:
@@ -368,6 +381,8 @@ payload = {
 }
 if candidate_dump:
     payload["candidate_dump"] = os.path.abspath(candidate_dump)
+if overlap_dump:
+    payload["overlap_dump"] = os.path.abspath(overlap_dump)
 if candidate_backend:
     payload["candidate_backend"] = candidate_backend
 if cuda_device:
@@ -432,17 +447,19 @@ rm -f "${metadata_tmp}"
 "${repo_root}/tools/canonicalize_flye_artifacts.py" --manifest "${out_dir}" \
   > "${out_dir}/artifact_hashes.json"
 
-if [ -n "${candidate_dump}" ] || [ -n "${candidate_backend}" ]; then
-  python3 - "$out_dir/run_metadata.json" "$candidate_dump" "$candidate_backend" <<'PY'
+if [ -n "${candidate_dump}" ] || [ -n "${overlap_dump}" ] || [ -n "${candidate_backend}" ]; then
+  python3 - "$out_dir/run_metadata.json" "$candidate_dump" "$overlap_dump" "$candidate_backend" <<'PY'
 import json
 import os
 import sys
 
-metadata_path, candidate_dump, candidate_backend = sys.argv[1:]
+metadata_path, candidate_dump, overlap_dump, candidate_backend = sys.argv[1:]
 with open(metadata_path, "r", encoding="utf-8") as handle:
     payload = json.load(handle)
 if candidate_dump:
     payload["candidate_dump"] = os.path.abspath(candidate_dump)
+if overlap_dump:
+    payload["overlap_dump"] = os.path.abspath(overlap_dump)
 if candidate_backend:
     payload["candidate_backend"] = candidate_backend
 with open(metadata_path, "w", encoding="utf-8") as handle:
