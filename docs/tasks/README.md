@@ -11,6 +11,9 @@ Active cards:
 
 Completed cards:
 
+- `2026-06-30-cuflye-cuda-raii-resource-layer.md`: add a move-only CUDA RAII
+  resource layer and migrate standalone prototypes away from direct CUDA
+  allocation/event ownership.
 - `2026-06-30-cuflye-governance-memory-ownership-scan.md`: add memory/resource
   ownership rules and scan existing code for common C++/CUDA leak patterns.
 - `2026-06-30-cuflye-governance-coding-style-v0.md`: define local C++/CUDA

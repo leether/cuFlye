@@ -2,6 +2,8 @@
 
 #include <cuda_runtime_api.h>
 
+#include "cuflye_cuda_raii.hpp"
+
 #include <algorithm>
 #include <chrono>
 #include <cerrno>
@@ -302,25 +304,21 @@ int main(int argc, char** argv)
 		}
 		if (blocks <= 0) usageError("--blocks must be greater than zero");
 
-		uint64_t* deviceQueries = nullptr;
-		uint64_t* deviceTargets = nullptr;
-		uint64_t* deviceBlockCounts = nullptr;
 		size_t queryBytes = checkedMultiply(queryKeys.size(), sizeof(uint64_t), "query buffer");
 		size_t targetBytes = checkedMultiply(targetKeys.size(), sizeof(uint64_t), "target buffer");
 		size_t blockCountBytes = checkedMultiply(static_cast<size_t>(blocks), sizeof(uint64_t),
 												 "block count buffer");
-		checkCuda(cudaMalloc(&deviceQueries, queryBytes), "cudaMalloc queries failed");
-		checkCuda(cudaMalloc(&deviceTargets, targetBytes), "cudaMalloc targets failed");
-		checkCuda(cudaMalloc(&deviceBlockCounts, blockCountBytes), "cudaMalloc block counts failed");
-		checkCuda(cudaMemcpy(deviceQueries, queryKeys.data(), queryBytes, cudaMemcpyHostToDevice),
+		cuflye::cuda_raii::DeviceBuffer<uint64_t> deviceQueries(queryBytes, "queries");
+		cuflye::cuda_raii::DeviceBuffer<uint64_t> deviceTargets(targetBytes, "targets");
+		cuflye::cuda_raii::DeviceBuffer<uint64_t> deviceBlockCounts(blockCountBytes,
+																	"block counts");
+		checkCuda(cudaMemcpy(deviceQueries.get(), queryKeys.data(), queryBytes, cudaMemcpyHostToDevice),
 				  "cudaMemcpy queries host-to-device failed");
-		checkCuda(cudaMemcpy(deviceTargets, targetKeys.data(), targetBytes, cudaMemcpyHostToDevice),
+		checkCuda(cudaMemcpy(deviceTargets.get(), targetKeys.data(), targetBytes, cudaMemcpyHostToDevice),
 				  "cudaMemcpy targets host-to-device failed");
 
-		cudaEvent_t startEvent = nullptr;
-		cudaEvent_t stopEvent = nullptr;
-		checkCuda(cudaEventCreate(&startEvent), "cudaEventCreate start failed");
-		checkCuda(cudaEventCreate(&stopEvent), "cudaEventCreate stop failed");
+		cuflye::cuda_raii::CudaEvent startEvent("start");
+		cuflye::cuda_raii::CudaEvent stopEvent("stop");
 
 		std::vector<uint64_t> blockCounts(static_cast<size_t>(blocks), 0);
 		std::vector<double> gpuKernelMs;
@@ -330,24 +328,24 @@ int main(int argc, char** argv)
 		for (int trial = 0; trial < totalGpuTrials; ++trial)
 		{
 			auto totalStart = std::chrono::steady_clock::now();
-			checkCuda(cudaMemset(deviceBlockCounts, 0, blockCountBytes),
+			checkCuda(cudaMemset(deviceBlockCounts.get(), 0, blockCountBytes),
 					  "cudaMemset block counts failed");
-			checkCuda(cudaEventRecord(startEvent), "cudaEventRecord start failed");
+			checkCuda(cudaEventRecord(startEvent.get()), "cudaEventRecord start failed");
 			countMatchesKernel<<<blocks, options.threadsPerBlock,
 								 static_cast<size_t>(options.threadsPerBlock) * sizeof(uint64_t)>>>(
-				deviceQueries,
+				deviceQueries.get(),
 				queryKeys.size(),
-				deviceTargets,
+				deviceTargets.get(),
 				targetKeys.size(),
 				pairCount,
-				deviceBlockCounts);
+				deviceBlockCounts.get());
 			checkCuda(cudaGetLastError(), "countMatchesKernel launch failed");
-			checkCuda(cudaEventRecord(stopEvent), "cudaEventRecord stop failed");
-			checkCuda(cudaEventSynchronize(stopEvent), "cudaEventSynchronize stop failed");
+			checkCuda(cudaEventRecord(stopEvent.get()), "cudaEventRecord stop failed");
+			checkCuda(cudaEventSynchronize(stopEvent.get()), "cudaEventSynchronize stop failed");
 			float kernelMs = 0.0f;
-			checkCuda(cudaEventElapsedTime(&kernelMs, startEvent, stopEvent),
+			checkCuda(cudaEventElapsedTime(&kernelMs, startEvent.get(), stopEvent.get()),
 					  "cudaEventElapsedTime failed");
-			checkCuda(cudaMemcpy(blockCounts.data(), deviceBlockCounts, blockCountBytes,
+			checkCuda(cudaMemcpy(blockCounts.data(), deviceBlockCounts.get(), blockCountBytes,
 								 cudaMemcpyDeviceToHost),
 					  "cudaMemcpy block counts device-to-host failed");
 			auto totalStop = std::chrono::steady_clock::now();
@@ -364,12 +362,6 @@ int main(int argc, char** argv)
 				gpuTotalMs.push_back(elapsedMs(totalStart, totalStop));
 			}
 		}
-
-		checkCuda(cudaEventDestroy(startEvent), "cudaEventDestroy start failed");
-		checkCuda(cudaEventDestroy(stopEvent), "cudaEventDestroy stop failed");
-		checkCuda(cudaFree(deviceQueries), "cudaFree queries failed");
-		checkCuda(cudaFree(deviceTargets), "cudaFree targets failed");
-		checkCuda(cudaFree(deviceBlockCounts), "cudaFree block counts failed");
 
 		double cpuBest = minValue(cpuMs);
 		double cpuAvg = avgValue(cpuMs);

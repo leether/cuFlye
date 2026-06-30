@@ -2,6 +2,8 @@
 
 #include <cuda_runtime_api.h>
 
+#include "cuflye_cuda_raii.hpp"
+
 #include <cerrno>
 #include <cstdint>
 #include <cstdlib>
@@ -741,69 +743,53 @@ int main(int argc, char** argv)
 			throw std::runtime_error("CUDA read window smoke required device allocation exceeds free device memory");
 		}
 
-		QueryRead* deviceReads = nullptr;
-		uint64_t* deviceReadWindowOffsets = nullptr;
-		IndexWindow* deviceIndex = nullptr;
-		RepetitiveWindow* deviceRepetitive = nullptr;
-		CandidateRecord* deviceOutput = nullptr;
-		uint8_t* deviceFlags = nullptr;
+		cuflye::cuda_raii::DeviceBuffer<QueryRead> deviceReads(readBytes, "reads");
+		cuflye::cuda_raii::DeviceBuffer<uint64_t> deviceReadWindowOffsets(offsetBytes,
+																		  "read offsets");
+		cuflye::cuda_raii::DeviceBuffer<IndexWindow> deviceIndex(indexBytes, "index");
+		cuflye::cuda_raii::DeviceBuffer<RepetitiveWindow> deviceRepetitive(repetitiveBytes,
+																		   "repetitive k-mers");
+		cuflye::cuda_raii::DeviceBuffer<CandidateRecord> deviceOutput(outputBytes, "output");
+		cuflye::cuda_raii::DeviceBuffer<uint8_t> deviceFlags(flagBytes, "flags");
 
-		checkCuda(cudaMalloc(&deviceReads, readBytes), "cudaMalloc reads failed");
-		checkCuda(cudaMalloc(&deviceReadWindowOffsets, offsetBytes), "cudaMalloc read offsets failed");
-		checkCuda(cudaMalloc(&deviceIndex, indexBytes), "cudaMalloc index failed");
-		if (repetitiveBytes)
-		{
-			checkCuda(cudaMalloc(&deviceRepetitive, repetitiveBytes),
-					  "cudaMalloc repetitive k-mers failed");
-		}
-		checkCuda(cudaMalloc(&deviceOutput, outputBytes), "cudaMalloc output failed");
-		checkCuda(cudaMalloc(&deviceFlags, flagBytes), "cudaMalloc flags failed");
-
-		checkCuda(cudaMemcpy(deviceReads, reads.data(), readBytes, cudaMemcpyHostToDevice),
+		checkCuda(cudaMemcpy(deviceReads.get(), reads.data(), readBytes, cudaMemcpyHostToDevice),
 				  "cudaMemcpy reads host-to-device failed");
-		checkCuda(cudaMemcpy(deviceReadWindowOffsets, readWindowOffsets.data(), offsetBytes,
+		checkCuda(cudaMemcpy(deviceReadWindowOffsets.get(), readWindowOffsets.data(), offsetBytes,
 							 cudaMemcpyHostToDevice),
 				  "cudaMemcpy read offsets host-to-device failed");
-		checkCuda(cudaMemcpy(deviceIndex, indexEntries.data(), indexBytes, cudaMemcpyHostToDevice),
+		checkCuda(cudaMemcpy(deviceIndex.get(), indexEntries.data(), indexBytes, cudaMemcpyHostToDevice),
 				  "cudaMemcpy index host-to-device failed");
 		if (repetitiveBytes)
 		{
-			checkCuda(cudaMemcpy(deviceRepetitive, repetitiveKmers.data(), repetitiveBytes,
+			checkCuda(cudaMemcpy(deviceRepetitive.get(), repetitiveKmers.data(), repetitiveBytes,
 								 cudaMemcpyHostToDevice),
 					  "cudaMemcpy repetitive k-mers host-to-device failed");
 		}
-		checkCuda(cudaMemset(deviceFlags, 0, flagBytes), "cudaMemset flags failed");
+		checkCuda(cudaMemset(deviceFlags.get(), 0, flagBytes), "cudaMemset flags failed");
 
 		const int threadsPerBlock = 128;
 		const int blocks = static_cast<int>((pairCount + threadsPerBlock - 1) / threadsPerBlock);
 		generateCandidateRecordsKernel<<<blocks, threadsPerBlock>>>(
-			deviceReads,
+			deviceReads.get(),
 			reads.size(),
-			deviceReadWindowOffsets,
-			deviceIndex,
+			deviceReadWindowOffsets.get(),
+			deviceIndex.get(),
 			indexEntries.size(),
-			deviceRepetitive,
+			deviceRepetitive.get(),
 			repetitiveKmers.size(),
 			options.kmerSize,
-			deviceOutput,
-			deviceFlags,
+			deviceOutput.get(),
+			deviceFlags.get(),
 			pairCount);
 		checkCuda(cudaGetLastError(), "generateCandidateRecordsKernel launch failed");
 		checkCuda(cudaDeviceSynchronize(), "generateCandidateRecordsKernel execution failed");
 
 		std::vector<CandidateRecord> gpuBuffer(pairCount);
 		std::vector<uint8_t> validFlags(pairCount);
-		checkCuda(cudaMemcpy(gpuBuffer.data(), deviceOutput, outputBytes, cudaMemcpyDeviceToHost),
+		checkCuda(cudaMemcpy(gpuBuffer.data(), deviceOutput.get(), outputBytes, cudaMemcpyDeviceToHost),
 				  "cudaMemcpy output device-to-host failed");
-		checkCuda(cudaMemcpy(validFlags.data(), deviceFlags, flagBytes, cudaMemcpyDeviceToHost),
+		checkCuda(cudaMemcpy(validFlags.data(), deviceFlags.get(), flagBytes, cudaMemcpyDeviceToHost),
 				  "cudaMemcpy flags device-to-host failed");
-
-		checkCuda(cudaFree(deviceReads), "cudaFree reads failed");
-		checkCuda(cudaFree(deviceReadWindowOffsets), "cudaFree read offsets failed");
-		checkCuda(cudaFree(deviceIndex), "cudaFree index failed");
-		if (deviceRepetitive) checkCuda(cudaFree(deviceRepetitive), "cudaFree repetitive failed");
-		checkCuda(cudaFree(deviceOutput), "cudaFree output failed");
-		checkCuda(cudaFree(deviceFlags), "cudaFree flags failed");
 
 		std::vector<CandidateRecord> gpuRecords = compactGpuRecords(gpuBuffer, validFlags);
 		writeCandidateTsv(options.outputTsv, gpuRecords);

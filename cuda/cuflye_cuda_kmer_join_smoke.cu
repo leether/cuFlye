@@ -2,6 +2,8 @@
 
 #include <cuda_runtime_api.h>
 
+#include "cuflye_cuda_raii.hpp"
+
 #include <cerrno>
 #include <cstdint>
 #include <cstdlib>
@@ -568,61 +570,46 @@ int main(int argc, char** argv)
 			throw std::runtime_error("CUDA k-mer join smoke required device allocation exceeds free device memory");
 		}
 
-		QueryKmer* deviceQueries = nullptr;
-		IndexEntry* deviceIndex = nullptr;
-		uint64_t* deviceRepetitive = nullptr;
-		CandidateRecord* deviceOutput = nullptr;
-		uint8_t* deviceFlags = nullptr;
+		cuflye::cuda_raii::DeviceBuffer<QueryKmer> deviceQueries(queryBytes, "queries");
+		cuflye::cuda_raii::DeviceBuffer<IndexEntry> deviceIndex(indexBytes, "index");
+		cuflye::cuda_raii::DeviceBuffer<uint64_t> deviceRepetitive(repetitiveBytes,
+																   "repetitive k-mers");
+		cuflye::cuda_raii::DeviceBuffer<CandidateRecord> deviceOutput(outputBytes, "output");
+		cuflye::cuda_raii::DeviceBuffer<uint8_t> deviceFlags(flagBytes, "flags");
 
-		checkCuda(cudaMalloc(&deviceQueries, queryBytes), "cudaMalloc queries failed");
-		checkCuda(cudaMalloc(&deviceIndex, indexBytes), "cudaMalloc index failed");
-		if (repetitiveBytes)
-		{
-			checkCuda(cudaMalloc(&deviceRepetitive, repetitiveBytes),
-					  "cudaMalloc repetitive k-mers failed");
-		}
-		checkCuda(cudaMalloc(&deviceOutput, outputBytes), "cudaMalloc output failed");
-		checkCuda(cudaMalloc(&deviceFlags, flagBytes), "cudaMalloc flags failed");
-
-		checkCuda(cudaMemcpy(deviceQueries, queries.data(), queryBytes, cudaMemcpyHostToDevice),
+		checkCuda(cudaMemcpy(deviceQueries.get(), queries.data(), queryBytes, cudaMemcpyHostToDevice),
 				  "cudaMemcpy queries host-to-device failed");
-		checkCuda(cudaMemcpy(deviceIndex, indexEntries.data(), indexBytes, cudaMemcpyHostToDevice),
+		checkCuda(cudaMemcpy(deviceIndex.get(), indexEntries.data(), indexBytes, cudaMemcpyHostToDevice),
 				  "cudaMemcpy index host-to-device failed");
 		if (repetitiveBytes)
 		{
-			checkCuda(cudaMemcpy(deviceRepetitive, repetitiveKmers.data(), repetitiveBytes,
+			checkCuda(cudaMemcpy(deviceRepetitive.get(), repetitiveKmers.data(), repetitiveBytes,
 								 cudaMemcpyHostToDevice),
 					  "cudaMemcpy repetitive k-mers host-to-device failed");
 		}
-		checkCuda(cudaMemset(deviceFlags, 0, flagBytes), "cudaMemset flags failed");
+		checkCuda(cudaMemset(deviceFlags.get(), 0, flagBytes), "cudaMemset flags failed");
 
 		const int threadsPerBlock = 128;
 		const int blocks = static_cast<int>((pairCount + threadsPerBlock - 1) / threadsPerBlock);
 		generateCandidateRecordsKernel<<<blocks, threadsPerBlock>>>(
-			deviceQueries,
+			deviceQueries.get(),
 			queries.size(),
-			deviceIndex,
+			deviceIndex.get(),
 			indexEntries.size(),
-			deviceRepetitive,
+			deviceRepetitive.get(),
 			repetitiveKmers.size(),
-			deviceOutput,
-			deviceFlags,
+			deviceOutput.get(),
+			deviceFlags.get(),
 			pairCount);
 		checkCuda(cudaGetLastError(), "generateCandidateRecordsKernel launch failed");
 		checkCuda(cudaDeviceSynchronize(), "generateCandidateRecordsKernel execution failed");
 
 		std::vector<CandidateRecord> gpuBuffer(pairCount);
 		std::vector<uint8_t> validFlags(pairCount);
-		checkCuda(cudaMemcpy(gpuBuffer.data(), deviceOutput, outputBytes, cudaMemcpyDeviceToHost),
+		checkCuda(cudaMemcpy(gpuBuffer.data(), deviceOutput.get(), outputBytes, cudaMemcpyDeviceToHost),
 				  "cudaMemcpy output device-to-host failed");
-		checkCuda(cudaMemcpy(validFlags.data(), deviceFlags, flagBytes, cudaMemcpyDeviceToHost),
+		checkCuda(cudaMemcpy(validFlags.data(), deviceFlags.get(), flagBytes, cudaMemcpyDeviceToHost),
 				  "cudaMemcpy flags device-to-host failed");
-
-		checkCuda(cudaFree(deviceQueries), "cudaFree queries failed");
-		checkCuda(cudaFree(deviceIndex), "cudaFree index failed");
-		if (deviceRepetitive) checkCuda(cudaFree(deviceRepetitive), "cudaFree repetitive failed");
-		checkCuda(cudaFree(deviceOutput), "cudaFree output failed");
-		checkCuda(cudaFree(deviceFlags), "cudaFree flags failed");
 
 		std::vector<CandidateRecord> gpuRecords = compactGpuRecords(gpuBuffer, validFlags);
 		writeCandidateTsv(options.outputTsv, gpuRecords);

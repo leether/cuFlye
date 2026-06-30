@@ -99,10 +99,11 @@ RAII for every CPU, CUDA, file, stream, and event resource.
 - Reusable CUDA backend code must not call `cudaMalloc`, `cudaFree`,
   `cudaHostAlloc`, `cudaFreeHost`, `cudaStreamCreate`, `cudaStreamDestroy`,
   `cudaEventCreate`, or `cudaEventDestroy` directly. Wrap these resources in
-  move-only RAII types.
-- Standalone M1 smoke prototypes may contain direct CUDA resource calls only as
-  temporary proof code. Do not copy that pattern into M2+ backend integration
-  code.
+  move-only RAII types. The current local wrappers live in
+  `cuda/cuflye_cuda_raii.hpp`.
+- Standalone M1 smoke prototypes should use the same RAII resource wrappers as
+  reusable backend code. Historical direct CUDA resource calls are not a pattern
+  for new code.
 - CUDA allocation wrappers must check memory budgets before allocation and
   report device id, requested bytes, CUDA error code, CUDA error name, and CUDA
   error text on failure.
@@ -133,8 +134,7 @@ when its relevant proof gates pass:
 - runtime probes report CUDA device and memory facts when CUDA is required;
 - benchmark claims include matched counts and bounded input shape;
 - ownership scans show no new direct CPU allocation APIs and no direct CUDA
-  resource APIs outside approved low-level RAII wrappers or grandfathered smoke
-  prototypes;
+  resource APIs outside approved low-level RAII wrappers;
 - generated large artifacts stay under `out/` and are not committed;
 - compact manifests, hashes, and proof summaries are committed under `tests/`
   or `docs/` when they support a milestone claim.

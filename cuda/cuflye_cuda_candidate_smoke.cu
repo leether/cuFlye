@@ -2,6 +2,8 @@
 
 #include <cuda_runtime_api.h>
 
+#include "cuflye_cuda_raii.hpp"
+
 #include <cerrno>
 #include <cstdint>
 #include <cstdlib>
@@ -360,24 +362,23 @@ int main(int argc, char** argv)
 			throw std::runtime_error("CUDA candidate smoke required device allocation exceeds free device memory");
 		}
 
-		CandidateRecord* deviceInput = nullptr;
-		CandidateRecord* deviceOutput = nullptr;
-		checkCuda(cudaMalloc(&deviceInput, recordBytes), "cudaMalloc input failed");
-		checkCuda(cudaMalloc(&deviceOutput, recordBytes), "cudaMalloc output failed");
-		checkCuda(cudaMemcpy(deviceInput, cpuRecords.data(), recordBytes, cudaMemcpyHostToDevice),
+		cuflye::cuda_raii::DeviceBuffer<CandidateRecord> deviceInput(recordBytes, "input");
+		cuflye::cuda_raii::DeviceBuffer<CandidateRecord> deviceOutput(recordBytes, "output");
+		checkCuda(cudaMemcpy(deviceInput.get(), cpuRecords.data(), recordBytes, cudaMemcpyHostToDevice),
 				  "cudaMemcpy host-to-device failed");
 
 		const int threadsPerBlock = 128;
 		const int blocks = static_cast<int>((options.records + threadsPerBlock - 1) / threadsPerBlock);
-		emitCandidateRecordsKernel<<<blocks, threadsPerBlock>>>(deviceInput, deviceOutput, options.records);
+		emitCandidateRecordsKernel<<<blocks, threadsPerBlock>>>(
+			deviceInput.get(),
+			deviceOutput.get(),
+			options.records);
 		checkCuda(cudaGetLastError(), "emitCandidateRecordsKernel launch failed");
 		checkCuda(cudaDeviceSynchronize(), "emitCandidateRecordsKernel execution failed");
 
 		std::vector<CandidateRecord> gpuRecords(options.records);
-		checkCuda(cudaMemcpy(gpuRecords.data(), deviceOutput, recordBytes, cudaMemcpyDeviceToHost),
+		checkCuda(cudaMemcpy(gpuRecords.data(), deviceOutput.get(), recordBytes, cudaMemcpyDeviceToHost),
 				  "cudaMemcpy device-to-host failed");
-		checkCuda(cudaFree(deviceInput), "cudaFree input failed");
-		checkCuda(cudaFree(deviceOutput), "cudaFree output failed");
 
 		writeCandidateTsv(options.outputTsv, gpuRecords);
 		std::string json = buildJson(options, prop, freeBytes, totalBytes, requiredBytes);

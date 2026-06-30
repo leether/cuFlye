@@ -4,6 +4,10 @@ Status: completed
 
 Date: 2026-06-30
 
+Superseded by:
+
+- `2026-06-30-cuflye-cuda-raii-resource-layer.md`
+
 ## Goal
 
 Add memory/resource ownership rules to the local coding style and scan existing
@@ -38,7 +42,7 @@ out of scope.
 ## Scan Commands
 
 ```sh
-rg -n "\b(new|delete)\b|\b(malloc|calloc|realloc|free)\s*\(" \
+rg -n "\bnew\b|delete\s*(\(|\[)|delete\s+[^;=]|\b(malloc|calloc|realloc|free)\s*\(" \
   cuda patches/flye scripts bench tools -S
 
 rg -n "std::(shared_ptr|unique_ptr|weak_ptr|auto_ptr)|\b(shared_ptr|unique_ptr|weak_ptr|auto_ptr)\b" \
@@ -95,3 +99,9 @@ move-only CUDA RAII layer for:
 
 The RAII layer should become the only approved location for direct CUDA resource
 API calls in reusable backend code.
+
+## Follow-Up Status
+
+Completed in `2026-06-30-cuflye-cuda-raii-resource-layer.md`: the standalone
+CUDA prototypes now use `cuda/cuflye_cuda_raii.hpp`, and direct CUDA
+allocation/event lifetime APIs are confined to that wrapper.
