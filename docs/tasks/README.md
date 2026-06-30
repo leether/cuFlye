@@ -7,7 +7,8 @@ change is considered complete.
 
 Active cards:
 
-- None.
+- `2026-06-30-cuflye-m1f-cuda-candidate-smoke.md`: build the first CUDA kernel
+  that emits a small candidate-record-v1 TSV matching a CPU oracle sample.
 
 Completed cards:
 

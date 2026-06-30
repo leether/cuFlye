@@ -127,6 +127,28 @@ out/m1e/bin/cuflye-cuda-probe \
 The probe links `libcudart`, queries CUDA driver/runtime versions, selected
 device properties, and free/total memory. It emits no candidate records.
 
+## M1f CUDA Candidate Smoke
+
+The first CUDA kernel prototype emits a small candidate-record-v1 TSV from a CPU
+oracle sample:
+
+```sh
+scripts/build_cuda_candidate_smoke.sh --arch sm_121
+out/m1f/bin/cuflye-cuda-candidate-smoke \
+  --input-cpu-tsv out/m1b/f311460/runs/toy-default/candidates.tsv \
+  --cpu-sample-output out/m1f/cpu-sample.tsv \
+  --output-tsv out/m1f/gpu-candidates.tsv \
+  --records 256 \
+  --memory-budget-bytes 1048576 \
+  --json-output out/m1f/cuda-candidate-smoke.json
+tools/validate_candidate_dump.py out/m1f/gpu-candidates.tsv --expect-records 256
+tools/diff_candidate_dumps.py out/m1f/cpu-sample.tsv out/m1f/gpu-candidates.tsv
+```
+
+This is not Flye acceleration yet. It proves that a CUDA kernel can produce
+candidate ABI records that pass the same validator and diff gates as CPU oracle
+data.
+
 ## Licensing
 
 Original code in this repository is BSD-3-Clause by default.

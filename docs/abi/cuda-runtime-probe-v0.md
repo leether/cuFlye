@@ -84,3 +84,6 @@ Required fields:
 M1e is allowed to prove CUDA runtime visibility only. The first real CUDA
 candidate backend must still pass `candidate-record-v1` validation and candidate
 diff against the CPU oracle before downstream Flye stages can use it.
+
+M1f starts that path with a bounded CUDA candidate smoke prototype; see
+`docs/abi/cuda-candidate-smoke-v0.md`.
