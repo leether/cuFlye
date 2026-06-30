@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4f Overlap Chain Batched Fixtures
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -91,10 +91,44 @@ fixtures or adding a bounded batch runner over real fixtures.
 
 ## Execution Checklist
 
-- [ ] Audit M4b replay dump coverage and fixture-selection constraints.
-- [ ] Identify or generate additional real supported fixtures.
-- [ ] Add batch manifest/runner if supported fixtures exist.
-- [ ] Run CPU/CUDA batch validation and diff on DGX.
-- [ ] Record timing summary and speed ratios.
-- [ ] Run ownership/resource scan.
-- [ ] Record compact DGX proof and close this card.
+- [x] Audit M4b replay dump coverage and fixture-selection constraints.
+- [x] Identify or generate additional real supported fixtures.
+- [x] Add batch manifest/runner if supported fixtures exist.
+- [x] Run CPU/CUDA batch validation and diff on DGX.
+- [x] Record timing summary and speed ratios.
+- [x] Run ownership/resource scan.
+- [x] Record compact DGX proof and close this card.
+
+## Merge Note
+
+Implementation commits:
+
+- `be52addef9bf734bd63da4c86e9150f7a5d1fa47`
+- `3544b4309b466f9099a32e052a601d4c89274289`
+
+DGX proof manifest:
+`tests/golden/cuflye-m4f-overlap-chain-batched-fixtures-dgx-aarch64.json`
+
+Proof summary:
+
+- Patch series builds through
+  `0009-cuflye-overlap-replay-max-fixtures.patch`.
+- A toy-raw Flye run with `CUFLYE_OVERLAP_REPLAY_MAX_FIXTURES=50` emitted
+  `100` fixture directories because separate Flye module processes each honored
+  the cap.
+- Supported-shape fixtures found: `50`
+- Python replay matches among supported fixtures: `46`
+- Python replay mismatches among supported fixtures: `4`
+- Clean top replay-match batch benchmark fixtures: `9`
+- CPU, serial CUDA, and parallel CUDA outputs all validated and diff-matched
+  oracle for the top 9 batch.
+- Top 9 CPU total mean before JSON: `12.300116 ms`
+- Top 9 serial CUDA total mean before JSON: `38.801200 ms`
+- Top 9 parallel CUDA total mean before JSON: `47.293990 ms`
+- Serial CUDA speedup vs CPU: `0.317003x`
+- Parallel CUDA speedup vs CPU: `0.260078x`
+
+Conclusion: M4f solves the single-fixture evidence gap and provides a real
+batch validation harness. It does not produce an overlap-chain CUDA speedup.
+The next target is a single-process batched overlap-chain worker that keeps
+CUDA context and allocations warm across multiple real fixtures.

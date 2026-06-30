@@ -119,6 +119,13 @@ Completed:
   fixture: CPU mean hotpath `1.317636 ms`, serial CUDA `4.742383 ms`,
   parallel-reduce CUDA `5.794421 ms`; parallel-reduce speedup vs CPU
   `0.227397x`.
+- M4f: multi-fixture replay capture is available through
+  `CUFLYE_OVERLAP_REPLAY_MAX_FIXTURES`; a toy-raw run captured `100` fixture
+  directories, including `50` supported-shape fixtures. Python replay matched
+  `46` and mismatched `4`. A clean top-9 real replay-match batch diff-matched
+  for CPU, serial CUDA, and parallel CUDA, but per-fixture CUDA invocation was
+  still slower: CPU `12.300116 ms`, serial CUDA `38.801200 ms`, parallel CUDA
+  `47.293990 ms`.
 
 Current allowed performance claim:
 
@@ -146,6 +153,11 @@ not a speedup claim.
 The current parallel-reduce CUDA overlap-chain kernel preserves correctness but
 does not improve the single-query benchmark. Further overlap-chain performance
 work must increase real batched work before claiming speed.
+
+cuFlye now has real multi-query overlap-chain fixtures and a batch validation
+harness, but it still does not have an overlap-chain CUDA speedup. The next
+performance boundary is a single-process batched worker that reuses CUDA context
+and allocations.
 ```
 
 Current forbidden claim:
@@ -318,12 +330,12 @@ Use precise milestone labels:
 Next highest-ROI task:
 
 ```text
-M4f: audit and expand real overlap-chain replay fixtures, then benchmark CPU
-and CUDA over a real multi-query batch if additional supported fixtures exist.
+M4g: build a single-process batched overlap-chain worker over the M4f
+replay-match fixtures so CUDA context and allocations are reused across real
+queries.
 ```
 
-Acceptance should keep the M4b `query_neg71` fixture as the correctness oracle,
-preserve exact `overlap-range-v1` hashes, and only claim a scoped speedup if the
-batched CUDA mode beats the CPU baseline on real supported fixtures. CUDA
-output is still not allowed into Flye graph logic until broader overlap-chain
-coverage exists.
+Acceptance should preserve exact per-fixture `overlap-range-v1` hashes and only
+claim a scoped speedup if the single-process CUDA batch beats the CPU batch on
+real replay-match fixtures. CUDA output is still not allowed into Flye graph
+logic until broader overlap-chain coverage exists.

@@ -1,0 +1,460 @@
+{
+  "acceptance": {
+    "batch_reports_three_modes": true,
+    "flye_patch_0009_build_succeeds": true,
+    "local_syntax_style_gates_pass": true,
+    "multi_fixture_capture_succeeds": true,
+    "no_large_tsv_committed": true,
+    "ownership_scan_no_new_direct_resource_api": true,
+    "replay_match_scan_records_matches_and_mismatches": true,
+    "supported_fixtures_found": true,
+    "top9_batch_all_diffs_match": true
+  },
+  "batch_benchmark": {
+    "benchmark_runs": 3,
+    "fixtures": [
+      {
+        "candidate_records": 8372,
+        "fixture_dir": "out/m4f/replay-fixtures/query_381",
+        "oracle_overlap_records": 60,
+        "query_id": 381,
+        "target_records": 120
+      },
+      {
+        "candidate_records": 7859,
+        "fixture_dir": "out/m4f/replay-fixtures/query_neg71",
+        "oracle_overlap_records": 51,
+        "query_id": -71,
+        "target_records": 120
+      },
+      {
+        "candidate_records": 7378,
+        "fixture_dir": "out/m4f/replay-fixtures/query_649",
+        "oracle_overlap_records": 47,
+        "query_id": 649,
+        "target_records": 85
+      },
+      {
+        "candidate_records": 6033,
+        "fixture_dir": "out/m4f/replay-fixtures/query_443",
+        "oracle_overlap_records": 41,
+        "query_id": 443,
+        "target_records": 82
+      },
+      {
+        "candidate_records": 5411,
+        "fixture_dir": "out/m4f/replay-fixtures/query_596",
+        "oracle_overlap_records": 41,
+        "query_id": 596,
+        "target_records": 137
+      },
+      {
+        "candidate_records": 5345,
+        "fixture_dir": "out/m4f/replay-fixtures/query_752",
+        "oracle_overlap_records": 32,
+        "query_id": 752,
+        "target_records": 75
+      },
+      {
+        "candidate_records": 5157,
+        "fixture_dir": "out/m4f/replay-fixtures/query_neg819",
+        "oracle_overlap_records": 38,
+        "query_id": -819,
+        "target_records": 122
+      },
+      {
+        "candidate_records": 4932,
+        "fixture_dir": "out/m4f/replay-fixtures/query_695",
+        "oracle_overlap_records": 35,
+        "query_id": 695,
+        "target_records": 77
+      },
+      {
+        "candidate_records": 4207,
+        "fixture_dir": "out/m4f/replay-fixtures/query_548",
+        "oracle_overlap_records": 37,
+        "query_id": 548,
+        "target_records": 74
+      }
+    ],
+    "modes": [
+      "cpu",
+      "cuda-serial",
+      "cuda-parallel"
+    ],
+    "path": "/tmp/cuflye-m4f-proof-1782829608-git/out/m4f/batch-top9.json",
+    "schema": "cuflye-overlap-replay-batch-benchmark-v0",
+    "selected_fixtures": 9,
+    "status": "ok",
+    "summary_by_mode": {
+      "cpu": {
+        "fixtures": 9,
+        "total_candidate_records": 54694,
+        "total_mean_before_json_ms": 12.300116,
+        "total_mean_core_ms": 12.288052,
+        "total_output_records": 382
+      },
+      "cuda-parallel": {
+        "fixtures": 9,
+        "slowdown_vs_cpu": 3.8450035755760354,
+        "speedup_vs_cpu": 0.26007778155321637,
+        "total_candidate_records": 54694,
+        "total_mean_before_json_ms": 47.29399,
+        "total_mean_core_ms": 45.11142,
+        "total_output_records": 382
+      },
+      "cuda-serial": {
+        "fixtures": 9,
+        "slowdown_vs_cpu": 3.1545393555638017,
+        "speedup_vs_cpu": 0.3170034947372761,
+        "total_candidate_records": 54694,
+        "total_mean_before_json_ms": 38.8012,
+        "total_mean_core_ms": 36.647011,
+        "total_output_records": 382
+      }
+    },
+    "warmup_runs": 1
+  },
+  "benchmark_summary": {
+    "all_diffs_match": true,
+    "cpu_total_mean_before_json_ms": 12.300116,
+    "cuda_parallel_is_faster_than_cpu": false,
+    "cuda_parallel_speedup_vs_cpu": 0.26007778155321637,
+    "cuda_parallel_total_mean_before_json_ms": 47.29399,
+    "cuda_serial_is_faster_than_cpu": false,
+    "cuda_serial_speedup_vs_cpu": 0.3170034947372761,
+    "cuda_serial_total_mean_before_json_ms": 38.8012,
+    "selected_fixtures": 9
+  },
+  "build": {
+    "cuda_runner": {
+      "created_at_utc": "2026-06-30T14:35:24.418982+00:00",
+      "cuda_arch": "sm_121",
+      "cuda_home": "/usr/local/cuda",
+      "host": "edgexpert-45d2",
+      "machine": "aarch64",
+      "nvcc": "/usr/local/cuda/bin/nvcc",
+      "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:57:39_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+      "output_binary": "/tmp/cuflye-m4f-proof-1782829608-git/out/m4f/bin/cuflye-cuda-overlap-chain-replay",
+      "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+      "python": "3.12.3",
+      "repo_commit": "3544b4309b466f9099a32e052a601d4c89274289",
+      "repo_root": "/tmp/cuflye-m4f-proof-1782829608-git"
+    },
+    "flye": {
+      "actual_branch": "flye",
+      "actual_commit": "886b8c17412c",
+      "actual_tags": [
+        "2.9.6"
+      ],
+      "applied_patches": [
+        "0001-cuflye-candidate-dump.patch",
+        "0002-cuflye-candidate-backend-seam.patch",
+        "0003-cuflye-cuda-backend-stub.patch",
+        "0004-cuflye-cuda-adapter-shell.patch",
+        "0005-cuflye-real-data-pack-dump.patch",
+        "0006-cuflye-external-pack-query-stop.patch",
+        "0007-cuflye-overlap-range-dump.patch",
+        "0008-cuflye-overlap-replay-fixture-dump.patch",
+        "0009-cuflye-overlap-replay-max-fixtures.patch"
+      ],
+      "apply_patches": true,
+      "created_at_utc": "2026-06-30T14:32:01.983204+00:00",
+      "expected_commit_prefix": "886b8c1",
+      "expected_ref": "2.9.6",
+      "flye_dir": "/tmp/cuflye-m4f-proof-1782829608-git/out/m4f/upstream-flye",
+      "flye_version": "2.9.6-b1802",
+      "gcc": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "gxx": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "host": "edgexpert-45d2",
+      "jobs": 8,
+      "machine": "aarch64",
+      "make": "GNU Make 4.3",
+      "make_args": [
+        "THREADS=8",
+        "aarch64=1",
+        "arm_neon=1"
+      ],
+      "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+      "python": "3.12.3",
+      "repo_root": "/tmp/cuflye-m4f-proof-1782829608-git"
+    }
+  },
+  "capture": {
+    "fixture_count": 100,
+    "fixture_root": "/tmp/cuflye-m4f-proof-1782829608-git/out/m4f/replay-fixtures",
+    "max_fixtures_requested": 50,
+    "note": "Flye run emitted 100 fixture directories because separate Flye module processes each honored the max-fixtures cap.",
+    "run_metadata": {
+      "command": [
+        "out/m4f/upstream-flye/bin/flye",
+        "--pacbio-raw",
+        "out/m4f/upstream-flye/flye/tests/data/ecoli_500kb_reads.fastq.gz",
+        "-g",
+        "500k",
+        "-o",
+        "out/m4f/runs/toy-raw-multifixture",
+        "-t",
+        "1",
+        "-m",
+        "1000",
+        "--debug"
+      ],
+      "elapsed_seconds": 82,
+      "exit_status": 0,
+      "finished_at_utc": "2026-06-30T14:33:42.585129+00:00",
+      "fixture": "toy-raw",
+      "flye_commit": "886b8c17412cdf3a2868a28237bca6c5ad1da156",
+      "flye_dir": "/tmp/cuflye-m4f-proof-1782829608-git/out/m4f/upstream-flye",
+      "flye_tags": [
+        "2.9.6"
+      ],
+      "genome_size": "500k",
+      "host": "edgexpert-45d2",
+      "machine": "aarch64",
+      "min_overlap": "1000",
+      "nvidia_smi": "GPU 0: NVIDIA GB10 (UUID: GPU-36e1e91e-fa5c-6e0d-d076-203391a7bb03)",
+      "overlap_replay_dump_dir": "/tmp/cuflye-m4f-proof-1782829608-git/out/m4f/replay-fixtures",
+      "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+      "python": "3.12.3",
+      "read_type": "pacbio-raw",
+      "reads": "/tmp/cuflye-m4f-proof-1782829608-git/out/m4f/upstream-flye/flye/tests/data/ecoli_500kb_reads.fastq.gz",
+      "repo_commit": "be52addef9bf734bd63da4c86e9150f7a5d1fa47",
+      "repo_root": "/tmp/cuflye-m4f-proof-1782829608-git",
+      "started_at_utc": "2026-06-30T14:32:20.897762+00:00",
+      "threads": 1
+    }
+  },
+  "claims": {
+    "allowed": [
+      "M4f can capture multiple real overlap replay fixtures with a bounded max-fixtures control.",
+      "Top 9 replay-match supported fixtures validate and diff-match for CPU, serial CUDA, and parallel CUDA modes.",
+      "The current per-fixture CUDA benchmark remains slower than CPU on this real batch."
+    ],
+    "next_optimization_target": "M4g should build a single-process batched overlap-chain worker that keeps CUDA context and allocations warm across many real fixtures.",
+    "not_claimed": [
+      "No overlap-chain CUDA speedup claim.",
+      "No single-process batched CUDA worker yet.",
+      "No Flye graph integration.",
+      "No broad workload-level Flye GPU mode claim."
+    ]
+  },
+  "created_at_utc": "2026-06-30T14:37:31.122402+00:00",
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+    "python": "3.12.3"
+  },
+  "milestone": "M4f-overlap-chain-batched-fixtures",
+  "replay_match_scan": {
+    "match": 46,
+    "mismatch": 4,
+    "mismatches": [
+      {
+        "candidate_records": 3957,
+        "name": "query_639",
+        "oracle_overlap_records": 31,
+        "query_id": 639,
+        "status": "mismatch",
+        "target_records": 61
+      },
+      {
+        "candidate_records": 3697,
+        "name": "query_neg658",
+        "oracle_overlap_records": 36,
+        "query_id": -658,
+        "status": "mismatch",
+        "target_records": 64
+      },
+      {
+        "candidate_records": 2389,
+        "name": "query_189",
+        "oracle_overlap_records": 30,
+        "query_id": 189,
+        "status": "mismatch",
+        "target_records": 54
+      },
+      {
+        "candidate_records": 2133,
+        "name": "query_neg906",
+        "oracle_overlap_records": 20,
+        "query_id": -906,
+        "status": "mismatch",
+        "target_records": 46
+      }
+    ],
+    "other": 0,
+    "top_matches": [
+      {
+        "candidate_records": 8372,
+        "name": "query_381",
+        "oracle_overlap_records": 60,
+        "query_id": 381,
+        "status": "match",
+        "target_records": 120
+      },
+      {
+        "candidate_records": 7859,
+        "name": "query_neg71",
+        "oracle_overlap_records": 51,
+        "query_id": -71,
+        "status": "match",
+        "target_records": 120
+      },
+      {
+        "candidate_records": 7378,
+        "name": "query_649",
+        "oracle_overlap_records": 47,
+        "query_id": 649,
+        "status": "match",
+        "target_records": 85
+      },
+      {
+        "candidate_records": 6033,
+        "name": "query_443",
+        "oracle_overlap_records": 41,
+        "query_id": 443,
+        "status": "match",
+        "target_records": 82
+      },
+      {
+        "candidate_records": 5411,
+        "name": "query_596",
+        "oracle_overlap_records": 41,
+        "query_id": 596,
+        "status": "match",
+        "target_records": 137
+      },
+      {
+        "candidate_records": 5345,
+        "name": "query_752",
+        "oracle_overlap_records": 32,
+        "query_id": 752,
+        "status": "match",
+        "target_records": 75
+      },
+      {
+        "candidate_records": 5157,
+        "name": "query_neg819",
+        "oracle_overlap_records": 38,
+        "query_id": -819,
+        "status": "match",
+        "target_records": 122
+      },
+      {
+        "candidate_records": 4932,
+        "name": "query_695",
+        "oracle_overlap_records": 35,
+        "query_id": 695,
+        "status": "match",
+        "target_records": 77
+      },
+      {
+        "candidate_records": 4207,
+        "name": "query_548",
+        "oracle_overlap_records": 37,
+        "query_id": 548,
+        "status": "match",
+        "target_records": 74
+      },
+      {
+        "candidate_records": 3899,
+        "name": "query_264",
+        "oracle_overlap_records": 35,
+        "query_id": 264,
+        "status": "match",
+        "target_records": 68
+      },
+      {
+        "candidate_records": 3881,
+        "name": "query_480",
+        "oracle_overlap_records": 26,
+        "query_id": 480,
+        "status": "match",
+        "target_records": 75
+      },
+      {
+        "candidate_records": 3574,
+        "name": "query_neg251",
+        "oracle_overlap_records": 30,
+        "query_id": -251,
+        "status": "match",
+        "target_records": 45
+      },
+      {
+        "candidate_records": 3496,
+        "name": "query_neg128",
+        "oracle_overlap_records": 31,
+        "query_id": -128,
+        "status": "match",
+        "target_records": 119
+      },
+      {
+        "candidate_records": 3410,
+        "name": "query_neg474",
+        "oracle_overlap_records": 27,
+        "query_id": -474,
+        "status": "match",
+        "target_records": 111
+      },
+      {
+        "candidate_records": 3270,
+        "name": "query_488",
+        "oracle_overlap_records": 30,
+        "query_id": 488,
+        "status": "match",
+        "target_records": 69
+      },
+      {
+        "candidate_records": 3099,
+        "name": "query_neg718",
+        "oracle_overlap_records": 29,
+        "query_id": -718,
+        "status": "match",
+        "target_records": 45
+      },
+      {
+        "candidate_records": 3076,
+        "name": "query_621",
+        "oracle_overlap_records": 24,
+        "query_id": 621,
+        "status": "match",
+        "target_records": 46
+      },
+      {
+        "candidate_records": 2946,
+        "name": "query_361",
+        "oracle_overlap_records": 31,
+        "query_id": 361,
+        "status": "match",
+        "target_records": 51
+      },
+      {
+        "candidate_records": 2930,
+        "name": "query_567",
+        "oracle_overlap_records": 32,
+        "query_id": 567,
+        "status": "match",
+        "target_records": 57
+      },
+      {
+        "candidate_records": 2706,
+        "name": "query_632",
+        "oracle_overlap_records": 27,
+        "query_id": 632,
+        "status": "match",
+        "target_records": 79
+      }
+    ],
+    "total_supported": 50
+  },
+  "repo": {
+    "commit": "3544b4309b466f9099a32e052a601d4c89274289",
+    "remote_dir": "/tmp/cuflye-m4f-proof-1782829608-git",
+    "root": "/tmp/cuflye-m4f-proof-1782829608-git",
+    "status_short": "## main...origin/main [ahead 2]"
+  },
+  "schema": "cuflye-dgx-proof-v1",
+  "status": "passed"
+}
