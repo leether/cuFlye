@@ -134,7 +134,10 @@ void checkCuda(cudaError_t status, const std::string& action)
 {
 	if (status != cudaSuccess)
 	{
-		throw std::runtime_error(action + ": " + cudaGetErrorString(status));
+		throw std::runtime_error(action + ": code=" +
+								 std::to_string(static_cast<int>(status)) +
+								 " name=" + cudaGetErrorName(status) +
+								 " text=" + cudaGetErrorString(status));
 	}
 }
 
