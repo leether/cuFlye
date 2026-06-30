@@ -1,7 +1,8 @@
 # Flye Overlap Worker Seam v0
 
 Status: accepted in M4j; batch allowlist extension accepted in M4k; validation
-gate accepted in M4l; shadow consumption proof accepted in M4m
+gate accepted in M4l; shadow consumption proof accepted in M4m; graph
+consumption guard dry-run proposed in M4o
 
 Introduced: M4j
 
@@ -51,6 +52,7 @@ Optional environment:
 | `CUFLYE_OVERLAP_WORKER_MEMORY_BUDGET_BYTES` | unset | Optional worker memory budget. |
 | `CUFLYE_OVERLAP_WORKER_VALIDATION_MODE` | `oracle-diff-v0` | Validate every worker output as `overlap-range-v1` and canonical-diff it against the captured CPU oracle before marking worker output consumption-eligible. |
 | `CUFLYE_OVERLAP_WORKER_SHADOW_MODE` | unset | Optional M4m proof mode. `canonical-overlap-v0` parses worker output into Flye-side canonical overlap records and compares them against CPU overlap ranges captured in memory. |
+| `CUFLYE_OVERLAP_GRAPH_CONSUMPTION_MODE` | unset | Optional M4o proof mode. `dry-run-v0` evaluates graph-consumption preconditions and writes guard metadata without consuming worker output. |
 
 ## Generated Files
 
@@ -65,6 +67,7 @@ Given `CUFLYE_OVERLAP_WORKER_OUTPUT_DIR=/path/to/seam`, Flye writes:
 | `worker-batch.json` | Underlying packed batch runner JSON. |
 | `worker-validation.json` | Flye-side ABI validation and CPU-oracle canonical diff summary for every worker output. |
 | `worker-shadow.json` | Flye-side shadow parse and comparison summary when `CUFLYE_OVERLAP_WORKER_SHADOW_MODE=canonical-overlap-v0`. |
+| `worker-graph-consumption-guard.json` | Dry-run graph-consumption guard summary when `CUFLYE_OVERLAP_GRAPH_CONSUMPTION_MODE=dry-run-v0`. |
 | `worker-stdout.log` | Worker stdout. |
 | `worker-stderr.log` | Worker stderr. |
 | `seam-summary.json` | Flye-side seam metadata and stop proof. |
@@ -132,6 +135,26 @@ writes:
 This proves the worker output can cross one more in-memory boundary in shadow
 mode. It still does not feed GPU output into graph mutation.
 
+M4o adds optional graph-consumption guard dry-run mode. When
+`CUFLYE_OVERLAP_GRAPH_CONSUMPTION_MODE=dry-run-v0`, Flye evaluates whether the
+validated and shadow-matched worker output would satisfy the minimum
+preconditions for a future graph-consumption path, writes
+`worker-graph-consumption-guard.json`, and still stops before graph mutation.
+The successful dry-run state is:
+
+```json
+{
+  "graph_guard_status": "passed",
+  "graph_guard_eligibility": "eligible",
+  "graph_consumption_state": "not-consumed",
+  "graph_consumption_eligible": true,
+  "graph_mutation_consumed_worker_output": false
+}
+```
+
+This proves the future consumption contract can be audited. It still does not
+feed GPU output into graph mutation.
+
 ## Failure Semantics
 
 The seam fails closed when:
@@ -152,6 +175,9 @@ The seam fails closed when:
 - `CUFLYE_OVERLAP_WORKER_SHADOW_MODE` is unsupported;
 - shadow mode is selected and the parsed worker records differ from the
   in-memory CPU overlap records for any captured query.
+- `CUFLYE_OVERLAP_GRAPH_CONSUMPTION_MODE` is unsupported;
+- graph-consumption dry-run mode is selected and a required guard precondition
+  fails, including missing shadow mode or failed shadow comparison.
 
 There is no silent CPU fallback when the seam is explicitly enabled.
 
@@ -163,6 +189,22 @@ On validation failure Flye writes `worker-validation.json`, writes
   "status": "validation-failed-before-graph-mutation",
   "validation_status": "failed",
   "worker_output_consumption_eligible": false,
+  "graph_mutation_consumed_worker_output": false
+}
+```
+
+and then exits non-zero before graph mutation.
+
+On guard precondition failure after validation passes, Flye writes
+`worker-graph-consumption-guard.json`, writes `seam-summary.json` with:
+
+```json
+{
+  "status": "guard-failed-before-graph-mutation",
+  "validation_status": "passed",
+  "graph_guard_status": "failed",
+  "graph_consumption_state": "failed-closed",
+  "graph_consumption_eligible": false,
   "graph_mutation_consumed_worker_output": false
 }
 ```

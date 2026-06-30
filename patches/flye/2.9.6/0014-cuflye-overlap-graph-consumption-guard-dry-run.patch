@@ -1,0 +1,303 @@
+--- a/src/sequence/overlap.cpp
++++ b/src/sequence/overlap.cpp
+@@ -264,6 +264,28 @@
+ 		std::string status = "not-requested";
+ 		bool shadowConsumptionEligible = false;
+ 		std::vector<OverlapWorkerFixtureShadow> fixtures;
++	};
++
++	struct OverlapWorkerGraphGuardCheck
++	{
++		std::string name;
++		bool required = true;
++		bool passed = false;
++		std::string detail;
++	};
++
++	struct OverlapWorkerGraphGuardResult
++	{
++		std::string mode;
++		std::string status = "disabled";
++		std::string eligibility = "ineligible";
++		std::string graphConsumptionState = "not-consumed";
++		std::string decision = "disabled";
++		bool eligible = false;
++		bool consumed = false;
++		bool notConsumed = true;
++		bool failedClosed = false;
++		std::vector<OverlapWorkerGraphGuardCheck> checks;
+ 	};
+ 
+ 	std::map<std::string, std::vector<OverlapDumpRecord>>&
+@@ -337,8 +359,31 @@
+ 	bool overlapWorkerShadowEnabled()
+ 	{
+ 		return !overlapWorkerShadowMode().empty();
++	}
++
++	std::string overlapWorkerGraphConsumptionMode()
++	{
++		static std::string mode = []()
++		{
++			const char* raw = std::getenv("CUFLYE_OVERLAP_GRAPH_CONSUMPTION_MODE");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "dry-run-v0")
++			{
++				throw std::runtime_error(
++					"Unsupported CUFLYE_OVERLAP_GRAPH_CONSUMPTION_MODE: " +
++					selected);
++			}
++			return selected;
++		}();
++		return mode;
+ 	}
+ 
++	bool overlapWorkerGraphConsumptionDryRunEnabled()
++	{
++		return !overlapWorkerGraphConsumptionMode().empty();
++	}
++
+ 	std::string stripWhitespace(const std::string& text)
+ 	{
+ 		std::string stripped;
+@@ -432,6 +477,7 @@
+ 			overlapEnvRequired("CUFLYE_OVERLAP_WORKER_OUTPUT_DIR");
+ 			overlapWorkerValidationMode();
+ 			overlapWorkerShadowMode();
++			overlapWorkerGraphConsumptionMode();
+ 			const auto& queryIds = overlapReplayQueryIds();
+ 			if (!queryIds.empty() && overlapReplayMaxFixtures() != queryIds.size())
+ 			{
+@@ -975,7 +1021,113 @@
+ 				json << "\n";
+ 			}
+ 			json << "    }" << (i + 1 == shadow.fixtures.size() ? "\n" : ",\n");
++		}
++		json << "  ]\n"
++			 << "}\n";
++		writeTextFile(path, json.str());
++	}
++
++	void addGraphGuardCheck(OverlapWorkerGraphGuardResult& guard,
++							const std::string& name,
++							bool passed,
++							const std::string& detail)
++	{
++		OverlapWorkerGraphGuardCheck check;
++		check.name = name;
++		check.required = true;
++		check.passed = passed;
++		check.detail = detail;
++		guard.checks.push_back(check);
++	}
++
++	bool allGraphGuardChecksPassed(const OverlapWorkerGraphGuardResult& guard)
++	{
++		for (const auto& check : guard.checks)
++		{
++			if (check.required && !check.passed) return false;
++		}
++		return !guard.checks.empty();
++	}
++
++	OverlapWorkerGraphGuardResult evaluateOverlapWorkerGraphGuard(
++		const OverlapWorkerValidationResult& validation,
++		const OverlapWorkerShadowResult& shadow,
++		size_t fixtureCount,
++		const std::string& guardJson)
++	{
++		OverlapWorkerGraphGuardResult guard;
++		guard.mode = overlapWorkerGraphConsumptionMode();
++		if (!overlapWorkerGraphConsumptionDryRunEnabled()) return guard;
++
++		guard.status = "failed";
++		guard.decision = "failed-closed-before-graph-mutation";
++		guard.graphConsumptionState = "failed-closed";
++		guard.failedClosed = true;
++		guard.notConsumed = false;
++
++		addGraphGuardCheck(guard, "explicit_guard_mode",
++						   guard.mode == "dry-run-v0",
++						   "CUFLYE_OVERLAP_GRAPH_CONSUMPTION_MODE=dry-run-v0");
++		addGraphGuardCheck(guard, "validation_passed",
++						   validation.status == "passed" &&
++							   validation.consumptionEligible,
++						   "worker output validation must pass");
++		addGraphGuardCheck(guard, "shadow_mode_selected",
++						   overlapWorkerShadowEnabled(),
++						   "CUFLYE_OVERLAP_WORKER_SHADOW_MODE=canonical-overlap-v0");
++		addGraphGuardCheck(guard, "shadow_passed",
++						   shadow.status == "passed" &&
++							   shadow.shadowConsumptionEligible,
++						   "in-memory shadow comparison must pass");
++		addGraphGuardCheck(guard, "fixture_count_matches_request",
++						   fixtureCount == overlapReplayMaxFixtures(),
++						   "captured fixture count must match request");
++		addGraphGuardCheck(guard, "audit_metadata_available",
++						   !guardJson.empty(),
++						   "guard audit JSON path must be available");
++
++		if (allGraphGuardChecksPassed(guard))
++		{
++			guard.status = "passed";
++			guard.eligibility = "eligible";
++			guard.graphConsumptionState = "not-consumed";
++			guard.decision = "dry-run-not-consumed";
++			guard.eligible = true;
++			guard.notConsumed = true;
++			guard.failedClosed = false;
+ 		}
++		return guard;
++	}
++
++	void writeOverlapWorkerGraphGuardJson(
++		const std::string& path,
++		const OverlapWorkerGraphGuardResult& guard)
++	{
++		std::ostringstream json;
++		json << "{\n"
++			 << "  \"schema\": \"cuflye-overlap-graph-consumption-guard-v0\",\n"
++			 << "  \"status\": \"" << jsonEscape(guard.status) << "\",\n"
++			 << "  \"mode\": \"" << jsonEscape(guard.mode) << "\",\n"
++			 << "  \"guard_eligibility\": \"" << jsonEscape(guard.eligibility) << "\",\n"
++			 << "  \"graph_consumption_state\": \""
++			 << jsonEscape(guard.graphConsumptionState) << "\",\n"
++			 << "  \"decision\": \"" << jsonEscape(guard.decision) << "\",\n"
++			 << "  \"eligible\": " << boolJson(guard.eligible) << ",\n"
++			 << "  \"consumed\": " << boolJson(guard.consumed) << ",\n"
++			 << "  \"not_consumed\": " << boolJson(guard.notConsumed) << ",\n"
++			 << "  \"failed_closed\": " << boolJson(guard.failedClosed) << ",\n"
++			 << "  \"graph_mutation_consumed_worker_output\": false,\n"
++			 << "  \"checks\": [\n";
++		for (size_t i = 0; i < guard.checks.size(); ++i)
++		{
++			const auto& check = guard.checks[i];
++			json << "    {\n"
++				 << "      \"name\": \"" << jsonEscape(check.name) << "\",\n"
++				 << "      \"required\": " << boolJson(check.required) << ",\n"
++				 << "      \"passed\": " << boolJson(check.passed) << ",\n"
++				 << "      \"detail\": \"" << jsonEscape(check.detail) << "\"\n"
++				 << "    }" << (i + 1 == guard.checks.size() ? "\n" : ",\n");
++		}
+ 		json << "  ]\n"
+ 			 << "}\n";
+ 		writeTextFile(path, json.str());
+@@ -1043,6 +1195,8 @@
+ 									   const std::string& shadowJson,
+ 									   const std::string& shadowStatus,
+ 									   bool shadowConsumptionEligible,
++									   const std::string& graphGuardJson,
++									   const OverlapWorkerGraphGuardResult& graphGuard,
+ 									   const std::string& status,
+ 									   const std::string& batchJson,
+ 									   const std::string& batchOutputDir,
+@@ -1073,6 +1227,18 @@
+ 			 << "  \"shadow_status\": \"" << jsonEscape(shadowStatus) << "\",\n"
+ 			 << "  \"shadow_consumption_eligible\": "
+ 			 << boolJson(shadowConsumptionEligible) << ",\n"
++			 << "  \"graph_consumption_mode\": \""
++			 << jsonEscape(overlapWorkerGraphConsumptionMode()) << "\",\n"
++			 << "  \"graph_guard_json\": \"" << jsonEscape(graphGuardJson) << "\",\n"
++			 << "  \"graph_guard_status\": \"" << jsonEscape(graphGuard.status) << "\",\n"
++			 << "  \"graph_guard_eligibility\": \""
++			 << jsonEscape(graphGuard.eligibility) << "\",\n"
++			 << "  \"graph_consumption_state\": \""
++			 << jsonEscape(graphGuard.graphConsumptionState) << "\",\n"
++			 << "  \"graph_consumption_decision\": \""
++			 << jsonEscape(graphGuard.decision) << "\",\n"
++			 << "  \"graph_consumption_eligible\": "
++			 << boolJson(graphGuard.eligible) << ",\n"
+ 			 << "  \"batch_json_output\": \"" << jsonEscape(batchJson) << "\",\n"
+ 			 << "  \"batch_output_dir\": \"" << jsonEscape(batchOutputDir) << "\",\n"
+ 			 << "  \"graph_mutation_consumed_worker_output\": false\n"
+@@ -1103,6 +1269,8 @@
+ 		std::string batchOutputDir = joinPath(outputRoot, "worker-output");
+ 		std::string validationJson = joinPath(outputRoot, "worker-validation.json");
+ 		std::string shadowJson = joinPath(outputRoot, "worker-shadow.json");
++		std::string graphGuardJson = joinPath(outputRoot,
++											  "worker-graph-consumption-guard.json");
+ 		std::string stdoutLog = joinPath(outputRoot, "worker-stdout.log");
+ 		std::string stderrLog = joinPath(outputRoot, "worker-stderr.log");
+ 		std::string seamSummary = joinPath(outputRoot, "seam-summary.json");
+@@ -1128,11 +1296,20 @@
+ 
+ 		auto validation = validateOverlapWorkerOutputs(fixtures, batchOutputDir);
+ 		writeOverlapWorkerValidationJson(validationJson, validation);
++		OverlapWorkerShadowResult shadow;
+ 		if (!validation.consumptionEligible)
+ 		{
++			auto graphGuard = evaluateOverlapWorkerGraphGuard(validation, shadow,
++															 fixtures.size(),
++															 graphGuardJson);
++			if (overlapWorkerGraphConsumptionDryRunEnabled())
++			{
++				writeOverlapWorkerGraphGuardJson(graphGuardJson, graphGuard);
++			}
+ 			writeOverlapWorkerSeamSummary(
+ 				seamSummary, requestJson, responseJson, fixtureList, queryIdsFile,
+ 				validationJson, validation.status, false, shadowJson, "not-run", false,
++				graphGuardJson, graphGuard,
+ 				"validation-failed-before-graph-mutation", batchJson, batchOutputDir,
+ 				fixtures.size());
+ 			throw std::runtime_error(
+@@ -1141,17 +1318,24 @@
+ 				"; seam_summary=" + seamSummary);
+ 		}
+ 
+-		OverlapWorkerShadowResult shadow;
+ 		if (overlapWorkerShadowEnabled())
+ 		{
+ 			shadow = compareOverlapWorkerShadowOutputs(fixtures, batchOutputDir);
+ 			writeOverlapWorkerShadowJson(shadowJson, shadow);
+ 			if (!shadow.shadowConsumptionEligible)
+ 			{
++				auto graphGuard = evaluateOverlapWorkerGraphGuard(validation, shadow,
++																 fixtures.size(),
++																 graphGuardJson);
++				if (overlapWorkerGraphConsumptionDryRunEnabled())
++				{
++					writeOverlapWorkerGraphGuardJson(graphGuardJson, graphGuard);
++				}
+ 				writeOverlapWorkerSeamSummary(
+ 					seamSummary, requestJson, responseJson, fixtureList, queryIdsFile,
+ 					validationJson, validation.status, true, shadowJson, shadow.status,
+-					false, "shadow-failed-before-graph-mutation", batchJson,
++					false, graphGuardJson, graphGuard,
++					"shadow-failed-before-graph-mutation", batchJson,
+ 					batchOutputDir, fixtures.size());
+ 				throw std::runtime_error(
+ 					"cuFlye overlap worker seam fail-closed; shadow consumption "
+@@ -1159,10 +1343,32 @@
+ 					"; seam_summary=" + seamSummary);
+ 			}
+ 		}
++
++		auto graphGuard = evaluateOverlapWorkerGraphGuard(validation, shadow,
++														 fixtures.size(),
++														 graphGuardJson);
++		if (overlapWorkerGraphConsumptionDryRunEnabled())
++		{
++			writeOverlapWorkerGraphGuardJson(graphGuardJson, graphGuard);
++			if (graphGuard.failedClosed)
++			{
++				writeOverlapWorkerSeamSummary(
++					seamSummary, requestJson, responseJson, fixtureList, queryIdsFile,
++					validationJson, validation.status, true, shadowJson, shadow.status,
++					shadow.shadowConsumptionEligible, graphGuardJson, graphGuard,
++					"guard-failed-before-graph-mutation", batchJson, batchOutputDir,
++					fixtures.size());
++				throw std::runtime_error(
++					"cuFlye overlap worker seam fail-closed; graph consumption guard "
++					"precondition failed; guard_json=" + graphGuardJson +
++					"; seam_summary=" + seamSummary);
++			}
++		}
+ 		writeOverlapWorkerSeamSummary(seamSummary, requestJson, responseJson,
+ 									  fixtureList, queryIdsFile, validationJson,
+ 									  validation.status, true, shadowJson, shadow.status,
+ 									  shadow.shadowConsumptionEligible,
++									  graphGuardJson, graphGuard,
+ 									  "stopped-before-graph-mutation", batchJson, batchOutputDir,
+ 									  fixtures.size());
+ 		throw std::runtime_error(
