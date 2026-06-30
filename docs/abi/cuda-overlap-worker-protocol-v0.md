@@ -114,7 +114,8 @@ Successful response:
   "timing_ms": {
     "worker_uptime": 1000.0,
     "request_total": 10.0,
-    "backend_total_before_write": 6.9,
+    "backend_mean_total_before_write": 6.9,
+    "backend_timed_total_before_write": 138.0,
     "worker_overhead": 3.1,
     "parse": 0.5,
     "write_output": 0.5,

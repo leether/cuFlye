@@ -7,16 +7,18 @@ change is considered complete.
 
 Active cards:
 
-- `2026-06-30-cuflye-m4i-packed-overlap-worker-protocol.md`: move the packed
-  overlap speedup toward a governed worker boundary without changing Flye graph
-  semantics.
+- None. M4i completed the packed overlap worker protocol proof.
 
 Proposed cards:
 
-- None.
+- `2026-06-30-cuflye-m4j-flye-overlap-worker-seam.md`: add a fail-closed
+  Flye-side overlap worker seam without feeding GPU output into graph mutation.
 
 Completed cards:
 
+- `2026-06-30-cuflye-m4i-packed-overlap-worker-protocol.md`: move the packed
+  overlap speedup toward a governed worker boundary without changing Flye graph
+  semantics.
 - `2026-06-30-cuflye-m4h-packed-multi-query-overlap-kernel.md`: pack multiple
   replay-match overlap fixtures into fewer CUDA launches while preserving
   per-query overlap hashes.

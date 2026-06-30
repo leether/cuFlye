@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4i Packed Overlap Worker Protocol
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -78,12 +78,55 @@ that packed replay boundary behind a governed worker protocol.
 
 ## Execution Checklist
 
-- [ ] Document packed overlap worker request/response contract.
-- [ ] Add worker CLI proof modes.
-- [ ] Implement supported packed overlap replay request path.
-- [ ] Implement unsupported request failure response path.
-- [ ] Run local static/style gates.
-- [ ] Build and run on DGX.
-- [ ] Validate and diff worker outputs.
-- [ ] Record worker overhead and compact DGX proof.
-- [ ] Close this card.
+- [x] Document packed overlap worker request/response contract.
+- [x] Add worker CLI proof modes.
+- [x] Implement supported packed overlap replay request path.
+- [x] Implement unsupported request failure response path.
+- [x] Run local static/style gates.
+- [x] Build and run on DGX.
+- [x] Validate and diff worker outputs.
+- [x] Record worker overhead and compact DGX proof.
+- [x] Close this card.
+
+## Merge Note
+
+Protocol commit:
+`90c15922c33ae26790d02d63f784dfdbaac5caa6`.
+
+Implementation commit:
+`f3c9549b7618ead850901ef2b2b86461ac8aaf5b`.
+
+DGX proof:
+`tests/golden/cuflye-m4i-packed-overlap-worker-protocol-dgx-aarch64.json`.
+
+M4i added `cuflye-overlap-worker-request-v0` and
+`cuflye-overlap-worker-response-v0` as an overlap-specific file-backed worker
+contract. The implementation adds `--worker-request-json` and
+`--worker-requests-jsonl` modes to the overlap replay runner, reusing the M4h
+packed CUDA path and preserving fail-closed behavior.
+
+The proof passed all worker gates:
+
+- Two supported packed serial worker requests round-tripped in one process.
+- The second request reported `worker_cuda_context_warm=true`.
+- The second request reused the CUDA arena with `0` allocations and `161`
+  reuses.
+- Both requests produced `9` fixture outputs and every output canonical-diffed
+  `match` against the fixture oracle.
+- An unsupported `batch_execution=per-fixture` request wrote an error response
+  and exited non-zero with code `1`.
+- Syntax/style gates and CUDA ownership scan passed.
+
+Measured DGX worker timing:
+
+- M4h standalone packed serial mean total before write: `6.906646 ms`.
+- Worker request 1 backend mean total before write: `6.854870 ms`.
+- Worker request 2 backend mean total before write: `6.853111 ms`.
+- Worker request 2 total wall time: `189.114338 ms` for `3` warmup and `20`
+  timed runs.
+- Worker request 2 measured overhead: `52.052121 ms`, or `2.602606 ms` per
+  timed run when amortized across `20` timed runs.
+
+Conclusion: M4i proves a governed overlap worker boundary can preserve M4h's
+packed overlap output hashes and warm CUDA state. It still does not integrate
+with Flye graph logic or claim end-to-end GPU mode speed.

@@ -140,6 +140,12 @@ Completed:
   faster than the CPU replay batch on DGX: CPU `14.977639 ms`, packed serial
   CUDA `6.906646 ms`, speedup vs current CPU `2.168584x`, and speedup vs the
   M4g CPU baseline `1.334651x`.
+- M4i: packed overlap-chain replay now has an overlap-specific file-backed
+  worker protocol. Two supported packed serial worker requests round-tripped in
+  one process, the second request reported warm context, reused the CUDA arena
+  with `0` allocations and `161` reuses, and every output preserved the M4h
+  oracle hashes. An unsupported request wrote `status=error` and exited with
+  code `1`.
 
 Current allowed performance claim:
 
@@ -172,6 +178,10 @@ cuFlye now has a bounded overlap-chain CUDA speedup on the M4f/M4g top-9 real
 replay-match fixture batch: packed serial CUDA is faster than the CPU replay
 batch while preserving exact `overlap-range-v1` oracle hashes. This is an
 overlap-chain replay claim only, not a Flye stage or end-to-end GPU mode claim.
+
+cuFlye also has a governed file-backed overlap worker boundary for that packed
+replay path. This is a worker round-trip and fail-closed protocol claim, not a
+claim that Flye graph logic consumes GPU overlap output.
 ```
 
 Current forbidden claim:
