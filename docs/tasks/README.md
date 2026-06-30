@@ -7,7 +7,8 @@ change is considered complete.
 
 Active cards:
 
-- None.
+- `2026-06-30-cuflye-m1j-cuda-candidate-core-benchmark.md`: benchmark the
+  candidate equality-scan core and prove a bounded CUDA-over-CPU speedup.
 
 Completed cards:
 

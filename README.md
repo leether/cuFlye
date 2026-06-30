@@ -226,6 +226,25 @@ tools/diff_candidate_dumps.py out/m1i/cpu-oracle.tsv out/m1i/gpu-candidates.tsv
 This is still a bounded fixture, but it verifies the GPU-side query-window
 generation needed before a real candidate backend can consume reads directly.
 
+## M1j CUDA Candidate Core Benchmark
+
+The first performance gate benchmarks only the candidate equality-scan core:
+
+```sh
+scripts/build_cuda_candidate_core_bench.sh --arch sm_121
+out/m1j/bin/cuflye-cuda-candidate-core-bench \
+  --queries 8192 \
+  --index-entries 32768 \
+  --key-space 4096 \
+  --trials 5 \
+  --warmup-trials 1 \
+  --json-output out/m1j/cuda-candidate-core-bench.json
+```
+
+This is not a full Flye speed claim. It compares CPU and CUDA for the same
+synthetic lookup-key pair scan and requires matching counts before reporting
+speedup.
+
 ## Licensing
 
 Original code in this repository is BSD-3-Clause by default.
