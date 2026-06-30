@@ -97,6 +97,12 @@ Completed:
   oracle dumps: `53,728` records per run, canonical SHA-256
   `71477479f412c90463aa60d8565b52da10f9dfec98d96387525ed50ae937c22b`,
   canonical diff `match`.
+- M4b: `overlap-replay-fixture-v0` captures a bounded raw-read candidate chain
+  fixture and the CPU replay tool reproduces Flye's overlap oracle for query
+  `-71`: `7,859` candidate records, `51` overlap records, canonical
+  overlap SHA-256
+  `1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73`,
+  canonical diff `match`.
 
 Current allowed performance claim:
 
@@ -108,6 +114,10 @@ candidate-list equivalence.
 cuFlye also has a deterministic CPU overlap-range oracle for the upstream toy
 fixture; this is a correctness boundary for future CUDA overlap chaining, not a
 GPU speed claim.
+
+cuFlye has isolated one non-base-alignment CPU overlap-chain replay shape from
+candidate records to `overlap-range-v1`; this is a semantic replay claim, not a
+CUDA or end-to-end performance claim.
 ```
 
 Current forbidden claim:
@@ -178,6 +188,7 @@ chaining semantics.
 Work items:
 
 - Define an overlap-range ABI. Completed in M4a.
+- Isolate a bounded CPU overlap-chain replay fixture. Completed in M4b.
 - Port or batch the chain DP used by `OverlapDetector::getSeqOverlaps`.
 - Preserve gap penalties, jump thresholds, minimum overlap, overhang filters,
   and divergence thresholds.
@@ -279,11 +290,11 @@ Use precise milestone labels:
 Next highest-ROI task:
 
 ```text
-M4b: build a bounded overlap-chain replay harness from Flye candidate records
-and compare CPU replay output to overlap-range-v1 before introducing CUDA.
+M4c: implement a first CUDA overlap-chain DP prototype for the M4b supported
+fixture shape and require its `overlap-range-v1` output to canonical-diff
+`match` against the CPU replay oracle.
 ```
 
-Acceptance should start with a CPU replay that reproduces the M4a
-`overlap-range-v1` oracle on toy data. The immediate target is to isolate the
-chain DP contract outside a full Flye run; do not port the chain DP to CUDA or
-claim graph equivalence until that replay boundary is machine-checkable.
+Acceptance should start with the M4b `query_neg71` fixture and preserve the
+exact CPU replay output. CUDA output is not allowed into Flye graph logic until
+this overlap-range boundary matches.

@@ -1,0 +1,292 @@
+{
+  "acceptance": {
+    "abi_doc_exists": true,
+    "candidate_fixture_validates": true,
+    "canonical_diff_match": true,
+    "no_large_tsv_committed": true,
+    "oracle_overlap_validates": true,
+    "patched_flye_builds_through_0008": true,
+    "replay_fixture_captured": true,
+    "replay_output_validates": true,
+    "supported_fixture_shape": true,
+    "toy_raw_run_completes": true,
+    "unsupported_shape_fails_closed": true
+  },
+  "created_at_utc": "2026-06-30T13:57:37.561475+00:00",
+  "derived_metrics": {
+    "candidate_canonical_sha256": "c3c0a64b60173b91f890b4f38e6a025e36521326213311757fb4d3f41c272dd5",
+    "candidate_records": 7859,
+    "canonical_overlap_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+    "full_toy_raw_overlap_records": 52151,
+    "oracle_overlap_records": 51,
+    "replayed_overlap_records": 51,
+    "selected_query_id": -71,
+    "target_records": 120
+  },
+  "diff": {
+    "left": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/replay-fixtures/query_neg71/oracle.overlaps.tsv",
+    "left_records": 51,
+    "left_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+    "right": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/replay/replayed.overlaps.tsv",
+    "right_records": 51,
+    "right_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+    "status": "match"
+  },
+  "fixture": {
+    "dir": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/replay-fixtures/query_neg71",
+    "file_sha256": {
+      "candidates": "b2a860947fb3af86d15e3652cb3b93d1ea9e916453255a3a80a7a431c88bb2c1",
+      "filtered_positions": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "manifest": "261dbdc876e8a78e31e439311eebbdf60c7b7c2f4319326adfc5f0b3da527331",
+      "oracle_overlaps": "2549e299addcaf5bf903c0e5319d3097164220daaf1ad189d87f69de98daae80",
+      "targets": "16a389288aeeb48febf54f35f137860286a62ca65c8702ea5462c4ec6413e5cd"
+    },
+    "manifest": {
+      "candidate_records": 7859,
+      "files": {
+        "candidates": "candidates.tsv",
+        "filtered_positions": "filtered-positions.tsv",
+        "oracle_overlaps": "oracle.overlaps.tsv",
+        "targets": "targets.tsv"
+      },
+      "filtered_positions": 0,
+      "oracle_overlap_records": 51,
+      "parameters": {
+        "chain_gap_jump_threshold": 100,
+        "chain_large_gap_penalty": 2,
+        "chain_small_gap_penalty": 0.5,
+        "check_overhang": true,
+        "force_local": false,
+        "keep_alignment": false,
+        "kmer_size": 17,
+        "max_divergence": 1,
+        "max_jump_gap": 500,
+        "max_overlaps": 0,
+        "maximum_jump": 1500,
+        "maximum_overhang": 1500,
+        "min_kmer_survival_rate": 0.00999999978,
+        "minimum_overlap": 1000,
+        "nucl_alignment": false,
+        "only_max_ext": true,
+        "partition_bad_mappings": false,
+        "sample_rate": 1,
+        "use_hpc": false
+      },
+      "query_id": -71,
+      "query_length": 23257,
+      "schema": "cuflye-overlap-replay-fixture-v0",
+      "status": "captured",
+      "target_records": 120
+    }
+  },
+  "flye_build_manifest": {
+    "actual_branch": "flye",
+    "actual_commit": "886b8c17412c",
+    "actual_tags": [
+      "2.9.6"
+    ],
+    "applied_patches": [
+      "0001-cuflye-candidate-dump.patch",
+      "0002-cuflye-candidate-backend-seam.patch",
+      "0003-cuflye-cuda-backend-stub.patch",
+      "0004-cuflye-cuda-adapter-shell.patch",
+      "0005-cuflye-real-data-pack-dump.patch",
+      "0006-cuflye-external-pack-query-stop.patch",
+      "0007-cuflye-overlap-range-dump.patch",
+      "0008-cuflye-overlap-replay-fixture-dump.patch"
+    ],
+    "apply_patches": true,
+    "created_at_utc": "2026-06-30T13:52:45.441837+00:00",
+    "expected_commit_prefix": "886b8c1",
+    "expected_ref": "2.9.6",
+    "flye_dir": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/upstream-flye",
+    "flye_version": "2.9.6-b1802",
+    "gcc": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+    "gxx": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+    "host": "edgexpert-45d2",
+    "jobs": 8,
+    "machine": "aarch64",
+    "make": "GNU Make 4.3",
+    "make_args": [
+      "THREADS=8",
+      "aarch64=1",
+      "arm_neon=1"
+    ],
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+    "python": "3.12.3",
+    "repo_root": "/tmp/cuflye-m4b-proof-1782827490-git"
+  },
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+    "python": "3.12.3"
+  },
+  "milestone": "M4b-overlap-chain-replay-harness",
+  "non_claims": [
+    "No CUDA overlap chain DP is implemented by M4b.",
+    "Base-level alignment and bad-mapping trim replay are explicitly unsupported in M4b.",
+    "No graph-level Flye equivalence or end-to-end speedup is claimed."
+  ],
+  "replay_summary": {
+    "candidate_records": 7859,
+    "filtered_positions": 0,
+    "fixture_dir": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/replay-fixtures/query_neg71",
+    "output": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/replay/replayed.overlaps.tsv",
+    "overlap_records": 51,
+    "query_id": -71,
+    "schema": "cuflye-overlap-replay-result-v0",
+    "status": "ok",
+    "supported_shape": {
+      "keep_alignment": false,
+      "nucl_alignment": false,
+      "partition_bad_mappings": false
+    },
+    "target_records": 120
+  },
+  "repo": {
+    "branch": "main",
+    "commit": "84d1355c10512d98d224245e295d6046aae7d77c",
+    "remote_dir": "/tmp/cuflye-m4b-proof-1782827490-git"
+  },
+  "run_metadata": {
+    "command": [
+      "out/m4b/upstream-flye/bin/flye",
+      "--pacbio-raw",
+      "out/m4b/upstream-flye/flye/tests/data/ecoli_500kb_reads.fastq.gz",
+      "-g",
+      "500k",
+      "-o",
+      "out/m4b/runs/toy-raw-replay",
+      "-t",
+      "1",
+      "-m",
+      "1000",
+      "--debug"
+    ],
+    "elapsed_seconds": 91,
+    "exit_status": 0,
+    "finished_at_utc": "2026-06-30T13:54:32.298625+00:00",
+    "fixture": "toy-raw",
+    "flye_commit": "886b8c17412cdf3a2868a28237bca6c5ad1da156",
+    "flye_dir": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/upstream-flye",
+    "flye_tags": [
+      "2.9.6"
+    ],
+    "genome_size": "500k",
+    "host": "edgexpert-45d2",
+    "machine": "aarch64",
+    "min_overlap": "1000",
+    "nvidia_smi": "GPU 0: NVIDIA GB10 (UUID: GPU-36e1e91e-fa5c-6e0d-d076-203391a7bb03)",
+    "overlap_dump": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/overlaps/toy-raw.overlaps.tsv",
+    "overlap_replay_dump_dir": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/replay-fixtures",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+    "python": "3.12.3",
+    "read_type": "pacbio-raw",
+    "reads": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/upstream-flye/flye/tests/data/ecoli_500kb_reads.fastq.gz",
+    "repo_commit": "7bb43361bf7469df2b7acba648ce6cf14be4ec36",
+    "repo_root": "/tmp/cuflye-m4b-proof-1782827490-git",
+    "started_at_utc": "2026-06-30T13:53:01.661056+00:00",
+    "threads": 1
+  },
+  "schema": "cuflye-dgx-proof-v1",
+  "status": "passed",
+  "unsupported_shape_negative": {
+    "expected_failure": true,
+    "fixture_dir": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/replay-fixtures/query_1",
+    "stderr_excerpt": "Overlap replay failed: unsupported overlap replay shape: nucl_alignment=true requires Flye base-alignment replay; partition_bad_mappings=true requires trim replay; keep_alignment=true is outside M4b replay scope"
+  },
+  "validations": {
+    "candidate_fixture": {
+      "abi": "candidate-record-v1",
+      "canonical_sha256": "c3c0a64b60173b91f890b4f38e6a025e36521326213311757fb4d3f41c272dd5",
+      "first_record": [
+        -71,
+        88,
+        7132713574,
+        17,
+        6007,
+        "+"
+      ],
+      "last_record": [
+        -71,
+        7628,
+        15539098347,
+        914,
+        2240,
+        "+"
+      ],
+      "path": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/replay-fixtures/query_neg71/candidates.tsv",
+      "raw_sha256": "b2a860947fb3af86d15e3652cb3b93d1ea9e916453255a3a80a7a431c88bb2c1",
+      "raw_sorted_by_canonical_key": false,
+      "records": 7859,
+      "size_bytes": 254049
+    },
+    "oracle_overlap": {
+      "abi": "overlap-range-v1",
+      "canonical_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+      "first_record": [
+        -71,
+        89,
+        4589,
+        23257,
+        17,
+        6008,
+        10428,
+        10457,
+        338,
+        0.229469001
+      ],
+      "last_record": [
+        -71,
+        5791,
+        9972,
+        23257,
+        911,
+        214,
+        4354,
+        4816,
+        421,
+        0.217857465
+      ],
+      "path": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/replay-fixtures/query_neg71/oracle.overlaps.tsv",
+      "raw_sha256": "2549e299addcaf5bf903c0e5319d3097164220daaf1ad189d87f69de98daae80",
+      "raw_sorted_by_canonical_key": false,
+      "records": 51,
+      "size_bytes": 2870
+    },
+    "replayed_overlap": {
+      "abi": "overlap-range-v1",
+      "canonical_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+      "first_record": [
+        -71,
+        89,
+        4589,
+        23257,
+        17,
+        6008,
+        10428,
+        10457,
+        338,
+        0.229469001
+      ],
+      "last_record": [
+        -71,
+        5791,
+        9972,
+        23257,
+        911,
+        214,
+        4354,
+        4816,
+        421,
+        0.217857465
+      ],
+      "path": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/replay/replayed.overlaps.tsv",
+      "raw_sha256": "2549e299addcaf5bf903c0e5319d3097164220daaf1ad189d87f69de98daae80",
+      "raw_sorted_by_canonical_key": false,
+      "records": 51,
+      "size_bytes": 2870
+    }
+  }
+}

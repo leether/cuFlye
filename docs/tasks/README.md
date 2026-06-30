@@ -7,12 +7,14 @@ change is considered complete.
 
 Active cards:
 
-- `2026-06-30-cuflye-m4b-overlap-chain-replay-harness.md`: isolate Flye's
-  candidate-to-overlap chaining contract in a bounded CPU replay before CUDA
-  chain DP.
+- `2026-06-30-cuflye-m4c-cuda-overlap-chain-dp-prototype.md`: implement the
+  first CUDA overlap-chain DP prototype for the M4b supported fixture shape.
 
 Completed cards:
 
+- `2026-06-30-cuflye-m4b-overlap-chain-replay-harness.md`: isolate Flye's
+  candidate-to-overlap chaining contract in a bounded CPU replay before CUDA
+  chain DP.
 - `2026-06-30-cuflye-m4a-overlap-range-oracle.md`: define overlap-range ABI
   and CPU oracle dump tooling before CUDA overlap chaining.
 - `2026-06-30-cuflye-m3e-sampled-pack-batch-planner.md`: generate sampled

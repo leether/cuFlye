@@ -67,3 +67,5 @@ M4 overlap-range oracle proof:
 
 - Overlap-range CPU oracle manifest:
   `cuflye-m4a-overlap-range-oracle-dgx-aarch64.json`
+- Overlap-chain replay manifest:
+  `cuflye-m4b-overlap-chain-replay-dgx-aarch64.json`

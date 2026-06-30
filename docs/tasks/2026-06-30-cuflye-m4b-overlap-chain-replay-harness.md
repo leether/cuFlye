@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4b Overlap Chain Replay Harness
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -86,11 +86,39 @@ the same `overlap-range-v1` output.
 
 ## Execution Checklist
 
-- [ ] Inspect Flye chaining inputs around `OverlapDetector::getSeqOverlaps`.
-- [ ] Choose the smallest replayable fixture boundary.
-- [ ] Add fixture manifest or generator.
-- [ ] Add CPU replay tool or patch mode.
-- [ ] Validate replay output as `overlap-range-v1`.
-- [ ] Diff replay output against the M4a oracle.
-- [ ] Run local syntax/style gates.
-- [ ] Run DGX proof and record compact manifest.
+- [x] Inspect Flye chaining inputs around `OverlapDetector::getSeqOverlaps`.
+- [x] Choose the smallest replayable fixture boundary.
+- [x] Add fixture manifest or generator.
+- [x] Add CPU replay tool or patch mode.
+- [x] Validate replay output as `overlap-range-v1`.
+- [x] Diff replay output against the M4a oracle.
+- [x] Run local syntax/style gates.
+- [x] Run DGX proof and record compact manifest.
+
+## Merge Note
+
+Implementation commit: `84d1355c10512d98d224245e295d6046aae7d77c`
+
+DGX proof manifest:
+`tests/golden/cuflye-m4b-overlap-chain-replay-dgx-aarch64.json`
+
+Proof summary:
+
+- Host: `edgexpert-45d2` (`aarch64`)
+- Flye: `2.9.6-b1802`, patched through
+  `0008-cuflye-overlap-replay-fixture-dump.patch`
+- Fixture: `toy-raw`, selected query id `-71`
+- Candidate records: `7,859`
+- Target records: `120`
+- Oracle overlap records: `51`
+- Replayed overlap records: `51`
+- Candidate canonical SHA-256:
+  `c3c0a64b60173b91f890b4f38e6a025e36521326213311757fb4d3f41c272dd5`
+- Overlap canonical SHA-256:
+  `1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73`
+- Canonical diff: `match`
+- Unsupported shape negative gate: base-alignment/trim fixture rejected as
+  expected
+
+This card does not implement CUDA overlap chaining. It isolates the first
+supported CPU chain replay shape for M4c.
