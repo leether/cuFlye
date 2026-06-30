@@ -201,6 +201,31 @@ This still does not slide across full reads or upload Flye's full `VertexIndex`.
 It proves the device-side encoding and standard-form semantics needed before a
 real CUDA candidate backend can replace the stub.
 
+## M1i CUDA Read Window Smoke
+
+The next prototype gives CUDA short read sequences and makes the device slide
+query k-mer windows before the equality join:
+
+```sh
+scripts/build_cuda_read_window_smoke.sh --arch sm_121
+out/m1i/bin/cuflye-cuda-read-window-smoke \
+  --kmer-size 4 \
+  --reads-tsv tests/fixtures/read-window-smoke-v0/reads.tsv \
+  --index-tsv tests/fixtures/read-window-smoke-v0/index.tsv \
+  --repetitive-kmers-tsv tests/fixtures/read-window-smoke-v0/repetitive-kmers.tsv \
+  --cpu-output-tsv out/m1i/cpu-oracle.tsv \
+  --output-tsv out/m1i/gpu-candidates.tsv \
+  --memory-budget-bytes 1048576 \
+  --json-output out/m1i/cuda-read-window-smoke.json
+tools/diff_candidate_dumps.py \
+  tests/fixtures/read-window-smoke-v0/expected.candidates.tsv \
+  out/m1i/cpu-oracle.tsv
+tools/diff_candidate_dumps.py out/m1i/cpu-oracle.tsv out/m1i/gpu-candidates.tsv
+```
+
+This is still a bounded fixture, but it verifies the GPU-side query-window
+generation needed before a real candidate backend can consume reads directly.
+
 ## Licensing
 
 Original code in this repository is BSD-3-Clause by default.

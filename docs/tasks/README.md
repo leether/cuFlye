@@ -7,7 +7,8 @@ change is considered complete.
 
 Active cards:
 
-- None.
+- `2026-06-30-cuflye-m1i-cuda-read-window-smoke.md`: slide bounded read
+  sequences on GPU to generate query k-mers before candidate equality join.
 
 Completed cards:
 
