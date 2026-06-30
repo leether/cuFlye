@@ -11,6 +11,8 @@ Active cards:
 
 Completed cards:
 
+- `2026-06-30-cuflye-governance-coding-style-v0.md`: define local C++/CUDA
+  style rules and formatter scope without reformatting upstream or patch code.
 - `2026-06-30-cuflye-m2b-real-data-pack-dump.md`: extract real Flye
   query/index data into a replayable packed candidate-backend bundle.
 - `2026-06-30-cuflye-m2a-cuda-candidate-adapter-shell.md`: replace the CUDA
