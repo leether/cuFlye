@@ -79,3 +79,5 @@ M4 overlap-range oracle proof:
   `cuflye-m4f-overlap-chain-batched-fixtures-dgx-aarch64.json`
 - Batched overlap worker manifest:
   `cuflye-m4g-batched-overlap-worker-dgx-aarch64.json`
+- Packed multi-query overlap kernel manifest:
+  `cuflye-m4h-packed-multi-query-overlap-kernel-dgx-aarch64.json`

@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4h Packed Multi-Query Overlap Kernel
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -90,11 +90,50 @@ work, not fixture capture or output validation.
 
 ## Execution Checklist
 
-- [ ] Design packed multi-query input/output contract.
-- [ ] Implement packed device layout and bounds-checked offsets.
-- [ ] Implement packed CUDA execution mode with fewer launches where possible.
-- [ ] Validate per-query outputs on DGX.
-- [ ] Diff per-query outputs against oracles.
-- [ ] Record timing summary, launch count, and speed ratios.
-- [ ] Run ownership/resource scan.
-- [ ] Record compact DGX proof and close this card.
+- [x] Design packed multi-query input/output contract.
+- [x] Implement packed device layout and bounds-checked offsets.
+- [x] Implement packed CUDA execution mode with fewer launches where possible.
+- [x] Validate per-query outputs on DGX.
+- [x] Diff per-query outputs against oracles.
+- [x] Record timing summary, launch count, and speed ratios.
+- [x] Run ownership/resource scan.
+- [x] Record compact DGX proof and close this card.
+
+## Merge Note
+
+Implementation commit:
+`bfc338864818b7e8a4bf486580138c753a49281f`.
+
+DGX proof:
+`tests/golden/cuflye-m4h-packed-multi-query-overlap-kernel-dgx-aarch64.json`.
+
+M4h added `--batch-execution packed` for the overlap-chain replay runner. The
+packed path concatenates multiple replay-match fixtures into one device layout,
+copies query-specific `DeviceParams`, runs all target groups in a single CUDA
+kernel launch per timed batch, and then splits outputs back by fixture for the
+same `overlap-range-v1` validation and oracle diff gates.
+
+The proof passed all correctness gates:
+
+- CPU, per-fixture serial CUDA, per-fixture parallel CUDA, packed serial CUDA,
+  and packed parallel CUDA all validated `9` top replay-match fixtures.
+- Every output canonical-diffed `match` against the fixture oracle.
+- Packed serial CUDA reduced launch count from `9` per timed run to `1`.
+- Packed layout recorded `54694` candidate records, `892` target groups, and
+  `9` parameter records.
+- Syntax/style gates and CUDA ownership scan passed.
+
+Measured batch timing on DGX `NVIDIA GB10` with `3` warmup runs and `20` timed
+runs:
+
+- CPU batch mean total before write: `14.977639 ms`.
+- Per-fixture serial CUDA mean total before write: `36.093412 ms`.
+- Per-fixture parallel CUDA mean total before write: `38.754444 ms`.
+- Packed serial CUDA mean total before write: `6.906646 ms`.
+- Packed parallel CUDA mean total before write: `7.308527 ms`.
+- Packed serial CUDA speedup vs current CPU batch: `2.168584x`.
+- Packed serial CUDA speedup vs M4g CPU baseline: `1.334651x`.
+
+Conclusion: the project now has a bounded CUDA overlap-chain speedup on a real
+replay-match fixture batch, with exact oracle parity. This is still not a Flye
+stage or end-to-end `flye --gpu` speed claim.

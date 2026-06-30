@@ -7,12 +7,20 @@ change is considered complete.
 
 Active cards:
 
-- `2026-06-30-cuflye-m4h-packed-multi-query-overlap-kernel.md`: pack multiple
-  replay-match overlap fixtures into fewer CUDA launches while preserving
-  per-query overlap hashes.
+- None. M4h reached the requested stop condition by proving a bounded
+  CUDA-over-CPU overlap-chain replay speedup.
+
+Proposed cards:
+
+- `2026-06-30-cuflye-m4i-packed-overlap-worker-protocol.md`: move the packed
+  overlap speedup toward a governed worker boundary without changing Flye graph
+  semantics.
 
 Completed cards:
 
+- `2026-06-30-cuflye-m4h-packed-multi-query-overlap-kernel.md`: pack multiple
+  replay-match overlap fixtures into fewer CUDA launches while preserving
+  per-query overlap hashes.
 - `2026-06-30-cuflye-m4g-batched-overlap-worker.md`: run real replay-match
   overlap fixtures through one long-lived batched CUDA worker.
 - `2026-06-30-cuflye-m4f-overlap-chain-batched-fixtures.md`: collect or derive

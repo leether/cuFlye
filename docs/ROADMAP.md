@@ -134,6 +134,12 @@ Completed:
   improves CUDA overhead compared with M4f external invocation, but it is still
   slower than CPU: CPU `9.217960 ms`, serial CUDA `36.781822 ms`, parallel CUDA
   `45.264240 ms`.
+- M4h: packed multi-query overlap-chain replay validates the same top-9
+  replay-match fixtures while reducing CUDA launches from `9` per timed run to
+  `1`. Packed serial CUDA preserves every `overlap-range-v1` oracle hash and is
+  faster than the CPU replay batch on DGX: CPU `14.977639 ms`, packed serial
+  CUDA `6.906646 ms`, speedup vs current CPU `2.168584x`, and speedup vs the
+  M4g CPU baseline `1.334651x`.
 
 Current allowed performance claim:
 
@@ -162,11 +168,10 @@ The current parallel-reduce CUDA overlap-chain kernel preserves correctness but
 does not improve the single-query benchmark. Further overlap-chain performance
 work must increase real batched work before claiming speed.
 
-cuFlye now has real multi-query overlap-chain fixtures, a batch validation
-harness, and a single-process batched worker with CUDA arena reuse, but it still
-does not have an overlap-chain CUDA speedup. Process/context/allocation reuse
-alone is insufficient. The next performance boundary is a packed multi-query
-device layout or fewer CUDA launches for the same real replay-match batch.
+cuFlye now has a bounded overlap-chain CUDA speedup on the M4f/M4g top-9 real
+replay-match fixture batch: packed serial CUDA is faster than the CPU replay
+batch while preserving exact `overlap-range-v1` oracle hashes. This is an
+overlap-chain replay claim only, not a Flye stage or end-to-end GPU mode claim.
 ```
 
 Current forbidden claim:
