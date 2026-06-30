@@ -11,6 +11,8 @@ Active cards:
 
 Completed cards:
 
+- `2026-06-30-cuflye-m2b-real-data-pack-dump.md`: extract real Flye
+  query/index data into a replayable packed candidate-backend bundle.
 - `2026-06-30-cuflye-m2a-cuda-candidate-adapter-shell.md`: replace the CUDA
   backend stub with an external packed adapter shell and fail-closed guards.
 - `2026-06-30-cuflye-m1j-cuda-candidate-core-benchmark.md`: benchmark the

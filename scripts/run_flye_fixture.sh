@@ -36,6 +36,10 @@ Options:
                        Set CUFLYE_CUDA_ADAPTER_JSON
   --cuda-packed-kmer-size N
                        Set CUFLYE_CUDA_PACKED_KMER_SIZE
+  --cuda-pack-dump-dir PATH
+                       Set CUFLYE_CUDA_PACK_DUMP_DIR for M2b real-data pack dump
+  --cuda-pack-query-id ID
+                       Set CUFLYE_CUDA_PACK_QUERY_ID
   --extra-arg ARG      Extra Flye argument. May be repeated.
   --force              Remove existing output directory before running
   -h, --help           Show this help
@@ -69,6 +73,8 @@ cuda_packed_fixture_dir="${CUFLYE_CUDA_PACKED_FIXTURE_DIR:-}"
 cuda_adapter_output_tsv="${CUFLYE_CUDA_ADAPTER_OUTPUT_TSV:-}"
 cuda_adapter_json="${CUFLYE_CUDA_ADAPTER_JSON:-}"
 cuda_packed_kmer_size="${CUFLYE_CUDA_PACKED_KMER_SIZE:-}"
+cuda_pack_dump_dir="${CUFLYE_CUDA_PACK_DUMP_DIR:-}"
+cuda_pack_query_id="${CUFLYE_CUDA_PACK_QUERY_ID:-}"
 extra_args=()
 
 while [ "$#" -gt 0 ]; do
@@ -143,6 +149,14 @@ while [ "$#" -gt 0 ]; do
       ;;
     --cuda-packed-kmer-size)
       cuda_packed_kmer_size="$2"
+      shift 2
+      ;;
+    --cuda-pack-dump-dir)
+      cuda_pack_dump_dir="$2"
+      shift 2
+      ;;
+    --cuda-pack-query-id)
+      cuda_pack_query_id="$2"
       shift 2
       ;;
     --extra-arg)
@@ -230,6 +244,10 @@ if [ -n "${cuda_adapter_json}" ]; then
   mkdir -p "$(dirname "${cuda_adapter_json}")"
   rm -f "${cuda_adapter_json}"
 fi
+if [ -n "${cuda_pack_dump_dir}" ]; then
+  rm -rf "${cuda_pack_dump_dir}"
+  mkdir -p "${cuda_pack_dump_dir}"
+fi
 
 read_flag=""
 case "${read_type}" in
@@ -293,9 +311,15 @@ fi
 if [ -n "${cuda_packed_kmer_size}" ]; then
   export CUFLYE_CUDA_PACKED_KMER_SIZE="${cuda_packed_kmer_size}"
 fi
+if [ -n "${cuda_pack_dump_dir}" ]; then
+  export CUFLYE_CUDA_PACK_DUMP_DIR="${cuda_pack_dump_dir}"
+fi
+if [ -n "${cuda_pack_query_id}" ]; then
+  export CUFLYE_CUDA_PACK_QUERY_ID="${cuda_pack_query_id}"
+fi
 
 metadata_tmp="${out_dir}/run_metadata.pre.json"
-python3 - "$metadata_tmp" "$repo_root" "$flye_dir" "$fixture" "$reads" "$read_type" "$genome_size" "$min_overlap" "$threads" "$candidate_dump" "$candidate_backend" "$cuda_device" "$cuda_memory_budget_bytes" "$cuda_adapter_mode" "$cuda_backend_bin" "$cuda_packed_fixture_dir" "$cuda_adapter_output_tsv" "$cuda_adapter_json" "$cuda_packed_kmer_size" "${cmd[@]}" <<'PY'
+python3 - "$metadata_tmp" "$repo_root" "$flye_dir" "$fixture" "$reads" "$read_type" "$genome_size" "$min_overlap" "$threads" "$candidate_dump" "$candidate_backend" "$cuda_device" "$cuda_memory_budget_bytes" "$cuda_adapter_mode" "$cuda_backend_bin" "$cuda_packed_fixture_dir" "$cuda_adapter_output_tsv" "$cuda_adapter_json" "$cuda_packed_kmer_size" "$cuda_pack_dump_dir" "$cuda_pack_query_id" "${cmd[@]}" <<'PY'
 import json
 import os
 import platform
@@ -304,7 +328,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 
-metadata_path, repo_root, flye_dir, fixture, reads, read_type, genome_size, min_overlap, threads, candidate_dump, candidate_backend, cuda_device, cuda_memory_budget_bytes, cuda_adapter_mode, cuda_backend_bin, cuda_packed_fixture_dir, cuda_adapter_output_tsv, cuda_adapter_json, cuda_packed_kmer_size, *cmd = sys.argv[1:]
+metadata_path, repo_root, flye_dir, fixture, reads, read_type, genome_size, min_overlap, threads, candidate_dump, candidate_backend, cuda_device, cuda_memory_budget_bytes, cuda_adapter_mode, cuda_backend_bin, cuda_packed_fixture_dir, cuda_adapter_output_tsv, cuda_adapter_json, cuda_packed_kmer_size, cuda_pack_dump_dir, cuda_pack_query_id, *cmd = sys.argv[1:]
 
 def run(cmdline):
     try:
@@ -352,6 +376,10 @@ if cuda_adapter_json:
     payload["cuda_adapter_json"] = os.path.abspath(cuda_adapter_json)
 if cuda_packed_kmer_size:
     payload["cuda_packed_kmer_size"] = cuda_packed_kmer_size
+if cuda_pack_dump_dir:
+    payload["cuda_pack_dump_dir"] = os.path.abspath(cuda_pack_dump_dir)
+if cuda_pack_query_id:
+    payload["cuda_pack_query_id"] = cuda_pack_query_id
 
 with open(metadata_path, "w", encoding="utf-8") as handle:
     json.dump(payload, handle, indent=2, sort_keys=True)

@@ -1,0 +1,85 @@
+{
+  "build": {
+    "applied_patches": [
+      "patches/flye/2.9.6/0001-cuflye-candidate-dump.patch",
+      "patches/flye/2.9.6/0002-cuflye-candidate-backend-seam.patch",
+      "patches/flye/2.9.6/0003-cuflye-cuda-backend-stub.patch",
+      "patches/flye/2.9.6/0004-cuflye-cuda-adapter-shell.patch",
+      "patches/flye/2.9.6/0005-cuflye-real-data-pack-dump.patch"
+    ],
+    "flye_build_manifest": "out/m2b/proof/flye_build_manifest.json",
+    "flye_commit": "886b8c17412c",
+    "flye_version": "2.9.6-b1802"
+  },
+  "default_regression": {
+    "fixture": "toy-hifi",
+    "run": "out/m2b/proof/runs/toy-default",
+    "status": "completed",
+    "threads": 1
+  },
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "nvidia_smi": "GPU 0: NVIDIA GB10",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39"
+  },
+  "pack_dump": {
+    "adapter": "pack-dump-v0",
+    "cpu_candidates": {
+      "bytes": 510990,
+      "canonical_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+      "lines": 15571,
+      "path": "out/m2b/proof/pack/query_neg253/cpu-candidates.tsv",
+      "raw_sha256": "6c4e5e7bf162d7f4223c9e34ab2c92e0cc253f8a76e0802e45bbcaf423baa68b",
+      "records": 15571,
+      "validator": "out/m2b/proof/pack/query_neg253/cpu-candidates.validator.json"
+    },
+    "error_excerpt": "cuFlye CUDA pack-dump adapter captured real Flye query/index data; adapter=pack-dump-v0; query_id=-253; pack_dir=out/m2b/proof/pack/query_neg253; failing closed before downstream graph logic",
+    "files": {
+      "index.tsv": {
+        "bytes": 464773,
+        "lines": 15571,
+        "sha256": "623b6c3dbbc4e48d5a5aaf42fd2790661f83287e686ef875545f89eeff82247e"
+      },
+      "reads.tsv": {
+        "bytes": 3345,
+        "lines": 1,
+        "sha256": "d63846d0e82dfdd583fcd6a333492e9011dff03c691f706e36192a978edf7707"
+      },
+      "repetitive-kmers.tsv": {
+        "bytes": 0,
+        "lines": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "manifest": "out/m2b/proof/pack/query_neg253/pack-manifest.json",
+    "pack_dir": "out/m2b/proof/pack/query_neg253",
+    "run": "out/m2b/proof/runs/toy-pack-dump",
+    "status": "failed_closed_after_pack_capture"
+  },
+  "pack_manifest": {
+    "absent_windows": 2100,
+    "candidate_records": 15571,
+    "index_entries": 15571,
+    "kmer_size": 17,
+    "query_id": -253,
+    "query_length": 3339,
+    "query_windows": 3322,
+    "repetitive_kmers": 0,
+    "repetitive_windows": 0,
+    "trivial_hits": 1092
+  },
+  "scope": {
+    "cuda_kernel_invoked_on_real_pack": false,
+    "full_flye_cuda_assembly_success": false,
+    "full_flye_speed_claim": false,
+    "real_fasta_record_packed": true,
+    "real_vertex_index_buckets_flattened": true,
+    "silent_cpu_fallback": false,
+    "single_query_pack_only": true
+  },
+  "validation": {
+    "candidate_record_abi": "candidate-record-v1",
+    "validated_on_utc": "2026-06-30T04:22:00Z"
+  }
+}

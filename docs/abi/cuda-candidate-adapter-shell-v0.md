@@ -109,8 +109,8 @@ M2a does not:
 - prove full assembly equivalence;
 - claim end-to-end speedup.
 
-## Next Contract
+## Superseding Contract
 
-M2b should replace the packed toy fixture boundary with an in-process
-candidate backend interface that can pack real Flye query/index data under an
-explicit memory budget.
+M2b adds `CUFLYE_CUDA_ADAPTER_MODE=pack-dump-v0` for extracting real Flye
+query/index data into packed candidate-backend input bundles. See
+`docs/abi/cuda-real-data-pack-dump-v0.md`.

@@ -1,0 +1,279 @@
+diff --git a/src/sequence/overlap.cpp b/src/sequence/overlap.cpp
+index 36a3f34..4b2b028 100644
+--- a/src/sequence/overlap.cpp
++++ b/src/sequence/overlap.cpp
+@@ -6,6 +6,7 @@
+ #include <iostream>
+ #include <cassert>
+ #include <algorithm>
++#include <atomic>
+ #include <thread>
+ #include <ctime>
+ #include <queue>
+@@ -166,6 +167,12 @@ namespace
+ 		return root + "/" + leaf;
+ 	}
+ 
++	std::string queryDirName(int64_t signedId)
++	{
++		if (signedId < 0) return "query_neg" + std::to_string(-signedId);
++		return "query_" + std::to_string(signedId);
++	}
++
+ 	void ensureReadableFile(const std::string& path, const std::string& label)
+ 	{
+ 		std::ifstream input(path);
+@@ -188,6 +195,17 @@ namespace
+ 		return quoted;
+ 	}
+ 
++	void ensureDirectory(const std::string& path)
++	{
++		std::string command = "mkdir -p " + shellQuote(path);
++		int status = std::system(command.c_str());
++		if (status != 0)
++		{
++			throw std::runtime_error("cuFlye CUDA adapter cannot create directory: " +
++									 path);
++		}
++	}
++
+ 	std::vector<std::string> splitTabLine(const std::string& line)
+ 	{
+ 		std::vector<std::string> fields;
+@@ -197,6 +215,17 @@ namespace
+ 		return fields;
+ 	}
+ 
++	std::string kmerToDna(size_t repr, int kmerSize)
++	{
++		std::string sequence(kmerSize, 'A');
++		for (int pos = kmerSize - 1; pos >= 0; --pos)
++		{
++			sequence[pos] = DnaSequence::idToDna(repr & 3ULL);
++			repr >>= 2;
++		}
++		return sequence;
++	}
++
+ 	FastaRecord::Id fastaIdFromSigned(int64_t signedId)
+ 	{
+ 		if (signedId > 0)
+@@ -240,6 +269,12 @@ namespace
+ 		return fixture;
+ 	}
+ 
++	std::atomic<size_t>& packDumpCounter()
++	{
++		static std::atomic<size_t> counter(0);
++		return counter;
++	}
++
+ 	void loadPackedCudaFixture(PackedCudaFixture& fixture)
+ 	{
+ 		if (fixture.loaded) return;
+@@ -359,6 +394,141 @@ namespace
+ 		fixture.loaded = true;
+ 	}
+ 
++	template <class Matches>
++	void collectCandidateMatchesCudaPackDump(const FastaRecord& fastaRec,
++											 const VertexIndex& vertexIndex,
++											 Matches& matches,
++											 std::vector<int32_t>& curFilteredPos)
++	{
++		if (Parameters::get().numThreads != 1)
++		{
++			throw std::runtime_error(
++				"cuFlye CUDA pack-dump adapter requires --threads 1 for deterministic "
++				"M2b proof capture");
++		}
++
++		size_t expected = 0;
++		if (!packDumpCounter().compare_exchange_strong(expected, 1))
++		{
++			throw std::runtime_error(
++				"cuFlye CUDA pack-dump adapter already captured one query; "
++				"failing closed to avoid partial CPU fallback");
++		}
++
++		const char* requestedQuery = std::getenv("CUFLYE_CUDA_PACK_QUERY_ID");
++		int64_t queryId = fastaRec.id.signedId();
++		if (requestedQuery && requestedQuery[0] &&
++			std::stoll(requestedQuery) != queryId)
++		{
++			throw std::runtime_error(
++				"cuFlye CUDA pack-dump adapter first query id " +
++				std::to_string(queryId) +
++				" does not match CUFLYE_CUDA_PACK_QUERY_ID=" + requestedQuery);
++		}
++
++		std::string rootDir = cudaEnvRequired("CUFLYE_CUDA_PACK_DUMP_DIR");
++		std::string queryDir = joinPath(rootDir, queryDirName(queryId));
++		ensureDirectory(queryDir);
++
++		const int kmerSize = Parameters::get().kmerSize;
++		std::set<std::string> indexLines;
++		std::set<std::string> repetitiveLines;
++		std::vector<std::string> candidateLines;
++		size_t queryWindows = 0;
++		size_t absentWindows = 0;
++		size_t repetitiveWindows = 0;
++		size_t trivialHits = 0;
++
++		for (const auto& curKmerPos : IterKmers(fastaRec.sequence))
++		{
++			++queryWindows;
++			Kmer lookupKmer = curKmerPos.kmer;
++			lookupKmer.standardForm();
++			std::string lookupSequence = kmerToDna(lookupKmer.numRepr(), kmerSize);
++
++			if (vertexIndex.isRepetitive(curKmerPos.kmer))
++			{
++				++repetitiveWindows;
++				curFilteredPos.push_back(curKmerPos.position);
++				repetitiveLines.insert(lookupSequence);
++				continue;
++			}
++			if (!vertexIndex.kmerFreq(curKmerPos.kmer))
++			{
++				++absentWindows;
++				continue;
++			}
++
++			for (const auto& extReadPos : vertexIndex.iterKmerPos(curKmerPos.kmer))
++			{
++				if ((extReadPos.readId == fastaRec.id &&
++					extReadPos.position == curKmerPos.position))
++				{
++					++trivialHits;
++					continue;
++				}
++
++				indexLines.insert(std::to_string(extReadPos.readId.signedId()) + "\t" +
++								  std::to_string(extReadPos.position) + "\t" +
++								  (extReadPos.readId.strand() ? "+" : "-") + "\t" +
++								  lookupSequence);
++
++				Kmer queryKmer = curKmerPos.kmer;
++				matches.emplace_back(curKmerPos.position,
++									 extReadPos.position,
++									 extReadPos.readId,
++									 queryKmer.numRepr());
++				candidateLines.push_back(
++					std::to_string(queryId) + "\t" +
++					std::to_string(curKmerPos.position) + "\t" +
++					std::to_string(queryKmer.numRepr()) + "\t" +
++					std::to_string(extReadPos.readId.signedId()) + "\t" +
++					std::to_string(extReadPos.position) + "\t" +
++					(extReadPos.readId.strand() ? "+" : "-"));
++			}
++		}
++
++		{
++			std::ofstream readsOut(joinPath(queryDir, "reads.tsv"));
++			readsOut << queryId << "\t" << fastaRec.sequence.str() << "\n";
++		}
++		{
++			std::ofstream indexOut(joinPath(queryDir, "index.tsv"));
++			for (const auto& line : indexLines) indexOut << line << "\n";
++		}
++		{
++			std::ofstream repetitiveOut(joinPath(queryDir, "repetitive-kmers.tsv"));
++			for (const auto& line : repetitiveLines) repetitiveOut << line << "\n";
++		}
++		{
++			std::ofstream candidatesOut(joinPath(queryDir, "cpu-candidates.tsv"));
++			for (const auto& line : candidateLines) candidatesOut << line << "\n";
++		}
++		{
++			std::ofstream manifestOut(joinPath(queryDir, "pack-manifest.json"));
++			manifestOut << "{\n"
++						<< "  \"adapter\": \"pack-dump-v0\",\n"
++						<< "  \"status\": \"captured_and_failed_closed\",\n"
++						<< "  \"query_id\": " << queryId << ",\n"
++						<< "  \"query_length\": " << fastaRec.sequence.length() << ",\n"
++						<< "  \"kmer_size\": " << kmerSize << ",\n"
++						<< "  \"query_windows\": " << queryWindows << ",\n"
++						<< "  \"index_entries\": " << indexLines.size() << ",\n"
++						<< "  \"repetitive_kmers\": " << repetitiveLines.size() << ",\n"
++						<< "  \"repetitive_windows\": " << repetitiveWindows << ",\n"
++						<< "  \"absent_windows\": " << absentWindows << ",\n"
++						<< "  \"trivial_hits\": " << trivialHits << ",\n"
++						<< "  \"candidate_records\": " << candidateLines.size() << "\n"
++						<< "}\n";
++		}
++
++		throw std::runtime_error(
++			"cuFlye CUDA pack-dump adapter captured real Flye query/index data; "
++			"adapter=pack-dump-v0; query_id=" + std::to_string(queryId) +
++			"; pack_dir=" + queryDir +
++			"; failing closed before downstream graph logic");
++	}
++
+ 	template <class Matches>
+ 	void dumpCandidateMatches(const FastaRecord& fastaRec, Matches& matches)
+ 	{
+@@ -385,12 +555,22 @@ namespace
+ 
+ 	template <class Matches>
+ 	void collectCandidateMatchesCudaAdapter(const FastaRecord& fastaRec,
++											const VertexIndex& vertexIndex,
+ 											Matches& matches)
+ 	{
++		std::string mode = cudaEnvOrDefault("CUFLYE_CUDA_ADAPTER_MODE", "");
++		if (mode == "pack-dump-v0")
++		{
++			throw std::runtime_error(
++				"cuFlye internal error: pack-dump-v0 adapter requires filtered "
++				"position capture");
++		}
++
+ 		std::lock_guard<std::mutex> lock(cudaAdapterMutex());
+ 		PackedCudaFixture& fixture = packedCudaFixtureCache();
+ 		loadPackedCudaFixture(fixture);
+ 
++		(void)vertexIndex;
+ 		int64_t queryId = fastaRec.id.signedId();
+ 		auto expectedSeq = fixture.readSequences.find(queryId);
+ 		if (expectedSeq == fixture.readSequences.end())
+@@ -417,6 +597,29 @@ namespace
+ 								 record.kmerRepr);
+ 		}
+ 	}
++
++	template <class Matches>
++	void collectCandidateMatchesCudaAdapter(const FastaRecord& fastaRec,
++											const VertexIndex& vertexIndex,
++											Matches& matches,
++											std::vector<int32_t>& curFilteredPos)
++	{
++		std::string mode = cudaEnvOrDefault("CUFLYE_CUDA_ADAPTER_MODE", "");
++		if (mode == "pack-dump-v0")
++		{
++			collectCandidateMatchesCudaPackDump(fastaRec, vertexIndex, matches,
++												curFilteredPos);
++			return;
++		}
++		if (mode != "external-packed-v0")
++		{
++			throw std::runtime_error(
++				std::string("cuFlye CUDA candidate backend selected; ") +
++				"unsupported adapter mode: set CUFLYE_CUDA_ADAPTER_MODE to "
++				"external-packed-v0 or pack-dump-v0");
++		}
++		collectCandidateMatchesCudaAdapter(fastaRec, vertexIndex, matches);
++	}
+ }
+ 
+ //This implementation was inspired by Heng Li's minimap2 paper
+@@ -534,7 +737,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
+ 		collectCandidateMatchesCpu();
+ 		break;
+ 	case CandidateBackend::Cuda:
+-		collectCandidateMatchesCudaAdapter(fastaRec, vecMatches);
++		collectCandidateMatchesCudaAdapter(fastaRec, _vertexIndex, vecMatches,
++										   curFilteredPos);
+ 		break;
+ 	}
+ 	timeKmerIndexFirst += std::chrono::duration_cast<std::chrono::duration<float>>

@@ -66,6 +66,9 @@ Completed:
   packed adapter shell, invokes CUDA on a bounded fixture, validates
   candidate-record-v1 output, and fails closed for unsupported real Flye
   shapes.
+- M2b: Flye can extract a real query and relevant `VertexIndex` buckets into a
+  replayable packed candidate-backend bundle with per-query CPU candidate
+  oracle output, then fail closed before downstream graph logic.
 
 Current allowed performance claim:
 
@@ -243,10 +246,10 @@ Use precise milestone labels:
 Next highest-ROI task:
 
 ```text
-M2b: define and implement the first real Flye data packer boundary: extract
-bounded query read windows and flattened `VertexIndex` buckets from Flye data
-structures into a candidate-backend input buffer without changing CPU
-candidate semantics.
+M2c: make a CUDA backend consume a `pack-dump-v0` bundle from real Flye data.
+This requires replacing the M1i fixed-size smoke limits with chunked or dynamic
+read-window buffers, then diffing GPU output against the pack's
+`cpu-candidates.tsv`.
 ```
 
 Acceptance should remain candidate-list equivalence, not full assembly speed.
