@@ -97,6 +97,10 @@ Successful response:
   "host_prefix_offsets_materialized": false,
   "device": 0,
   "device_name": "NVIDIA GB10",
+  "worker_device_arena_enabled": true,
+  "worker_device_arena_allocations": 0,
+  "worker_device_arena_reuses": 8,
+  "worker_device_arena_capacity_bytes": 1000000,
   "timing_ms": {
     "worker_uptime": 1000.0,
     "request_total": 425.54,
@@ -111,6 +115,8 @@ Successful response:
     "output_count_device_to_host": 0.1,
     "output_device_to_host": 0.094,
     "device_to_host": 0.194,
+    "host_output_allocation": 0.01,
+    "sparse_output_allocation": 0.0,
     "write_output": 0.676
   },
   "device_allocation_bytes": 260459496,

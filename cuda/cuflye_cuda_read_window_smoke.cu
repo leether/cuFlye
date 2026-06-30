@@ -106,6 +106,14 @@ struct TimingSummary
 	double totalBeforeJsonMs = 0.0;
 };
 
+struct ArenaStats
+{
+	bool enabled = false;
+	size_t allocations = 0;
+	size_t reuses = 0;
+	size_t capacityBytes = 0;
+};
+
 struct CudaDeviceContext
 {
 	int device = 0;
@@ -131,7 +139,34 @@ struct BackendRunResult
 	size_t pairCount = 0;
 	size_t outputCount = 0;
 	bool cpuOracleEnabled = false;
+	ArenaStats arenaStats;
 	std::string backendJson;
+};
+
+struct WorkerDeviceArena
+{
+	cuflye::cuda_raii::DeviceBuffer<QueryReadMeta> reads;
+	cuflye::cuda_raii::DeviceBuffer<char> readBases;
+	cuflye::cuda_raii::DeviceBuffer<uint64_t> readWindowOffsets;
+	cuflye::cuda_raii::DeviceBuffer<IndexWindow> index;
+	cuflye::cuda_raii::DeviceBuffer<RepetitiveWindow> repetitive;
+	cuflye::cuda_raii::DeviceBuffer<uint8_t> flags;
+	cuflye::cuda_raii::DeviceBuffer<uint32_t> outputOffsets;
+	cuflye::cuda_raii::DeviceBuffer<CandidateRecord> output;
+
+	size_t capacityBytes() const
+	{
+		size_t total = 0;
+		total += reads.bytes();
+		total += readBases.bytes();
+		total += readWindowOffsets.bytes();
+		total += index.bytes();
+		total += repetitive.bytes();
+		total += flags.bytes();
+		total += outputOffsets.bytes();
+		total += output.bytes();
+		return total;
+	}
 };
 
 __host__ __device__ uint64_t dnaBaseToBits(char base)
@@ -839,7 +874,8 @@ std::string buildJson(const Options& options,
 					  size_t pairCount,
 					  size_t outputCount,
 					  bool cpuOracleEnabled,
-					  const TimingSummary& timing)
+					  const TimingSummary& timing,
+					  const ArenaStats& arenaStats)
 {
 	std::ostringstream json;
 	json << std::fixed << std::setprecision(3);
@@ -880,6 +916,11 @@ std::string buildJson(const Options& options,
 	json << "  \"device_side_kmer_encoding\": true,\n";
 	json << "  \"device_side_standard_form\": true,\n";
 	json << "  \"cpu_oracle_enabled\": " << (cpuOracleEnabled ? "true" : "false") << ",\n";
+	json << "  \"worker_device_arena_enabled\": "
+		 << (arenaStats.enabled ? "true" : "false") << ",\n";
+	json << "  \"worker_device_arena_allocations\": " << arenaStats.allocations << ",\n";
+	json << "  \"worker_device_arena_reuses\": " << arenaStats.reuses << ",\n";
+	json << "  \"worker_device_arena_capacity_bytes\": " << arenaStats.capacityBytes << ",\n";
 	json << "  \"timing_ms\": {\n";
 	json << "    \"input_parse\": " << timing.inputParseMs << ",\n";
 	json << "    \"cpu_oracle\": " << timing.cpuOracleMs << ",\n";
@@ -982,6 +1023,18 @@ size_t estimateFlagScanScratchBytes(size_t count)
 	return scratch;
 }
 
+template <class T>
+void ensureArenaBuffer(cuflye::cuda_raii::DeviceBuffer<T>& buffer,
+					   size_t bytes,
+					   const std::string& label,
+					   ArenaStats& stats)
+{
+	if (bytes == 0) return;
+	bool allocated = buffer.ensureCapacity(bytes, label);
+	if (allocated) ++stats.allocations;
+	else ++stats.reuses;
+}
+
 void scanUint32Device(const uint32_t* input, uint32_t* output, size_t count)
 {
 	int blocks = checkedKernelBlocks(count, "uint32 scan");
@@ -1045,10 +1098,13 @@ void scanFlagsDevice(const uint8_t* flags, uint32_t* outputOffsets, size_t count
 }
 
 BackendRunResult runReadWindowBackend(const Options& options,
-									  const CudaDeviceContext* context)
+									  const CudaDeviceContext* context,
+									  WorkerDeviceArena* arena)
 {
 	auto totalStart = Clock::now();
 	TimingSummary timing;
+	ArenaStats arenaStats;
+	arenaStats.enabled = arena != nullptr;
 
 		auto inputStart = Clock::now();
 		QueryReadSet readSet = readReads(options.readsTsv, options.kmerSize);
@@ -1123,16 +1179,49 @@ BackendRunResult runReadWindowBackend(const Options& options,
 		}
 
 		auto allocationStart = Clock::now();
-		cuflye::cuda_raii::DeviceBuffer<QueryReadMeta> deviceReads(readBytes, "read metadata");
-		cuflye::cuda_raii::DeviceBuffer<char> deviceReadBases(readBaseBytes, "read bases");
-		cuflye::cuda_raii::DeviceBuffer<uint64_t> deviceReadWindowOffsets(offsetBytes,
-																		  "read offsets");
-		cuflye::cuda_raii::DeviceBuffer<IndexWindow> deviceIndex(indexBytes, "index");
-		cuflye::cuda_raii::DeviceBuffer<RepetitiveWindow> deviceRepetitive(repetitiveBytes,
-																		   "repetitive k-mers");
-		cuflye::cuda_raii::DeviceBuffer<uint8_t> deviceFlags(flagBytes, "flags");
-		cuflye::cuda_raii::DeviceBuffer<uint32_t> deviceOutputOffsets(outputOffsetBytes,
-																	   "output offsets");
+		cuflye::cuda_raii::DeviceBuffer<QueryReadMeta> localDeviceReads;
+		cuflye::cuda_raii::DeviceBuffer<char> localDeviceReadBases;
+		cuflye::cuda_raii::DeviceBuffer<uint64_t> localDeviceReadWindowOffsets;
+		cuflye::cuda_raii::DeviceBuffer<IndexWindow> localDeviceIndex;
+		cuflye::cuda_raii::DeviceBuffer<RepetitiveWindow> localDeviceRepetitive;
+		cuflye::cuda_raii::DeviceBuffer<uint8_t> localDeviceFlags;
+		cuflye::cuda_raii::DeviceBuffer<uint32_t> localDeviceOutputOffsets;
+
+		cuflye::cuda_raii::DeviceBuffer<QueryReadMeta>& deviceReads =
+			arena ? arena->reads : localDeviceReads;
+		cuflye::cuda_raii::DeviceBuffer<char>& deviceReadBases =
+			arena ? arena->readBases : localDeviceReadBases;
+		cuflye::cuda_raii::DeviceBuffer<uint64_t>& deviceReadWindowOffsets =
+			arena ? arena->readWindowOffsets : localDeviceReadWindowOffsets;
+		cuflye::cuda_raii::DeviceBuffer<IndexWindow>& deviceIndex =
+			arena ? arena->index : localDeviceIndex;
+		cuflye::cuda_raii::DeviceBuffer<RepetitiveWindow>& deviceRepetitive =
+			arena ? arena->repetitive : localDeviceRepetitive;
+		cuflye::cuda_raii::DeviceBuffer<uint8_t>& deviceFlags =
+			arena ? arena->flags : localDeviceFlags;
+		cuflye::cuda_raii::DeviceBuffer<uint32_t>& deviceOutputOffsets =
+			arena ? arena->outputOffsets : localDeviceOutputOffsets;
+
+		if (arena)
+		{
+			ensureArenaBuffer(deviceReads, readBytes, "read metadata", arenaStats);
+			ensureArenaBuffer(deviceReadBases, readBaseBytes, "read bases", arenaStats);
+			ensureArenaBuffer(deviceReadWindowOffsets, offsetBytes, "read offsets", arenaStats);
+			ensureArenaBuffer(deviceIndex, indexBytes, "index", arenaStats);
+			ensureArenaBuffer(deviceRepetitive, repetitiveBytes, "repetitive k-mers", arenaStats);
+			ensureArenaBuffer(deviceFlags, flagBytes, "flags", arenaStats);
+			ensureArenaBuffer(deviceOutputOffsets, outputOffsetBytes, "output offsets", arenaStats);
+		}
+		else
+		{
+			deviceReads.allocate(readBytes, "read metadata");
+			deviceReadBases.allocate(readBaseBytes, "read bases");
+			deviceReadWindowOffsets.allocate(offsetBytes, "read offsets");
+			deviceIndex.allocate(indexBytes, "index");
+			deviceRepetitive.allocate(repetitiveBytes, "repetitive k-mers");
+			deviceFlags.allocate(flagBytes, "flags");
+			deviceOutputOffsets.allocate(outputOffsetBytes, "output offsets");
+		}
 		timing.deviceAllocationMs = elapsedMs(allocationStart, Clock::now());
 
 		cuflye::cuda_raii::CudaEvent h2dStart("host to device start");
@@ -1240,8 +1329,21 @@ BackendRunResult runReadWindowBackend(const Options& options,
 		}
 
 		auto sparseOutputAllocationStart = Clock::now();
-		cuflye::cuda_raii::DeviceBuffer<CandidateRecord> deviceOutput(outputBytes,
-																	  "compact output");
+		cuflye::cuda_raii::DeviceBuffer<CandidateRecord> localDeviceOutput;
+		cuflye::cuda_raii::DeviceBuffer<CandidateRecord>& deviceOutput =
+			arena ? arena->output : localDeviceOutput;
+		if (arena)
+		{
+			ensureArenaBuffer(deviceOutput, outputBytes, "compact output", arenaStats);
+			if (options.hasMemoryBudget && arena->capacityBytes() > options.memoryBudgetBytes)
+			{
+				throw std::runtime_error("worker device arena capacity exceeds memory budget");
+			}
+		}
+		else
+		{
+			deviceOutput.allocate(outputBytes, "compact output");
+		}
 		timing.sparseOutputAllocationMs = elapsedMs(sparseOutputAllocationStart, Clock::now());
 
 		cuflye::cuda_raii::CudaEvent emitStart("emit kernel start");
@@ -1305,13 +1407,15 @@ BackendRunResult runReadWindowBackend(const Options& options,
 			result.pairCount = pairCount;
 			result.outputCount = gpuRecords.size();
 			result.cpuOracleEnabled = !options.cpuOutputTsv.empty();
+			if (arena) arenaStats.capacityBytes = arena->capacityBytes();
+			result.arenaStats = arenaStats;
 			result.backendJson = buildJson(options, prop, freeBytes, totalBytes, requiredBytes,
 										  readSet.reads.size(), queryWindows, readBaseBytes,
 										  readSet.maxReadLength, indexEntries.size(),
 										  repetitiveKmers.size(), pairCount, gpuRecords.size(),
-										  !options.cpuOutputTsv.empty(), timing);
+										  !options.cpuOutputTsv.empty(), timing, arenaStats);
 			return result;
-}
+	}
 
 #ifdef CUFLYE_CUDA_WORKER_MAIN
 struct WorkerRequest
@@ -1665,6 +1769,13 @@ std::string buildWorkerResponseJson(const WorkerRequest& request,
 	json << "  \"device\": " << request.options.device << ",\n";
 	json << "  \"device_name\": \"" << jsonEscape(result.prop.name) << "\",\n";
 	json << "  \"device_allocation_bytes\": " << result.requiredBytes << ",\n";
+	json << "  \"worker_device_arena_enabled\": "
+		 << (result.arenaStats.enabled ? "true" : "false") << ",\n";
+	json << "  \"worker_device_arena_allocations\": "
+		 << result.arenaStats.allocations << ",\n";
+	json << "  \"worker_device_arena_reuses\": " << result.arenaStats.reuses << ",\n";
+	json << "  \"worker_device_arena_capacity_bytes\": "
+		 << result.arenaStats.capacityBytes << ",\n";
 	json << "  \"memory_budget_satisfied\": true,\n";
 	json << "  \"timing_ms\": {\n";
 	json << "    \"worker_uptime\": " << workerUptimeMs << ",\n";
@@ -1683,6 +1794,10 @@ std::string buildWorkerResponseJson(const WorkerRequest& request,
 		 << result.timing.outputCountDeviceToHostMs << ",\n";
 	json << "    \"offsets_host_to_device\": " << result.timing.offsetsHostToDeviceMs << ",\n";
 	json << "    \"emit_kernel\": " << result.timing.emitKernelMs << ",\n";
+	json << "    \"host_output_allocation\": "
+		 << result.timing.hostOutputAllocationMs << ",\n";
+	json << "    \"sparse_output_allocation\": "
+		 << result.timing.sparseOutputAllocationMs << ",\n";
 	json << "    \"output_device_to_host\": " << result.timing.outputDeviceToHostMs << ",\n";
 	json << "    \"device_to_host\": " << result.timing.deviceToHostMs << ",\n";
 	json << "    \"write_output\": " << result.timing.writeOutputMs << "\n";
@@ -1726,6 +1841,7 @@ int workerMain(int argc, char** argv)
 
 		auto workerStart = Clock::now();
 		CudaDeviceContext context = initializeCudaDevice(requests.front().options.device);
+		WorkerDeviceArena arena;
 		for (size_t index = 0; index < requests.size(); ++index)
 		{
 			const WorkerRequest& request = requests[index];
@@ -1734,7 +1850,7 @@ int workerMain(int argc, char** argv)
 			auto requestStart = Clock::now();
 			try
 			{
-				BackendRunResult result = runReadWindowBackend(request.options, &context);
+				BackendRunResult result = runReadWindowBackend(request.options, &context, &arena);
 				writeText(request.options.jsonOutput, result.backendJson);
 				double requestTotalMs = elapsedMs(requestStart, Clock::now());
 				double workerUptimeMs = elapsedMs(workerStart, Clock::now());
@@ -1775,7 +1891,7 @@ int main(int argc, char** argv)
 	try
 	{
 		Options options = parseArgs(argc, argv);
-		BackendRunResult result = runReadWindowBackend(options, nullptr);
+		BackendRunResult result = runReadWindowBackend(options, nullptr, nullptr);
 		writeText(options.jsonOutput, result.backendJson);
 		std::cout << result.backendJson;
 		return 0;

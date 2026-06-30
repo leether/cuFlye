@@ -152,3 +152,19 @@ Compatibility timing fields remain present:
 - `timing_ms.device_to_host` includes output-count readback plus compact output
   readback;
 - `timing_ms.compact` is the device prefix-sum compaction step.
+
+## M3d Extension
+
+M3d adds optional worker-side device-buffer reuse. The read-window smoke CLI still
+uses one-shot local buffers; worker requests may reuse typed device buffers across
+requests with stable or smaller shapes.
+
+Runtime JSON adds:
+
+- `worker_device_arena_enabled`;
+- `worker_device_arena_allocations`;
+- `worker_device_arena_reuses`;
+- `worker_device_arena_capacity_bytes`.
+
+These fields are diagnostics only. They do not change candidate-record-v1 output
+semantics.

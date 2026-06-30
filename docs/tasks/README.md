@@ -7,7 +7,8 @@ change is considered complete.
 
 Active cards:
 
-- None.
+- `2026-06-30-cuflye-m3d-worker-device-buffer-arena.md`: reuse worker device
+  buffers across warm requests while preserving candidate equivalence.
 
 Completed cards:
 

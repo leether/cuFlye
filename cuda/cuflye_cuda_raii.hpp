@@ -68,6 +68,13 @@ public:
 		bytes_ = bytes;
 	}
 
+	bool ensureCapacity(size_t bytes, const std::string& label)
+	{
+		if (bytes <= bytes_) return false;
+		allocate(bytes, label);
+		return bytes > 0;
+	}
+
 	void resetNoThrow() noexcept
 	{
 		if (ptr_)
