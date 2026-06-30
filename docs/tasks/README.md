@@ -7,12 +7,13 @@ change is considered complete.
 
 Active cards:
 
-- `2026-06-30-cuflye-m1h-cuda-kmer-encoding-smoke.md`: compute Flye-style
-  k-mer encodings and standard-form lookup keys on GPU before generating a
-  small candidate-record-v1 TSV.
+- None.
 
 Completed cards:
 
+- `2026-06-30-cuflye-m1h-cuda-kmer-encoding-smoke.md`: compute Flye-style
+  k-mer encodings and standard-form lookup keys on GPU before generating a
+  small candidate-record-v1 TSV.
 - `2026-06-30-cuflye-m1g-cuda-kmer-join-smoke.md`: generate a small
   candidate-record-v1 TSV on GPU from query k-mers and a k-mer index fixture.
 - `2026-06-30-cuflye-m1f-cuda-candidate-smoke.md`: build the first CUDA kernel

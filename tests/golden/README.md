@@ -30,3 +30,7 @@ CUDA candidate smoke proof:
 CUDA k-mer join smoke proof:
 
 - K-mer join smoke manifest: `cuda-kmer-join-smoke-dgx-aarch64.json`
+
+CUDA k-mer encode smoke proof:
+
+- K-mer encode smoke manifest: `cuda-kmer-encode-smoke-dgx-aarch64.json`
