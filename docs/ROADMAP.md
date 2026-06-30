@@ -250,11 +250,12 @@ Use precise milestone labels:
 Next highest-ROI task:
 
 ```text
-M2f: replace dense pairCount-sized GPU output materialization with counted or
-compacted candidate output for the same real `pack-dump-v0` query.
+M3a: choose the next integration path for turning the sparse real-pack backend
+into a reusable Flye GPU backend: in-process CUDA, long-lived external worker,
+or batched external adapter with device-side compaction.
 ```
 
 Acceptance should remain candidate-list equivalence plus honest timing
-breakdown. The immediate target is making GPU-only backend total faster than the
-CPU oracle for the measured real pack; do not claim full assembly speed until
-downstream graph equivalence is proven.
+breakdown. The immediate target is preserving the M2f GPU-over-CPU advantage
+while reducing CUDA setup and adapter overhead; do not claim full assembly speed
+until downstream graph equivalence is proven.

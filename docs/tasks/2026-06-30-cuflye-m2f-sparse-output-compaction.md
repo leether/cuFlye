@@ -1,6 +1,6 @@
 # Task Card: cuFlye M2f Sparse Output Compaction
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -79,9 +79,51 @@ for all `51742433` query/index pairs when only `15571` records are emitted.
 
 ## Execution Checklist
 
-- [ ] Add sparse output path.
-- [ ] Update ABI docs.
-- [ ] Build CUDA backend on DGX.
-- [ ] Run real-pack sparse timing proof.
-- [ ] Validate and diff CPU/GPU outputs.
-- [ ] Record compact golden proof and close this card.
+- [x] Add sparse output path.
+- [x] Update ABI docs.
+- [x] Build CUDA backend on DGX.
+- [x] Run real-pack sparse timing proof.
+- [x] Validate and diff CPU/GPU outputs.
+- [x] Record compact golden proof and close this card.
+
+## Merge Note
+
+Implemented in repo commit `f2ad482bbf5a4e08a58d0adf28f32170c5227f23` and
+validated on DGX host `edgexpert-45d2` with `/usr/local/cuda/bin/nvcc`
+`13.0.88` targeting `sm_121`.
+
+Real pack proof:
+
+- Source pack:
+  `/tmp/cuflye-m2b-1782793203/out/m2b/proof/pack/query_neg253`
+- Query id: `-253`
+- Query length: `3339`
+- K-mer size: `17`
+- Pair comparisons: `51742433`
+- Candidate records: `15571`
+- Output strategy: `sparse-offsets-v1`
+- Dense pair output materialized: `false`
+- CPU oracle time: `943.032 ms`
+- GPU-only backend total before JSON: `425.540 ms`
+- GPU-only vs CPU oracle speedup: `2.22x`
+- Kernel time: `6.361 ms`
+- M2e dense GPU-only total before JSON: `1245.546 ms`
+- Sparse vs dense GPU-only total speedup: `2.93x`
+- Device allocation: `260459496` bytes
+- M2e dense device allocation: `2536379140` bytes
+- Device allocation reduction: `9.74x`
+- Flye external adapter wall time to controlled stop: `0:03.34`
+- M2e Flye external adapter wall time: `0:05.73`
+- Flye external adapter RSS: `355792 kB`
+- M2e Flye external adapter RSS: `2580004 kB`
+- CPU/GPU/adapter candidate diffs: `match`
+- Canonical SHA-256:
+  `5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae`
+
+Tracked compact proof:
+
+- `tests/golden/cuflye-m2f-sparse-output-compaction-dgx-aarch64.json`
+
+This is the first real-pack backend proof where CUDA is faster than the CPU
+oracle at the measured candidate-generation boundary. It still does not claim
+full Flye assembly speedup.

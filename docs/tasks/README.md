@@ -7,12 +7,13 @@ change is considered complete.
 
 Active cards:
 
-- `2026-06-30-cuflye-m2f-sparse-output-compaction.md`: replace dense
-  pair-count-sized output materialization with sparse/compacted candidate output
-  for the real-pack CUDA backend.
+- None.
 
 Completed cards:
 
+- `2026-06-30-cuflye-m2f-sparse-output-compaction.md`: replace dense
+  pair-count-sized output materialization with sparse/compacted candidate output
+  for the real-pack CUDA backend.
 - `2026-06-30-cuflye-m2e-real-pack-timing-proof.md`: add real-pack
   candidate-boundary timing for CPU oracle generation, CUDA backend stages, and
   external adapter overhead without changing candidate semantics.
