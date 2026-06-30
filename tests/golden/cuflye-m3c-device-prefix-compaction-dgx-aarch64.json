@@ -1,0 +1,421 @@
+{
+  "acceptance": {
+    "host_prefix_offsets_materialized_false": true,
+    "host_prefix_sum_removed": true,
+    "no_large_tsv_committed": true,
+    "prefix_strategy_device_exclusive_scan": true,
+    "read_window_smoke_build_still_succeeds": true,
+    "requests_jsonl_processed_at_least_two_requests": true,
+    "second_request_reports_warm_context": true,
+    "warm_backend_faster_than_m3b": true,
+    "worker_builds_with_nvcc": true,
+    "worker_outputs_match_cpu_oracle": true,
+    "worker_outputs_validate_candidate_record_v1": true
+  },
+  "claim": "Device-side prefix compaction preserves candidate-record-v1 equivalence and reduces the warm worker backend total versus M3b by removing full host prefix/offset materialization.",
+  "created_at_utc": "2026-06-30T12:47:37.086229+00:00",
+  "cuda_build": {
+    "read_window_smoke": {
+      "created_at_utc": "2026-06-30T12:45:42.768235+00:00",
+      "cuda_arch": "sm_121",
+      "cuda_home": "/usr/local/cuda",
+      "host": "edgexpert-45d2",
+      "machine": "aarch64",
+      "nvcc": "/usr/local/cuda/bin/nvcc",
+      "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:57:39_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+      "output_binary": "/tmp/cuflye-m3c-proof-1782823538/out/m3c/bin/cuflye-cuda-read-window-smoke",
+      "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+      "python": "3.12.3",
+      "repo_commit": "f4a404c9d012f298221464cd56489e508f3d37e1",
+      "repo_root": "/tmp/cuflye-m3c-proof-1782823538"
+    },
+    "worker": {
+      "created_at_utc": "2026-06-30T12:45:45.327521+00:00",
+      "cuda_arch": "sm_121",
+      "cuda_home": "/usr/local/cuda",
+      "host": "edgexpert-45d2",
+      "machine": "aarch64",
+      "nvcc": "/usr/local/cuda/bin/nvcc",
+      "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:57:39_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+      "output_binary": "/tmp/cuflye-m3c-proof-1782823538/out/m3c/bin/cuflye-cuda-worker",
+      "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+      "python": "3.12.3",
+      "repo_commit": "f4a404c9d012f298221464cd56489e508f3d37e1",
+      "repo_root": "/tmp/cuflye-m3c-proof-1782823538"
+    }
+  },
+  "derived_metrics": {
+    "first_backend_total_before_json_ms": 29.237,
+    "first_request_total_ms": 33.206,
+    "m2f_cpu_oracle_ms": 943.032,
+    "m2f_gpu_only_total_before_json_ms": 425.54,
+    "m3b_warm_backend_total_before_json_ms": 132.11,
+    "m3b_warm_host_prefix_sum_ms": 84.221,
+    "real_canonical_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+    "real_diff_statuses": [
+      "match",
+      "match"
+    ],
+    "records_per_real_request": [
+      15571,
+      15571
+    ],
+    "requests_in_one_worker_process": 2,
+    "second_request_context_warm": true,
+    "warm_backend_device_prefix_sum_ms": 3.496,
+    "warm_backend_device_to_host_ms": 0.057,
+    "warm_backend_host_prefix_sum_ms": 0.0,
+    "warm_backend_kernel_ms": 6.223,
+    "warm_backend_output_count_device_to_host_ms": 0.032,
+    "warm_backend_total_before_json_ms": 28.33,
+    "warm_backend_vs_cpu_oracle_speedup": 33.287398517472646,
+    "warm_backend_vs_m2f_gpu_only_speedup": 15.020825979527006,
+    "warm_backend_vs_m3b_speedup": 4.663254500529475,
+    "warm_request_total_ms": 31.939
+  },
+  "host": {
+    "machine": "aarch64",
+    "name": "edgexpert-45d2",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39"
+  },
+  "milestone": "M3c device prefix compaction",
+  "non_claims": [
+    "No full Flye assembly speedup claim.",
+    "No downstream graph equivalence claim.",
+    "No in-process CUDA inside Flye.",
+    "No multi-query scheduling inside Flye."
+  ],
+  "real_pack": {
+    "diffs": [
+      {
+        "left": "/tmp/cuflye-m2b-1782793203/out/m2b/proof/pack/query_neg253/cpu-candidates.tsv",
+        "left_records": 15571,
+        "left_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+        "right": "/tmp/cuflye-m3c-proof-1782823538/out/m3c/real-pack/real-pack-1.candidates.tsv",
+        "right_records": 15571,
+        "right_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+        "status": "match"
+      },
+      {
+        "left": "/tmp/cuflye-m2b-1782793203/out/m2b/proof/pack/query_neg253/cpu-candidates.tsv",
+        "left_records": 15571,
+        "left_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+        "right": "/tmp/cuflye-m3c-proof-1782823538/out/m3c/real-pack/real-pack-2.candidates.tsv",
+        "right_records": 15571,
+        "right_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+        "status": "match"
+      }
+    ],
+    "requests": "/tmp/cuflye-m3c-proof-1782823538/out/m3c/real-pack/requests.jsonl",
+    "responses": [
+      {
+        "backend_json": "/tmp/cuflye-m3c-proof-1782823538/out/m3c/real-pack/real-pack-1.backend.json",
+        "candidate_abi": "candidate-record-v1",
+        "dense_pair_output_materialized": false,
+        "device": 0,
+        "device_allocation_bytes": 262082800,
+        "device_name": "NVIDIA GB10",
+        "host_prefix_offsets_materialized": false,
+        "memory_budget_satisfied": true,
+        "output_strategy": "sparse-offsets-v1",
+        "output_tsv": "/tmp/cuflye-m3c-proof-1782823538/out/m3c/real-pack/real-pack-1.candidates.tsv",
+        "prefix_strategy": "device-exclusive-scan-v1",
+        "records": 15571,
+        "request_id": "real-pack-neg253-1",
+        "request_ordinal": 1,
+        "schema": "cuflye-worker-response-v0",
+        "status": "ok",
+        "timing_ms": {
+          "backend_total_before_json": 29.237,
+          "cuda_setup": 0.0,
+          "device_allocation": 10.096,
+          "device_prefix_sum": 3.565,
+          "device_to_host": 0.061,
+          "emit_kernel": 0.558,
+          "flag_device_to_host": 0.0,
+          "host_prefix_sum": 0.0,
+          "host_to_device": 0.297,
+          "input_parse": 4.636,
+          "kernel": 6.358,
+          "mark_kernel": 5.8,
+          "offsets_host_to_device": 0.0,
+          "output_count_device_to_host": 0.034,
+          "output_device_to_host": 0.027,
+          "request_total": 33.206,
+          "worker_uptime": 305.087,
+          "write_output": 3.794
+        },
+        "worker_context_setup_ms": 271.881,
+        "worker_cuda_context_warm": false
+      },
+      {
+        "backend_json": "/tmp/cuflye-m3c-proof-1782823538/out/m3c/real-pack/real-pack-2.backend.json",
+        "candidate_abi": "candidate-record-v1",
+        "dense_pair_output_materialized": false,
+        "device": 0,
+        "device_allocation_bytes": 262082800,
+        "device_name": "NVIDIA GB10",
+        "host_prefix_offsets_materialized": false,
+        "memory_budget_satisfied": true,
+        "output_strategy": "sparse-offsets-v1",
+        "output_tsv": "/tmp/cuflye-m3c-proof-1782823538/out/m3c/real-pack/real-pack-2.candidates.tsv",
+        "prefix_strategy": "device-exclusive-scan-v1",
+        "records": 15571,
+        "request_id": "real-pack-neg253-2",
+        "request_ordinal": 2,
+        "schema": "cuflye-worker-response-v0",
+        "status": "ok",
+        "timing_ms": {
+          "backend_total_before_json": 28.33,
+          "cuda_setup": 0.0,
+          "device_allocation": 10.339,
+          "device_prefix_sum": 3.496,
+          "device_to_host": 0.057,
+          "emit_kernel": 0.541,
+          "flag_device_to_host": 0.0,
+          "host_prefix_sum": 0.0,
+          "host_to_device": 0.291,
+          "input_parse": 4.004,
+          "kernel": 6.223,
+          "mark_kernel": 5.683,
+          "offsets_host_to_device": 0.0,
+          "output_count_device_to_host": 0.032,
+          "output_device_to_host": 0.025,
+          "request_total": 31.939,
+          "worker_uptime": 337.08,
+          "write_output": 3.769
+        },
+        "worker_context_setup_ms": 271.881,
+        "worker_cuda_context_warm": true
+      }
+    ],
+    "time": {
+      "elapsed": "0:00.45",
+      "exit_status": 0,
+      "max_rss_kbytes": 104048,
+      "raw": "\tCommand being timed: \"./out/m3c/bin/cuflye-cuda-worker --requests-jsonl out/m3c/real-pack/requests.jsonl\"\n\tUser time (seconds): 0.04\n\tSystem time (seconds): 0.38\n\tPercent of CPU this job got: 94%\n\tElapsed (wall clock) time (h:mm:ss or m:ss): 0:00.45\n\tAverage shared text size (kbytes): 0\n\tAverage unshared data size (kbytes): 0\n\tAverage stack size (kbytes): 0\n\tAverage total size (kbytes): 0\n\tMaximum resident set size (kbytes): 104048\n\tAverage resident set size (kbytes): 0\n\tMajor (requiring I/O) page faults: 0\n\tMinor (reclaiming a frame) page faults: 18421\n\tVoluntary context switches: 56\n\tInvoluntary context switches: 24\n\tSwaps: 0\n\tFile system inputs: 0\n\tFile system outputs: 2040\n\tSocket messages sent: 0\n\tSocket messages received: 0\n\tSignals delivered: 0\n\tPage size (bytes): 4096\n\tExit status: 0\n"
+    },
+    "validations": [
+      {
+        "abi": "candidate-record-v1",
+        "canonical_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+        "first_record": [
+          -253,
+          2,
+          14842839419,
+          -1165,
+          2591,
+          "-"
+        ],
+        "last_record": [
+          -253,
+          3320,
+          3728940512,
+          3573,
+          1417,
+          "+"
+        ],
+        "path": "/tmp/cuflye-m3c-proof-1782823538/out/m3c/real-pack/real-pack-1.candidates.tsv",
+        "raw_sha256": "f24d05c6fccc494f0b45d24330d6ed24e80b984b7ff281b31b4bb302ae162191",
+        "raw_sorted_by_canonical_key": false,
+        "records": 15571,
+        "size_bytes": 510990
+      },
+      {
+        "abi": "candidate-record-v1",
+        "canonical_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+        "first_record": [
+          -253,
+          2,
+          14842839419,
+          -1165,
+          2591,
+          "-"
+        ],
+        "last_record": [
+          -253,
+          3320,
+          3728940512,
+          3573,
+          1417,
+          "+"
+        ],
+        "path": "/tmp/cuflye-m3c-proof-1782823538/out/m3c/real-pack/real-pack-2.candidates.tsv",
+        "raw_sha256": "f24d05c6fccc494f0b45d24330d6ed24e80b984b7ff281b31b4bb302ae162191",
+        "raw_sorted_by_canonical_key": false,
+        "records": 15571,
+        "size_bytes": 510990
+      }
+    ]
+  },
+  "repo": {
+    "commit": "f4a404c9d012f298221464cd56489e508f3d37e1",
+    "root": "/tmp/cuflye-m3c-proof-1782823538",
+    "status_short": ""
+  },
+  "schema": "cuflye-dgx-proof-v1",
+  "source_pack": {
+    "cpu_candidates": "/tmp/cuflye-m2b-1782793203/out/m2b/proof/pack/query_neg253/cpu-candidates.tsv",
+    "kmer_size": 17,
+    "path": "/tmp/cuflye-m2b-1782793203/out/m2b/proof/pack/query_neg253",
+    "query_id": -253
+  },
+  "status": "passed",
+  "toy": {
+    "diffs": [
+      {
+        "left": "/tmp/cuflye-m3c-proof-1782823538/tests/fixtures/read-window-smoke-v0/expected.candidates.tsv",
+        "left_records": 6,
+        "left_sha256": "f0ef59dafc1a8efa5f007443d4c11191e3f03b2500c87874b40fa89f2803010d",
+        "right": "/tmp/cuflye-m3c-proof-1782823538/out/m3c/toy/toy-1.candidates.tsv",
+        "right_records": 6,
+        "right_sha256": "f0ef59dafc1a8efa5f007443d4c11191e3f03b2500c87874b40fa89f2803010d",
+        "status": "match"
+      },
+      {
+        "left": "/tmp/cuflye-m3c-proof-1782823538/tests/fixtures/read-window-smoke-v0/expected.candidates.tsv",
+        "left_records": 6,
+        "left_sha256": "f0ef59dafc1a8efa5f007443d4c11191e3f03b2500c87874b40fa89f2803010d",
+        "right": "/tmp/cuflye-m3c-proof-1782823538/out/m3c/toy/toy-2.candidates.tsv",
+        "right_records": 6,
+        "right_sha256": "f0ef59dafc1a8efa5f007443d4c11191e3f03b2500c87874b40fa89f2803010d",
+        "status": "match"
+      }
+    ],
+    "requests": "/tmp/cuflye-m3c-proof-1782823538/out/m3c/toy/requests.jsonl",
+    "responses": [
+      {
+        "backend_json": "/tmp/cuflye-m3c-proof-1782823538/out/m3c/toy/toy-1.backend.json",
+        "candidate_abi": "candidate-record-v1",
+        "dense_pair_output_materialized": false,
+        "device": 0,
+        "device_allocation_bytes": 2216,
+        "device_name": "NVIDIA GB10",
+        "host_prefix_offsets_materialized": false,
+        "memory_budget_satisfied": true,
+        "output_strategy": "sparse-offsets-v1",
+        "output_tsv": "/tmp/cuflye-m3c-proof-1782823538/out/m3c/toy/toy-1.candidates.tsv",
+        "prefix_strategy": "device-exclusive-scan-v1",
+        "records": 6,
+        "request_id": "toy-1",
+        "request_ordinal": 1,
+        "schema": "cuflye-worker-response-v0",
+        "status": "ok",
+        "timing_ms": {
+          "backend_total_before_json": 0.9,
+          "cuda_setup": 0.0,
+          "device_allocation": 0.289,
+          "device_prefix_sum": 0.031,
+          "device_to_host": 0.035,
+          "emit_kernel": 0.02,
+          "flag_device_to_host": 0.0,
+          "host_prefix_sum": 0.0,
+          "host_to_device": 0.039,
+          "input_parse": 0.058,
+          "kernel": 0.245,
+          "mark_kernel": 0.224,
+          "offsets_host_to_device": 0.0,
+          "output_count_device_to_host": 0.025,
+          "output_device_to_host": 0.01,
+          "request_total": 1.168,
+          "worker_uptime": 324.147,
+          "write_output": 0.118
+        },
+        "worker_context_setup_ms": 322.978,
+        "worker_cuda_context_warm": false
+      },
+      {
+        "backend_json": "/tmp/cuflye-m3c-proof-1782823538/out/m3c/toy/toy-2.backend.json",
+        "candidate_abi": "candidate-record-v1",
+        "dense_pair_output_materialized": false,
+        "device": 0,
+        "device_allocation_bytes": 2216,
+        "device_name": "NVIDIA GB10",
+        "host_prefix_offsets_materialized": false,
+        "memory_budget_satisfied": true,
+        "output_strategy": "sparse-offsets-v1",
+        "output_tsv": "/tmp/cuflye-m3c-proof-1782823538/out/m3c/toy/toy-2.candidates.tsv",
+        "prefix_strategy": "device-exclusive-scan-v1",
+        "records": 6,
+        "request_id": "toy-2",
+        "request_ordinal": 2,
+        "schema": "cuflye-worker-response-v0",
+        "status": "ok",
+        "timing_ms": {
+          "backend_total_before_json": 0.431,
+          "cuda_setup": 0.0,
+          "device_allocation": 0.187,
+          "device_prefix_sum": 0.016,
+          "device_to_host": 0.026,
+          "emit_kernel": 0.009,
+          "flag_device_to_host": 0.0,
+          "host_prefix_sum": 0.0,
+          "host_to_device": 0.032,
+          "input_parse": 0.024,
+          "kernel": 0.03,
+          "mark_kernel": 0.021,
+          "offsets_host_to_device": 0.0,
+          "output_count_device_to_host": 0.017,
+          "output_device_to_host": 0.009,
+          "request_total": 0.611,
+          "worker_uptime": 324.797,
+          "write_output": 0.041
+        },
+        "worker_context_setup_ms": 322.978,
+        "worker_cuda_context_warm": true
+      }
+    ],
+    "validations": [
+      {
+        "abi": "candidate-record-v1",
+        "canonical_sha256": "f0ef59dafc1a8efa5f007443d4c11191e3f03b2500c87874b40fa89f2803010d",
+        "first_record": [
+          -2,
+          3,
+          77,
+          5,
+          70,
+          "+"
+        ],
+        "last_record": [
+          1,
+          10,
+          123,
+          4,
+          40,
+          "+"
+        ],
+        "path": "/tmp/cuflye-m3c-proof-1782823538/out/m3c/toy/toy-1.candidates.tsv",
+        "raw_sha256": "f0ef59dafc1a8efa5f007443d4c11191e3f03b2500c87874b40fa89f2803010d",
+        "raw_sorted_by_canonical_key": true,
+        "records": 6,
+        "size_bytes": 92
+      },
+      {
+        "abi": "candidate-record-v1",
+        "canonical_sha256": "f0ef59dafc1a8efa5f007443d4c11191e3f03b2500c87874b40fa89f2803010d",
+        "first_record": [
+          -2,
+          3,
+          77,
+          5,
+          70,
+          "+"
+        ],
+        "last_record": [
+          1,
+          10,
+          123,
+          4,
+          40,
+          "+"
+        ],
+        "path": "/tmp/cuflye-m3c-proof-1782823538/out/m3c/toy/toy-2.candidates.tsv",
+        "raw_sha256": "f0ef59dafc1a8efa5f007443d4c11191e3f03b2500c87874b40fa89f2803010d",
+        "raw_sorted_by_canonical_key": true,
+        "records": 6,
+        "size_bytes": 92
+      }
+    ]
+  }
+}

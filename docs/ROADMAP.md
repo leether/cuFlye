@@ -250,12 +250,12 @@ Use precise milestone labels:
 Next highest-ROI task:
 
 ```text
-M3c: move sparse output prefix/compaction into the CUDA backend so the warm
-worker path no longer pays the measured host prefix-sum bottleneck. Preserve the
-M3b JSONL worker proof mode and candidate-record-v1 equivalence gates.
+M3d: add a worker-side reusable device-buffer arena/capacity planner so repeated
+warm requests do not pay large per-request CUDA allocation overhead. Preserve the
+M3c device-prefix worker proof mode and candidate-record-v1 equivalence gates.
 ```
 
 Acceptance should remain candidate-list equivalence plus honest timing
-breakdown. The immediate target is reducing the M3b warm backend total while
+breakdown. The immediate target is reducing the M3c warm backend total while
 preserving the worker advantage; do not claim full assembly speed until
 downstream graph equivalence is proven.

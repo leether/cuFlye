@@ -1,6 +1,6 @@
 # Task Card: cuFlye M3c Device Prefix Compaction
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -89,9 +89,44 @@ materialization over the full `pair_count` flag array.
 
 ## Execution Checklist
 
-- [ ] Add device-side prefix/offset path.
-- [ ] Update ABI docs.
-- [ ] Run local static/style gates.
-- [ ] Build and run on DGX.
-- [ ] Validate worker candidate outputs.
-- [ ] Record compact proof and close this card.
+- [x] Add device-side prefix/offset path.
+- [x] Update ABI docs.
+- [x] Run local static/style gates.
+- [x] Build and run on DGX.
+- [x] Validate worker candidate outputs.
+- [x] Record compact proof and close this card.
+
+## Merge Note
+
+Implemented in repo commit `f4a404c9d012f298221464cd56489e508f3d37e1` and
+validated on DGX host `edgexpert-45d2` with `/usr/local/cuda/bin/nvcc`
+`13.0.88` targeting `sm_121`.
+
+Real pack proof:
+
+- Source pack:
+  `/tmp/cuflye-m2b-1782793203/out/m2b/proof/pack/query_neg253`
+- Query id: `-253`
+- K-mer size: `17`
+- Requests processed in one worker process: `2`
+- Candidate records per request: `15571`
+- Second request warm context: `true`
+- Prefix strategy: `device-exclusive-scan-v1`
+- Host prefix sum: `0.000 ms`
+- Warm backend device prefix sum: `3.496 ms`
+- Warm backend total before JSON: `28.330 ms`
+- M3b warm backend total before JSON: `132.110 ms`
+- Warm backend vs M3b speedup: `4.66x`
+- Warm backend vs M2f GPU-only speedup: `15.02x`
+- Warm backend vs CPU oracle speedup: `33.29x`
+- Worker RSS for two real requests: `104048 kB`
+- CPU/worker candidate diffs: `match`
+- Canonical SHA-256:
+  `5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae`
+
+Tracked compact proof:
+
+- `tests/golden/cuflye-m3c-device-prefix-compaction-dgx-aarch64.json`
+
+M3c proves device-side prefix compaction at the candidate backend boundary. It
+still does not claim full Flye assembly speedup.
