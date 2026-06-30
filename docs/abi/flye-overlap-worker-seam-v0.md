@@ -2,7 +2,7 @@
 
 Status: accepted in M4j; batch allowlist extension accepted in M4k; validation
 gate accepted in M4l; shadow consumption proof accepted in M4m; graph
-consumption guard dry-run proposed in M4o
+consumption guard dry-run accepted in M4o
 
 Introduced: M4j
 

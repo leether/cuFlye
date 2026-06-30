@@ -1,6 +1,6 @@
 # Overlap Graph Consumption Guard v0
 
-Status: proposed for M4o
+Status: accepted in M4o
 
 Introduced: M4o
 

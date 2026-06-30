@@ -7,16 +7,19 @@ change is considered complete.
 
 Active cards:
 
-- None. M4n is complete; M4o is proposed.
+- None. M4o is complete; M4p is proposed.
 
 Proposed cards:
+
+- `2026-07-01-cuflye-m4p-overlap-graph-consumption-rehydration-dry-run.md`:
+  rehydrate validated CUDA overlap worker output into Flye-side typed overlap
+  data in a no-mutation dry-run before any graph consumption path is enabled.
+
+Completed cards:
 
 - `2026-07-01-cuflye-m4o-guarded-overlap-graph-consumption-design.md`: define
   the guarded-consumption contract and dry-run proof before any CUDA overlap
   output is allowed to affect Flye graph mutation.
-
-Completed cards:
-
 - `2026-07-01-cuflye-m4n-heterogeneous-shadow-batch-matrix.md`: expand the
   validation and shadow-consumption proof from the fixed top-9 batch to a
   deterministic heterogeneous supported-shape replay matrix.

@@ -1,0 +1,497 @@
+{
+  "acceptance": {
+    "cuda_worker_build_succeeds": true,
+    "default_cpu_artifacts_match_m0_golden": true,
+    "default_cpu_toy_hifi_completes": true,
+    "flye_patch_series_builds_through_0014": true,
+    "local_and_dgx_syntax_style_gates_pass": true,
+    "negative_expected_failure_recorded": true,
+    "negative_failed_checks_include_shadow": true,
+    "negative_graph_mutation_consumed_false": true,
+    "negative_guard_failed_closed": true,
+    "negative_guard_status_failed": true,
+    "negative_seam_guard_failed_before_graph_mutation": true,
+    "negative_validation_still_passed": true,
+    "negative_worker_response_status_ok": true,
+    "no_large_tsv_committed": true,
+    "ownership_scan_no_new_direct_resource_api": true,
+    "patched_flye_build_succeeds_on_dgx": true,
+    "positive_expected_failure_recorded": true,
+    "positive_graph_mutation_consumed_false": true,
+    "positive_guard_eligibility_true": true,
+    "positive_guard_not_consumed": true,
+    "positive_guard_status_passed": true,
+    "positive_seam_stops_before_graph_mutation": true,
+    "positive_shadow_status_passed": true,
+    "positive_validation_status_passed": true,
+    "positive_worker_response_status_ok": true
+  },
+  "benefit_assessment_plain_language": "M4o does not make Flye faster. Its CUDA-side benefit is risk reduction: before any future GPU overlap output can touch Flye graph construction, the code now has an explicit dry-run guard that proves validation and shadow success are required, records why output is eligible or rejected, and still refuses to mutate the graph.",
+  "builds": {
+    "cuda_overlap_worker": {
+      "created_at_utc": "2026-06-30T16:44:22.666606+00:00",
+      "cuda_arch": "sm_121",
+      "cuda_home": "/usr/local/cuda",
+      "host": "edgexpert-45d2",
+      "machine": "aarch64",
+      "nvcc": "/usr/local/cuda/bin/nvcc",
+      "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:57:39_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+      "output_binary": "/tmp/cuflye-m4o-proof-1782837850-git/out/m4o/bin/cuflye-cuda-overlap-chain-replay",
+      "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+      "python": "3.12.3",
+      "repo_commit": "14b96fa064786899ee80f764c795d07d0fc21237",
+      "repo_root": "/tmp/cuflye-m4o-proof-1782837850-git"
+    },
+    "flye": {
+      "actual_branch": "flye",
+      "actual_commit": "886b8c17412c",
+      "actual_tags": [
+        "2.9.6"
+      ],
+      "applied_patches": [
+        "0001-cuflye-candidate-dump.patch",
+        "0002-cuflye-candidate-backend-seam.patch",
+        "0003-cuflye-cuda-backend-stub.patch",
+        "0004-cuflye-cuda-adapter-shell.patch",
+        "0005-cuflye-real-data-pack-dump.patch",
+        "0006-cuflye-external-pack-query-stop.patch",
+        "0007-cuflye-overlap-range-dump.patch",
+        "0008-cuflye-overlap-replay-fixture-dump.patch",
+        "0009-cuflye-overlap-replay-max-fixtures.patch",
+        "0010-cuflye-flye-overlap-worker-seam.patch",
+        "0011-cuflye-flye-overlap-worker-batch-allowlist.patch",
+        "0012-cuflye-overlap-worker-validation-gate.patch",
+        "0013-cuflye-overlap-worker-shadow-consumption.patch",
+        "0014-cuflye-overlap-graph-consumption-guard-dry-run.patch"
+      ],
+      "apply_patches": true,
+      "created_at_utc": "2026-06-30T16:44:39.063635+00:00",
+      "expected_commit_prefix": "886b8c1",
+      "expected_ref": "2.9.6",
+      "flye_dir": "/tmp/cuflye-m4o-proof-1782837850-git/out/m4o/upstream-flye",
+      "flye_version": "2.9.6-b1802",
+      "gcc": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "gxx": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "host": "edgexpert-45d2",
+      "jobs": 8,
+      "machine": "aarch64",
+      "make": "GNU Make 4.3",
+      "make_args": [
+        "THREADS=8",
+        "aarch64=1",
+        "arm_neon=1"
+      ],
+      "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+      "python": "3.12.3",
+      "repo_root": "/tmp/cuflye-m4o-proof-1782837850-git"
+    }
+  },
+  "claims": {
+    "allowed": "cuFlye can audit a guarded dry-run contract for future CUDA overlap graph consumption while keeping graph mutation on CPU output.",
+    "forbidden": "No claim that CUDA overlap output is consumed by Flye graph logic, and no end-to-end GPU Flye speed claim."
+  },
+  "created_at_utc": "2026-06-30T16:48:16.197957+00:00",
+  "default_cpu_regression": {
+    "actual_count": 9,
+    "extra": [],
+    "golden_count": 9,
+    "mismatch": [],
+    "missing": [],
+    "status": "match"
+  },
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "nvidia_smi": "GPU 0: NVIDIA GB10 (UUID: GPU-36e1e91e-fa5c-6e0d-d076-203391a7bb03)",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+    "python": "3.12.3"
+  },
+  "milestone": "M4o-guarded-overlap-graph-consumption-dry-run",
+  "negative_guard_dry_run": {
+    "failed_checks": [
+      {
+        "detail": "CUFLYE_OVERLAP_WORKER_SHADOW_MODE=canonical-overlap-v0",
+        "name": "shadow_mode_selected",
+        "passed": false,
+        "required": true
+      },
+      {
+        "detail": "in-memory shadow comparison must pass",
+        "name": "shadow_passed",
+        "passed": false,
+        "required": true
+      }
+    ],
+    "fixture": "toy-raw",
+    "guard": {
+      "checks": [
+        {
+          "detail": "CUFLYE_OVERLAP_GRAPH_CONSUMPTION_MODE=dry-run-v0",
+          "name": "explicit_guard_mode",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "worker output validation must pass",
+          "name": "validation_passed",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "CUFLYE_OVERLAP_WORKER_SHADOW_MODE=canonical-overlap-v0",
+          "name": "shadow_mode_selected",
+          "passed": false,
+          "required": true
+        },
+        {
+          "detail": "in-memory shadow comparison must pass",
+          "name": "shadow_passed",
+          "passed": false,
+          "required": true
+        },
+        {
+          "detail": "captured fixture count must match request",
+          "name": "fixture_count_matches_request",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "guard audit JSON path must be available",
+          "name": "audit_metadata_available",
+          "passed": true,
+          "required": true
+        }
+      ],
+      "consumed": false,
+      "decision": "failed-closed-before-graph-mutation",
+      "eligible": false,
+      "failed_closed": true,
+      "graph_consumption_state": "failed-closed",
+      "graph_mutation_consumed_worker_output": false,
+      "guard_eligibility": "ineligible",
+      "mode": "dry-run-v0",
+      "not_consumed": false,
+      "schema": "cuflye-overlap-graph-consumption-guard-v0",
+      "status": "failed"
+    },
+    "negative_condition": "graph guard dry-run enabled without shadow mode",
+    "response": {
+      "adapter_mode": "overlap-replay-batch-v0",
+      "batch_execution": "packed",
+      "batch_json_output": "out/m4o/overlap-worker-guard-fail/worker-batch.json",
+      "batch_output_dir": "out/m4o/overlap-worker-guard-fail/worker-output",
+      "cuda_kernel_mode": "serial",
+      "fixture_count": 12,
+      "kernel_launches_per_timed_run": 1,
+      "output_records": 304,
+      "overlap_abi": "overlap-range-v1",
+      "request_id": "flye-overlap-worker-12",
+      "request_ordinal": 1,
+      "schema": "cuflye-overlap-worker-response-v0",
+      "status": "ok",
+      "timing_ms": {
+        "backend_mean_total_before_write": 5.567692,
+        "backend_timed_total_before_write": 11.135384,
+        "kernel": 5.489844,
+        "parse": 22.135553,
+        "request_total": 40.801733,
+        "worker_overhead": 29.666349,
+        "worker_uptime": 367.375148,
+        "write_output": 0.871095
+      },
+      "worker_context_setup_ms": 326.573271,
+      "worker_cuda_context_warm": false,
+      "worker_device_arena_allocations": 7,
+      "worker_device_arena_capacity_bytes": 2172699,
+      "worker_device_arena_enabled": true,
+      "worker_device_arena_reuses": 14
+    },
+    "run_metadata": {
+      "command": [
+        "out/m4o/upstream-flye/bin/flye",
+        "--pacbio-raw",
+        "out/m4o/upstream-flye/flye/tests/data/ecoli_500kb_reads.fastq.gz",
+        "-g",
+        "500k",
+        "-o",
+        "out/m4o/runs/toy-guard-dry-run-fail",
+        "-t",
+        "1",
+        "-m",
+        "1000",
+        "--debug"
+      ],
+      "elapsed_seconds": 56,
+      "exit_status": 1,
+      "expected_failure": true,
+      "finished_at_utc": "2026-06-30T16:47:29.096831+00:00",
+      "fixture": "toy-raw",
+      "flye_commit": "886b8c17412cdf3a2868a28237bca6c5ad1da156",
+      "flye_dir": "/tmp/cuflye-m4o-proof-1782837850-git/out/m4o/upstream-flye",
+      "flye_tags": [
+        "2.9.6"
+      ],
+      "genome_size": "500k",
+      "host": "edgexpert-45d2",
+      "machine": "aarch64",
+      "min_overlap": "1000",
+      "nvidia_smi": "GPU 0: NVIDIA GB10 (UUID: GPU-36e1e91e-fa5c-6e0d-d076-203391a7bb03)",
+      "overlap_graph_consumption_mode": "dry-run-v0",
+      "overlap_replay_dump_dir": "/tmp/cuflye-m4o-proof-1782837850-git/out/m4o/replay-fixtures-fail",
+      "overlap_replay_max_fixtures": "12",
+      "overlap_replay_query_ids": "353,381,-362,-498,651,477,-503,551,789,351,788,-484",
+      "overlap_worker_benchmark_runs": "2",
+      "overlap_worker_bin": "/tmp/cuflye-m4o-proof-1782837850-git/out/m4o/bin/cuflye-cuda-overlap-chain-replay",
+      "overlap_worker_device": "0",
+      "overlap_worker_kernel_mode": "serial",
+      "overlap_worker_mode": "packed-replay-v0",
+      "overlap_worker_output_dir": "/tmp/cuflye-m4o-proof-1782837850-git/out/m4o/overlap-worker-guard-fail",
+      "overlap_worker_validation_mode": "oracle-diff-v0",
+      "overlap_worker_warmup_runs": "1",
+      "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+      "python": "3.12.3",
+      "read_type": "pacbio-raw",
+      "reads": "/tmp/cuflye-m4o-proof-1782837850-git/out/m4o/upstream-flye/flye/tests/data/ecoli_500kb_reads.fastq.gz",
+      "repo_commit": "14b96fa064786899ee80f764c795d07d0fc21237",
+      "repo_root": "/tmp/cuflye-m4o-proof-1782837850-git",
+      "started_at_utc": "2026-06-30T16:46:33.673402+00:00",
+      "threads": 1
+    },
+    "seam_summary": {
+      "batch_json_output": "out/m4o/overlap-worker-guard-fail/worker-batch.json",
+      "batch_output_dir": "out/m4o/overlap-worker-guard-fail/worker-output",
+      "captured_query_ids_file": "out/m4o/overlap-worker-guard-fail/worker-query-ids.txt",
+      "fixture_count": 12,
+      "fixture_list": "out/m4o/overlap-worker-guard-fail/worker-fixtures.txt",
+      "graph_consumption_decision": "failed-closed-before-graph-mutation",
+      "graph_consumption_eligible": false,
+      "graph_consumption_mode": "dry-run-v0",
+      "graph_consumption_state": "failed-closed",
+      "graph_guard_eligibility": "ineligible",
+      "graph_guard_json": "out/m4o/overlap-worker-guard-fail/worker-graph-consumption-guard.json",
+      "graph_guard_status": "failed",
+      "graph_mutation_consumed_worker_output": false,
+      "replay_query_ids": "353,381,-362,-498,651,477,-503,551,789,351,788,-484",
+      "request_json": "out/m4o/overlap-worker-guard-fail/worker-request.json",
+      "response_json": "out/m4o/overlap-worker-guard-fail/worker-response.json",
+      "schema": "cuflye-flye-overlap-worker-seam-v0",
+      "shadow_consumption_eligible": false,
+      "shadow_json": "out/m4o/overlap-worker-guard-fail/worker-shadow.json",
+      "shadow_mode": "",
+      "shadow_status": "not-requested",
+      "status": "guard-failed-before-graph-mutation",
+      "validation_json": "out/m4o/overlap-worker-guard-fail/worker-validation.json",
+      "validation_mode": "oracle-diff-v0",
+      "validation_status": "passed",
+      "worker_output_consumption_eligible": true
+    },
+    "validation": {
+      "fixture_count": 12,
+      "status": "passed",
+      "worker_output_consumption_eligible": true
+    },
+    "worker_shadow_json_exists": false
+  },
+  "positive_guard_dry_run": {
+    "failed_checks": [],
+    "fixture": "toy-raw",
+    "guard": {
+      "checks": [
+        {
+          "detail": "CUFLYE_OVERLAP_GRAPH_CONSUMPTION_MODE=dry-run-v0",
+          "name": "explicit_guard_mode",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "worker output validation must pass",
+          "name": "validation_passed",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "CUFLYE_OVERLAP_WORKER_SHADOW_MODE=canonical-overlap-v0",
+          "name": "shadow_mode_selected",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "in-memory shadow comparison must pass",
+          "name": "shadow_passed",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "captured fixture count must match request",
+          "name": "fixture_count_matches_request",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "guard audit JSON path must be available",
+          "name": "audit_metadata_available",
+          "passed": true,
+          "required": true
+        }
+      ],
+      "consumed": false,
+      "decision": "dry-run-not-consumed",
+      "eligible": true,
+      "failed_closed": false,
+      "graph_consumption_state": "not-consumed",
+      "graph_mutation_consumed_worker_output": false,
+      "guard_eligibility": "eligible",
+      "mode": "dry-run-v0",
+      "not_consumed": true,
+      "schema": "cuflye-overlap-graph-consumption-guard-v0",
+      "status": "passed"
+    },
+    "response": {
+      "adapter_mode": "overlap-replay-batch-v0",
+      "batch_execution": "packed",
+      "batch_json_output": "out/m4o/overlap-worker-guard-pass/worker-batch.json",
+      "batch_output_dir": "out/m4o/overlap-worker-guard-pass/worker-output",
+      "cuda_kernel_mode": "serial",
+      "fixture_count": 12,
+      "kernel_launches_per_timed_run": 1,
+      "output_records": 304,
+      "overlap_abi": "overlap-range-v1",
+      "request_id": "flye-overlap-worker-12",
+      "request_ordinal": 1,
+      "schema": "cuflye-overlap-worker-response-v0",
+      "status": "ok",
+      "timing_ms": {
+        "backend_mean_total_before_write": 5.567066,
+        "backend_timed_total_before_write": 11.134132,
+        "kernel": 5.489569,
+        "parse": 22.203896,
+        "request_total": 40.791455,
+        "worker_overhead": 29.657323,
+        "worker_uptime": 366.179361,
+        "write_output": 0.837908
+      },
+      "worker_context_setup_ms": 325.387746,
+      "worker_cuda_context_warm": false,
+      "worker_device_arena_allocations": 7,
+      "worker_device_arena_capacity_bytes": 2172699,
+      "worker_device_arena_enabled": true,
+      "worker_device_arena_reuses": 14
+    },
+    "run_metadata": {
+      "command": [
+        "out/m4o/upstream-flye/bin/flye",
+        "--pacbio-raw",
+        "out/m4o/upstream-flye/flye/tests/data/ecoli_500kb_reads.fastq.gz",
+        "-g",
+        "500k",
+        "-o",
+        "out/m4o/runs/toy-guard-dry-run-pass",
+        "-t",
+        "1",
+        "-m",
+        "1000",
+        "--debug"
+      ],
+      "elapsed_seconds": 46,
+      "exit_status": 1,
+      "expected_failure": true,
+      "finished_at_utc": "2026-06-30T16:46:19.709587+00:00",
+      "fixture": "toy-raw",
+      "flye_commit": "886b8c17412cdf3a2868a28237bca6c5ad1da156",
+      "flye_dir": "/tmp/cuflye-m4o-proof-1782837850-git/out/m4o/upstream-flye",
+      "flye_tags": [
+        "2.9.6"
+      ],
+      "genome_size": "500k",
+      "host": "edgexpert-45d2",
+      "machine": "aarch64",
+      "min_overlap": "1000",
+      "nvidia_smi": "GPU 0: NVIDIA GB10 (UUID: GPU-36e1e91e-fa5c-6e0d-d076-203391a7bb03)",
+      "overlap_graph_consumption_mode": "dry-run-v0",
+      "overlap_replay_dump_dir": "/tmp/cuflye-m4o-proof-1782837850-git/out/m4o/replay-fixtures-pass",
+      "overlap_replay_max_fixtures": "12",
+      "overlap_replay_query_ids": "353,381,-362,-498,651,477,-503,551,789,351,788,-484",
+      "overlap_worker_benchmark_runs": "2",
+      "overlap_worker_bin": "/tmp/cuflye-m4o-proof-1782837850-git/out/m4o/bin/cuflye-cuda-overlap-chain-replay",
+      "overlap_worker_device": "0",
+      "overlap_worker_kernel_mode": "serial",
+      "overlap_worker_mode": "packed-replay-v0",
+      "overlap_worker_output_dir": "/tmp/cuflye-m4o-proof-1782837850-git/out/m4o/overlap-worker-guard-pass",
+      "overlap_worker_shadow_mode": "canonical-overlap-v0",
+      "overlap_worker_validation_mode": "oracle-diff-v0",
+      "overlap_worker_warmup_runs": "1",
+      "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+      "python": "3.12.3",
+      "read_type": "pacbio-raw",
+      "reads": "/tmp/cuflye-m4o-proof-1782837850-git/out/m4o/upstream-flye/flye/tests/data/ecoli_500kb_reads.fastq.gz",
+      "repo_commit": "14b96fa064786899ee80f764c795d07d0fc21237",
+      "repo_root": "/tmp/cuflye-m4o-proof-1782837850-git",
+      "started_at_utc": "2026-06-30T16:45:33.104766+00:00",
+      "threads": 1
+    },
+    "seam_summary": {
+      "batch_json_output": "out/m4o/overlap-worker-guard-pass/worker-batch.json",
+      "batch_output_dir": "out/m4o/overlap-worker-guard-pass/worker-output",
+      "captured_query_ids_file": "out/m4o/overlap-worker-guard-pass/worker-query-ids.txt",
+      "fixture_count": 12,
+      "fixture_list": "out/m4o/overlap-worker-guard-pass/worker-fixtures.txt",
+      "graph_consumption_decision": "dry-run-not-consumed",
+      "graph_consumption_eligible": true,
+      "graph_consumption_mode": "dry-run-v0",
+      "graph_consumption_state": "not-consumed",
+      "graph_guard_eligibility": "eligible",
+      "graph_guard_json": "out/m4o/overlap-worker-guard-pass/worker-graph-consumption-guard.json",
+      "graph_guard_status": "passed",
+      "graph_mutation_consumed_worker_output": false,
+      "replay_query_ids": "353,381,-362,-498,651,477,-503,551,789,351,788,-484",
+      "request_json": "out/m4o/overlap-worker-guard-pass/worker-request.json",
+      "response_json": "out/m4o/overlap-worker-guard-pass/worker-response.json",
+      "schema": "cuflye-flye-overlap-worker-seam-v0",
+      "shadow_consumption_eligible": true,
+      "shadow_json": "out/m4o/overlap-worker-guard-pass/worker-shadow.json",
+      "shadow_mode": "canonical-overlap-v0",
+      "shadow_status": "passed",
+      "status": "stopped-before-graph-mutation",
+      "validation_json": "out/m4o/overlap-worker-guard-pass/worker-validation.json",
+      "validation_mode": "oracle-diff-v0",
+      "validation_status": "passed",
+      "worker_output_consumption_eligible": true
+    },
+    "shadow": {
+      "fixture_count": 12,
+      "shadow_consumption_eligible": true,
+      "status": "passed"
+    },
+    "validation": {
+      "fixture_count": 12,
+      "status": "passed",
+      "worker_output_consumption_eligible": true
+    }
+  },
+  "repo": {
+    "branch": "main",
+    "commit": "14b96fa064786899ee80f764c795d07d0fc21237",
+    "status_short": "## main"
+  },
+  "schema": "cuflye-dgx-proof-v1",
+  "selection_source": {
+    "milestone": "M4n-heterogeneous-shadow-batch-matrix",
+    "selected_fixtures": 12,
+    "selected_query_ids": [
+      353,
+      381,
+      -362,
+      -498,
+      651,
+      477,
+      -503,
+      551,
+      789,
+      351,
+      788,
+      -484
+    ],
+    "selected_query_ids_csv": "353,381,-362,-498,651,477,-503,551,789,351,788,-484"
+  },
+  "status": "passed"
+}

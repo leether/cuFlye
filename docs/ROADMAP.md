@@ -195,6 +195,16 @@ Completed:
   both worker TSV and disk oracle for `query_353`; validation still passed, but
   shadow comparison caught `8` CPU records versus `7` worker records and failed
   closed before graph mutation.
+- M4o: Flye now has an explicit graph-consumption guard dry-run for packed CUDA
+  overlap worker output. The guard is disabled by default and enabled only with
+  `CUFLYE_OVERLAP_GRAPH_CONSUMPTION_MODE=dry-run-v0`. The positive DGX proof
+  used the M4n 12-fixture heterogeneous matrix with validation and shadow
+  enabled; it wrote `graph_guard_status=passed`,
+  `graph_guard_eligibility=eligible`, `graph_consumption_state=not-consumed`,
+  and `graph_mutation_consumed_worker_output=false`. The negative proof enabled
+  the guard without shadow mode; validation still passed, but guard checks
+  `shadow_mode_selected` and `shadow_passed` failed, producing
+  `status=guard-failed-before-graph-mutation` before graph mutation.
 
 Current allowed performance claim:
 
@@ -256,6 +266,11 @@ cuFlye now has a broader heterogeneous shadow matrix proof for that boundary.
 The proof documents selected supported shapes and unsupported exclusions, and it
 shows validation and shadow success across `12` replay-match fixtures before
 graph mutation. This still does not feed GPU output into graph mutation.
+
+cuFlye now has a guarded graph-consumption dry-run contract for that same
+boundary. This is a safety and auditability claim: the code can prove the
+preconditions for future graph consumption and still records that worker output
+was not consumed by graph mutation.
 ```
 
 Current forbidden claim:
@@ -429,10 +444,17 @@ Next highest-ROI task:
 
 ```text
 M4o: define a guarded overlap graph-consumption contract and dry-run proof
-before allowing CUDA overlap output to affect Flye graph mutation.
+before allowing CUDA overlap output to affect Flye graph mutation. Completed.
 ```
 
-Acceptance should keep guarded consumption disabled by default, require both
-validation and shadow success before eligibility, record explicit audit metadata,
-include a negative guard failure, and still avoid graph mutation in the dry-run
-proof.
+Next highest-ROI task:
+
+```text
+M4p: rehydrate validated CUDA overlap worker output into a Flye-side typed
+overlap vector in a no-mutation dry-run, then prove it matches the CPU vector
+before any graph-consumption path is enabled.
+```
+
+Acceptance should require M4o guard eligibility first, preserve default CPU
+behavior, fail closed on any typed-vector mismatch, and still record
+`graph_mutation_consumed_worker_output=false`.

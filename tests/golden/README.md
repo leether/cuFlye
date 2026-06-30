@@ -93,3 +93,5 @@ M4 overlap-range oracle proof:
   `cuflye-m4m-overlap-worker-shadow-consumption-dgx-aarch64.json`
 - Heterogeneous shadow batch matrix manifest:
   `cuflye-m4n-heterogeneous-shadow-batch-matrix-dgx-aarch64.json`
+- Guarded overlap graph-consumption dry-run manifest:
+  `cuflye-m4o-guarded-overlap-graph-consumption-dgx-aarch64.json`
