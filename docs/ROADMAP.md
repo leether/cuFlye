@@ -2,7 +2,7 @@
 
 Status: active
 
-Last updated: 2026-06-30
+Last updated: 2026-07-01
 
 ## North Star
 
@@ -181,6 +181,20 @@ Completed:
   `51` CPU records versus `50` worker records, wrote
   `status=shadow-failed-before-graph-mutation`, and exited non-zero before graph
   mutation.
+- M4n: the validation and shadow-consumption proof now covers a deterministic
+  heterogeneous supported-shape matrix instead of only the fixed top-9 batch.
+  A DGX toy-raw scan captured `227` replay fixtures; the selector found `96`
+  supported replay-match fixtures, explicitly excluded `120` unsupported shapes
+  and `11` replay mismatches, then selected `12` fixtures spanning candidate
+  records `327` to `8372`, target groups `18` to `231`, overlap records `4` to
+  `60`, and overlap density `0.0026367831245880024` to
+  `0.027848101265822784`. The positive proof validated and shadow-compared all
+  `12` selected worker outputs `match`, wrote
+  `shadow_consumption_eligible=true`, and kept
+  `graph_mutation_consumed_worker_output=false`. The negative proof corrupted
+  both worker TSV and disk oracle for `query_353`; validation still passed, but
+  shadow comparison caught `8` CPU records versus `7` worker records and failed
+  closed before graph mutation.
 
 Current allowed performance claim:
 
@@ -237,6 +251,11 @@ worker output. Validated worker output can be parsed into canonical overlap
 records and compared against CPU overlap ranges captured in memory. This is one
 more integration boundary, but it still does not feed GPU output into graph
 mutation.
+
+cuFlye now has a broader heterogeneous shadow matrix proof for that boundary.
+The proof documents selected supported shapes and unsupported exclusions, and it
+shows validation and shadow success across `12` replay-match fixtures before
+graph mutation. This still does not feed GPU output into graph mutation.
 ```
 
 Current forbidden claim:
@@ -409,10 +428,11 @@ Use precise milestone labels:
 Next highest-ROI task:
 
 ```text
-M4n: expand the validation and shadow-consumption proof from the fixed top-9
-batch to a deterministic heterogeneous supported-shape replay matrix.
+M4o: define a guarded overlap graph-consumption contract and dry-run proof
+before allowing CUDA overlap output to affect Flye graph mutation.
 ```
 
-Acceptance should preserve validation and shadow matches for every selected
-fixture, document unsupported exclusions explicitly, include a negative shadow
-mismatch case, and still record `graph_mutation_consumed_worker_output=false`.
+Acceptance should keep guarded consumption disabled by default, require both
+validation and shadow success before eligibility, record explicit audit metadata,
+include a negative guard failure, and still avoid graph mutation in the dry-run
+proof.

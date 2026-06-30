@@ -91,3 +91,5 @@ M4 overlap-range oracle proof:
   `cuflye-m4l-overlap-worker-validated-consumption-gate-dgx-aarch64.json`
 - Overlap worker shadow consumption manifest:
   `cuflye-m4m-overlap-worker-shadow-consumption-dgx-aarch64.json`
+- Heterogeneous shadow batch matrix manifest:
+  `cuflye-m4n-heterogeneous-shadow-batch-matrix-dgx-aarch64.json`
