@@ -6,6 +6,7 @@
 
 #include <chrono>
 #include <cerrno>
+#include <cctype>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -13,9 +14,11 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <map>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -98,6 +101,34 @@ struct TimingSummary
 	double compactMs = 0.0;
 	double writeOutputMs = 0.0;
 	double totalBeforeJsonMs = 0.0;
+};
+
+struct CudaDeviceContext
+{
+	int device = 0;
+	cudaDeviceProp prop;
+	size_t freeBytes = 0;
+	size_t totalBytes = 0;
+	double setupMs = 0.0;
+};
+
+struct BackendRunResult
+{
+	TimingSummary timing;
+	cudaDeviceProp prop;
+	size_t freeBytes = 0;
+	size_t totalBytes = 0;
+	size_t requiredBytes = 0;
+	size_t readCount = 0;
+	size_t queryWindows = 0;
+	size_t readBaseBytes = 0;
+	size_t maxReadLength = 0;
+	size_t indexCount = 0;
+	size_t repetitiveCount = 0;
+	size_t pairCount = 0;
+	size_t outputCount = 0;
+	bool cpuOracleEnabled = false;
+	std::string backendJson;
 };
 
 __host__ __device__ uint64_t dnaBaseToBits(char base)
@@ -302,6 +333,7 @@ unsigned long long parseUnsigned(const std::string& value, const std::string& na
 	return parsed;
 }
 
+#ifndef CUFLYE_CUDA_WORKER_MAIN
 int parseInt(const std::string& value, const std::string& name)
 {
 	unsigned long long parsed = parseUnsigned(value, name);
@@ -401,6 +433,7 @@ Options parseArgs(int argc, char** argv)
 	if (options.outputTsv.empty()) usageError("--output-tsv is required");
 	return options;
 }
+#endif
 
 void checkCuda(cudaError_t status, const std::string& action)
 {
@@ -416,6 +449,21 @@ void checkCuda(cudaError_t status, const std::string& action)
 double elapsedMs(Clock::time_point start, Clock::time_point stop)
 {
 	return std::chrono::duration<double, std::milli>(stop - start).count();
+}
+
+CudaDeviceContext initializeCudaDevice(int device)
+{
+	CudaDeviceContext context;
+	context.device = device;
+	auto setupStart = Clock::now();
+	checkCuda(cudaSetDevice(device), "cudaSetDevice failed");
+	std::memset(&context.prop, 0, sizeof(context.prop));
+	checkCuda(cudaGetDeviceProperties(&context.prop, device),
+			  "cudaGetDeviceProperties failed");
+	checkCuda(cudaMemGetInfo(&context.freeBytes, &context.totalBytes),
+			  "cudaMemGetInfo failed");
+	context.setupMs = elapsedMs(setupStart, Clock::now());
+	return context;
 }
 
 double cudaEventElapsedMs(const cuflye::cuda_raii::CudaEvent& start,
@@ -817,15 +865,12 @@ size_t checkedAdd(size_t left, size_t right, const std::string& name)
 	}
 	return left + right;
 }
-}
 
-int main(int argc, char** argv)
+BackendRunResult runReadWindowBackend(const Options& options,
+									  const CudaDeviceContext* context)
 {
-	try
-	{
-		auto totalStart = Clock::now();
-		TimingSummary timing;
-		Options options = parseArgs(argc, argv);
+	auto totalStart = Clock::now();
+	TimingSummary timing;
 
 		auto inputStart = Clock::now();
 		QueryReadSet readSet = readReads(options.readsTsv, options.kmerSize);
@@ -849,16 +894,29 @@ int main(int argc, char** argv)
 			timing.cpuOracleMs = elapsedMs(cpuStart, Clock::now());
 		}
 
-		auto cudaSetupStart = Clock::now();
-		checkCuda(cudaSetDevice(options.device), "cudaSetDevice failed");
-		cudaDeviceProp prop;
-		std::memset(&prop, 0, sizeof(prop));
-		checkCuda(cudaGetDeviceProperties(&prop, options.device), "cudaGetDeviceProperties failed");
-
-		size_t freeBytes = 0;
-		size_t totalBytes = 0;
-		checkCuda(cudaMemGetInfo(&freeBytes, &totalBytes), "cudaMemGetInfo failed");
-		timing.cudaSetupMs = elapsedMs(cudaSetupStart, Clock::now());
+			cudaDeviceProp prop;
+			std::memset(&prop, 0, sizeof(prop));
+			size_t freeBytes = 0;
+			size_t totalBytes = 0;
+			if (context)
+			{
+				if (context->device != options.device)
+				{
+					throw std::runtime_error("worker CUDA context device does not match request device");
+				}
+				checkCuda(cudaSetDevice(options.device), "cudaSetDevice worker context failed");
+				prop = context->prop;
+				checkCuda(cudaMemGetInfo(&freeBytes, &totalBytes), "cudaMemGetInfo failed");
+				timing.cudaSetupMs = 0.0;
+			}
+			else
+			{
+				CudaDeviceContext ownedContext = initializeCudaDevice(options.device);
+				prop = ownedContext.prop;
+				freeBytes = ownedContext.freeBytes;
+				totalBytes = ownedContext.totalBytes;
+				timing.cudaSetupMs = ownedContext.setupMs;
+			}
 
 		size_t readBytes = checkedMultiply(readSet.reads.size(), sizeof(QueryReadMeta), "read metadata buffer");
 		size_t readBaseBytes = checkedMultiply(readSet.bases.size(), sizeof(char), "read base buffer");
@@ -1051,13 +1109,488 @@ int main(int argc, char** argv)
 		timing.writeOutputMs = elapsedMs(writeStart, Clock::now());
 		timing.totalBeforeJsonMs = elapsedMs(totalStart, Clock::now());
 
-		std::string json = buildJson(options, prop, freeBytes, totalBytes, requiredBytes,
-									 readSet.reads.size(), queryWindows, readBaseBytes,
-									 readSet.maxReadLength, indexEntries.size(),
-									 repetitiveKmers.size(), pairCount, gpuRecords.size(),
-									 !options.cpuOutputTsv.empty(), timing);
-		writeText(options.jsonOutput, json);
-		std::cout << json;
+			BackendRunResult result;
+			result.timing = timing;
+			result.prop = prop;
+			result.freeBytes = freeBytes;
+			result.totalBytes = totalBytes;
+			result.requiredBytes = requiredBytes;
+			result.readCount = readSet.reads.size();
+			result.queryWindows = queryWindows;
+			result.readBaseBytes = readBaseBytes;
+			result.maxReadLength = readSet.maxReadLength;
+			result.indexCount = indexEntries.size();
+			result.repetitiveCount = repetitiveKmers.size();
+			result.pairCount = pairCount;
+			result.outputCount = gpuRecords.size();
+			result.cpuOracleEnabled = !options.cpuOutputTsv.empty();
+			result.backendJson = buildJson(options, prop, freeBytes, totalBytes, requiredBytes,
+										  readSet.reads.size(), queryWindows, readBaseBytes,
+										  readSet.maxReadLength, indexEntries.size(),
+										  repetitiveKmers.size(), pairCount, gpuRecords.size(),
+										  !options.cpuOutputTsv.empty(), timing);
+			return result;
+}
+
+#ifdef CUFLYE_CUDA_WORKER_MAIN
+struct WorkerRequest
+{
+	std::string requestId;
+	std::string responseJson;
+	Options options;
+};
+
+struct WorkerCliOptions
+{
+	std::string requestJson;
+	std::string requestsJsonl;
+};
+
+bool isSpace(char ch)
+{
+	return std::isspace(static_cast<unsigned char>(ch)) != 0;
+}
+
+std::string trim(const std::string& text)
+{
+	size_t begin = 0;
+	while (begin < text.size() && isSpace(text[begin])) ++begin;
+	size_t end = text.size();
+	while (end > begin && isSpace(text[end - 1])) --end;
+	return text.substr(begin, end - begin);
+}
+
+void skipJsonWhitespace(const std::string& text, size_t& offset)
+{
+	while (offset < text.size() && isSpace(text[offset])) ++offset;
+}
+
+std::string parseJsonStringToken(const std::string& text, size_t& offset)
+{
+	if (offset >= text.size() || text[offset] != '"')
+	{
+		throw std::runtime_error("JSON string expected");
+	}
+	++offset;
+	std::ostringstream value;
+	while (offset < text.size())
+	{
+		char ch = text[offset++];
+		if (ch == '"') return value.str();
+		if (ch != '\\')
+		{
+			value << ch;
+			continue;
+		}
+		if (offset >= text.size()) throw std::runtime_error("unterminated JSON escape");
+		char escaped = text[offset++];
+		switch (escaped)
+		{
+		case '"': value << '"'; break;
+		case '\\': value << '\\'; break;
+		case '/': value << '/'; break;
+		case 'b': value << '\b'; break;
+		case 'f': value << '\f'; break;
+		case 'n': value << '\n'; break;
+		case 'r': value << '\r'; break;
+		case 't': value << '\t'; break;
+		default:
+			throw std::runtime_error("unsupported JSON escape sequence");
+		}
+	}
+	throw std::runtime_error("unterminated JSON string");
+}
+
+std::string parseJsonValueToken(const std::string& text, size_t& offset)
+{
+	skipJsonWhitespace(text, offset);
+	if (offset >= text.size()) throw std::runtime_error("JSON value expected");
+	if (text[offset] == '"') return parseJsonStringToken(text, offset);
+	if (text[offset] == '{' || text[offset] == '[')
+	{
+		throw std::runtime_error("nested JSON values are not supported by worker request v0");
+	}
+	size_t begin = offset;
+	while (offset < text.size() && text[offset] != ',' && text[offset] != '}') ++offset;
+	std::string value = trim(text.substr(begin, offset - begin));
+	if (value.empty()) throw std::runtime_error("JSON scalar value expected");
+	return value;
+}
+
+std::map<std::string, std::string> parseFlatJsonObject(const std::string& text)
+{
+	std::map<std::string, std::string> fields;
+	size_t offset = 0;
+	skipJsonWhitespace(text, offset);
+	if (offset >= text.size() || text[offset] != '{')
+	{
+		throw std::runtime_error("JSON object expected");
+	}
+	++offset;
+	while (true)
+	{
+		skipJsonWhitespace(text, offset);
+		if (offset < text.size() && text[offset] == '}')
+		{
+			++offset;
+			break;
+		}
+		std::string key = parseJsonStringToken(text, offset);
+		skipJsonWhitespace(text, offset);
+		if (offset >= text.size() || text[offset] != ':')
+		{
+			throw std::runtime_error("JSON object field separator ':' expected");
+		}
+		++offset;
+		std::string value = parseJsonValueToken(text, offset);
+		if (!fields.insert(std::make_pair(key, value)).second)
+		{
+			throw std::runtime_error("duplicate JSON field: " + key);
+		}
+		skipJsonWhitespace(text, offset);
+		if (offset < text.size() && text[offset] == ',')
+		{
+			++offset;
+			continue;
+		}
+		if (offset < text.size() && text[offset] == '}')
+		{
+			++offset;
+			break;
+		}
+		throw std::runtime_error("JSON object field separator ',' or '}' expected");
+	}
+	skipJsonWhitespace(text, offset);
+	if (offset != text.size()) throw std::runtime_error("unexpected characters after JSON object");
+	return fields;
+}
+
+std::string requireJsonField(const std::map<std::string, std::string>& fields,
+							 const std::string& key)
+{
+	auto iter = fields.find(key);
+	if (iter == fields.end() || iter->second.empty())
+	{
+		throw std::runtime_error("worker request missing required field: " + key);
+	}
+	return iter->second;
+}
+
+std::string optionalJsonField(const std::map<std::string, std::string>& fields,
+							  const std::string& key)
+{
+	auto iter = fields.find(key);
+	if (iter == fields.end()) return "";
+	return iter->second;
+}
+
+unsigned long long parseWorkerUnsigned(const std::string& value,
+									   const std::string& name)
+{
+	if (value.empty()) throw std::runtime_error(name + " must not be empty");
+	if (value[0] == '-') throw std::runtime_error(name + " must be unsigned: " + value);
+	char* end = nullptr;
+	errno = 0;
+	unsigned long long parsed = std::strtoull(value.c_str(), &end, 10);
+	if (errno != 0 || end == value.c_str() || *end != '\0')
+	{
+		throw std::runtime_error(name + " must be an unsigned decimal integer: " + value);
+	}
+	return parsed;
+}
+
+int parseWorkerInt(const std::string& value, const std::string& name)
+{
+	unsigned long long parsed = parseWorkerUnsigned(value, name);
+	if (parsed > static_cast<unsigned long long>(std::numeric_limits<int>::max()))
+	{
+		throw std::runtime_error(name + " is outside int range: " + value);
+	}
+	return static_cast<int>(parsed);
+}
+
+uint32_t parseWorkerKmerSize(const std::string& value, const std::string& name)
+{
+	unsigned long long parsed = parseWorkerUnsigned(value, name);
+	if (parsed == 0 || parsed > MAX_KMER_SIZE)
+	{
+		throw std::runtime_error(name + " must be in range 1..32");
+	}
+	return static_cast<uint32_t>(parsed);
+}
+
+std::string readWholeTextFile(const std::string& path)
+{
+	std::ifstream input(path);
+	if (!input) throw std::runtime_error("Can't open input file: " + path);
+	std::ostringstream buffer;
+	buffer << input.rdbuf();
+	return buffer.str();
+}
+
+WorkerRequest parseWorkerRequestObject(const std::string& text)
+{
+	std::map<std::string, std::string> fields = parseFlatJsonObject(text);
+	if (requireJsonField(fields, "schema") != "cuflye-worker-request-v0")
+	{
+		throw std::runtime_error("unsupported worker request schema");
+	}
+	if (requireJsonField(fields, "adapter_mode") != "pack-dump-v0")
+	{
+		throw std::runtime_error("unsupported worker adapter_mode");
+	}
+	if (requireJsonField(fields, "candidate_abi") != "candidate-record-v1")
+	{
+		throw std::runtime_error("unsupported worker candidate_abi");
+	}
+
+	WorkerRequest request;
+	request.requestId = requireJsonField(fields, "request_id");
+	request.responseJson = requireJsonField(fields, "response_json");
+	request.options.kmerSize = parseWorkerKmerSize(requireJsonField(fields, "kmer_size"),
+												   "kmer_size");
+	request.options.device = parseWorkerInt(requireJsonField(fields, "device"), "device");
+	std::string memoryBudget = optionalJsonField(fields, "memory_budget_bytes");
+	if (!memoryBudget.empty() && memoryBudget != "null")
+	{
+		request.options.hasMemoryBudget = true;
+		request.options.memoryBudgetBytes = parseWorkerUnsigned(memoryBudget,
+																"memory_budget_bytes");
+	}
+	request.options.readsTsv = requireJsonField(fields, "reads_tsv");
+	request.options.indexTsv = requireJsonField(fields, "index_tsv");
+	request.options.repetitiveTsv = requireJsonField(fields, "repetitive_kmers_tsv");
+	request.options.outputTsv = requireJsonField(fields, "output_tsv");
+	request.options.jsonOutput = optionalJsonField(fields, "backend_json");
+	return request;
+}
+
+WorkerCliOptions parseWorkerArgs(int argc, char** argv)
+{
+	WorkerCliOptions options;
+	for (int index = 1; index < argc; ++index)
+	{
+		std::string arg = argv[index];
+		auto requireValue = [&](const std::string& name) -> std::string
+		{
+			if (index + 1 >= argc) throw std::runtime_error(name + " requires a value");
+			return argv[++index];
+		};
+
+		if (arg == "--request-json")
+		{
+			options.requestJson = requireValue(arg);
+		}
+		else if (arg == "--requests-jsonl")
+		{
+			options.requestsJsonl = requireValue(arg);
+		}
+		else if (arg == "-h" || arg == "--help")
+		{
+			std::cout
+				<< "Usage: cuflye-cuda-worker --requests-jsonl PATH\n"
+				<< "       cuflye-cuda-worker --request-json PATH\n";
+			std::exit(0);
+		}
+		else
+		{
+			throw std::runtime_error("Unknown worker option: " + arg);
+		}
+	}
+	if (options.requestJson.empty() == options.requestsJsonl.empty())
+	{
+		throw std::runtime_error("set exactly one of --request-json or --requests-jsonl");
+	}
+	return options;
+}
+
+std::vector<WorkerRequest> loadWorkerRequests(const WorkerCliOptions& options)
+{
+	std::vector<WorkerRequest> requests;
+	if (!options.requestJson.empty())
+	{
+		requests.push_back(parseWorkerRequestObject(readWholeTextFile(options.requestJson)));
+		return requests;
+	}
+
+	std::ifstream input(options.requestsJsonl);
+	if (!input) throw std::runtime_error("Can't open requests JSONL: " + options.requestsJsonl);
+	std::string line;
+	size_t lineNumber = 0;
+	while (std::getline(input, line))
+	{
+		++lineNumber;
+		std::string stripped = trim(line);
+		if (stripped.empty()) continue;
+		try
+		{
+			requests.push_back(parseWorkerRequestObject(stripped));
+		}
+		catch (const std::exception& exc)
+		{
+			throw std::runtime_error(options.requestsJsonl + ":" + std::to_string(lineNumber) +
+									 ": " + exc.what());
+		}
+	}
+	if (requests.size() < 2)
+	{
+		throw std::runtime_error("--requests-jsonl proof mode requires at least two requests");
+	}
+	return requests;
+}
+
+void validateWorkerRequestSet(const std::vector<WorkerRequest>& requests)
+{
+	if (requests.empty()) throw std::runtime_error("worker request set is empty");
+	int device = requests.front().options.device;
+	for (const WorkerRequest& request : requests)
+	{
+		if (request.options.device != device)
+		{
+			throw std::runtime_error("M3b worker requires all requests to use the same CUDA device");
+		}
+	}
+}
+
+std::string buildWorkerResponseJson(const WorkerRequest& request,
+									const BackendRunResult& result,
+									size_t requestOrdinal,
+									bool workerContextWarm,
+									double workerContextSetupMs,
+									double workerUptimeMs,
+									double requestTotalMs)
+{
+	std::ostringstream json;
+	json << std::fixed << std::setprecision(3);
+	json << "{\n";
+	json << "  \"schema\": \"cuflye-worker-response-v0\",\n";
+	json << "  \"request_id\": \"" << jsonEscape(request.requestId) << "\",\n";
+	json << "  \"status\": \"ok\",\n";
+	json << "  \"request_ordinal\": " << requestOrdinal << ",\n";
+	json << "  \"worker_cuda_context_warm\": "
+		 << (workerContextWarm ? "true" : "false") << ",\n";
+	json << "  \"worker_context_setup_ms\": " << workerContextSetupMs << ",\n";
+	json << "  \"candidate_abi\": \"candidate-record-v1\",\n";
+	json << "  \"output_tsv\": \"" << jsonEscape(request.options.outputTsv) << "\",\n";
+	json << "  \"backend_json\": ";
+	if (request.options.jsonOutput.empty()) json << "null";
+	else json << "\"" << jsonEscape(request.options.jsonOutput) << "\"";
+	json << ",\n";
+	json << "  \"records\": " << result.outputCount << ",\n";
+	json << "  \"output_strategy\": \"sparse-offsets-v1\",\n";
+	json << "  \"dense_pair_output_materialized\": false,\n";
+	json << "  \"device\": " << request.options.device << ",\n";
+	json << "  \"device_name\": \"" << jsonEscape(result.prop.name) << "\",\n";
+	json << "  \"device_allocation_bytes\": " << result.requiredBytes << ",\n";
+	json << "  \"memory_budget_satisfied\": true,\n";
+	json << "  \"timing_ms\": {\n";
+	json << "    \"worker_uptime\": " << workerUptimeMs << ",\n";
+	json << "    \"request_total\": " << requestTotalMs << ",\n";
+	json << "    \"backend_total_before_json\": " << result.timing.totalBeforeJsonMs << ",\n";
+	json << "    \"cuda_setup\": " << result.timing.cudaSetupMs << ",\n";
+	json << "    \"input_parse\": " << result.timing.inputParseMs << ",\n";
+	json << "    \"device_allocation\": " << result.timing.deviceAllocationMs << ",\n";
+	json << "    \"host_to_device\": " << result.timing.hostToDeviceMs << ",\n";
+	json << "    \"kernel\": " << result.timing.kernelMs << ",\n";
+	json << "    \"mark_kernel\": " << result.timing.markKernelMs << ",\n";
+	json << "    \"flag_device_to_host\": " << result.timing.flagDeviceToHostMs << ",\n";
+	json << "    \"host_prefix_sum\": " << result.timing.hostPrefixSumMs << ",\n";
+	json << "    \"offsets_host_to_device\": " << result.timing.offsetsHostToDeviceMs << ",\n";
+	json << "    \"emit_kernel\": " << result.timing.emitKernelMs << ",\n";
+	json << "    \"output_device_to_host\": " << result.timing.outputDeviceToHostMs << ",\n";
+	json << "    \"write_output\": " << result.timing.writeOutputMs << "\n";
+	json << "  }\n";
+	json << "}\n";
+	return json.str();
+}
+
+std::string buildWorkerErrorJson(const WorkerRequest& request,
+								 size_t requestOrdinal,
+								 const std::string& message)
+{
+	std::ostringstream json;
+	json << "{\n";
+	json << "  \"schema\": \"cuflye-worker-response-v0\",\n";
+	json << "  \"request_id\": \"" << jsonEscape(request.requestId) << "\",\n";
+	json << "  \"status\": \"error\",\n";
+	json << "  \"request_ordinal\": " << requestOrdinal << ",\n";
+	json << "  \"error_code\": \"request-failed\",\n";
+	json << "  \"error_message\": \"" << jsonEscape(message) << "\",\n";
+	json << "  \"cuda_error_code\": null,\n";
+	json << "  \"cuda_error_name\": null,\n";
+	json << "  \"cuda_error_text\": null\n";
+	json << "}\n";
+	return json.str();
+}
+
+void emitWorkerResponse(const std::string& path, const std::string& response)
+{
+	writeText(path, response);
+	std::cout << response;
+}
+
+int workerMain(int argc, char** argv)
+{
+	try
+	{
+		WorkerCliOptions cli = parseWorkerArgs(argc, argv);
+		std::vector<WorkerRequest> requests = loadWorkerRequests(cli);
+		validateWorkerRequestSet(requests);
+
+		auto workerStart = Clock::now();
+		CudaDeviceContext context = initializeCudaDevice(requests.front().options.device);
+		for (size_t index = 0; index < requests.size(); ++index)
+		{
+			const WorkerRequest& request = requests[index];
+			size_t requestOrdinal = index + 1;
+			bool workerContextWarm = requestOrdinal > 1;
+			auto requestStart = Clock::now();
+			try
+			{
+				BackendRunResult result = runReadWindowBackend(request.options, &context);
+				writeText(request.options.jsonOutput, result.backendJson);
+				double requestTotalMs = elapsedMs(requestStart, Clock::now());
+				double workerUptimeMs = elapsedMs(workerStart, Clock::now());
+				std::string response = buildWorkerResponseJson(request, result, requestOrdinal,
+															   workerContextWarm,
+															   context.setupMs,
+															   workerUptimeMs,
+															   requestTotalMs);
+				emitWorkerResponse(request.responseJson, response);
+			}
+			catch (const std::exception& exc)
+			{
+				std::string response = buildWorkerErrorJson(request, requestOrdinal, exc.what());
+				emitWorkerResponse(request.responseJson, response);
+				return 1;
+			}
+		}
+		return 0;
+	}
+	catch (const std::exception& exc)
+	{
+		std::cerr << "cuFlye CUDA worker failed: " << exc.what() << "\n";
+		return 1;
+	}
+}
+#endif
+
+}
+
+#ifdef CUFLYE_CUDA_WORKER_MAIN
+int main(int argc, char** argv)
+{
+	return workerMain(argc, argv);
+}
+#else
+int main(int argc, char** argv)
+{
+	try
+	{
+		Options options = parseArgs(argc, argv);
+		BackendRunResult result = runReadWindowBackend(options, nullptr);
+		writeText(options.jsonOutput, result.backendJson);
+		std::cout << result.backendJson;
 		return 0;
 	}
 	catch (const std::exception& exc)
@@ -1066,3 +1599,4 @@ int main(int argc, char** argv)
 		return 1;
 	}
 }
+#endif

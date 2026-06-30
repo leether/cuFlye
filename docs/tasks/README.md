@@ -7,7 +7,8 @@ change is considered complete.
 
 Active cards:
 
-- None.
+- `2026-06-30-cuflye-m3b-long-lived-cuda-worker.md`: build the first
+  long-lived CUDA worker proof boundary for repeated pack-dump-v0 requests.
 
 Completed cards:
 

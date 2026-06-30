@@ -68,7 +68,7 @@ Optional fields:
 | `query_id` | Optional expected query id for fail-closed validation. |
 | `expected_read_count` | Optional expected read count. |
 | `expected_index_entries` | Optional expected index entry count. |
-| `expected_sha256` | Optional canonical candidate SHA-256 for proof-only checks. |
+| `backend_json` | Optional path for the underlying read-window backend JSON. |
 
 ## Response Schema
 
@@ -87,15 +87,18 @@ Successful response:
   "status": "ok",
   "request_ordinal": 2,
   "worker_cuda_context_warm": true,
+  "worker_context_setup_ms": 298.595,
   "candidate_abi": "candidate-record-v1",
   "output_tsv": "/path/to/output/candidates.tsv",
   "records": 15571,
-  "canonical_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
   "output_strategy": "sparse-offsets-v1",
   "dense_pair_output_materialized": false,
+  "device": 0,
+  "device_name": "NVIDIA GB10",
   "timing_ms": {
     "worker_uptime": 1000.0,
     "request_total": 425.54,
+    "backend_total_before_json": 425.54,
     "cuda_setup": 0.0,
     "input_parse": 4.783,
     "device_allocation": 9.169,
@@ -165,6 +168,10 @@ Worker output must preserve candidate-record-v1 semantics:
 - if byte-for-byte output cannot be preserved, a canonical sort/diff gate must
   pass before Flye consumes the output.
 
+M3b does not require the C++ worker to compute SHA-256. Proof runs should compute
+canonical hashes with `tools/validate_candidate_dump.py` and compare outputs with
+`tools/diff_candidate_dumps.py`.
+
 ## Failure Semantics
 
 The worker must fail closed when:
@@ -177,7 +184,7 @@ The worker must fail closed when:
 - CUDA device selection, allocation, copy, kernel launch, or synchronization
   fails;
 - candidate output fails validation;
-- optional expected counts or hashes do not match.
+- optional expected counts do not match.
 
 There is no silent CPU fallback.
 
