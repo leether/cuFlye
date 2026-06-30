@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4c CUDA Overlap Chain DP Prototype
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -83,11 +83,45 @@ logic and compare only at the replay boundary.
 
 ## Execution Checklist
 
-- [ ] Inspect M4b replay fixture and CPU replay code paths.
-- [ ] Design CUDA prototype input/output layout.
-- [ ] Implement CUDA chain DP for the supported fixture shape.
-- [ ] Add build script and local syntax/style gates.
-- [ ] Run CUDA output validation on DGX.
-- [ ] Diff CUDA output against the CPU replay oracle.
-- [ ] Run ownership/resource scan.
-- [ ] Record compact DGX proof and close this card.
+- [x] Inspect M4b replay fixture and CPU replay code paths.
+- [x] Design CUDA prototype input/output layout.
+- [x] Implement CUDA chain DP for the supported fixture shape.
+- [x] Add build script and local syntax/style gates.
+- [x] Run CUDA output validation on DGX.
+- [x] Diff CUDA output against the CPU replay oracle.
+- [x] Run ownership/resource scan.
+- [x] Record compact DGX proof and close this card.
+
+## Merge Note
+
+Implementation commits:
+
+- `dec0ce07497d9d5eb8b049e4bbec9d13ddb683fe`
+- `0dc2e9b8a4546b032f6d43aaeb4591cb77cbe9c1`
+
+DGX proof manifest:
+`tests/golden/cuflye-m4c-cuda-overlap-chain-dp-dgx-aarch64.json`
+
+Proof summary:
+
+- Host: `edgexpert-45d2` (`aarch64`)
+- GPU: `NVIDIA GB10`, CUDA arch `sm_121`
+- CUDA compiler: `/usr/local/cuda/bin/nvcc`, CUDA `13.0`
+- Fixture: M4b `query_neg71`
+- Candidate records: `7,859`
+- Target groups: `120`
+- CUDA overlap records: `51`
+- Canonical overlap SHA-256:
+  `1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73`
+- Canonical diff vs M4b CPU replay oracle: `match`
+- CUDA kernel time for the single supported fixture: `4.80657 ms`
+- Unsupported shape negative gate: base-alignment/trim fixture rejected before
+  kernel launch
+- Memory-budget negative gate: `required=461407`, `budget=1`, rejected before
+  allocation
+- Ownership scan: no new direct `cudaMalloc`, `cudaFree`,
+  `cudaEventCreate`, or `cudaEventDestroy` outside RAII wrappers
+
+This card proves correctness for one bounded CUDA overlap-chain replay shape.
+It does not claim Flye graph integration, base-level alignment replay, trim
+replay, or end-to-end GPU speedup.

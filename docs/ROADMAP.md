@@ -103,6 +103,13 @@ Completed:
   overlap SHA-256
   `1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73`,
   canonical diff `match`.
+- M4c: a standalone CUDA overlap-chain DP prototype consumes the M4b
+  supported fixture and reproduces the CPU replay oracle at `overlap-range-v1`:
+  `7,859` candidate records, `120` target groups, `51` overlap records,
+  canonical overlap SHA-256
+  `1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73`,
+  canonical diff `match`. The single-fixture CUDA kernel time was
+  `4.80657 ms` on DGX `NVIDIA GB10`.
 
 Current allowed performance claim:
 
@@ -118,6 +125,10 @@ GPU speed claim.
 cuFlye has isolated one non-base-alignment CPU overlap-chain replay shape from
 candidate records to `overlap-range-v1`; this is a semantic replay claim, not a
 CUDA or end-to-end performance claim.
+
+cuFlye has also reproduced that same bounded overlap-chain replay shape with a
+standalone CUDA prototype; this is a CUDA correctness claim for one supported
+fixture, not a Flye graph-integration or workload-level speed claim.
 ```
 
 Current forbidden claim:
@@ -290,11 +301,12 @@ Use precise milestone labels:
 Next highest-ROI task:
 
 ```text
-M4c: implement a first CUDA overlap-chain DP prototype for the M4b supported
-fixture shape and require its `overlap-range-v1` output to canonical-diff
-`match` against the CPU replay oracle.
+M4d: add a fair CPU baseline and warm CUDA hotpath benchmark for the M4c
+supported overlap-chain replay fixture.
 ```
 
-Acceptance should start with the M4b `query_neg71` fixture and preserve the
-exact CPU replay output. CUDA output is not allowed into Flye graph logic until
-this overlap-range boundary matches.
+Acceptance should keep the M4b `query_neg71` fixture as the correctness oracle,
+separate cold CUDA context setup from warm hotpath timing, and record whether
+the CUDA path is faster than the CPU baseline for this bounded shape. CUDA
+output is still not allowed into Flye graph logic until broader overlap-chain
+coverage exists.
