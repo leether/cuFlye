@@ -1,0 +1,734 @@
+--- a/src/sequence/overlap.cpp
++++ b/src/sequence/overlap.cpp
+@@ -179,6 +179,12 @@
+ 	{
+ 		static std::vector<int64_t> queryIds;
+ 		return queryIds;
++	}
++
++	std::atomic<bool>& overlapWorkerSeamCompleted()
++	{
++		static std::atomic<bool> completed(false);
++		return completed;
+ 	}
+ 
+ 	struct OverlapDumpRecord
+@@ -375,6 +381,43 @@
+ 		bool failedClosed = false;
+ 		std::vector<OverlapWorkerObjectRehydrationCheck> checks;
+ 		std::vector<OverlapWorkerFixtureObjectRehydration> fixtures;
++	};
++
++	struct OverlapWorkerVectorSubstitutionCheck
++	{
++		std::string name;
++		bool required = true;
++		bool passed = false;
++		std::string detail;
++	};
++
++	struct OverlapWorkerVectorSubstitutionResult
++	{
++		std::string mode;
++		std::string proofFault;
++		std::string status = "not-requested";
++		std::string state = "not-consumed";
++		std::string decision = "disabled";
++		std::string selectedOverlapSource = "cpu-overlap-vector";
++		std::string selectedFixtureDir;
++		std::string selectedFixtureName;
++		std::string workerPath;
++		std::string error;
++		int64_t selectedQueryId = 0;
++		bool eligible = false;
++		bool attempted = false;
++		bool accepted = false;
++		bool consumed = false;
++		bool notConsumed = true;
++		bool failedClosed = false;
++		bool proofFaultApplied = false;
++		bool graphFacingReturnedWorkerOutput = false;
++		bool graphMutationConsumedWorkerOutput = false;
++		size_t cpuRecords = 0;
++		size_t workerRecords = 0;
++		size_t objectRecords = 0;
++		std::vector<OverlapWorkerVectorSubstitutionCheck> checks;
++		std::vector<OverlapRange> overlaps;
+ 	};
+ 
+ 	std::map<std::string, std::vector<OverlapDumpRecord>>&
+@@ -556,6 +599,48 @@
+ 		return fault;
+ 	}
+ 
++	std::string overlapWorkerVectorSubstitutionMode()
++	{
++		static std::string mode = []()
++		{
++			const char* raw = std::getenv("CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "verified-overlap-range-v0")
++			{
++				throw std::runtime_error(
++					"Unsupported CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE: " +
++					selected);
++			}
++			return selected;
++		}();
++		return mode;
++	}
++
++	bool overlapWorkerVectorSubstitutionEnabled()
++	{
++		return !overlapWorkerVectorSubstitutionMode().empty();
++	}
++
++	std::string overlapWorkerVectorSubstitutionProofFault()
++	{
++		static std::string fault = []()
++		{
++			const char* raw =
++				std::getenv("CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_PROOF_FAULT");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "drop-first-substitution-overlap")
++			{
++				throw std::runtime_error(
++					"Unsupported CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_PROOF_FAULT: " +
++					selected);
++			}
++			return selected;
++		}();
++		return fault;
++	}
++
+ 	std::string stripWhitespace(const std::string& text)
+ 	{
+ 		std::string stripped;
+@@ -654,6 +739,8 @@
+ 			overlapWorkerRehydrationProofFault();
+ 			overlapWorkerObjectRehydrationMode();
+ 			overlapWorkerObjectRehydrationProofFault();
++			overlapWorkerVectorSubstitutionMode();
++			overlapWorkerVectorSubstitutionProofFault();
+ 			const auto& queryIds = overlapReplayQueryIds();
+ 			if (!queryIds.empty() && overlapReplayMaxFixtures() != queryIds.size())
+ 			{
+@@ -764,6 +851,12 @@
+ 		}
+ 	}
+ 
++	bool fileExists(const std::string& path)
++	{
++		std::ifstream input(path);
++		return static_cast<bool>(input);
++	}
++
+ 	std::string shellQuote(const std::string& value)
+ 	{
+ 		std::string quoted = "'";
+@@ -1745,6 +1838,153 @@
+ 		}
+ 
+ 		if (result.fixtures.empty()) markObjectRehydrationFailed(result);
++		return result;
++	}
++
++	bool overlapRangesHaveKmerMatches(const std::vector<OverlapRange>& overlaps)
++	{
++		for (const auto& overlap : overlaps)
++		{
++			if (overlap.kmerMatches) return true;
++		}
++		return false;
++	}
++
++	void addVectorSubstitutionCheck(
++		OverlapWorkerVectorSubstitutionResult& substitution,
++		const std::string& name,
++		bool passed,
++		const std::string& detail,
++		bool required = true)
++	{
++		OverlapWorkerVectorSubstitutionCheck check;
++		check.name = name;
++		check.required = required;
++		check.passed = passed;
++		check.detail = detail;
++		substitution.checks.push_back(check);
++	}
++
++	bool allVectorSubstitutionChecksPassed(
++		const OverlapWorkerVectorSubstitutionResult& substitution)
++	{
++		for (const auto& check : substitution.checks)
++		{
++			if (check.required && !check.passed) return false;
++		}
++		return !substitution.checks.empty();
++	}
++
++	void markVectorSubstitutionFailed(
++		OverlapWorkerVectorSubstitutionResult& substitution)
++	{
++		substitution.status = "failed";
++		substitution.state = "failed-closed";
++		substitution.decision = "failed-closed-before-graph-mutation";
++		substitution.selectedOverlapSource = "none";
++		substitution.eligible = false;
++		substitution.accepted = false;
++		substitution.consumed = false;
++		substitution.notConsumed = false;
++		substitution.failedClosed = true;
++		substitution.graphFacingReturnedWorkerOutput = false;
++		substitution.graphMutationConsumedWorkerOutput = false;
++		substitution.overlaps.clear();
++	}
++
++	OverlapWorkerVectorSubstitutionResult evaluateOverlapWorkerVectorSubstitution(
++		const std::vector<std::string>& fixtures,
++		const std::string& batchOutputDir,
++		const OverlapWorkerObjectRehydrationResult& objectRehydration,
++		const std::string& substitutionJson,
++		const std::string& currentFixtureDir,
++		int64_t currentQueryId,
++		const std::vector<OverlapRange>& currentCpuOverlaps)
++	{
++		OverlapWorkerVectorSubstitutionResult result;
++		result.mode = overlapWorkerVectorSubstitutionMode();
++		result.proofFault = overlapWorkerVectorSubstitutionProofFault();
++		if (!overlapWorkerVectorSubstitutionEnabled()) return result;
++
++		markVectorSubstitutionFailed(result);
++		result.attempted = true;
++		result.selectedQueryId = currentQueryId;
++		result.selectedFixtureDir = currentFixtureDir;
++		result.selectedFixtureName = pathBasename(currentFixtureDir);
++		result.workerPath = joinPath(joinPath(batchOutputDir,
++											  result.selectedFixtureName),
++									 "overlaps.tsv");
++		result.cpuRecords = currentCpuOverlaps.size();
++
++		addVectorSubstitutionCheck(result, "explicit_vector_substitution_mode",
++								   result.mode == "verified-overlap-range-v0",
++								   "CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE=verified-overlap-range-v0");
++		addVectorSubstitutionCheck(result, "object_rehydration_passed",
++								   objectRehydration.status == "passed" &&
++									   objectRehydration.eligible,
++								   "M4q object rehydration must pass");
++		addVectorSubstitutionCheck(result, "selected_fixture_available",
++								   !currentFixtureDir.empty(),
++								   "selected overlap fixture must be available");
++		addVectorSubstitutionCheck(result, "fixture_count_matches_request",
++								   fixtures.size() == overlapReplayMaxFixtures(),
++								   "captured fixture count must match request");
++		addVectorSubstitutionCheck(result, "selected_query_is_current_capture",
++								   !overlapReplayCapturedQueryIds().empty() &&
++									   overlapReplayCapturedQueryIds().back() ==
++										   currentQueryId,
++								   "substitution is limited to the current captured query");
++		addVectorSubstitutionCheck(result, "cpu_kmer_matches_absent",
++								   !overlapRangesHaveKmerMatches(currentCpuOverlaps),
++								   "M4r substitution requires CPU OverlapRange kmerMatches to be unset");
++		addVectorSubstitutionCheck(result, "audit_metadata_available",
++								   !substitutionJson.empty(),
++								   "vector substitution audit JSON path must be available");
++
++		if (!allVectorSubstitutionChecksPassed(result)) return result;
++
++		try
++		{
++			auto workerRecords = readCanonicalOverlapDump(result.workerPath);
++			result.workerRecords = workerRecords.size();
++			auto typedRecords = rehydrateTypedOverlapRecords(workerRecords,
++															 result.workerPath);
++			auto objectRecords = rehydrateOverlapRangeObjects(typedRecords);
++			if (result.proofFault == "drop-first-substitution-overlap" &&
++				!objectRecords.empty())
++			{
++				objectRecords.erase(objectRecords.begin());
++				result.proofFaultApplied = true;
++			}
++			result.objectRecords = objectRecords.size();
++
++			auto cpuRecords = canonicalOverlapRecordsFromRanges(currentCpuOverlaps);
++			auto objectDumpRecords = canonicalOverlapRecordsFromRanges(objectRecords);
++			if (cpuRecords != objectDumpRecords)
++			{
++				result.error =
++					"verified substitution object vector differs from current CPU overlaps";
++				return result;
++			}
++
++			result.status = "passed";
++			result.state = "consumed";
++			result.decision = "verified-overlap-range-vector-substituted";
++			result.selectedOverlapSource = "worker-overlap-range-object-vector";
++			result.eligible = true;
++			result.accepted = true;
++			result.consumed = true;
++			result.notConsumed = false;
++			result.failedClosed = false;
++			result.graphFacingReturnedWorkerOutput = true;
++			result.graphMutationConsumedWorkerOutput = true;
++			result.overlaps = objectRecords;
++		}
++		catch (const std::exception& exc)
++		{
++			result.error = exc.what();
++		}
++
+ 		return result;
+ 	}
+ 
+@@ -1811,6 +2051,65 @@
+ 		writeTextFile(path, json.str());
+ 	}
+ 
++	void writeOverlapWorkerVectorSubstitutionJson(
++		const std::string& path,
++		const OverlapWorkerVectorSubstitutionResult& substitution)
++	{
++		std::ostringstream json;
++		json << "{\n"
++			 << "  \"schema\": \"cuflye-verified-overlap-vector-substitution-smoke-v0\",\n"
++			 << "  \"status\": \"" << jsonEscape(substitution.status) << "\",\n"
++			 << "  \"mode\": \"" << jsonEscape(substitution.mode) << "\",\n"
++			 << "  \"proof_fault\": \"" << jsonEscape(substitution.proofFault) << "\",\n"
++			 << "  \"state\": \"" << jsonEscape(substitution.state) << "\",\n"
++			 << "  \"decision\": \"" << jsonEscape(substitution.decision) << "\",\n"
++			 << "  \"selected_overlap_source\": \""
++			 << jsonEscape(substitution.selectedOverlapSource) << "\",\n"
++			 << "  \"eligible\": " << boolJson(substitution.eligible) << ",\n"
++			 << "  \"attempted\": " << boolJson(substitution.attempted) << ",\n"
++			 << "  \"accepted\": " << boolJson(substitution.accepted) << ",\n"
++			 << "  \"consumed\": " << boolJson(substitution.consumed) << ",\n"
++			 << "  \"not_consumed\": " << boolJson(substitution.notConsumed) << ",\n"
++			 << "  \"failed_closed\": " << boolJson(substitution.failedClosed) << ",\n"
++			 << "  \"graph_facing_returned_worker_output\": "
++			 << boolJson(substitution.graphFacingReturnedWorkerOutput) << ",\n"
++			 << "  \"graph_mutation_consumed_worker_output\": "
++			 << boolJson(substitution.graphMutationConsumedWorkerOutput) << ",\n"
++			 << "  \"selected_query_id\": " << substitution.selectedQueryId << ",\n"
++			 << "  \"selected_fixture_dir\": \""
++			 << jsonEscape(substitution.selectedFixtureDir) << "\",\n"
++			 << "  \"selected_fixture_name\": \""
++			 << jsonEscape(substitution.selectedFixtureName) << "\",\n"
++			 << "  \"worker_path\": \"" << jsonEscape(substitution.workerPath) << "\",\n"
++			 << "  \"proof_fault_applied\": "
++			 << boolJson(substitution.proofFaultApplied) << ",\n"
++			 << "  \"cpu_records\": " << substitution.cpuRecords << ",\n"
++			 << "  \"worker_records\": " << substitution.workerRecords << ",\n"
++			 << "  \"object_records\": " << substitution.objectRecords << ",\n"
++			 << "  \"checks\": [\n";
++		for (size_t i = 0; i < substitution.checks.size(); ++i)
++		{
++			const auto& check = substitution.checks[i];
++			json << "    {\n"
++				 << "      \"name\": \"" << jsonEscape(check.name) << "\",\n"
++				 << "      \"required\": " << boolJson(check.required) << ",\n"
++				 << "      \"passed\": " << boolJson(check.passed) << ",\n"
++				 << "      \"detail\": \"" << jsonEscape(check.detail) << "\"\n"
++				 << "    }" << (i + 1 == substitution.checks.size() ? "\n" : ",\n");
++		}
++		json << "  ]";
++		if (!substitution.error.empty())
++		{
++			json << ",\n  \"error\": \"" << jsonEscape(substitution.error) << "\"\n";
++		}
++		else
++		{
++			json << "\n";
++		}
++		json << "}\n";
++		writeTextFile(path, json.str());
++	}
++
+ 	void writeOverlapWorkerRequestJson(const std::string& path,
+ 									   const std::string& requestId,
+ 									   const std::string& fixtureList,
+@@ -1875,13 +2174,15 @@
+ 									   bool shadowConsumptionEligible,
+ 									   const std::string& graphGuardJson,
+ 									   const OverlapWorkerGraphGuardResult& graphGuard,
+-									   const std::string& rehydrationJson,
+-									   const OverlapWorkerRehydrationResult& rehydration,
+-									   const std::string& objectRehydrationJson,
+-									   const OverlapWorkerObjectRehydrationResult& objectRehydration,
+-									   const std::string& status,
+-									   const std::string& batchJson,
+-									   const std::string& batchOutputDir,
++										   const std::string& rehydrationJson,
++										   const OverlapWorkerRehydrationResult& rehydration,
++										   const std::string& objectRehydrationJson,
++										   const OverlapWorkerObjectRehydrationResult& objectRehydration,
++										   const std::string& vectorSubstitutionJson,
++										   const OverlapWorkerVectorSubstitutionResult& substitution,
++										   const std::string& status,
++										   const std::string& batchJson,
++										   const std::string& batchOutputDir,
+ 									   size_t fixtureCount)
+ 	{
+ 		std::ostringstream json;
+@@ -1941,23 +2242,76 @@
+ 			 << jsonEscape(objectRehydration.status) << "\",\n"
+ 			 << "  \"overlap_object_rehydration_state\": \""
+ 			 << jsonEscape(objectRehydration.state) << "\",\n"
+-			 << "  \"overlap_object_rehydration_decision\": \""
+-			 << jsonEscape(objectRehydration.decision) << "\",\n"
+-			 << "  \"overlap_object_rehydration_eligible\": "
+-			 << boolJson(objectRehydration.eligible) << ",\n"
+-			 << "  \"batch_json_output\": \"" << jsonEscape(batchJson) << "\",\n"
+-			 << "  \"batch_output_dir\": \"" << jsonEscape(batchOutputDir) << "\",\n"
+-			 << "  \"graph_mutation_consumed_worker_output\": false\n"
+-			 << "}\n";
++				 << "  \"overlap_object_rehydration_decision\": \""
++				 << jsonEscape(objectRehydration.decision) << "\",\n"
++				 << "  \"overlap_object_rehydration_eligible\": "
++				 << boolJson(objectRehydration.eligible) << ",\n"
++				 << "  \"overlap_vector_substitution_mode\": \""
++				 << jsonEscape(overlapWorkerVectorSubstitutionMode()) << "\",\n"
++				 << "  \"overlap_vector_substitution_json\": \""
++				 << jsonEscape(vectorSubstitutionJson) << "\",\n"
++				 << "  \"overlap_vector_substitution_status\": \""
++				 << jsonEscape(substitution.status) << "\",\n"
++				 << "  \"overlap_vector_substitution_state\": \""
++				 << jsonEscape(substitution.state) << "\",\n"
++				 << "  \"overlap_vector_substitution_decision\": \""
++				 << jsonEscape(substitution.decision) << "\",\n"
++				 << "  \"overlap_vector_substitution_eligible\": "
++				 << boolJson(substitution.eligible) << ",\n"
++				 << "  \"overlap_vector_substitution_attempted\": "
++				 << boolJson(substitution.attempted) << ",\n"
++				 << "  \"overlap_vector_substitution_accepted\": "
++				 << boolJson(substitution.accepted) << ",\n"
++				 << "  \"overlap_vector_substitution_consumed\": "
++				 << boolJson(substitution.consumed) << ",\n"
++				 << "  \"overlap_vector_substitution_selected_query_id\": "
++				 << substitution.selectedQueryId << ",\n"
++				 << "  \"overlap_vector_substitution_selected_source\": \""
++				 << jsonEscape(substitution.selectedOverlapSource) << "\",\n"
++				 << "  \"graph_facing_returned_worker_output\": "
++				 << boolJson(substitution.graphFacingReturnedWorkerOutput) << ",\n"
++				 << "  \"batch_json_output\": \"" << jsonEscape(batchJson) << "\",\n"
++				 << "  \"batch_output_dir\": \"" << jsonEscape(batchOutputDir) << "\",\n"
++				 << "  \"graph_mutation_consumed_worker_output\": "
++				 << boolJson(substitution.graphMutationConsumedWorkerOutput) << "\n"
++				 << "}\n";
+ 		writeTextFile(path, json.str());
+ 	}
+ 
+-	void maybeInvokeOverlapWorker(const std::string& dumpRoot)
++	void writeOverlapWorkerVectorSubstitutionDoneFile(
++		const std::string& path,
++		const OverlapWorkerVectorSubstitutionResult& substitution)
+ 	{
+-		if (!overlapWorkerEnabled()) return;
++		std::ostringstream text;
++		text << "schema=cuflye-overlap-vector-substitution-consumed-v0\n"
++			 << "status=consumed\n"
++			 << "mode=" << substitution.mode << "\n"
++			 << "selected_query_id=" << substitution.selectedQueryId << "\n"
++			 << "selected_source=" << substitution.selectedOverlapSource << "\n"
++			 << "worker_records=" << substitution.workerRecords << "\n"
++			 << "cpu_records=" << substitution.cpuRecords << "\n"
++			 << "object_records=" << substitution.objectRecords << "\n"
++			 << "graph_facing_returned_worker_output="
++			 << (substitution.graphFacingReturnedWorkerOutput ? "true" : "false")
++			 << "\n"
++			 << "graph_mutation_consumed_worker_output="
++			 << (substitution.graphMutationConsumedWorkerOutput ? "true" : "false")
++			 << "\n";
++		writeTextFile(path, text.str());
++	}
+ 
++	OverlapWorkerVectorSubstitutionResult maybeInvokeOverlapWorker(
++		const std::string& dumpRoot,
++		const std::string& currentFixtureDir,
++		int64_t currentQueryId,
++		const std::vector<OverlapRange>& currentCpuOverlaps)
++	{
++		OverlapWorkerVectorSubstitutionResult substitution;
++		if (!overlapWorkerEnabled()) return substitution;
++		if (overlapWorkerSeamCompleted().load()) return substitution;
++
+ 		auto& fixtures = overlapReplayCapturedFixtures();
+-		if (fixtures.size() < overlapReplayMaxFixtures()) return;
++		if (fixtures.size() < overlapReplayMaxFixtures()) return substitution;
+ 		if (fixtures.empty())
+ 		{
+ 			throw std::runtime_error("cuFlye overlap worker seam has no fixtures");
+@@ -1965,6 +2319,14 @@
+ 
+ 		std::string workerBin = overlapEnvRequired("CUFLYE_OVERLAP_WORKER_BIN");
+ 		std::string outputRoot = overlapWorkerOutputDir(dumpRoot);
++		std::string vectorSubstitutionDone = joinPath(
++			outputRoot, "worker-vector-substitution.consumed");
++		if (overlapWorkerVectorSubstitutionEnabled() &&
++			fileExists(vectorSubstitutionDone))
++		{
++			overlapWorkerSeamCompleted().store(true);
++			return substitution;
++		}
+ 		ensureDirectory(outputRoot);
+ 
+ 		std::string fixtureList = joinPath(outputRoot, "worker-fixtures.txt");
+@@ -1980,6 +2342,8 @@
+ 		std::string rehydrationJson = joinPath(outputRoot, "worker-rehydration.json");
+ 		std::string objectRehydrationJson = joinPath(outputRoot,
+ 													 "worker-object-rehydration.json");
++		std::string vectorSubstitutionJson = joinPath(outputRoot,
++													  "worker-vector-substitution.json");
+ 		std::string stdoutLog = joinPath(outputRoot, "worker-stdout.log");
+ 		std::string stderrLog = joinPath(outputRoot, "worker-stderr.log");
+ 		std::string seamSummary = joinPath(outputRoot, "seam-summary.json");
+@@ -2022,6 +2386,7 @@
+ 				validationJson, validation.status, false, shadowJson, "not-run", false,
+ 				graphGuardJson, graphGuard, rehydrationJson, rehydration,
+ 				objectRehydrationJson, objectRehydration,
++				vectorSubstitutionJson, substitution,
+ 				"validation-failed-before-graph-mutation", batchJson, batchOutputDir,
+ 				fixtures.size());
+ 			throw std::runtime_error(
+@@ -2048,6 +2413,7 @@
+ 					validationJson, validation.status, true, shadowJson, shadow.status,
+ 					false, graphGuardJson, graphGuard, rehydrationJson, rehydration,
+ 					objectRehydrationJson, objectRehydration,
++					vectorSubstitutionJson, substitution,
+ 					"shadow-failed-before-graph-mutation", batchJson,
+ 					batchOutputDir, fixtures.size());
+ 				throw std::runtime_error(
+@@ -2068,11 +2434,12 @@
+ 				writeOverlapWorkerSeamSummary(
+ 					seamSummary, requestJson, responseJson, fixtureList, queryIdsFile,
+ 					validationJson, validation.status, true, shadowJson, shadow.status,
+-					shadow.shadowConsumptionEligible, graphGuardJson, graphGuard,
+-					rehydrationJson, rehydration,
+-					objectRehydrationJson, objectRehydration,
+-					"guard-failed-before-graph-mutation", batchJson, batchOutputDir,
+-					fixtures.size());
++						shadow.shadowConsumptionEligible, graphGuardJson, graphGuard,
++						rehydrationJson, rehydration,
++						objectRehydrationJson, objectRehydration,
++						vectorSubstitutionJson, substitution,
++						"guard-failed-before-graph-mutation", batchJson, batchOutputDir,
++						fixtures.size());
+ 				throw std::runtime_error(
+ 					"cuFlye overlap worker seam fail-closed; graph consumption guard "
+ 					"precondition failed; guard_json=" + graphGuardJson +
+@@ -2090,11 +2457,12 @@
+ 				writeOverlapWorkerSeamSummary(
+ 					seamSummary, requestJson, responseJson, fixtureList, queryIdsFile,
+ 					validationJson, validation.status, true, shadowJson, shadow.status,
+-					shadow.shadowConsumptionEligible, graphGuardJson, graphGuard,
+-					rehydrationJson, rehydration,
+-					objectRehydrationJson, objectRehydration,
+-					"rehydration-failed-before-graph-mutation", batchJson,
+-					batchOutputDir, fixtures.size());
++						shadow.shadowConsumptionEligible, graphGuardJson, graphGuard,
++						rehydrationJson, rehydration,
++						objectRehydrationJson, objectRehydration,
++						vectorSubstitutionJson, substitution,
++						"rehydration-failed-before-graph-mutation", batchJson,
++						batchOutputDir, fixtures.size());
+ 				throw std::runtime_error(
+ 					"cuFlye overlap worker seam fail-closed; typed overlap "
+ 					"rehydration dry-run failed; rehydration_json=" +
+@@ -2112,15 +2480,56 @@
+ 				writeOverlapWorkerSeamSummary(
+ 					seamSummary, requestJson, responseJson, fixtureList, queryIdsFile,
+ 					validationJson, validation.status, true, shadowJson, shadow.status,
++						shadow.shadowConsumptionEligible, graphGuardJson, graphGuard,
++						rehydrationJson, rehydration,
++						objectRehydrationJson, objectRehydration,
++						vectorSubstitutionJson, substitution,
++						"object-rehydration-failed-before-graph-mutation", batchJson,
++						batchOutputDir, fixtures.size());
++				throw std::runtime_error(
++					"cuFlye overlap worker seam fail-closed; OverlapRange object "
++					"rehydration dry-run failed; object_rehydration_json=" +
++					objectRehydrationJson + "; seam_summary=" + seamSummary);
++			}
++		}
++		if (overlapWorkerVectorSubstitutionEnabled())
++		{
++			substitution = evaluateOverlapWorkerVectorSubstitution(
++				fixtures, batchOutputDir, objectRehydration, vectorSubstitutionJson,
++				currentFixtureDir, currentQueryId, currentCpuOverlaps);
++			writeOverlapWorkerVectorSubstitutionJson(vectorSubstitutionJson,
++													 substitution);
++			if (substitution.failedClosed)
++			{
++				writeOverlapWorkerSeamSummary(
++					seamSummary, requestJson, responseJson, fixtureList, queryIdsFile,
++					validationJson, validation.status, true, shadowJson, shadow.status,
+ 					shadow.shadowConsumptionEligible, graphGuardJson, graphGuard,
+ 					rehydrationJson, rehydration,
+ 					objectRehydrationJson, objectRehydration,
+-					"object-rehydration-failed-before-graph-mutation", batchJson,
++					vectorSubstitutionJson, substitution,
++					"substitution-failed-before-graph-mutation", batchJson,
+ 					batchOutputDir, fixtures.size());
+ 				throw std::runtime_error(
+-					"cuFlye overlap worker seam fail-closed; OverlapRange object "
+-					"rehydration dry-run failed; object_rehydration_json=" +
+-					objectRehydrationJson + "; seam_summary=" + seamSummary);
++					"cuFlye overlap worker seam fail-closed; verified overlap "
++					"vector substitution failed; substitution_json=" +
++					vectorSubstitutionJson + "; seam_summary=" + seamSummary);
++			}
++			if (substitution.consumed)
++			{
++				writeOverlapWorkerSeamSummary(
++					seamSummary, requestJson, responseJson, fixtureList, queryIdsFile,
++					validationJson, validation.status, true, shadowJson, shadow.status,
++					shadow.shadowConsumptionEligible, graphGuardJson, graphGuard,
++					rehydrationJson, rehydration,
++					objectRehydrationJson, objectRehydration,
++					vectorSubstitutionJson, substitution,
++					"substitution-consumed-verified-overlap-vector", batchJson,
++					batchOutputDir, fixtures.size());
++				writeOverlapWorkerVectorSubstitutionDoneFile(vectorSubstitutionDone,
++															 substitution);
++				overlapWorkerSeamCompleted().store(true);
++				return substitution;
+ 			}
+ 		}
+ 		writeOverlapWorkerSeamSummary(seamSummary, requestJson, responseJson,
+@@ -2130,8 +2539,10 @@
+ 									  graphGuardJson, graphGuard,
+ 									  rehydrationJson, rehydration,
+ 									  objectRehydrationJson, objectRehydration,
++									  vectorSubstitutionJson, substitution,
+ 									  "stopped-before-graph-mutation", batchJson, batchOutputDir,
+ 									  fixtures.size());
++		overlapWorkerSeamCompleted().store(true);
+ 		throw std::runtime_error(
+ 			"cuFlye overlap worker seam stopped before graph mutation; "
+ 			"request_json=" + requestJson + "; response_json=" + responseJson +
+@@ -2514,35 +2925,37 @@
+ 	}
+ 
+ 	template <class Matches>
+-	void dumpOverlapReplayFixture(const FastaRecord& fastaRec,
+-								  Matches& matches,
+-								  const std::vector<int32_t>& curFilteredPos,
+-								  const std::vector<OverlapRange>& overlaps,
+-								  const SequenceContainer& seqContainer,
+-								  bool forceLocal,
+-								  int maxOverlaps,
+-								  int kmerSize,
+-								  float minKmerSurvivalRate,
+-								  float lgGap,
+-								  float smGap,
+-								  int gapJumpThreshold,
+-								  int maxGap,
+-								  int maxJump,
+-								  int minOverlap,
+-								  int maxOverhang,
+-								  bool checkOverhang,
+-								  bool keepAlignment,
+-								  bool onlyMaxExt,
+-								  bool nuclAlignment,
+-								  bool partitionBadMappings,
+-								  bool useHpc,
+-								  float maxDivergence,
+-								  float sampleRate)
++	OverlapWorkerVectorSubstitutionResult
++	dumpOverlapReplayFixture(const FastaRecord& fastaRec,
++							 Matches& matches,
++							 const std::vector<int32_t>& curFilteredPos,
++							 const std::vector<OverlapRange>& overlaps,
++							 const SequenceContainer& seqContainer,
++							 bool forceLocal,
++							 int maxOverlaps,
++							 int kmerSize,
++							 float minKmerSurvivalRate,
++							 float lgGap,
++							 float smGap,
++							 int gapJumpThreshold,
++							 int maxGap,
++							 int maxJump,
++							 int minOverlap,
++							 int maxOverhang,
++							 bool checkOverhang,
++							 bool keepAlignment,
++							 bool onlyMaxExt,
++							 bool nuclAlignment,
++							 bool partitionBadMappings,
++							 bool useHpc,
++							 float maxDivergence,
++							 float sampleRate)
+ 	{
++		OverlapWorkerVectorSubstitutionResult substitution;
+ 		validateOverlapWorkerReplayConfig();
+ 		const char* dumpRoot = overlapReplayDumpDir();
+-		if (!dumpRoot || !dumpRoot[0]) return;
+-		if (overlaps.empty()) return;
++		if (!dumpRoot || !dumpRoot[0]) return substitution;
++		if (overlaps.empty()) return substitution;
+ 		if (Parameters::get().numThreads != 1)
+ 		{
+ 			throw std::runtime_error(
+@@ -2552,13 +2965,13 @@
+ 		int64_t queryId = fastaRec.id.signedId();
+ 		if (!overlapReplayQuerySelected(queryId))
+ 		{
+-			return;
++			return substitution;
+ 		}
+ 
+ 		size_t dumpIndex = overlapReplayDumpCounter().fetch_add(1);
+ 		if (dumpIndex >= overlapReplayMaxFixtures())
+ 		{
+-			return;
++			return substitution;
+ 		}
+ 
+ 		std::lock_guard<std::mutex> lock(overlapReplayDumpMutex());
+@@ -2654,7 +3067,8 @@
+ 				canonicalOverlapRecordsFromRanges(overlaps);
+ 			overlapReplayCapturedFixtures().push_back(queryDir);
+ 			overlapReplayCapturedQueryIds().push_back(queryId);
+-			maybeInvokeOverlapWorker(dumpRoot);
++			substitution = maybeInvokeOverlapWorker(dumpRoot, queryDir, queryId,
++													overlaps);
+ 
+ 		if (cudaEnvFlag("CUFLYE_OVERLAP_REPLAY_STOP_AFTER_DUMP"))
+ 		{
+@@ -2663,6 +3077,7 @@
+ 				std::to_string(queryId) + "; fixture_dir=" + queryDir +
+ 				"; stop_after_dump=1");
+ 		}
++		return substitution;
+ 	}
+ 
+ 	template <class Matches>
+@@ -3178,13 +3593,19 @@
+ 			divStats.add(ovlp.seqDivergence);
+ 		}
+ 	}
+-	dumpOverlapReplayFixture(fastaRec, vecMatches, curFilteredPos, detectedOverlaps,
+-							 _seqContainer, forceLocal, maxOverlaps, kmerSize,
+-							 minKmerSruvivalRate, LG_GAP, SM_GAP, GAP_JUMP_THLD,
+-							 MAX_GAP, _maxJump, _minOverlap, _maxOverhang,
+-							 _checkOverhang, _keepAlignment, _onlyMaxExt,
+-							 _nuclAlignment, _partitionBadMappings, _useHpc,
+-							 _maxDivergence, _vertexIndex.getSampleRate());
++	auto substitution = dumpOverlapReplayFixture(
++		fastaRec, vecMatches, curFilteredPos, detectedOverlaps,
++		_seqContainer, forceLocal, maxOverlaps, kmerSize,
++		minKmerSruvivalRate, LG_GAP, SM_GAP, GAP_JUMP_THLD,
++		MAX_GAP, _maxJump, _minOverlap, _maxOverhang,
++		_checkOverhang, _keepAlignment, _onlyMaxExt,
++		_nuclAlignment, _partitionBadMappings, _useHpc,
++		_maxDivergence, _vertexIndex.getSampleRate());
++	if (substitution.consumed)
++	{
++		dumpOverlapRanges(substitution.overlaps);
++		return substitution.overlaps;
++	}
+ 	dumpOverlapRanges(detectedOverlaps);
+ 	return detectedOverlaps;
+ }

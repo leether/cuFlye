@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4r Verified Overlap Vector Substitution Smoke
 
-Status: proposed
+Status: in_progress
 
 Created: 2026-07-01
 

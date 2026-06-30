@@ -3,7 +3,8 @@
 Status: accepted in M4j; batch allowlist extension accepted in M4k; validation
 gate accepted in M4l; shadow consumption proof accepted in M4m; graph
 consumption guard dry-run accepted in M4o; typed rehydration dry-run accepted
-in M4p; `OverlapRange` object rehydration dry-run accepted in M4q
+in M4p; `OverlapRange` object rehydration dry-run accepted in M4q; verified
+overlap-vector substitution smoke proposed in M4r
 
 Introduced: M4j
 
@@ -58,6 +59,8 @@ Optional environment:
 | `CUFLYE_OVERLAP_REHYDRATION_PROOF_FAULT` | unset | Optional M4p negative-proof fault. `drop-first-worker-record` forces typed-vector mismatch after validation, shadow, and guard success. |
 | `CUFLYE_OVERLAP_OBJECT_REHYDRATION_MODE` | unset | Optional M4q proof mode. `overlap-range-object-v0` converts typed records into actual Flye `OverlapRange` objects after M4p passes. |
 | `CUFLYE_OVERLAP_OBJECT_REHYDRATION_PROOF_FAULT` | unset | Optional M4q negative-proof fault. `drop-first-overlap-range` forces object-vector mismatch after M4p success. |
+| `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE` | unset | Optional M4r smoke mode. `verified-overlap-range-v0` returns the verified worker-derived `OverlapRange` vector for the selected query after M4q passes. |
+| `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_PROOF_FAULT` | unset | Optional M4r negative-proof fault. `drop-first-substitution-overlap` forces substitution mismatch after M4q success. |
 
 ## Generated Files
 
@@ -75,6 +78,8 @@ Given `CUFLYE_OVERLAP_WORKER_OUTPUT_DIR=/path/to/seam`, Flye writes:
 | `worker-graph-consumption-guard.json` | Dry-run graph-consumption guard summary when `CUFLYE_OVERLAP_GRAPH_CONSUMPTION_MODE=dry-run-v0`. |
 | `worker-rehydration.json` | Typed overlap-vector rehydration dry-run summary when `CUFLYE_OVERLAP_REHYDRATION_MODE=typed-overlap-v0`. |
 | `worker-object-rehydration.json` | Flye `OverlapRange` object-vector rehydration dry-run summary when `CUFLYE_OVERLAP_OBJECT_REHYDRATION_MODE=overlap-range-object-v0`. |
+| `worker-vector-substitution.json` | Verified graph-facing overlap-vector substitution smoke summary when `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE=verified-overlap-range-v0`. |
+| `worker-vector-substitution.consumed` | Durable M4r one-shot sentinel written after a verified worker-derived overlap vector is returned; later Flye subprocesses skip worker invocation when this file exists. |
 | `worker-stdout.log` | Worker stdout. |
 | `worker-stderr.log` | Worker stderr. |
 | `seam-summary.json` | Flye-side seam metadata and stop proof. |
@@ -200,6 +205,28 @@ before graph mutation. The successful dry-run state is:
 This proves one more representation boundary. It still does not feed GPU output
 into graph mutation.
 
+M4r adds optional verified overlap-vector substitution smoke mode. When
+`CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE=verified-overlap-range-v0`, Flye
+requires M4q object rehydration to pass, reloads the selected current query's
+worker output as `OverlapRange` objects, verifies exact CPU equivalence again,
+and returns that worker-derived object vector from the selected
+`getSeqOverlaps` call. M4r is one-shot inside a Flye process: after the
+selected substitution is accepted, later overlap calls do not re-invoke the
+worker. The successful smoke state is:
+
+```json
+{
+  "overlap_vector_substitution_status": "passed",
+  "overlap_vector_substitution_state": "consumed",
+  "overlap_vector_substitution_selected_source": "worker-overlap-range-object-vector",
+  "graph_facing_returned_worker_output": true,
+  "graph_mutation_consumed_worker_output": true
+}
+```
+
+This is a graph-facing smoke substitution. It is still opt-in and CPU-verified;
+it is not a production GPU mode or a speed claim.
+
 ## Failure Semantics
 
 The seam fails closed when:
@@ -235,6 +262,14 @@ The seam fails closed when:
   eligible;
 - an `OverlapRange` object vector differs from CPU overlap records captured in
   memory.
+- `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE` is unsupported;
+- `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_PROOF_FAULT` is unsupported;
+- vector substitution smoke mode is selected before M4q object rehydration is
+  eligible;
+- the current CPU `OverlapRange` vector carries `kmerMatches` payload that the
+  worker object vector cannot represent in M4r;
+- the selected worker `OverlapRange` vector differs from the current CPU
+  overlap vector.
 
 There is no silent CPU fallback when the seam is explicitly enabled.
 
@@ -304,6 +339,35 @@ On object rehydration mismatch after M4p typed rehydration passes, Flye writes
 ```
 
 and then exits non-zero before graph mutation.
+
+On verified vector substitution mismatch after M4q object rehydration passes,
+Flye writes `worker-vector-substitution.json`, writes `seam-summary.json` with:
+
+```json
+{
+  "status": "substitution-failed-before-graph-mutation",
+  "validation_status": "passed",
+  "shadow_status": "passed",
+  "graph_guard_status": "passed",
+  "overlap_rehydration_status": "passed",
+  "overlap_object_rehydration_status": "passed",
+  "overlap_vector_substitution_status": "failed",
+  "overlap_vector_substitution_state": "failed-closed",
+  "overlap_vector_substitution_consumed": false,
+  "graph_facing_returned_worker_output": false,
+  "graph_mutation_consumed_worker_output": false
+}
+```
+
+and then exits non-zero before returning worker output to the graph-facing
+overlap path.
+
+On verified vector substitution success, Flye returns the worker-derived
+`OverlapRange` vector for the selected query, writes
+`worker-vector-substitution.consumed`, and marks the run-local substitution as
+consumed. Later overlap calls from the same process or a later Flye subprocess
+skip worker invocation when this sentinel exists, preserving M4r as a one-shot
+smoke instead of accidentally broadening the supported shape contract.
 
 On shadow mismatch after validation passes, Flye writes `worker-shadow.json`,
 writes `seam-summary.json` with:

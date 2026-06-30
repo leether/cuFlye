@@ -7,14 +7,14 @@ change is considered complete.
 
 Active cards:
 
-- None. M4q is complete and M4r is proposed.
-
-Proposed cards:
-
 - `2026-07-01-cuflye-m4r-verified-overlap-vector-substitution-smoke.md`:
   use a verified `OverlapRange` object vector as an opt-in graph-facing
   substitution smoke while still requiring exact CPU comparison and fail-closed
   behavior.
+
+Proposed cards:
+
+- None. M4r is in progress.
 
 Completed cards:
 
