@@ -5,6 +5,7 @@
 #include "cuflye_cuda_raii.hpp"
 
 #include <algorithm>
+#include <cerrno>
 #include <chrono>
 #include <cctype>
 #include <climits>
@@ -23,6 +24,9 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+#include <sys/stat.h>
+#include <sys/types.h>
 
 namespace
 {
@@ -106,6 +110,9 @@ struct Options
 	std::string fixtureDir;
 	std::string outputTsv;
 	std::string jsonOutput;
+	std::string batchFixturesFile;
+	std::string batchOutputDir;
+	std::string batchJsonOutput;
 	std::string backend = "cuda";
 	std::string cudaKernelMode = "serial";
 	int device = 0;
@@ -177,6 +184,9 @@ struct CudaRunSummary
 	double benchmarkMinTotalMs = 0.0;
 	double benchmarkMaxTotalMs = 0.0;
 	double benchmarkMeanCoreMs = 0.0;
+	size_t arenaAllocations = 0;
+	size_t arenaReuses = 0;
+	size_t arenaCapacityBytes = 0;
 	size_t requiredBytes = 0;
 	size_t freeBytes = 0;
 	size_t totalBytes = 0;
@@ -186,6 +196,40 @@ struct CudaRunSummary
 	size_t outputRecords = 0;
 	std::string deviceName;
 	int device = 0;
+};
+
+struct LoadedFixture
+{
+	std::string fixtureDir;
+	std::string name;
+	FixtureManifest manifest;
+	std::vector<CandidateRecord> candidates;
+	std::vector<int32_t> filteredPositions;
+	std::vector<TargetGroup> groups;
+};
+
+struct CudaOverlapArena
+{
+	cuflye::cuda_raii::DeviceBuffer<CandidateRecord> candidates;
+	cuflye::cuda_raii::DeviceBuffer<TargetGroup> groups;
+	cuflye::cuda_raii::DeviceBuffer<int32_t> filtered;
+	cuflye::cuda_raii::DeviceBuffer<int32_t> scores;
+	cuflye::cuda_raii::DeviceBuffer<int32_t> backtrack;
+	cuflye::cuda_raii::DeviceBuffer<uint8_t> used;
+	cuflye::cuda_raii::DeviceBuffer<DeviceOverlap> output;
+	std::string deviceName;
+	size_t freeBytes = 0;
+	size_t totalBytes = 0;
+	size_t allocations = 0;
+	size_t reuses = 0;
+	int device = 0;
+	bool initialized = false;
+
+	size_t capacityBytes() const
+	{
+		return candidates.bytes() + groups.bytes() + filtered.bytes() +
+			   scores.bytes() + backtrack.bytes() + used.bytes() + output.bytes();
+	}
 };
 
 double elapsedMs(Clock::time_point start, Clock::time_point end)
@@ -198,6 +242,75 @@ std::string joinPath(const std::string& root, const std::string& leaf)
 	if (root.empty()) return leaf;
 	if (root[root.size() - 1] == '/') return root + leaf;
 	return root + "/" + leaf;
+}
+
+std::string baseName(const std::string& path)
+{
+	size_t end = path.find_last_not_of('/');
+	if (end == std::string::npos) return path;
+	size_t begin = path.find_last_of('/', end);
+	if (begin == std::string::npos) return path.substr(0, end + 1);
+	return path.substr(begin + 1, end - begin);
+}
+
+void ensureDirectory(const std::string& path)
+{
+	if (path.empty()) return;
+	std::string current;
+	size_t index = 0;
+	if (path[0] == '/')
+	{
+		current = "/";
+		index = 1;
+	}
+	while (index <= path.size())
+	{
+		size_t slash = path.find('/', index);
+		std::string part = path.substr(index, slash == std::string::npos ?
+									   std::string::npos : slash - index);
+		if (!part.empty())
+		{
+			if (!current.empty() && current[current.size() - 1] != '/') current += "/";
+			current += part;
+			if (::mkdir(current.c_str(), 0775) != 0 && errno != EEXIST)
+			{
+				throw std::runtime_error("cannot create directory: " + current +
+										 ": " + std::strerror(errno));
+			}
+		}
+		if (slash == std::string::npos) break;
+		index = slash + 1;
+	}
+}
+
+std::string jsonEscape(const std::string& text)
+{
+	std::ostringstream escaped;
+	for (char ch : text)
+	{
+		switch (ch)
+		{
+		case '\\':
+			escaped << "\\\\";
+			break;
+		case '"':
+			escaped << "\\\"";
+			break;
+		case '\n':
+			escaped << "\\n";
+			break;
+		case '\r':
+			escaped << "\\r";
+			break;
+		case '\t':
+			escaped << "\\t";
+			break;
+		default:
+			escaped << ch;
+			break;
+		}
+	}
+	return escaped.str();
 }
 
 std::string readTextFile(const std::string& path)
@@ -545,6 +658,54 @@ std::vector<TargetGroup> buildGroups(std::vector<CandidateRecord>& candidates,
 		start = end;
 	}
 	return groups;
+}
+
+LoadedFixture loadFixture(const std::string& fixtureDir)
+{
+	LoadedFixture fixture;
+	fixture.fixtureDir = fixtureDir;
+	fixture.name = baseName(fixtureDir);
+	fixture.manifest = loadManifest(fixtureDir);
+	requireSupportedShape(fixture.manifest);
+
+	fixture.candidates =
+		loadCandidates(joinPath(fixtureDir, fixture.manifest.files.candidates),
+					   fixture.manifest.queryId);
+	fixture.filteredPositions =
+		loadFilteredPositions(joinPath(fixtureDir, fixture.manifest.files.filteredPositions));
+	std::map<int64_t, int32_t> targets =
+		loadTargets(joinPath(fixtureDir, fixture.manifest.files.targets));
+	if (fixture.candidates.size() != fixture.manifest.expectedCandidateRecords)
+	{
+		throw std::runtime_error("candidate record count does not match manifest");
+	}
+	if (targets.size() != fixture.manifest.expectedTargetRecords)
+	{
+		throw std::runtime_error("target record count does not match manifest");
+	}
+	fixture.groups = buildGroups(fixture.candidates, targets, fixture.manifest.queryLength);
+	return fixture;
+}
+
+std::vector<std::string> loadFixtureList(const std::string& path)
+{
+	std::ifstream input(path);
+	if (!input)
+	{
+		throw std::runtime_error("cannot read batch fixture list: " + path);
+	}
+	std::vector<std::string> fixtures;
+	std::string line;
+	while (std::getline(input, line))
+	{
+		if (line.empty() || line[0] == '#') continue;
+		fixtures.push_back(line);
+	}
+	if (fixtures.empty())
+	{
+		throw std::runtime_error("batch fixture list is empty: " + path);
+	}
+	return fixtures;
 }
 
 __device__ int32_t overlapRange(int32_t begin, int32_t end)
@@ -1315,6 +1476,9 @@ Options parseArgs(int argc, char** argv)
 		if (arg == "--fixture-dir") options.fixtureDir = requireValue(arg);
 		else if (arg == "--output-tsv") options.outputTsv = requireValue(arg);
 		else if (arg == "--json-output") options.jsonOutput = requireValue(arg);
+		else if (arg == "--batch-fixtures-file") options.batchFixturesFile = requireValue(arg);
+		else if (arg == "--batch-output-dir") options.batchOutputDir = requireValue(arg);
+		else if (arg == "--batch-json-output") options.batchJsonOutput = requireValue(arg);
 		else if (arg == "--backend") options.backend = requireValue(arg);
 		else if (arg == "--cuda-kernel-mode") options.cudaKernelMode = requireValue(arg);
 		else if (arg == "--device") options.device = std::stoi(requireValue(arg));
@@ -1335,6 +1499,8 @@ Options parseArgs(int argc, char** argv)
 		{
 			std::cout << "Usage: cuflye-cuda-overlap-chain-replay "
 					  << "--fixture-dir DIR --output-tsv PATH --json-output PATH "
+					  << "or --batch-fixtures-file PATH --batch-output-dir DIR "
+					  << "--batch-json-output PATH "
 					  << "[--backend cpu|cuda] [--device ID] "
 					  << "[--cuda-kernel-mode serial|parallel-reduce] "
 					  << "[--warmup-runs N] [--benchmark-runs N] "
@@ -1346,9 +1512,30 @@ Options parseArgs(int argc, char** argv)
 			throw std::runtime_error("unknown option: " + arg);
 		}
 	}
-	if (options.fixtureDir.empty()) throw std::runtime_error("--fixture-dir is required");
-	if (options.outputTsv.empty()) throw std::runtime_error("--output-tsv is required");
-	if (options.jsonOutput.empty()) throw std::runtime_error("--json-output is required");
+	bool batchMode = !options.batchFixturesFile.empty() ||
+					 !options.batchOutputDir.empty() ||
+					 !options.batchJsonOutput.empty();
+	if (batchMode)
+	{
+		if (options.batchFixturesFile.empty())
+		{
+			throw std::runtime_error("--batch-fixtures-file is required in batch mode");
+		}
+		if (options.batchOutputDir.empty())
+		{
+			throw std::runtime_error("--batch-output-dir is required in batch mode");
+		}
+		if (options.batchJsonOutput.empty())
+		{
+			throw std::runtime_error("--batch-json-output is required in batch mode");
+		}
+	}
+	else
+	{
+		if (options.fixtureDir.empty()) throw std::runtime_error("--fixture-dir is required");
+		if (options.outputTsv.empty()) throw std::runtime_error("--output-tsv is required");
+		if (options.jsonOutput.empty()) throw std::runtime_error("--json-output is required");
+	}
 	if (options.backend != "cuda" && options.backend != "cpu")
 	{
 		throw std::runtime_error("--backend must be cpu or cuda");
@@ -1379,6 +1566,36 @@ size_t checkedBytes(size_t count, size_t size, const std::string& label)
 		throw std::runtime_error("byte size overflow for " + label);
 	}
 	return count * size;
+}
+
+void initializeArena(const Options& options, CudaOverlapArena& arena)
+{
+	if (arena.initialized) return;
+	arena.device = options.device;
+	cuflye::cuda_raii::checkCuda(cudaSetDevice(options.device), "set CUDA device");
+	cudaDeviceProp prop{};
+	cuflye::cuda_raii::checkCuda(cudaGetDeviceProperties(&prop, options.device),
+								 "get CUDA device properties");
+	arena.deviceName = prop.name;
+	cuflye::cuda_raii::checkCuda(cudaMemGetInfo(&arena.freeBytes, &arena.totalBytes),
+								 "query CUDA memory");
+	arena.initialized = true;
+}
+
+template <class T>
+void ensureArenaBuffer(cuflye::cuda_raii::DeviceBuffer<T>& buffer,
+					   size_t bytes,
+					   const std::string& label,
+					   CudaOverlapArena& arena)
+{
+	if (buffer.ensureCapacity(bytes, label))
+	{
+		++arena.allocations;
+	}
+	else
+	{
+		++arena.reuses;
+	}
 }
 
 CudaRunSummary runCpu(const FixtureManifest& manifest,
@@ -1418,6 +1635,132 @@ CudaRunSummary runCpu(const FixtureManifest& manifest,
 	summary.finalizeMs = elapsedMs(finalizeStart, finalizeEnd);
 	summary.outputRecords = overlaps.size();
 	summary.totalBeforeJsonMs = summary.cpuChainMs + summary.finalizeMs;
+	return summary;
+}
+
+CudaRunSummary runCudaWithArena(const Options& options,
+								const FixtureManifest& manifest,
+								std::vector<CandidateRecord>& candidates,
+								const std::vector<int32_t>& filteredPositions,
+								const std::vector<TargetGroup>& groups,
+								CudaOverlapArena& arena,
+								std::vector<HostOverlap>& overlaps)
+{
+	initializeArena(options, arena);
+	CudaRunSummary summary;
+	summary.backend = "cuda";
+	summary.cudaKernelMode = options.cudaKernelMode;
+	summary.device = options.device;
+	summary.deviceName = arena.deviceName;
+	summary.freeBytes = arena.freeBytes;
+	summary.totalBytes = arena.totalBytes;
+	summary.candidateRecords = candidates.size();
+	summary.targetGroups = groups.size();
+	summary.filteredPositions = filteredPositions.size();
+
+	size_t candidateBytes = checkedBytes(candidates.size(), sizeof(CandidateRecord), "candidates");
+	size_t groupBytes = checkedBytes(groups.size(), sizeof(TargetGroup), "groups");
+	size_t filteredBytes =
+		checkedBytes(std::max<size_t>(filteredPositions.size(), 1), sizeof(int32_t),
+					 "filtered positions");
+	size_t tableBytes = checkedBytes(candidates.size(), sizeof(int32_t), "DP table");
+	size_t usedBytes = checkedBytes(candidates.size(), sizeof(uint8_t), "ordered flags");
+	size_t outputBytes = checkedBytes(groups.size(), sizeof(DeviceOverlap), "output overlaps");
+	summary.requiredBytes = candidateBytes + groupBytes + filteredBytes +
+							tableBytes * 2 + usedBytes + outputBytes;
+	if (options.hasMemoryBudget && summary.requiredBytes > options.memoryBudgetBytes)
+	{
+		throw std::runtime_error("CUDA overlap replay memory budget exceeded: required=" +
+								 std::to_string(summary.requiredBytes) +
+								 " budget=" + std::to_string(options.memoryBudgetBytes));
+	}
+
+	size_t allocationsBefore = arena.allocations;
+	size_t reusesBefore = arena.reuses;
+	auto allocStart = Clock::now();
+	ensureArenaBuffer(arena.candidates, candidateBytes, "batch candidates", arena);
+	ensureArenaBuffer(arena.groups, groupBytes, "batch target groups", arena);
+	ensureArenaBuffer(arena.filtered, filteredBytes, "batch filtered positions", arena);
+	ensureArenaBuffer(arena.scores, tableBytes, "batch score table", arena);
+	ensureArenaBuffer(arena.backtrack, tableBytes, "batch backtrack table", arena);
+	ensureArenaBuffer(arena.used, usedBytes, "batch ordered flags", arena);
+	ensureArenaBuffer(arena.output, outputBytes, "batch output overlaps", arena);
+	auto allocEnd = Clock::now();
+	summary.deviceAllocationMs = elapsedMs(allocStart, allocEnd);
+	summary.arenaAllocations = arena.allocations - allocationsBefore;
+	summary.arenaReuses = arena.reuses - reusesBefore;
+	summary.arenaCapacityBytes = arena.capacityBytes();
+
+	auto h2dStart = Clock::now();
+	cuflye::cuda_raii::checkCuda(
+		cudaMemcpy(arena.candidates.get(), candidates.data(), candidateBytes,
+				   cudaMemcpyHostToDevice),
+		"copy batch candidates to device");
+	cuflye::cuda_raii::checkCuda(
+		cudaMemcpy(arena.groups.get(), groups.data(), groupBytes, cudaMemcpyHostToDevice),
+		"copy batch target groups to device");
+	if (!filteredPositions.empty())
+	{
+		cuflye::cuda_raii::checkCuda(
+			cudaMemcpy(arena.filtered.get(), filteredPositions.data(), filteredBytes,
+					   cudaMemcpyHostToDevice),
+			"copy batch filtered positions to device");
+	}
+	auto h2dEnd = Clock::now();
+	summary.hostToDeviceMs = elapsedMs(h2dStart, h2dEnd);
+
+	DeviceParams params = makeDeviceParams(manifest);
+	auto kernelStart = Clock::now();
+	if (options.cudaKernelMode == "serial")
+	{
+		overlapChainKernel<<<static_cast<unsigned int>(groups.size()), 1>>>(
+			arena.candidates.get(),
+			arena.groups.get(),
+			static_cast<uint32_t>(groups.size()),
+			arena.filtered.get(),
+			static_cast<uint32_t>(filteredPositions.size()),
+			params,
+			arena.scores.get(),
+			arena.backtrack.get(),
+			arena.used.get(),
+			arena.output.get());
+	}
+	else
+	{
+		overlapChainReduceKernel<<<static_cast<unsigned int>(groups.size()),
+								   OVERLAP_CHAIN_REDUCE_THREADS>>>(
+			arena.candidates.get(),
+			arena.groups.get(),
+			static_cast<uint32_t>(groups.size()),
+			arena.filtered.get(),
+			static_cast<uint32_t>(filteredPositions.size()),
+			params,
+			arena.scores.get(),
+			arena.backtrack.get(),
+			arena.used.get(),
+			arena.output.get());
+	}
+	cuflye::cuda_raii::checkCuda(cudaGetLastError(), "launch batch overlap chain kernel");
+	cuflye::cuda_raii::checkCuda(cudaDeviceSynchronize(), "synchronize batch overlap chain kernel");
+	auto kernelEnd = Clock::now();
+	summary.kernelMs = elapsedMs(kernelStart, kernelEnd);
+
+	std::vector<DeviceOverlap> deviceOverlaps(groups.size());
+	auto d2hStart = Clock::now();
+	cuflye::cuda_raii::checkCuda(
+		cudaMemcpy(deviceOverlaps.data(), arena.output.get(), outputBytes, cudaMemcpyDeviceToHost),
+		"copy batch overlaps to host");
+	auto d2hEnd = Clock::now();
+	summary.deviceToHostMs = elapsedMs(d2hStart, d2hEnd);
+
+	auto finalizeStart = Clock::now();
+	overlaps = finalizeOverlaps(deviceOverlaps, manifest.params, filteredPositions);
+	auto finalizeEnd = Clock::now();
+	summary.finalizeMs = elapsedMs(finalizeStart, finalizeEnd);
+	summary.outputRecords = overlaps.size();
+	summary.totalBeforeJsonMs = summary.deviceAllocationMs +
+								summary.hostToDeviceMs + summary.kernelMs +
+								summary.deviceToHostMs + summary.finalizeMs;
 	return summary;
 }
 
@@ -1693,6 +2036,11 @@ void writeJsonSummary(const std::string& path,
 		   << "    \"max_total_before_json_ms\": " << summary.benchmarkMaxTotalMs << ",\n"
 		   << "    \"mean_core_ms\": " << summary.benchmarkMeanCoreMs << "\n"
 		   << "  },\n"
+		   << "  \"arena\": {\n"
+		   << "    \"allocations\": " << summary.arenaAllocations << ",\n"
+		   << "    \"reuses\": " << summary.arenaReuses << ",\n"
+		   << "    \"capacity_bytes\": " << summary.arenaCapacityBytes << "\n"
+		   << "  },\n"
 		   << "  \"supported_shape\": {\n"
 		   << "    \"nucl_alignment\": false,\n"
 		   << "    \"partition_bad_mappings\": false,\n"
@@ -1701,6 +2049,236 @@ void writeJsonSummary(const std::string& path,
 		   << "  }\n"
 		   << "}\n";
 }
+
+double coreMs(const CudaRunSummary& summary)
+{
+	return summary.backend == "cuda" ? summary.kernelMs : summary.cpuChainMs;
+}
+
+struct BatchFixtureOutput
+{
+	std::string fixtureDir;
+	std::string name;
+	std::string outputTsv;
+	int64_t queryId = 0;
+	size_t candidateRecords = 0;
+	size_t targetGroups = 0;
+	size_t outputRecords = 0;
+	CudaRunSummary summary;
+};
+
+std::vector<CudaRunSummary> runBatchOnce(const Options& options,
+										 std::vector<LoadedFixture>& fixtures,
+										 CudaOverlapArena& arena,
+										 std::vector<std::vector<HostOverlap>>& outputs)
+{
+	outputs.clear();
+	outputs.resize(fixtures.size());
+	std::vector<CudaRunSummary> summaries;
+	for (size_t index = 0; index < fixtures.size(); ++index)
+	{
+		if (options.backend == "cuda")
+		{
+			summaries.push_back(runCudaWithArena(options,
+												fixtures[index].manifest,
+												fixtures[index].candidates,
+												fixtures[index].filteredPositions,
+												fixtures[index].groups,
+												arena,
+												outputs[index]));
+		}
+		else
+		{
+			summaries.push_back(runCpu(fixtures[index].manifest,
+									  fixtures[index].candidates,
+									  fixtures[index].filteredPositions,
+									  fixtures[index].groups,
+									  outputs[index]));
+		}
+	}
+	return summaries;
+}
+
+void writeBatchJson(const std::string& path,
+					const Options& options,
+					const std::vector<BatchFixtureOutput>& fixtures,
+					double setupMs,
+					double parseMs,
+					double writeMs,
+					double meanTotalMs,
+					double minTotalMs,
+					double maxTotalMs,
+					double meanCoreMs,
+					size_t arenaAllocations,
+					size_t arenaReuses,
+					size_t arenaCapacityBytes)
+{
+	std::ofstream output(path);
+	if (!output)
+	{
+		throw std::runtime_error("cannot write batch JSON summary: " + path);
+	}
+	size_t totalCandidates = 0;
+	size_t totalOverlaps = 0;
+	for (const auto& fixture : fixtures)
+	{
+		totalCandidates += fixture.candidateRecords;
+		totalOverlaps += fixture.outputRecords;
+	}
+
+	output << std::fixed << std::setprecision(6);
+	output << "{\n"
+		   << "  \"schema\": \"cuflye-overlap-replay-batch-worker-v0\",\n"
+		   << "  \"status\": \"ok\",\n"
+		   << "  \"backend\": \"" << options.backend << "\",\n"
+		   << "  \"cuda_kernel_mode\": \"" << options.cudaKernelMode << "\",\n"
+		   << "  \"batch_fixtures_file\": \"" << jsonEscape(options.batchFixturesFile) << "\",\n"
+		   << "  \"batch_output_dir\": \"" << jsonEscape(options.batchOutputDir) << "\",\n"
+		   << "  \"fixture_count\": " << fixtures.size() << ",\n"
+		   << "  \"total_candidate_records\": " << totalCandidates << ",\n"
+		   << "  \"total_output_records\": " << totalOverlaps << ",\n"
+		   << "  \"timing_ms\": {\n"
+		   << "    \"setup\": " << setupMs << ",\n"
+		   << "    \"parse\": " << parseMs << ",\n"
+		   << "    \"write_output\": " << writeMs << ",\n"
+		   << "    \"mean_total_before_write\": " << meanTotalMs << ",\n"
+		   << "    \"min_total_before_write\": " << minTotalMs << ",\n"
+		   << "    \"max_total_before_write\": " << maxTotalMs << ",\n"
+		   << "    \"mean_core\": " << meanCoreMs << "\n"
+		   << "  },\n"
+		   << "  \"benchmark\": {\n"
+		   << "    \"warmup_runs\": " << options.warmupRuns << ",\n"
+		   << "    \"timed_runs\": " << options.benchmarkRuns << "\n"
+		   << "  },\n"
+		   << "  \"arena\": {\n"
+		   << "    \"allocations\": " << arenaAllocations << ",\n"
+		   << "    \"reuses\": " << arenaReuses << ",\n"
+		   << "    \"capacity_bytes\": " << arenaCapacityBytes << "\n"
+		   << "  },\n"
+		   << "  \"fixtures\": [\n";
+	for (size_t index = 0; index < fixtures.size(); ++index)
+	{
+		const auto& fixture = fixtures[index];
+		output << "    {\n"
+			   << "      \"name\": \"" << jsonEscape(fixture.name) << "\",\n"
+			   << "      \"fixture_dir\": \"" << jsonEscape(fixture.fixtureDir) << "\",\n"
+			   << "      \"output_tsv\": \"" << jsonEscape(fixture.outputTsv) << "\",\n"
+			   << "      \"query_id\": " << fixture.queryId << ",\n"
+			   << "      \"candidate_records\": " << fixture.candidateRecords << ",\n"
+			   << "      \"target_groups\": " << fixture.targetGroups << ",\n"
+			   << "      \"output_records\": " << fixture.outputRecords << ",\n"
+			   << "      \"mean_total_before_json_ms\": "
+			   << fixture.summary.benchmarkMeanTotalMs << ",\n"
+			   << "      \"mean_core_ms\": " << fixture.summary.benchmarkMeanCoreMs << ",\n"
+			   << "      \"arena_allocations\": " << fixture.summary.arenaAllocations << ",\n"
+			   << "      \"arena_reuses\": " << fixture.summary.arenaReuses << "\n"
+			   << "    }" << (index + 1 == fixtures.size() ? "\n" : ",\n");
+	}
+	output << "  ]\n"
+		   << "}\n";
+}
+
+int runBatchMain(const Options& options)
+{
+	auto parseStart = Clock::now();
+	std::vector<std::string> fixtureDirs = loadFixtureList(options.batchFixturesFile);
+	std::vector<LoadedFixture> fixtures;
+	for (const auto& fixtureDir : fixtureDirs)
+	{
+		fixtures.push_back(loadFixture(fixtureDir));
+	}
+	auto parseEnd = Clock::now();
+	double parseMs = elapsedMs(parseStart, parseEnd);
+
+	ensureDirectory(options.batchOutputDir);
+	CudaOverlapArena arena;
+	double setupMs = 0.0;
+	if (options.backend == "cuda")
+	{
+		auto setupStart = Clock::now();
+		initializeArena(options, arena);
+		auto setupEnd = Clock::now();
+		setupMs = elapsedMs(setupStart, setupEnd);
+	}
+
+	std::vector<std::vector<HostOverlap>> outputs;
+	for (uint32_t index = 0; index < options.warmupRuns; ++index)
+	{
+		(void)runBatchOnce(options, fixtures, arena, outputs);
+	}
+
+	std::vector<double> timedTotals;
+	std::vector<double> timedCores;
+	std::vector<double> fixtureTotalSums(fixtures.size(), 0.0);
+	std::vector<double> fixtureCoreSums(fixtures.size(), 0.0);
+	std::vector<CudaRunSummary> lastSummaries;
+	for (uint32_t run = 0; run < options.benchmarkRuns; ++run)
+	{
+		std::vector<CudaRunSummary> summaries =
+			runBatchOnce(options, fixtures, arena, outputs);
+		double total = 0.0;
+		double core = 0.0;
+		for (size_t index = 0; index < summaries.size(); ++index)
+		{
+			const auto& summary = summaries[index];
+			total += summary.totalBeforeJsonMs;
+			core += coreMs(summary);
+			fixtureTotalSums[index] += summary.totalBeforeJsonMs;
+			fixtureCoreSums[index] += coreMs(summary);
+		}
+		timedTotals.push_back(total);
+		timedCores.push_back(core);
+		lastSummaries = summaries;
+	}
+
+	double totalSum = 0.0;
+	double coreSum = 0.0;
+	double minTotal = timedTotals.front();
+	double maxTotal = timedTotals.front();
+	for (size_t index = 0; index < timedTotals.size(); ++index)
+	{
+		totalSum += timedTotals[index];
+		coreSum += timedCores[index];
+		minTotal = std::min(minTotal, timedTotals[index]);
+		maxTotal = std::max(maxTotal, timedTotals[index]);
+	}
+	double meanTotal = totalSum / static_cast<double>(timedTotals.size());
+	double meanCore = coreSum / static_cast<double>(timedCores.size());
+
+	std::vector<BatchFixtureOutput> fixtureOutputs;
+	auto writeStart = Clock::now();
+	for (size_t index = 0; index < fixtures.size(); ++index)
+	{
+		std::string fixtureOutDir = joinPath(options.batchOutputDir, fixtures[index].name);
+		ensureDirectory(fixtureOutDir);
+		std::string outputTsv = joinPath(fixtureOutDir, "overlaps.tsv");
+		writeOverlaps(outputTsv, outputs[index]);
+		CudaRunSummary summary = lastSummaries[index];
+		summary.warmupRuns = options.warmupRuns;
+		summary.timedRuns = options.benchmarkRuns;
+		summary.benchmarkMeanTotalMs =
+			fixtureTotalSums[index] / static_cast<double>(options.benchmarkRuns);
+		summary.benchmarkMeanCoreMs =
+			fixtureCoreSums[index] / static_cast<double>(options.benchmarkRuns);
+		fixtureOutputs.push_back({
+			fixtures[index].fixtureDir,
+			fixtures[index].name,
+			outputTsv,
+			fixtures[index].manifest.queryId,
+			fixtures[index].candidates.size(),
+			fixtures[index].groups.size(),
+			outputs[index].size(),
+			summary
+		});
+	}
+	auto writeEnd = Clock::now();
+	double writeMs = elapsedMs(writeStart, writeEnd);
+
+	writeBatchJson(options.batchJsonOutput, options, fixtureOutputs, setupMs, parseMs,
+				   writeMs, meanTotal, minTotal, maxTotal, meanCore,
+				   arena.allocations, arena.reuses, arena.capacityBytes());
+	return 0;
+}
 }
 
 int main(int argc, char** argv)
@@ -1708,41 +2286,25 @@ int main(int argc, char** argv)
 	try
 	{
 		Options options = parseArgs(argc, argv);
+		if (!options.batchFixturesFile.empty())
+		{
+			return runBatchMain(options);
+		}
 		auto parseStart = Clock::now();
-		FixtureManifest manifest = loadManifest(options.fixtureDir);
-		requireSupportedShape(manifest);
-
-		std::vector<CandidateRecord> candidates =
-			loadCandidates(joinPath(options.fixtureDir, manifest.files.candidates),
-						   manifest.queryId);
-		std::vector<int32_t> filteredPositions =
-			loadFilteredPositions(joinPath(options.fixtureDir,
-										   manifest.files.filteredPositions));
-		std::map<int64_t, int32_t> targets =
-			loadTargets(joinPath(options.fixtureDir, manifest.files.targets));
-		if (candidates.size() != manifest.expectedCandidateRecords)
-		{
-			throw std::runtime_error("candidate record count does not match manifest");
-		}
-		if (targets.size() != manifest.expectedTargetRecords)
-		{
-			throw std::runtime_error("target record count does not match manifest");
-		}
-		std::vector<TargetGroup> groups =
-			buildGroups(candidates, targets, manifest.queryLength);
+		LoadedFixture fixture = loadFixture(options.fixtureDir);
 		auto parseEnd = Clock::now();
 
 		std::vector<HostOverlap> overlaps;
 		CudaRunSummary summary;
 		if (options.backend == "cuda")
 		{
-			summary = runCudaBenchmark(options, manifest, candidates,
-									   filteredPositions, groups, overlaps);
+			summary = runCudaBenchmark(options, fixture.manifest, fixture.candidates,
+									   fixture.filteredPositions, fixture.groups, overlaps);
 		}
 		else
 		{
-			summary = runCpuBenchmark(options, manifest, candidates,
-									  filteredPositions, groups, overlaps);
+			summary = runCpuBenchmark(options, fixture.manifest, fixture.candidates,
+									  fixture.filteredPositions, fixture.groups, overlaps);
 		}
 		summary.parseMs = elapsedMs(parseStart, parseEnd);
 		auto writeStart = Clock::now();
@@ -1750,7 +2312,7 @@ int main(int argc, char** argv)
 		auto writeEnd = Clock::now();
 		summary.writeMs = elapsedMs(writeStart, writeEnd);
 		summary.totalBeforeJsonMs += summary.parseMs + summary.writeMs;
-		writeJsonSummary(options.jsonOutput, options, manifest, summary);
+		writeJsonSummary(options.jsonOutput, options, fixture.manifest, summary);
 		return 0;
 	}
 	catch (const std::exception& exc)
