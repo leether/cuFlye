@@ -1,6 +1,6 @@
 # Substitution Session Ledger v0
 
-Status: proposed for M4s
+Status: accepted in M4s
 
 Introduced: M4s
 

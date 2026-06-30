@@ -101,3 +101,5 @@ M4 overlap-range oracle proof:
   `cuflye-m4q-overlap-range-object-rehydration-dry-run-dgx-aarch64.json`
 - Verified overlap-vector substitution smoke manifest:
   `cuflye-m4r-verified-overlap-vector-substitution-smoke-dgx-aarch64.json`
+- Substitution session ledger manifest:
+  `cuflye-m4s-substitution-session-ledger-dgx-aarch64.json`

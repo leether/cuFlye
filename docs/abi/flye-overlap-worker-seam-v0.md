@@ -5,7 +5,7 @@ gate accepted in M4l; shadow consumption proof accepted in M4m; graph
 consumption guard dry-run accepted in M4o; typed rehydration dry-run accepted
 in M4p; `OverlapRange` object rehydration dry-run accepted in M4q; verified
 overlap-vector substitution smoke accepted in M4r; substitution session ledger
-proposed for M4s
+accepted in M4s
 
 Introduced: M4j
 

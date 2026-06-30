@@ -7,17 +7,20 @@ change is considered complete.
 
 Active cards:
 
-- `2026-07-01-cuflye-m4s-substitution-supported-shape-expansion.md`:
-  expand verified graph-facing substitution from one selected query to a
-  deterministic supported-shape session ledger, while keeping unsupported
-  shapes explicit and fail-closed.
+- None.
 
 Proposed cards:
 
-- None. M4s is in progress.
+- `2026-07-01-cuflye-m4t-substitution-session-timing-attribution.md`:
+  add timing attribution to graph-facing substitution sessions before choosing
+  the next performance optimization path.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m4s-substitution-supported-shape-expansion.md`:
+  expand verified graph-facing substitution from one selected query to a
+  deterministic supported-shape session ledger with substituted, skipped, and
+  failed-closed decisions.
 - `2026-07-01-cuflye-m4r-verified-overlap-vector-substitution-smoke.md`:
   return a verified `OverlapRange` object vector as an opt-in graph-facing
   substitution smoke for one selected query, with unchanged canonical Flye

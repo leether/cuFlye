@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4s Substitution Supported-Shape Expansion
 
-Status: in_progress
+Status: completed
 
 Created: 2026-07-01
 
@@ -49,18 +49,18 @@ M4s is still not a production GPU mode and not an end-to-end speed claim.
 
 ## Acceptance Gates
 
-- [ ] Substitution ledger ABI is documented.
-- [ ] Every graph-facing substitution decision records query id, shape,
+- [x] Substitution ledger ABI is documented.
+- [x] Every graph-facing substitution decision records query id, shape,
   decision, and reason.
-- [ ] Supported allowlisted queries can be substituted only after validation,
+- [x] Supported allowlisted queries can be substituted only after validation,
   shadow comparison, graph guard, typed rehydration, object rehydration, and
   exact CPU comparison pass.
-- [ ] Unsupported selected shapes fail closed when requested for substitution.
-- [ ] Unsupported non-selected shapes do not overwrite accepted proof files.
-- [ ] Canonical Flye artifacts match CPU for the positive session.
-- [ ] Negative mismatch and unsupported-shape proofs fail closed before graph
+- [x] Unsupported selected shapes fail closed when requested for substitution.
+- [x] Unsupported non-selected shapes do not overwrite accepted proof files.
+- [x] Canonical Flye artifacts match CPU for the positive session.
+- [x] Negative mismatch and unsupported-shape proofs fail closed before graph
   mutation.
-- [ ] Local and DGX syntax/style/ownership gates pass.
+- [x] Local and DGX syntax/style/ownership gates pass.
 
 ## C++ Style Constraints
 
@@ -74,9 +74,47 @@ M4s is still not a production GPU mode and not an end-to-end speed claim.
 
 ## Deliverables
 
-- Substitution ledger ABI/design documentation.
-- Flye seam patch that records supported, skipped, and rejected substitution
+- [x] Substitution ledger ABI/design documentation.
+- [x] Flye seam patch that records supported, skipped, and rejected substitution
   decisions.
-- DGX proof manifest for positive, mismatch-negative, and unsupported-negative
+- [x] DGX proof manifest for positive, mismatch-negative, and unsupported-negative
   sessions.
-- Roadmap, Task Card, golden index, and plain-language benefit assessment.
+- [x] Roadmap, Task Card, golden index, and plain-language benefit assessment.
+
+## Completion Notes
+
+Implementation commit: `8252761144f5216e6754930c52f5f9c1568e7382`
+
+DGX proof:
+`tests/golden/cuflye-m4s-substitution-session-ledger-dgx-aarch64.json`
+
+Positive session:
+
+- selected toy-raw query ids: `353,381`
+- substituted query ids: `353,381`
+- ledger decision counts:
+  - `substituted`: `2`
+  - `skipped-already-substituted`: `5`
+  - `skipped-not-selected`: `1892`
+  - `skipped-unsupported-non-selected-shape`: `987`
+- per-query sentinels were written for accepted substitutions.
+- canonical Flye graph/output artifacts matched the CPU toy-raw baseline.
+
+Mismatch negative proof:
+
+- `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_PROOF_FAULT=drop-first-substitution-overlap`
+- substitution recorded `status=failed`, `state=failed-closed`, and
+  `graph_facing_returned_worker_output=false`.
+- ledger recorded a `failed-closed` decision.
+
+Unsupported-shape negative proof:
+
+- `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_PROOF_FAULT=force-unsupported-selected-shape`
+- selected query failed closed before worker invocation.
+- ledger recorded `failed-closed-unsupported-selected-shape`.
+
+Plain-language CUDA benefit: M4s still does not prove Flye is faster. It proves
+controlled breadth and auditability: two selected supported queries can return
+verified GPU-worker overlap vectors, while skipped and rejected query/shape
+decisions are written to a session ledger instead of being hidden behind one
+global sentinel.

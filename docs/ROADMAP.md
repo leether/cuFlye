@@ -539,4 +539,46 @@ M4s: expand verified graph-facing substitution from one selected query to a
 deterministic supported-shape session ledger. Every query/shape decision should
 be recorded as substituted, skipped, or failed-closed, and positive artifacts
 must still match CPU.
+Completed.
+```
+
+M4s proof on DGX selected toy-raw query ids `353,381`. The positive session
+substituted both selected supported queries, wrote per-query sentinels, and
+preserved canonical Flye graph/output artifacts against the CPU toy-raw
+baseline. The session ledger recorded:
+
+```text
+substituted: 2
+skipped-already-substituted: 5
+skipped-not-selected: 1892
+skipped-unsupported-non-selected-shape: 987
+```
+
+The mismatch negative proof injected `drop-first-substitution-overlap` and
+failed closed before returning worker output. The unsupported-shape negative
+proof injected `force-unsupported-selected-shape` and failed closed before
+worker invocation.
+
+Allowed M4s claim:
+
+```text
+cuFlye can substitute multiple selected supported Flye overlap queries with
+verified CUDA-worker-derived `OverlapRange` vectors, preserve canonical Flye
+artifacts, and record substituted, skipped, and failed-closed query/shape
+decisions in a session ledger.
+```
+
+Forbidden M4s claim:
+
+```text
+M4s does not prove default GPU mode, unsupported-shape CUDA substitution, or
+end-to-end Flye speedup.
+```
+
+Next highest-ROI task:
+
+```text
+M4t: add timing attribution to substitution sessions so cuFlye can separate CPU
+overlap time, CUDA worker time, process/IO overhead, validation overhead, and
+ledger overhead before choosing the next performance optimization.
 ```
