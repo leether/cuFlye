@@ -27,6 +27,7 @@
 namespace
 {
 using Clock = std::chrono::steady_clock;
+static const int OVERLAP_CHAIN_REDUCE_THREADS = 128;
 
 struct CandidateRecord
 {
@@ -106,6 +107,7 @@ struct Options
 	std::string outputTsv;
 	std::string jsonOutput;
 	std::string backend = "cuda";
+	std::string cudaKernelMode = "serial";
 	int device = 0;
 	uint32_t warmupRuns = 0;
 	uint32_t benchmarkRuns = 1;
@@ -158,6 +160,7 @@ struct FixtureManifest
 struct CudaRunSummary
 {
 	std::string backend = "cuda";
+	std::string cudaKernelMode = "serial";
 	double parseMs = 0.0;
 	double setupMs = 0.0;
 	double deviceAllocationMs = 0.0;
@@ -758,6 +761,246 @@ __global__ void overlapChainKernel(const CandidateRecord* candidates,
 	output[groupId] = best;
 }
 
+__global__ void overlapChainReduceKernel(const CandidateRecord* candidates,
+										 const TargetGroup* groups,
+										 uint32_t groupCount,
+										 const int32_t* filteredPositions,
+										 uint32_t filteredCount,
+										 DeviceParams params,
+										 int32_t* scoreTable,
+										 int32_t* backtrackTable,
+										 uint8_t* orderedUsed,
+										 DeviceOverlap* output)
+{
+	uint32_t groupId = blockIdx.x;
+	uint32_t lane = threadIdx.x;
+	if (groupId >= groupCount) return;
+
+	__shared__ int32_t sharedScore[OVERLAP_CHAIN_REDUCE_THREADS];
+	__shared__ int32_t sharedId[OVERLAP_CHAIN_REDUCE_THREADS];
+	__shared__ int32_t skipGroup;
+	__shared__ int32_t breakJ;
+
+	TargetGroup group = groups[groupId];
+	const uint32_t start = group.start;
+	const uint32_t count = group.count;
+	if (lane == 0)
+	{
+		DeviceOverlap empty{};
+		empty.valid = 0;
+		output[groupId] = empty;
+		skipGroup = 0;
+	}
+	__syncthreads();
+	if (count == 0) return;
+
+	if (lane == 0)
+	{
+		uint32_t uniqueMatches = 0;
+		int32_t prevPos = 0;
+		for (uint32_t local = 0; local < count; ++local)
+		{
+			int32_t curPos = candidates[start + local].queryPos;
+			if (curPos != prevPos)
+			{
+				++uniqueMatches;
+				prevPos = curPos;
+			}
+		}
+		if (static_cast<float>(uniqueMatches) <
+			params.minKmerSurvivalRate * static_cast<float>(params.minimumOverlap))
+		{
+			skipGroup = 1;
+		}
+		if (group.maxCur - group.minCur < params.minimumOverlap ||
+			group.maxExt - group.minExt < params.minimumOverlap)
+		{
+			skipGroup = 1;
+		}
+		if (params.checkOverhang && !params.forceLocal)
+		{
+			if (min(group.minCur, group.minExt) > params.maximumOverhang) skipGroup = 1;
+			if (min(params.queryLen - group.maxCur, group.targetLen - group.maxExt) >
+				params.maximumOverhang)
+			{
+				skipGroup = 1;
+			}
+		}
+	}
+	__syncthreads();
+	if (skipGroup) return;
+
+	for (uint32_t local = lane; local < count; local += blockDim.x)
+	{
+		scoreTable[start + local] = 0;
+		backtrackTable[start + local] = -1;
+		orderedUsed[start + local] = 0;
+	}
+	__syncthreads();
+
+	for (uint32_t i = 1; i < count; ++i)
+	{
+		int32_t curNext = candidates[start + i].queryPos;
+		int32_t extNext = candidates[start + i].targetPos;
+
+		// Preserve Flye's early-stop boundary before parallel predecessor scoring.
+		if (lane == 0)
+		{
+			int32_t maxScore = 0;
+			breakJ = -1;
+			for (int32_t j = static_cast<int32_t>(i) - 1; j >= 0; --j)
+			{
+				int32_t curPrev = candidates[start + j].queryPos;
+				int32_t extPrev = candidates[start + j].targetPos;
+				int32_t curDelta = curNext - curPrev;
+				int32_t extDelta = extNext - extPrev;
+				int32_t jumpDiv = abs(curDelta - extDelta);
+				if (0 < curDelta && curDelta < params.maximumJump &&
+					0 < extDelta && extDelta < params.maximumJump &&
+					jumpDiv <= params.maxGap)
+				{
+					int32_t matchScore = min(min(curDelta, extDelta), params.kmerSize);
+					float gapPenalty = jumpDiv > params.gapJumpThreshold ?
+						params.largeGapPenalty : params.smallGapPenalty;
+					int32_t gapCost =
+						static_cast<int32_t>(gapPenalty * static_cast<float>(jumpDiv));
+					int32_t nextScore = scoreTable[start + j] + matchScore - gapCost;
+					if (nextScore > maxScore)
+					{
+						maxScore = nextScore;
+						if (jumpDiv == 0 && curDelta < params.kmerSize)
+						{
+							breakJ = j;
+							break;
+						}
+					}
+				}
+				if (group.extSorted && extNext - extPrev > params.maximumJump) break;
+				if (!group.extSorted && curNext - curPrev > params.maximumJump) break;
+			}
+		}
+		__syncthreads();
+
+		int32_t localScore = 0;
+		int32_t localId = 0;
+		for (int32_t j = static_cast<int32_t>(i) - 1 - static_cast<int32_t>(lane);
+			 j >= 0; j -= static_cast<int32_t>(blockDim.x))
+		{
+			if (breakJ != -1 && j < breakJ) continue;
+			int32_t curPrev = candidates[start + j].queryPos;
+			int32_t extPrev = candidates[start + j].targetPos;
+			int32_t curDelta = curNext - curPrev;
+			int32_t extDelta = extNext - extPrev;
+			int32_t jumpDiv = abs(curDelta - extDelta);
+			if (0 < curDelta && curDelta < params.maximumJump &&
+				0 < extDelta && extDelta < params.maximumJump &&
+				jumpDiv <= params.maxGap)
+			{
+				int32_t matchScore = min(min(curDelta, extDelta), params.kmerSize);
+				float gapPenalty = jumpDiv > params.gapJumpThreshold ?
+					params.largeGapPenalty : params.smallGapPenalty;
+				int32_t gapCost = static_cast<int32_t>(gapPenalty * static_cast<float>(jumpDiv));
+				int32_t nextScore = scoreTable[start + j] + matchScore - gapCost;
+				if (nextScore > localScore || (nextScore == localScore && j > localId))
+				{
+					localScore = nextScore;
+					localId = j;
+				}
+			}
+		}
+
+		sharedScore[lane] = localScore;
+		sharedId[lane] = localId;
+		__syncthreads();
+		for (uint32_t offset = blockDim.x / 2; offset > 0; offset >>= 1)
+		{
+			if (lane < offset)
+			{
+				int32_t otherScore = sharedScore[lane + offset];
+				int32_t otherId = sharedId[lane + offset];
+				if (otherScore > sharedScore[lane] ||
+					(otherScore == sharedScore[lane] && otherId > sharedId[lane]))
+				{
+					sharedScore[lane] = otherScore;
+					sharedId[lane] = otherId;
+				}
+			}
+			__syncthreads();
+		}
+
+		if (lane == 0)
+		{
+			scoreTable[start + i] = max(sharedScore[0], params.kmerSize);
+			if (sharedScore[0] > params.kmerSize)
+			{
+				backtrackTable[start + i] = sharedId[0];
+			}
+		}
+		__syncthreads();
+	}
+
+	if (lane == 0)
+	{
+		DeviceOverlap best{};
+		best.valid = 0;
+		for (uint32_t ordered = 0; ordered < count; ++ordered)
+		{
+			int32_t chainStart = -1;
+			int32_t bestScore = INT_MIN;
+			for (uint32_t local = 0; local < count; ++local)
+			{
+				if (orderedUsed[start + local]) continue;
+				int32_t score = scoreTable[start + local];
+				if (chainStart == -1 || score > bestScore)
+				{
+					chainStart = static_cast<int32_t>(local);
+					bestScore = score;
+				}
+			}
+			if (chainStart == -1) break;
+			orderedUsed[start + chainStart] = 1;
+			if (backtrackTable[start + chainStart] == -1) continue;
+
+			int32_t lastMatch = chainStart;
+			int32_t firstMatch = 0;
+			int32_t chainLength = 0;
+			int32_t pos = chainStart;
+			while (pos != -1)
+			{
+				firstMatch = pos;
+				++chainLength;
+				int32_t newPos = backtrackTable[start + pos];
+				backtrackTable[start + pos] = -1;
+				pos = newPos;
+			}
+
+			DeviceOverlap overlap{};
+			overlap.curId = params.queryId;
+			overlap.curBegin = candidates[start + firstMatch].queryPos;
+			overlap.curEnd = candidates[start + lastMatch].queryPos + params.kmerSize - 1;
+			overlap.curLen = params.queryLen;
+			overlap.extId = group.targetId;
+			overlap.extBegin = candidates[start + firstMatch].targetPos;
+			overlap.extEnd = candidates[start + lastMatch].targetPos + params.kmerSize - 1;
+			overlap.extLen = group.targetLen;
+			overlap.score = scoreTable[start + lastMatch] - scoreTable[start + firstMatch] +
+							params.kmerSize - 1;
+			overlap.chainLength = chainLength;
+			overlap.valid = 0;
+
+			if (!overlapTest(overlap, params)) continue;
+			if (!best.valid || overlap.score > best.score)
+			{
+				best = overlap;
+				best.valid = 1;
+			}
+		}
+		if (best.valid) output[groupId] = best;
+	}
+	(void)filteredPositions;
+	(void)filteredCount;
+}
+
 int32_t hostOverlapLrOverhang(const DeviceOverlap& overlap)
 {
 	int32_t left = std::min(overlap.curBegin, overlap.extBegin);
@@ -1073,6 +1316,7 @@ Options parseArgs(int argc, char** argv)
 		else if (arg == "--output-tsv") options.outputTsv = requireValue(arg);
 		else if (arg == "--json-output") options.jsonOutput = requireValue(arg);
 		else if (arg == "--backend") options.backend = requireValue(arg);
+		else if (arg == "--cuda-kernel-mode") options.cudaKernelMode = requireValue(arg);
 		else if (arg == "--device") options.device = std::stoi(requireValue(arg));
 		else if (arg == "--warmup-runs")
 		{
@@ -1092,6 +1336,7 @@ Options parseArgs(int argc, char** argv)
 			std::cout << "Usage: cuflye-cuda-overlap-chain-replay "
 					  << "--fixture-dir DIR --output-tsv PATH --json-output PATH "
 					  << "[--backend cpu|cuda] [--device ID] "
+					  << "[--cuda-kernel-mode serial|parallel-reduce] "
 					  << "[--warmup-runs N] [--benchmark-runs N] "
 					  << "[--memory-budget-bytes N]\n";
 			std::exit(0);
@@ -1107,6 +1352,14 @@ Options parseArgs(int argc, char** argv)
 	if (options.backend != "cuda" && options.backend != "cpu")
 	{
 		throw std::runtime_error("--backend must be cpu or cuda");
+	}
+	if (options.cudaKernelMode != "serial" && options.cudaKernelMode != "parallel-reduce")
+	{
+		throw std::runtime_error("--cuda-kernel-mode must be serial or parallel-reduce");
+	}
+	if (options.backend == "cpu" && options.cudaKernelMode != "serial")
+	{
+		throw std::runtime_error("--cuda-kernel-mode is only supported for cuda backend");
 	}
 	if (options.benchmarkRuns == 0)
 	{
@@ -1177,6 +1430,7 @@ CudaRunSummary runCuda(const Options& options,
 {
 	CudaRunSummary summary;
 	summary.backend = "cuda";
+	summary.cudaKernelMode = options.cudaKernelMode;
 	summary.device = options.device;
 	summary.candidateRecords = candidates.size();
 	summary.targetGroups = groups.size();
@@ -1241,17 +1495,35 @@ CudaRunSummary runCuda(const Options& options,
 	DeviceParams params = makeDeviceParams(manifest);
 
 	auto kernelStart = Clock::now();
-	overlapChainKernel<<<static_cast<unsigned int>(groups.size()), 1>>>(
-		dCandidates.get(),
-		dGroups.get(),
-		static_cast<uint32_t>(groups.size()),
-		dFiltered.get(),
-		static_cast<uint32_t>(filteredPositions.size()),
-		params,
-		dScores.get(),
-		dBacktrack.get(),
-		dUsed.get(),
-		dOutput.get());
+	if (options.cudaKernelMode == "serial")
+	{
+		overlapChainKernel<<<static_cast<unsigned int>(groups.size()), 1>>>(
+			dCandidates.get(),
+			dGroups.get(),
+			static_cast<uint32_t>(groups.size()),
+			dFiltered.get(),
+			static_cast<uint32_t>(filteredPositions.size()),
+			params,
+			dScores.get(),
+			dBacktrack.get(),
+			dUsed.get(),
+			dOutput.get());
+	}
+	else
+	{
+		overlapChainReduceKernel<<<static_cast<unsigned int>(groups.size()),
+								   OVERLAP_CHAIN_REDUCE_THREADS>>>(
+			dCandidates.get(),
+			dGroups.get(),
+			static_cast<uint32_t>(groups.size()),
+			dFiltered.get(),
+			static_cast<uint32_t>(filteredPositions.size()),
+			params,
+			dScores.get(),
+			dBacktrack.get(),
+			dUsed.get(),
+			dOutput.get());
+	}
 	cuflye::cuda_raii::checkCuda(cudaGetLastError(), "launch overlap chain kernel");
 	cuflye::cuda_raii::checkCuda(cudaDeviceSynchronize(), "synchronize overlap chain kernel");
 	auto kernelEnd = Clock::now();
@@ -1369,6 +1641,7 @@ void writeJsonSummary(const std::string& path,
 		   << "  \"schema\": \"cuflye-cuda-overlap-chain-replay-v0\",\n"
 		   << "  \"status\": \"ok\",\n"
 		   << "  \"backend\": \"" << summary.backend << "\",\n"
+		   << "  \"cuda_kernel_mode\": \"" << summary.cudaKernelMode << "\",\n"
 		   << "  \"fixture_dir\": \"" << options.fixtureDir << "\",\n"
 		   << "  \"output_tsv\": \"" << options.outputTsv << "\",\n"
 		   << "  \"query_id\": " << manifest.queryId << ",\n"
