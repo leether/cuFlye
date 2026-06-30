@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4m Overlap Worker Shadow Consumption
 
-Status: proposed
+Status: active
 
 Created: 2026-06-30
 
@@ -75,3 +75,17 @@ return or stop without feeding GPU output into graph mutation.
 - Runner controls and metadata for shadow proof mode.
 - DGX proof with positive and negative shadow cases.
 - This Task Card completed after proof.
+
+## Execution Checklist
+
+- [ ] Define shadow mode and seam-summary shadow fields.
+- [ ] Capture CPU overlap ranges in a Flye-side shadow representation.
+- [ ] Parse validated worker output into the same shadow representation.
+- [ ] Compare worker shadow records against captured CPU overlap records.
+- [ ] Extend fixture runner controls and metadata.
+- [ ] Build patched Flye on DGX.
+- [ ] Prove default CPU fixture behavior remains unchanged.
+- [ ] Prove positive shadow mode validates, shadow-compares, and stops before
+  graph mutation.
+- [ ] Prove negative shadow mismatch fails closed before graph mutation.
+- [ ] Record compact DGX proof and close this card.

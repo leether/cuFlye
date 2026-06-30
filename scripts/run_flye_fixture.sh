@@ -71,6 +71,8 @@ Options:
                        Set CUFLYE_OVERLAP_WORKER_MEMORY_BUDGET_BYTES
   --overlap-worker-validation-mode MODE
                        Set CUFLYE_OVERLAP_WORKER_VALIDATION_MODE
+  --overlap-worker-shadow-mode MODE
+                       Set CUFLYE_OVERLAP_WORKER_SHADOW_MODE
   --extra-arg ARG      Extra Flye argument. May be repeated.
   --force              Remove existing output directory before running
   --expect-failure     Record non-zero Flye exit as expected metadata
@@ -124,6 +126,7 @@ overlap_worker_warmup_runs="${CUFLYE_OVERLAP_WORKER_WARMUP_RUNS:-}"
 overlap_worker_benchmark_runs="${CUFLYE_OVERLAP_WORKER_BENCHMARK_RUNS:-}"
 overlap_worker_memory_budget_bytes="${CUFLYE_OVERLAP_WORKER_MEMORY_BUDGET_BYTES:-}"
 overlap_worker_validation_mode="${CUFLYE_OVERLAP_WORKER_VALIDATION_MODE:-}"
+overlap_worker_shadow_mode="${CUFLYE_OVERLAP_WORKER_SHADOW_MODE:-}"
 extra_args=()
 
 while [ "$#" -gt 0 ]; do
@@ -270,6 +273,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --overlap-worker-validation-mode)
       overlap_worker_validation_mode="$2"
+      shift 2
+      ;;
+    --overlap-worker-shadow-mode)
+      overlap_worker_shadow_mode="$2"
       shift 2
       ;;
     --extra-arg)
@@ -494,9 +501,12 @@ fi
 if [ -n "${overlap_worker_validation_mode}" ]; then
   export CUFLYE_OVERLAP_WORKER_VALIDATION_MODE="${overlap_worker_validation_mode}"
 fi
+if [ -n "${overlap_worker_shadow_mode}" ]; then
+  export CUFLYE_OVERLAP_WORKER_SHADOW_MODE="${overlap_worker_shadow_mode}"
+fi
 
 metadata_tmp="${out_dir}/run_metadata.pre.json"
-python3 - "$metadata_tmp" "$repo_root" "$flye_dir" "$fixture" "$reads" "$read_type" "$genome_size" "$min_overlap" "$threads" "$candidate_dump" "$overlap_dump" "$overlap_replay_dump_dir" "$overlap_replay_query_id" "$overlap_replay_query_ids" "$overlap_replay_max_fixtures" "$overlap_replay_stop_after_dump" "$candidate_backend" "$cuda_device" "$cuda_memory_budget_bytes" "$cuda_adapter_mode" "$cuda_backend_bin" "$cuda_packed_fixture_dir" "$cuda_adapter_output_tsv" "$cuda_adapter_json" "$cuda_packed_kmer_size" "$cuda_pack_dump_dir" "$cuda_pack_query_id" "$cuda_stop_after_packed_query" "$overlap_worker_mode" "$overlap_worker_bin" "$overlap_worker_output_dir" "$overlap_worker_device" "$overlap_worker_kernel_mode" "$overlap_worker_warmup_runs" "$overlap_worker_benchmark_runs" "$overlap_worker_memory_budget_bytes" "$overlap_worker_validation_mode" "${cmd[@]}" <<'PY'
+python3 - "$metadata_tmp" "$repo_root" "$flye_dir" "$fixture" "$reads" "$read_type" "$genome_size" "$min_overlap" "$threads" "$candidate_dump" "$overlap_dump" "$overlap_replay_dump_dir" "$overlap_replay_query_id" "$overlap_replay_query_ids" "$overlap_replay_max_fixtures" "$overlap_replay_stop_after_dump" "$candidate_backend" "$cuda_device" "$cuda_memory_budget_bytes" "$cuda_adapter_mode" "$cuda_backend_bin" "$cuda_packed_fixture_dir" "$cuda_adapter_output_tsv" "$cuda_adapter_json" "$cuda_packed_kmer_size" "$cuda_pack_dump_dir" "$cuda_pack_query_id" "$cuda_stop_after_packed_query" "$overlap_worker_mode" "$overlap_worker_bin" "$overlap_worker_output_dir" "$overlap_worker_device" "$overlap_worker_kernel_mode" "$overlap_worker_warmup_runs" "$overlap_worker_benchmark_runs" "$overlap_worker_memory_budget_bytes" "$overlap_worker_validation_mode" "$overlap_worker_shadow_mode" "${cmd[@]}" <<'PY'
 import json
 import os
 import platform
@@ -505,7 +515,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 
-metadata_path, repo_root, flye_dir, fixture, reads, read_type, genome_size, min_overlap, threads, candidate_dump, overlap_dump, overlap_replay_dump_dir, overlap_replay_query_id, overlap_replay_query_ids, overlap_replay_max_fixtures, overlap_replay_stop_after_dump, candidate_backend, cuda_device, cuda_memory_budget_bytes, cuda_adapter_mode, cuda_backend_bin, cuda_packed_fixture_dir, cuda_adapter_output_tsv, cuda_adapter_json, cuda_packed_kmer_size, cuda_pack_dump_dir, cuda_pack_query_id, cuda_stop_after_packed_query, overlap_worker_mode, overlap_worker_bin, overlap_worker_output_dir, overlap_worker_device, overlap_worker_kernel_mode, overlap_worker_warmup_runs, overlap_worker_benchmark_runs, overlap_worker_memory_budget_bytes, overlap_worker_validation_mode, *cmd = sys.argv[1:]
+metadata_path, repo_root, flye_dir, fixture, reads, read_type, genome_size, min_overlap, threads, candidate_dump, overlap_dump, overlap_replay_dump_dir, overlap_replay_query_id, overlap_replay_query_ids, overlap_replay_max_fixtures, overlap_replay_stop_after_dump, candidate_backend, cuda_device, cuda_memory_budget_bytes, cuda_adapter_mode, cuda_backend_bin, cuda_packed_fixture_dir, cuda_adapter_output_tsv, cuda_adapter_json, cuda_packed_kmer_size, cuda_pack_dump_dir, cuda_pack_query_id, cuda_stop_after_packed_query, overlap_worker_mode, overlap_worker_bin, overlap_worker_output_dir, overlap_worker_device, overlap_worker_kernel_mode, overlap_worker_warmup_runs, overlap_worker_benchmark_runs, overlap_worker_memory_budget_bytes, overlap_worker_validation_mode, overlap_worker_shadow_mode, *cmd = sys.argv[1:]
 
 def run(cmdline):
     try:
@@ -589,6 +599,8 @@ if overlap_worker_memory_budget_bytes:
     payload["overlap_worker_memory_budget_bytes"] = overlap_worker_memory_budget_bytes
 if overlap_worker_validation_mode:
     payload["overlap_worker_validation_mode"] = overlap_worker_validation_mode
+if overlap_worker_shadow_mode:
+    payload["overlap_worker_shadow_mode"] = overlap_worker_shadow_mode
 
 with open(metadata_path, "w", encoding="utf-8") as handle:
     json.dump(payload, handle, indent=2, sort_keys=True)

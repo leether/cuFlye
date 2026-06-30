@@ -1,0 +1,312 @@
+--- a/src/sequence/overlap.cpp
++++ b/src/sequence/overlap.cpp
+@@ -244,8 +244,35 @@
+ 		std::string status = "failed";
+ 		bool consumptionEligible = false;
+ 		std::vector<OverlapWorkerFixtureValidation> fixtures;
++	};
++
++	struct OverlapWorkerFixtureShadow
++	{
++		std::string fixtureDir;
++		std::string fixtureName;
++		std::string workerPath;
++		std::string status = "failed";
++		std::string canonicalDiffStatus = "not-run";
++		size_t cpuRecords = 0;
++		size_t workerRecords = 0;
++		std::string error;
++	};
++
++	struct OverlapWorkerShadowResult
++	{
++		std::string mode;
++		std::string status = "not-requested";
++		bool shadowConsumptionEligible = false;
++		std::vector<OverlapWorkerFixtureShadow> fixtures;
+ 	};
+ 
++	std::map<std::string, std::vector<OverlapDumpRecord>>&
++	overlapReplayCapturedCpuRecords()
++	{
++		static std::map<std::string, std::vector<OverlapDumpRecord>> records;
++		return records;
++	}
++
+ 	const char* overlapWorkerMode()
+ 	{
+ 		static const char* mode = std::getenv("CUFLYE_OVERLAP_WORKER_MODE");
+@@ -290,6 +317,28 @@
+ 		return mode;
+ 	}
+ 
++	std::string overlapWorkerShadowMode()
++	{
++		static std::string mode = []()
++		{
++			const char* raw = std::getenv("CUFLYE_OVERLAP_WORKER_SHADOW_MODE");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "canonical-overlap-v0")
++			{
++				throw std::runtime_error(
++					"Unsupported CUFLYE_OVERLAP_WORKER_SHADOW_MODE: " + selected);
++			}
++			return selected;
++		}();
++		return mode;
++	}
++
++	bool overlapWorkerShadowEnabled()
++	{
++		return !overlapWorkerShadowMode().empty();
++	}
++
+ 	std::string stripWhitespace(const std::string& text)
+ 	{
+ 		std::string stripped;
+@@ -382,6 +431,7 @@
+ 			overlapEnvRequired("CUFLYE_OVERLAP_REPLAY_MAX_FIXTURES");
+ 			overlapEnvRequired("CUFLYE_OVERLAP_WORKER_OUTPUT_DIR");
+ 			overlapWorkerValidationMode();
++			overlapWorkerShadowMode();
+ 			const auto& queryIds = overlapReplayQueryIds();
+ 			if (!queryIds.empty() && overlapReplayMaxFixtures() != queryIds.size())
+ 			{
+@@ -700,6 +750,37 @@
+ 		return records;
+ 	}
+ 
++	OverlapDumpRecord overlapRangeToDumpRecord(const OverlapRange& ovlp)
++	{
++		OverlapDumpRecord record;
++		record.curId = ovlp.curId.signedId();
++		record.curBegin = ovlp.curBegin;
++		record.curEnd = ovlp.curEnd;
++		record.curLen = ovlp.curLen;
++		record.extId = ovlp.extId.signedId();
++		record.extBegin = ovlp.extBegin;
++		record.extEnd = ovlp.extEnd;
++		record.extLen = ovlp.extLen;
++		record.score = ovlp.score;
++		std::ostringstream divergence;
++		divergence << std::setprecision(9) << ovlp.seqDivergence;
++		record.seqDivergence = std::stod(divergence.str());
++		return record;
++	}
++
++	std::vector<OverlapDumpRecord> canonicalOverlapRecordsFromRanges(
++		const std::vector<OverlapRange>& overlaps)
++	{
++		std::vector<OverlapDumpRecord> records;
++		records.reserve(overlaps.size());
++		for (const auto& ovlp : overlaps)
++		{
++			records.push_back(overlapRangeToDumpRecord(ovlp));
++		}
++		std::sort(records.begin(), records.end());
++		return records;
++	}
++
+ 	OverlapWorkerValidationResult validateOverlapWorkerOutputs(
+ 		const std::vector<std::string>& fixtures,
+ 		const std::string& batchOutputDir)
+@@ -790,6 +871,110 @@
+ 				json << "\n";
+ 			}
+ 			json << "    }" << (i + 1 == validation.fixtures.size() ? "\n" : ",\n");
++		}
++		json << "  ]\n"
++			 << "}\n";
++		writeTextFile(path, json.str());
++	}
++
++	OverlapWorkerShadowResult compareOverlapWorkerShadowOutputs(
++		const std::vector<std::string>& fixtures,
++		const std::string& batchOutputDir)
++	{
++		OverlapWorkerShadowResult result;
++		result.mode = overlapWorkerShadowMode();
++		if (!overlapWorkerShadowEnabled()) return result;
++
++		result.status = "passed";
++		result.shadowConsumptionEligible = true;
++		auto& cpuRecordsByFixture = overlapReplayCapturedCpuRecords();
++
++		for (const auto& fixtureDir : fixtures)
++		{
++			OverlapWorkerFixtureShadow fixture;
++			fixture.fixtureDir = fixtureDir;
++			fixture.fixtureName = pathBasename(fixtureDir);
++			fixture.workerPath = joinPath(joinPath(batchOutputDir, fixture.fixtureName),
++										  "overlaps.tsv");
++			try
++			{
++				auto cpuIt = cpuRecordsByFixture.find(fixtureDir);
++				if (cpuIt == cpuRecordsByFixture.end())
++				{
++					throw std::runtime_error(
++						"missing captured CPU overlap records for fixture");
++				}
++				fixture.cpuRecords = cpuIt->second.size();
++				auto workerRecords = readCanonicalOverlapDump(fixture.workerPath);
++				fixture.workerRecords = workerRecords.size();
++				if (cpuIt->second == workerRecords)
++				{
++					fixture.status = "passed";
++					fixture.canonicalDiffStatus = "match";
++				}
++				else
++				{
++					fixture.status = "failed";
++					fixture.canonicalDiffStatus = "mismatch";
++					fixture.error =
++						"worker shadow records differ from captured CPU overlap ranges";
++					result.status = "failed";
++					result.shadowConsumptionEligible = false;
++				}
++			}
++			catch (const std::exception& exc)
++			{
++				fixture.status = "failed";
++				fixture.error = exc.what();
++				result.status = "failed";
++				result.shadowConsumptionEligible = false;
++			}
++			result.fixtures.push_back(fixture);
++		}
++
++		if (result.fixtures.empty())
++		{
++			result.status = "failed";
++			result.shadowConsumptionEligible = false;
++		}
++		return result;
++	}
++
++	void writeOverlapWorkerShadowJson(const std::string& path,
++									  const OverlapWorkerShadowResult& shadow)
++	{
++		std::ostringstream json;
++		json << "{\n"
++			 << "  \"schema\": \"cuflye-overlap-worker-shadow-v0\",\n"
++			 << "  \"status\": \"" << jsonEscape(shadow.status) << "\",\n"
++			 << "  \"mode\": \"" << jsonEscape(shadow.mode) << "\",\n"
++			 << "  \"shadow_representation\": \"canonical-overlap-v0\",\n"
++			 << "  \"fixture_count\": " << shadow.fixtures.size() << ",\n"
++			 << "  \"shadow_consumption_eligible\": "
++			 << boolJson(shadow.shadowConsumptionEligible) << ",\n"
++			 << "  \"graph_mutation_consumed_worker_output\": false,\n"
++			 << "  \"fixtures\": [\n";
++		for (size_t i = 0; i < shadow.fixtures.size(); ++i)
++		{
++			const auto& fixture = shadow.fixtures[i];
++			json << "    {\n"
++				 << "      \"fixture_dir\": \"" << jsonEscape(fixture.fixtureDir) << "\",\n"
++				 << "      \"fixture_name\": \"" << jsonEscape(fixture.fixtureName) << "\",\n"
++				 << "      \"worker_path\": \"" << jsonEscape(fixture.workerPath) << "\",\n"
++				 << "      \"status\": \"" << jsonEscape(fixture.status) << "\",\n"
++				 << "      \"cpu_records\": " << fixture.cpuRecords << ",\n"
++				 << "      \"worker_records\": " << fixture.workerRecords << ",\n"
++				 << "      \"canonical_diff_status\": \""
++				 << jsonEscape(fixture.canonicalDiffStatus) << "\"";
++			if (!fixture.error.empty())
++			{
++				json << ",\n      \"error\": \"" << jsonEscape(fixture.error) << "\"\n";
++			}
++			else
++			{
++				json << "\n";
++			}
++			json << "    }" << (i + 1 == shadow.fixtures.size() ? "\n" : ",\n");
+ 		}
+ 		json << "  ]\n"
+ 			 << "}\n";
+@@ -855,6 +1040,9 @@
+ 									   const std::string& validationJson,
+ 									   const std::string& validationStatus,
+ 									   bool consumptionEligible,
++									   const std::string& shadowJson,
++									   const std::string& shadowStatus,
++									   bool shadowConsumptionEligible,
+ 									   const std::string& status,
+ 									   const std::string& batchJson,
+ 									   const std::string& batchOutputDir,
+@@ -880,6 +1068,11 @@
+ 			 << "  \"validation_status\": \"" << jsonEscape(validationStatus) << "\",\n"
+ 			 << "  \"worker_output_consumption_eligible\": "
+ 			 << boolJson(consumptionEligible) << ",\n"
++			 << "  \"shadow_mode\": \"" << jsonEscape(overlapWorkerShadowMode()) << "\",\n"
++			 << "  \"shadow_json\": \"" << jsonEscape(shadowJson) << "\",\n"
++			 << "  \"shadow_status\": \"" << jsonEscape(shadowStatus) << "\",\n"
++			 << "  \"shadow_consumption_eligible\": "
++			 << boolJson(shadowConsumptionEligible) << ",\n"
+ 			 << "  \"batch_json_output\": \"" << jsonEscape(batchJson) << "\",\n"
+ 			 << "  \"batch_output_dir\": \"" << jsonEscape(batchOutputDir) << "\",\n"
+ 			 << "  \"graph_mutation_consumed_worker_output\": false\n"
+@@ -909,6 +1102,7 @@
+ 		std::string batchJson = joinPath(outputRoot, "worker-batch.json");
+ 		std::string batchOutputDir = joinPath(outputRoot, "worker-output");
+ 		std::string validationJson = joinPath(outputRoot, "worker-validation.json");
++		std::string shadowJson = joinPath(outputRoot, "worker-shadow.json");
+ 		std::string stdoutLog = joinPath(outputRoot, "worker-stdout.log");
+ 		std::string stderrLog = joinPath(outputRoot, "worker-stderr.log");
+ 		std::string seamSummary = joinPath(outputRoot, "seam-summary.json");
+@@ -938,17 +1132,37 @@
+ 		{
+ 			writeOverlapWorkerSeamSummary(
+ 				seamSummary, requestJson, responseJson, fixtureList, queryIdsFile,
+-				validationJson, validation.status, false,
++				validationJson, validation.status, false, shadowJson, "not-run", false,
+ 				"validation-failed-before-graph-mutation", batchJson, batchOutputDir,
+ 				fixtures.size());
+ 			throw std::runtime_error(
+ 				"cuFlye overlap worker seam fail-closed; worker output validation "
+ 				"failed; validation_json=" + validationJson +
+ 				"; seam_summary=" + seamSummary);
++		}
++
++		OverlapWorkerShadowResult shadow;
++		if (overlapWorkerShadowEnabled())
++		{
++			shadow = compareOverlapWorkerShadowOutputs(fixtures, batchOutputDir);
++			writeOverlapWorkerShadowJson(shadowJson, shadow);
++			if (!shadow.shadowConsumptionEligible)
++			{
++				writeOverlapWorkerSeamSummary(
++					seamSummary, requestJson, responseJson, fixtureList, queryIdsFile,
++					validationJson, validation.status, true, shadowJson, shadow.status,
++					false, "shadow-failed-before-graph-mutation", batchJson,
++					batchOutputDir, fixtures.size());
++				throw std::runtime_error(
++					"cuFlye overlap worker seam fail-closed; shadow consumption "
++					"comparison failed; shadow_json=" + shadowJson +
++					"; seam_summary=" + seamSummary);
++			}
+ 		}
+ 		writeOverlapWorkerSeamSummary(seamSummary, requestJson, responseJson,
+ 									  fixtureList, queryIdsFile, validationJson,
+-									  validation.status, true,
++									  validation.status, true, shadowJson, shadow.status,
++									  shadow.shadowConsumptionEligible,
+ 									  "stopped-before-graph-mutation", batchJson, batchOutputDir,
+ 									  fixtures.size());
+ 		throw std::runtime_error(
+@@ -1467,11 +1681,13 @@
+ 						<< "    \"sample_rate\": " << sampleRate << "\n"
+ 						<< "  }\n"
+ 						<< "}\n";
+-		}
++			}
+ 
+-		overlapReplayCapturedFixtures().push_back(queryDir);
+-		overlapReplayCapturedQueryIds().push_back(queryId);
+-		maybeInvokeOverlapWorker(dumpRoot);
++			overlapReplayCapturedCpuRecords()[queryDir] =
++				canonicalOverlapRecordsFromRanges(overlaps);
++			overlapReplayCapturedFixtures().push_back(queryDir);
++			overlapReplayCapturedQueryIds().push_back(queryId);
++			maybeInvokeOverlapWorker(dumpRoot);
+ 
+ 		if (cudaEnvFlag("CUFLYE_OVERLAP_REPLAY_STOP_AFTER_DUMP"))
+ 		{

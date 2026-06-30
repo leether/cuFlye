@@ -7,13 +7,13 @@ change is considered complete.
 
 Active cards:
 
-- None. M4l is complete; M4m is proposed.
-
-Proposed cards:
-
 - `2026-06-30-cuflye-m4m-overlap-worker-shadow-consumption.md`: parse
   validated worker output into a Flye-side shadow overlap range structure and
   compare it against CPU overlap ranges without changing graph mutation.
+
+Proposed cards:
+
+- None. M4m is active.
 
 Completed cards:
 
