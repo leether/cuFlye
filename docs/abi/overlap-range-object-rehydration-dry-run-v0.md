@@ -1,6 +1,6 @@
 # OverlapRange Object Rehydration Dry Run v0
 
-Status: proposed for M4q
+Status: accepted in M4q
 
 Introduced: M4q
 

@@ -97,3 +97,5 @@ M4 overlap-range oracle proof:
   `cuflye-m4o-guarded-overlap-graph-consumption-dgx-aarch64.json`
 - Overlap rehydration dry-run manifest:
   `cuflye-m4p-overlap-rehydration-dry-run-dgx-aarch64.json`
+- OverlapRange object rehydration dry-run manifest:
+  `cuflye-m4q-overlap-range-object-rehydration-dry-run-dgx-aarch64.json`

@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4q OverlapRange Object Rehydration Dry Run
 
-Status: in_progress
+Status: completed
 
 Created: 2026-07-01
 
@@ -46,15 +46,15 @@ upstream Flye ownership rules and still match the CPU oracle.
 
 ## Acceptance Gates
 
-- Object rehydration dry-run mode is documented and disabled by default.
-- The mode requires M4p typed rehydration success before running.
-- Rehydrated `OverlapRange` vectors match CPU overlap vectors on the selected
+- [x] Object rehydration dry-run mode is documented and disabled by default.
+- [x] The mode requires M4p typed rehydration success before running.
+- [x] Rehydrated `OverlapRange` vectors match CPU overlap vectors on the selected
   fixture matrix.
-- Negative object-vector mismatch fails closed before graph mutation.
-- Audit metadata records eligible, not-consumed, failed-closed, and mismatch
+- [x] Negative object-vector mismatch fails closed before graph mutation.
+- [x] Audit metadata records eligible, not-consumed, failed-closed, and mismatch
   details.
-- Default CPU Flye fixture output remains unchanged.
-- Local and DGX syntax/style/ownership gates pass.
+- [x] Default CPU Flye fixture output remains unchanged.
+- [x] Local and DGX syntax/style/ownership gates pass.
 
 ## C++ Style Constraints
 
@@ -67,7 +67,40 @@ upstream Flye ownership rules and still match the CPU oracle.
 
 ## Deliverables
 
-- Object rehydration dry-run ABI/design documentation.
-- Flye seam patch for `OverlapRange` object rehydration.
-- DGX proof manifest for positive and negative object dry-runs.
-- Roadmap, Task Card, golden index, and plain-language benefit assessment.
+- [x] Object rehydration dry-run ABI/design documentation.
+- [x] Flye seam patch for `OverlapRange` object rehydration.
+- [x] DGX proof manifest for positive and negative object dry-runs.
+- [x] Roadmap, Task Card, golden index, and plain-language benefit assessment.
+
+## Completion Notes
+
+Implemented in commit `beb6ad6fe00fd6843f9c4c3d2f9f71939b164761`.
+
+M4q adds:
+
+- `CUFLYE_OVERLAP_OBJECT_REHYDRATION_MODE=overlap-range-object-v0`
+- `CUFLYE_OVERLAP_OBJECT_REHYDRATION_PROOF_FAULT=drop-first-overlap-range`
+- `worker-object-rehydration.json` with schema
+  `cuflye-overlap-range-object-rehydration-dry-run-v0`
+
+The DGX positive proof used the M4n 12-fixture heterogeneous matrix with
+validation, shadow comparison, graph guard, and M4p typed rehydration enabled.
+Object rehydration reported `status=passed`, `state=not-consumed`,
+`eligible=true`, and `graph_mutation_consumed_worker_output=false`.
+
+The negative proof used the same matrix plus
+`drop-first-overlap-range`. Validation, shadow comparison, graph guard, and
+M4p typed rehydration still passed, while object-vector comparison recorded 12
+mismatching fixtures and failed closed with
+`status=object-rehydration-failed-before-graph-mutation`.
+
+The default CPU `toy-hifi` fixture remained unchanged against the M0 golden
+oracle. The proof manifest is
+`tests/golden/cuflye-m4q-overlap-range-object-rehydration-dry-run-dgx-aarch64.json`.
+
+## Plain-Language Benefit
+
+M4q still does not make Flye faster. The benefit is safety: cuFlye can now turn
+validated CUDA overlap worker output into actual Flye `OverlapRange` objects
+and prove those objects still match the CPU overlap vector before graph
+construction is allowed to consume anything.

@@ -7,16 +7,20 @@ change is considered complete.
 
 Active cards:
 
-- `2026-07-01-cuflye-m4q-overlap-range-object-rehydration-dry-run.md`:
-  convert validated typed overlap records into actual Flye `OverlapRange`
-  objects in a no-mutation dry-run before graph consumption is enabled.
+- None. M4q is complete and M4r is proposed.
 
 Proposed cards:
 
-- None. M4q is in progress.
+- `2026-07-01-cuflye-m4r-verified-overlap-vector-substitution-smoke.md`:
+  use a verified `OverlapRange` object vector as an opt-in graph-facing
+  substitution smoke while still requiring exact CPU comparison and fail-closed
+  behavior.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m4q-overlap-range-object-rehydration-dry-run.md`:
+  convert validated typed overlap records into actual Flye `OverlapRange`
+  objects in a no-mutation dry-run before graph consumption is enabled.
 - `2026-07-01-cuflye-m4p-overlap-graph-consumption-rehydration-dry-run.md`:
   rehydrate validated CUDA overlap worker output into Flye-side typed overlap
   data in a no-mutation dry-run before any graph consumption path is enabled.

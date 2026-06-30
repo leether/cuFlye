@@ -476,8 +476,30 @@ Next highest-ROI task:
 M4q: convert the validated typed overlap vector into actual Flye `OverlapRange`
 objects in a no-mutation dry-run, then prove the object vector canonicalizes
 back to the CPU overlap vector before graph consumption is enabled.
+Completed.
 ```
 
-Acceptance should require M4p typed rehydration success first, preserve default
-CPU behavior, fail closed on any `OverlapRange` object-vector mismatch, and
-still record `graph_mutation_consumed_worker_output=false`.
+M4q proof on DGX used the M4n 12-fixture heterogeneous matrix. The positive
+run passed validation, shadow comparison, graph guard, M4p typed rehydration,
+and M4q `OverlapRange` object rehydration with
+`graph_mutation_consumed_worker_output=false`. The negative proof injected
+`drop-first-overlap-range`; validation, shadow comparison, graph guard, and
+typed rehydration still passed, while object-vector comparison found 12
+mismatching fixtures and failed closed before graph mutation.
+
+Allowed M4q claim:
+
+```text
+cuFlye can construct actual Flye `OverlapRange` object vectors from validated
+CUDA overlap worker output and prove they canonicalize to CPU overlap records
+before graph mutation.
+```
+
+Next highest-ROI task:
+
+```text
+M4r: use the verified `OverlapRange` object vector as an opt-in graph-facing
+substitution smoke for selected fixtures, still guarded by exact CPU comparison
+and fail-closed behavior, then prove graph artifacts stay unchanged or the run
+stops before mutation.
+```
