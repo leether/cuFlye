@@ -1,6 +1,6 @@
 # Task Card: cuFlye M2e Real Pack Timing Proof
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -80,9 +80,47 @@ timing breakdown without changing candidate semantics.
 
 ## Execution Checklist
 
-- [ ] Add backend timing fields.
-- [ ] Update ABI docs.
-- [ ] Build CUDA backend on DGX.
-- [ ] Run real-pack timing proof with CPU oracle enabled.
-- [ ] Validate and diff CPU/GPU outputs.
-- [ ] Record compact golden proof and close this card.
+- [x] Add backend timing fields.
+- [x] Update ABI docs.
+- [x] Build CUDA backend on DGX.
+- [x] Run real-pack timing proof with CPU oracle enabled.
+- [x] Validate and diff CPU/GPU outputs.
+- [x] Record compact golden proof and close this card.
+
+## Merge Note
+
+Implemented in repo commit `5992c0b39d336d45535240cface5a0255b632681` and
+validated on DGX host `edgexpert-45d2` with `/usr/local/cuda/bin/nvcc`
+`13.0.88` targeting `sm_121`.
+
+Real pack proof:
+
+- Source pack:
+  `/tmp/cuflye-m2b-1782793203/out/m2b/proof/pack/query_neg253`
+- Query id: `-253`
+- Query length: `3339`
+- K-mer size: `17`
+- Pair comparisons: `51742433`
+- Candidate records: `15571`
+- CPU oracle time: `947.291 ms`
+- GPU kernel time: `5.815 ms`
+- Kernel vs CPU oracle speedup: `162.9x`
+- GPU-only backend total before JSON: `1245.546 ms`
+- Host output allocation time: `819.391 ms`
+- Host output allocation share of GPU-only total: `65.8%`
+- Flye external adapter wall time to controlled stop: `0:05.73`
+- CPU/GPU/adapter candidate diffs: `match`
+- Canonical SHA-256:
+  `5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae`
+
+Interpretation:
+
+- CUDA is already better at the measured candidate kernel: about `163x` faster
+  than the CPU oracle for this real pack shape.
+- The current standalone backend is not yet end-to-end faster than the CPU
+  oracle because it materializes a dense `pairCount` output buffer. That buffer
+  costs far more than the kernel itself.
+
+Tracked compact proof:
+
+- `tests/golden/cuflye-m2e-real-pack-timing-proof-dgx-aarch64.json`

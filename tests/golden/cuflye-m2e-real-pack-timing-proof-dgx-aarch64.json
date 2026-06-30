@@ -1,0 +1,373 @@
+{
+  "claim": "On the measured real pack-dump-v0 query, CUDA kernel candidate generation is much faster than the CPU oracle, while the current standalone backend total is still dominated by dense host output allocation and transfer overhead.",
+  "created_at_utc": "2026-06-30T05:30:41.198571+00:00",
+  "cuda_build": {
+    "cuda_arch": "sm_121",
+    "nvcc": "/usr/local/cuda/bin/nvcc",
+    "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:57:39_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+    "output_binary": "/tmp/cuflye-m2e-1782797144/out/m2e/proof/bin/cuflye-cuda-read-window-smoke"
+  },
+  "derived_metrics": {
+    "cpu_oracle_ms": 947.291,
+    "cpu_vs_gpu_only_total_ratio": 0.7605427659837534,
+    "flye_external_adapter_exit_status": 1,
+    "flye_external_adapter_stderr_excerpt": "[2026-06-30 01:28:31] ERROR: Caught unhandled exception: cuFlye CUDA adapter stopped after packed query; adapter=external-packed-v0; stop_after_packed_query=1; query_id=-253; emitted_records=15571; candidate_tsv=/tmp/cuflye-m2e-1782797144/out/m2e/proof/real-pack.adapter.gpu.tsv; json=/tmp/cuflye-m2e-1782797144/out/m2e/proof/real-pack.adapter.timing.json",
+    "gpu_kernel_ms": 5.815,
+    "gpu_only_total_before_json_ms": 1245.546,
+    "host_output_allocation_ms": 819.391,
+    "host_output_allocation_share_of_gpu_total": 0.6578568756192062,
+    "kernel_vs_cpu_speedup": 162.90472914875323
+  },
+  "diffs": {
+    "backend_cpu_vs_adapter_gpu": {
+      "left": "/tmp/cuflye-m2e-1782797144/out/m2e/proof/real-pack.cpu.tsv",
+      "left_records": 15571,
+      "left_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+      "right": "/tmp/cuflye-m2e-1782797144/out/m2e/proof/real-pack.adapter.gpu.tsv",
+      "right_records": 15571,
+      "right_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+      "status": "match"
+    },
+    "backend_cpu_vs_gpu": {
+      "left": "/tmp/cuflye-m2e-1782797144/out/m2e/proof/real-pack.cpu.tsv",
+      "left_records": 15571,
+      "left_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+      "right": "/tmp/cuflye-m2e-1782797144/out/m2e/proof/real-pack.gpu.tsv",
+      "right_records": 15571,
+      "right_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+      "status": "match"
+    },
+    "backend_cpu_vs_gpu_only": {
+      "left": "/tmp/cuflye-m2e-1782797144/out/m2e/proof/real-pack.cpu.tsv",
+      "left_records": 15571,
+      "left_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+      "right": "/tmp/cuflye-m2e-1782797144/out/m2e/proof/real-pack.gpu-only.tsv",
+      "right_records": 15571,
+      "right_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+      "status": "match"
+    },
+    "pack_cpu_vs_backend_cpu": {
+      "left": "/tmp/cuflye-m2b-1782793203/out/m2b/proof/pack/query_neg253/cpu-candidates.tsv",
+      "left_records": 15571,
+      "left_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+      "right": "/tmp/cuflye-m2e-1782797144/out/m2e/proof/real-pack.cpu.tsv",
+      "right_records": 15571,
+      "right_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+      "status": "match"
+    }
+  },
+  "host": {
+    "machine": "aarch64",
+    "name": "edgexpert-45d2",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39"
+  },
+  "milestone": "M2e real pack timing proof",
+  "next_bottleneck": "The dense pairCount-sized host output buffer costs more than the CUDA kernel. M2f should replace dense output materialization with counted/compacted candidate output.",
+  "non_claims": [
+    "No full Flye assembly speedup claim.",
+    "No downstream graph equivalence claim.",
+    "No multi-query batching claim."
+  ],
+  "real_pack": {
+    "manifest": {
+      "absent_windows": 2100,
+      "adapter": "pack-dump-v0",
+      "candidate_records": 15571,
+      "index_entries": 15571,
+      "kmer_size": 17,
+      "query_id": -253,
+      "query_length": 3339,
+      "query_windows": 3322,
+      "repetitive_kmers": 0,
+      "repetitive_windows": 0,
+      "status": "captured_and_failed_closed",
+      "trivial_hits": 1092
+    },
+    "source_dir": "/tmp/cuflye-m2b-1782793203/out/m2b/proof/pack/query_neg253"
+  },
+  "repo": {
+    "commit": "5992c0b39d336d45535240cface5a0255b632681",
+    "root": "/tmp/cuflye-m2e-1782797144"
+  },
+  "schema": "cuflye-dgx-proof-v1",
+  "shape": {
+    "device_allocation_bytes": 2536379140,
+    "index_entries": 15571,
+    "kmer_size": 17,
+    "pair_count": 51742433,
+    "query_id": -253,
+    "query_length": 3339,
+    "query_windows": 3323,
+    "records": 15571
+  },
+  "status": "passed",
+  "timing": {
+    "cpu_plus_gpu_backend_json": {
+      "abi": "candidate-record-v1",
+      "adapter": "cuda-read-window-smoke-v0",
+      "candidate_record_size_bytes": 48,
+      "compute_capability": "12.1",
+      "cpu_oracle_enabled": true,
+      "cpu_output_tsv": "out/m2e/proof/real-pack.cpu.tsv",
+      "device": 0,
+      "device_allocation_bytes": 2536379140,
+      "device_name": "NVIDIA GB10",
+      "device_side_kmer_encoding": true,
+      "device_side_read_windowing": true,
+      "device_side_standard_form": true,
+      "dynamic_read_bases": true,
+      "index_entries": 15571,
+      "index_record_size_bytes": 64,
+      "index_tsv": "/tmp/cuflye-m2b-1782793203/out/m2b/proof/pack/query_neg253/index.tsv",
+      "kmer_size": 17,
+      "max_read_length": 3339,
+      "memory_budget_bytes": 4294967296,
+      "memory_budget_satisfied": true,
+      "memory_free_bytes": 62502723584,
+      "memory_total_bytes": 130594660352,
+      "output_tsv": "out/m2e/proof/real-pack.gpu.tsv",
+      "pair_count": 51742433,
+      "query_windows": 3323,
+      "read_base_bytes": 3339,
+      "read_meta_record_size_bytes": 24,
+      "read_record_size_bytes": 24,
+      "reads": 1,
+      "reads_tsv": "/tmp/cuflye-m2b-1782793203/out/m2b/proof/pack/query_neg253/reads.tsv",
+      "records": 15571,
+      "repetitive_kmers": 0,
+      "repetitive_kmers_tsv": "/tmp/cuflye-m2b-1782793203/out/m2b/proof/pack/query_neg253/repetitive-kmers.tsv",
+      "status": "ok",
+      "timing_ms": {
+        "compact": 36.763,
+        "cpu_oracle": 947.291,
+        "cuda_setup": 318.099,
+        "device_allocation": 88.331,
+        "device_to_host": 271.809,
+        "host_output_allocation": 844.13,
+        "host_to_device": 0.31,
+        "input_parse": 2.833,
+        "kernel": 5.913,
+        "total_before_json": 2523.441,
+        "write_output": 7.684
+      }
+    },
+    "flye_external_adapter_backend_json": {
+      "abi": "candidate-record-v1",
+      "adapter": "cuda-read-window-smoke-v0",
+      "candidate_record_size_bytes": 48,
+      "compute_capability": "12.1",
+      "cpu_oracle_enabled": false,
+      "cpu_output_tsv": "",
+      "device": 0,
+      "device_allocation_bytes": 2536379140,
+      "device_name": "NVIDIA GB10",
+      "device_side_kmer_encoding": true,
+      "device_side_read_windowing": true,
+      "device_side_standard_form": true,
+      "dynamic_read_bases": true,
+      "index_entries": 15571,
+      "index_record_size_bytes": 64,
+      "index_tsv": "/tmp/cuflye-m2b-1782793203/out/m2b/proof/pack/query_neg253/index.tsv",
+      "kmer_size": 17,
+      "max_read_length": 3339,
+      "memory_budget_bytes": 4294967296,
+      "memory_budget_satisfied": true,
+      "memory_free_bytes": 61402353664,
+      "memory_total_bytes": 130594660352,
+      "output_tsv": "/tmp/cuflye-m2e-1782797144/out/m2e/proof/real-pack.adapter.gpu.tsv",
+      "pair_count": 51742433,
+      "query_windows": 3323,
+      "read_base_bytes": 3339,
+      "read_meta_record_size_bytes": 24,
+      "read_record_size_bytes": 24,
+      "reads": 1,
+      "reads_tsv": "/tmp/cuflye-m2b-1782793203/out/m2b/proof/pack/query_neg253/reads.tsv",
+      "records": 15571,
+      "repetitive_kmers": 0,
+      "repetitive_kmers_tsv": "/tmp/cuflye-m2b-1782793203/out/m2b/proof/pack/query_neg253/repetitive-kmers.tsv",
+      "status": "ok",
+      "timing_ms": {
+        "compact": 17.387,
+        "cpu_oracle": 0.0,
+        "cuda_setup": 299.401,
+        "device_allocation": 77.68,
+        "device_to_host": 43.571,
+        "host_output_allocation": 602.414,
+        "host_to_device": 0.308,
+        "input_parse": 2.816,
+        "kernel": 5.821,
+        "total_before_json": 1051.677,
+        "write_output": 2.197
+      }
+    },
+    "flye_external_adapter_time": {
+      "elapsed": "0:05.73",
+      "max_rss_kbytes": 2580004,
+      "system_seconds": 1.56,
+      "user_seconds": 3.06
+    },
+    "gpu_only_backend_json": {
+      "abi": "candidate-record-v1",
+      "adapter": "cuda-read-window-smoke-v0",
+      "candidate_record_size_bytes": 48,
+      "compute_capability": "12.1",
+      "cpu_oracle_enabled": false,
+      "cpu_output_tsv": "",
+      "device": 0,
+      "device_allocation_bytes": 2536379140,
+      "device_name": "NVIDIA GB10",
+      "device_side_kmer_encoding": true,
+      "device_side_read_windowing": true,
+      "device_side_standard_form": true,
+      "dynamic_read_bases": true,
+      "index_entries": 15571,
+      "index_record_size_bytes": 64,
+      "index_tsv": "/tmp/cuflye-m2b-1782793203/out/m2b/proof/pack/query_neg253/index.tsv",
+      "kmer_size": 17,
+      "max_read_length": 3339,
+      "memory_budget_bytes": 4294967296,
+      "memory_budget_satisfied": true,
+      "memory_free_bytes": 61773193216,
+      "memory_total_bytes": 130594660352,
+      "output_tsv": "out/m2e/proof/real-pack.gpu-only.tsv",
+      "pair_count": 51742433,
+      "query_windows": 3323,
+      "read_base_bytes": 3339,
+      "read_meta_record_size_bytes": 24,
+      "read_record_size_bytes": 24,
+      "reads": 1,
+      "reads_tsv": "/tmp/cuflye-m2b-1782793203/out/m2b/proof/pack/query_neg253/reads.tsv",
+      "records": 15571,
+      "repetitive_kmers": 0,
+      "repetitive_kmers_tsv": "/tmp/cuflye-m2b-1782793203/out/m2b/proof/pack/query_neg253/repetitive-kmers.tsv",
+      "status": "ok",
+      "timing_ms": {
+        "compact": 17.557,
+        "cpu_oracle": 0.0,
+        "cuda_setup": 258.827,
+        "device_allocation": 94.485,
+        "device_to_host": 42.841,
+        "host_output_allocation": 819.391,
+        "host_to_device": 0.3,
+        "input_parse": 3.836,
+        "kernel": 5.815,
+        "total_before_json": 1245.546,
+        "write_output": 2.425
+      }
+    },
+    "standalone_cpu_plus_gpu_time": {
+      "elapsed": "0:02.94",
+      "max_rss_kbytes": 2580036,
+      "system_seconds": 1.82,
+      "user_seconds": 1.1
+    },
+    "standalone_gpu_only_time": {
+      "elapsed": "0:01.80",
+      "max_rss_kbytes": 2580068,
+      "system_seconds": 1.67,
+      "user_seconds": 0.11
+    }
+  },
+  "validation": {
+    "adapter_gpu": {
+      "abi": "candidate-record-v1",
+      "canonical_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+      "first_record": [
+        -253,
+        2,
+        14842839419,
+        -1165,
+        2591,
+        "-"
+      ],
+      "last_record": [
+        -253,
+        3320,
+        3728940512,
+        3573,
+        1417,
+        "+"
+      ],
+      "path": "/tmp/cuflye-m2e-1782797144/out/m2e/proof/real-pack.adapter.gpu.tsv",
+      "raw_sha256": "f24d05c6fccc494f0b45d24330d6ed24e80b984b7ff281b31b4bb302ae162191",
+      "raw_sorted_by_canonical_key": false,
+      "records": 15571,
+      "size_bytes": 510990
+    },
+    "backend_cpu": {
+      "abi": "candidate-record-v1",
+      "canonical_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+      "first_record": [
+        -253,
+        2,
+        14842839419,
+        -1165,
+        2591,
+        "-"
+      ],
+      "last_record": [
+        -253,
+        3320,
+        3728940512,
+        3573,
+        1417,
+        "+"
+      ],
+      "path": "/tmp/cuflye-m2e-1782797144/out/m2e/proof/real-pack.cpu.tsv",
+      "raw_sha256": "f24d05c6fccc494f0b45d24330d6ed24e80b984b7ff281b31b4bb302ae162191",
+      "raw_sorted_by_canonical_key": false,
+      "records": 15571,
+      "size_bytes": 510990
+    },
+    "backend_gpu": {
+      "abi": "candidate-record-v1",
+      "canonical_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+      "first_record": [
+        -253,
+        2,
+        14842839419,
+        -1165,
+        2591,
+        "-"
+      ],
+      "last_record": [
+        -253,
+        3320,
+        3728940512,
+        3573,
+        1417,
+        "+"
+      ],
+      "path": "/tmp/cuflye-m2e-1782797144/out/m2e/proof/real-pack.gpu.tsv",
+      "raw_sha256": "f24d05c6fccc494f0b45d24330d6ed24e80b984b7ff281b31b4bb302ae162191",
+      "raw_sorted_by_canonical_key": false,
+      "records": 15571,
+      "size_bytes": 510990
+    },
+    "gpu_only": {
+      "abi": "candidate-record-v1",
+      "canonical_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+      "first_record": [
+        -253,
+        2,
+        14842839419,
+        -1165,
+        2591,
+        "-"
+      ],
+      "last_record": [
+        -253,
+        3320,
+        3728940512,
+        3573,
+        1417,
+        "+"
+      ],
+      "path": "/tmp/cuflye-m2e-1782797144/out/m2e/proof/real-pack.gpu-only.tsv",
+      "raw_sha256": "f24d05c6fccc494f0b45d24330d6ed24e80b984b7ff281b31b4bb302ae162191",
+      "raw_sorted_by_canonical_key": false,
+      "records": 15571,
+      "size_bytes": 510990
+    }
+  }
+}

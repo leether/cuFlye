@@ -7,12 +7,13 @@ change is considered complete.
 
 Active cards:
 
-- `2026-06-30-cuflye-m2e-real-pack-timing-proof.md`: add real-pack
-  candidate-boundary timing for CPU oracle generation, CUDA backend stages, and
-  external adapter overhead without changing candidate semantics.
+- None.
 
 Completed cards:
 
+- `2026-06-30-cuflye-m2e-real-pack-timing-proof.md`: add real-pack
+  candidate-boundary timing for CPU oracle generation, CUDA backend stages, and
+  external adapter overhead without changing candidate semantics.
 - `2026-06-30-cuflye-m2d-external-pack-query-stop.md`: make Flye invoke the
   external CUDA packed backend on one real packed query, parse records into the
   candidate boundary, and fail closed before downstream graph logic.

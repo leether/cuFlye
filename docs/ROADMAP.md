@@ -250,11 +250,11 @@ Use precise milestone labels:
 Next highest-ROI task:
 
 ```text
-M2e: add a real-pack adapter-boundary timing proof that compares Flye's packed
-CPU candidate generation, standalone CUDA candidate generation, and external
-adapter overhead on the same `pack-dump-v0` query.
+M2f: replace dense pairCount-sized GPU output materialization with counted or
+compacted candidate output for the same real `pack-dump-v0` query.
 ```
 
 Acceptance should remain candidate-list equivalence plus honest timing
-breakdown. Do not claim full assembly speed until downstream graph equivalence
-is proven.
+breakdown. The immediate target is making GPU-only backend total faster than the
+CPU oracle for the measured real pack; do not claim full assembly speed until
+downstream graph equivalence is proven.
