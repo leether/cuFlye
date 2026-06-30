@@ -1,0 +1,549 @@
+{
+  "acceptance": {
+    "all_worker_outputs_diff_match_oracle": true,
+    "all_worker_outputs_validate": true,
+    "captured_query_ids_match_allowlist": true,
+    "cuda_worker_build_succeeds": true,
+    "default_cpu_artifacts_match_m0_golden": true,
+    "default_cpu_toy_hifi_completes": true,
+    "expected_failure_recorded": true,
+    "explicit_batch_worker_mode_stops_before_graph_mutation": true,
+    "flye_patch_series_builds_through_0011": true,
+    "local_and_dgx_syntax_style_gates_pass": true,
+    "no_large_tsv_committed": true,
+    "no_non_allowlisted_query_ids_captured": true,
+    "ownership_scan_no_new_direct_resource_api": true,
+    "seam_summary_records_no_graph_consumption": true,
+    "timing_compared_with_m4h_baselines": true,
+    "worker_request_batch_execution_packed": true,
+    "worker_response_status_ok": true,
+    "worker_uses_one_launch_per_timed_run": true
+  },
+  "builds": {
+    "cuda_worker": {
+      "created_at_utc": "2026-06-30T15:48:55.858380+00:00",
+      "cuda_arch": "sm_121",
+      "cuda_home": "/usr/local/cuda",
+      "host": "edgexpert-45d2",
+      "machine": "aarch64",
+      "nvcc": "/usr/local/cuda/bin/nvcc",
+      "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:57:39_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+      "output_binary": "/tmp/cuflye-m4k-proof-1782834439-git/out/m4k/bin/cuflye-cuda-overlap-chain-replay",
+      "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+      "python": "3.12.3",
+      "repo_commit": "941cf5a412df6a63401a13885dd68ec221dd77ff",
+      "repo_root": "/tmp/cuflye-m4k-proof-1782834439-git"
+    },
+    "flye": {
+      "actual_branch": "flye",
+      "actual_commit": "886b8c17412c",
+      "actual_tags": [
+        "2.9.6"
+      ],
+      "applied_patches": [
+        "0001-cuflye-candidate-dump.patch",
+        "0002-cuflye-candidate-backend-seam.patch",
+        "0003-cuflye-cuda-backend-stub.patch",
+        "0004-cuflye-cuda-adapter-shell.patch",
+        "0005-cuflye-real-data-pack-dump.patch",
+        "0006-cuflye-external-pack-query-stop.patch",
+        "0007-cuflye-overlap-range-dump.patch",
+        "0008-cuflye-overlap-replay-fixture-dump.patch",
+        "0009-cuflye-overlap-replay-max-fixtures.patch",
+        "0010-cuflye-flye-overlap-worker-seam.patch",
+        "0011-cuflye-flye-overlap-worker-batch-allowlist.patch"
+      ],
+      "apply_patches": true,
+      "created_at_utc": "2026-06-30T15:49:11.959058+00:00",
+      "expected_commit_prefix": "886b8c1",
+      "expected_ref": "2.9.6",
+      "flye_dir": "/tmp/cuflye-m4k-proof-1782834439-git/out/m4k/upstream-flye",
+      "flye_version": "2.9.6-b1802",
+      "gcc": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "gxx": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "host": "edgexpert-45d2",
+      "jobs": 8,
+      "machine": "aarch64",
+      "make": "GNU Make 4.3",
+      "make_args": [
+        "THREADS=8",
+        "aarch64=1",
+        "arm_neon=1"
+      ],
+      "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+      "python": "3.12.3",
+      "repo_root": "/tmp/cuflye-m4k-proof-1782834439-git"
+    }
+  },
+  "claims": {
+    "allowed": [
+      "Flye can collect an explicit replay-match query-id allowlist and generate one packed CUDA overlap worker request for the captured batch.",
+      "The CUDA worker outputs for all captured allowlisted fixtures match the Flye CPU overlap-range-v1 oracles.",
+      "The Flye seam still stops before graph mutation and records that worker output was not consumed by graph logic."
+    ],
+    "next_optimization_target": "M4l should add a validated consumption gate that refuses to feed worker output into Flye graph logic unless oracle diff and ABI checks pass.",
+    "not_claimed": [
+      "No Flye graph consumption of GPU overlap output.",
+      "No end-to-end GPU Flye mode.",
+      "No arbitrary dataset overlap-chain speed claim.",
+      "No base-level alignment replay.",
+      "No bad-mapping trim replay."
+    ]
+  },
+  "created_at_utc": "2026-06-30T15:52:40.059957+00:00",
+  "default_cpu_regression": {
+    "artifact_count": 9,
+    "artifact_hashes_match_m0_golden": true,
+    "artifacts": [
+      {
+        "canonical_sha256": "f24373e93e70d4e2dc26fd4e035f6f319b5c4957eb79233d74c49e63d1099af6",
+        "kind": "fasta",
+        "path": "00-assembly/draft_assembly.fasta"
+      },
+      {
+        "canonical_sha256": "62952fa5ecbf84b4f5a5470da16d95f85a962e8cb722aa532610ba87431a56ef",
+        "kind": "repeat_graph_dump",
+        "path": "20-repeat/repeat_graph_dump"
+      },
+      {
+        "canonical_sha256": "26740f1d782591fdcd5c5aef11f591d4559df353b7b31409b6f579caa17bffc5",
+        "kind": "plain",
+        "path": "20-repeat/read_alignment_dump"
+      },
+      {
+        "canonical_sha256": "ed90d197289573e3f83c2ebd038115d9371b74d465f903ec4649caa013b4b6d3",
+        "kind": "fasta",
+        "path": "20-repeat/repeat_graph_edges.fasta"
+      },
+      {
+        "canonical_sha256": "faa40610465dc27b5a52d9ea892f61d4ad6ab5cb35ea83ab9430e63ca2084ff1",
+        "kind": "gfa",
+        "path": "30-contigger/graph_final.gfa"
+      },
+      {
+        "canonical_sha256": "cc51357bbf92798b7c29574b809fb0926e7a4fba078183a8d40b3f919b5066b3",
+        "kind": "fasta",
+        "path": "30-contigger/graph_final.fasta"
+      },
+      {
+        "canonical_sha256": "59e1db047711152e2c70c03a8b7cfbdd3f2595a2dee81cd958b4ec6485158db7",
+        "kind": "fasta",
+        "path": "assembly.fasta"
+      },
+      {
+        "canonical_sha256": "5daa37903ecde55d19951c4f2f0f205dc1992abd59b59744e369998d07ee971f",
+        "kind": "plain",
+        "path": "assembly_info.txt"
+      },
+      {
+        "canonical_sha256": "e0c4c0d4e0d6b65936eb911a7267bbba5c68f15b2ab28ff0e66f043de3b9e40c",
+        "kind": "gfa",
+        "path": "assembly_graph.gfa"
+      }
+    ],
+    "fixture": "toy-hifi",
+    "run_dir": "out/m4k/runs/toy-default"
+  },
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "nvidia_smi": "GPU 0: NVIDIA GB10 (UUID: GPU-36e1e91e-fa5c-6e0d-d076-203391a7bb03)",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+    "python": "3.12.3"
+  },
+  "milestone": "M4k-flye-overlap-worker-batch-seam",
+  "repo": {
+    "commit": "941cf5a412df6a63401a13885dd68ec221dd77ff",
+    "remote_dir": "/tmp/cuflye-m4k-proof-1782834439-git",
+    "root": "/tmp/cuflye-m4k-proof-1782834439-git",
+    "status_short": "## main...origin/main [ahead 1]"
+  },
+  "schema": "cuflye-dgx-proof-v1",
+  "status": "passed",
+  "timing_comparison": {
+    "m4h_baseline": {
+      "cpu_batch_mean_total_before_write_ms": 14.977639,
+      "cuda_packed_serial_mean_total_before_write_ms": 6.906646,
+      "cuda_packed_serial_speedup_vs_current_cpu": 2.168583564294449,
+      "packed_cuda_launches_per_timed_run": 1
+    },
+    "m4k_backend_ratio_vs_m4h_packed_serial": 0.9907051845425406,
+    "m4k_backend_speedup_vs_m4h_cpu_batch": 2.188929257795088,
+    "m4k_flye_generated_worker_request": {
+      "backend_mean_total_before_write_ms": 6.84245,
+      "kernel_launches_per_timed_run": 1,
+      "kernel_ms": 6.766581,
+      "parse_ms": 17.57942,
+      "request_total_ms": 177.395387,
+      "worker_context_setup_ms": 318.945516,
+      "worker_cuda_context_warm": false,
+      "write_output_ms": 0.48365
+    }
+  },
+  "worker_run": {
+    "batch_summary": {
+      "arena": {
+        "allocations": 7,
+        "capacity_bytes": 3217966,
+        "reuses": 154
+      },
+      "batch_execution": "packed",
+      "cuda_kernel_mode": "serial",
+      "fixture_count": 9,
+      "fixtures": [
+        {
+          "candidate_offset": 0,
+          "candidate_records": 7859,
+          "group_offset": 0,
+          "name": "query_neg71",
+          "output_records": 51,
+          "params_index": 0,
+          "query_id": -71,
+          "target_groups": 120
+        },
+        {
+          "candidate_offset": 7859,
+          "candidate_records": 5157,
+          "group_offset": 120,
+          "name": "query_neg819",
+          "output_records": 38,
+          "params_index": 1,
+          "query_id": -819,
+          "target_groups": 122
+        },
+        {
+          "candidate_offset": 13016,
+          "candidate_records": 6033,
+          "group_offset": 242,
+          "name": "query_443",
+          "output_records": 41,
+          "params_index": 2,
+          "query_id": 443,
+          "target_groups": 82
+        },
+        {
+          "candidate_offset": 19049,
+          "candidate_records": 4207,
+          "group_offset": 324,
+          "name": "query_548",
+          "output_records": 37,
+          "params_index": 3,
+          "query_id": 548,
+          "target_groups": 74
+        },
+        {
+          "candidate_offset": 23256,
+          "candidate_records": 5345,
+          "group_offset": 398,
+          "name": "query_752",
+          "output_records": 32,
+          "params_index": 4,
+          "query_id": 752,
+          "target_groups": 75
+        },
+        {
+          "candidate_offset": 28601,
+          "candidate_records": 5411,
+          "group_offset": 473,
+          "name": "query_596",
+          "output_records": 41,
+          "params_index": 5,
+          "query_id": 596,
+          "target_groups": 137
+        },
+        {
+          "candidate_offset": 34012,
+          "candidate_records": 8372,
+          "group_offset": 610,
+          "name": "query_381",
+          "output_records": 60,
+          "params_index": 6,
+          "query_id": 381,
+          "target_groups": 120
+        },
+        {
+          "candidate_offset": 42384,
+          "candidate_records": 7378,
+          "group_offset": 730,
+          "name": "query_649",
+          "output_records": 47,
+          "params_index": 7,
+          "query_id": 649,
+          "target_groups": 85
+        },
+        {
+          "candidate_offset": 49762,
+          "candidate_records": 4932,
+          "group_offset": 815,
+          "name": "query_695",
+          "output_records": 35,
+          "params_index": 8,
+          "query_id": 695,
+          "target_groups": 77
+        }
+      ],
+      "kernel_launches_per_timed_run": 1,
+      "output_records": null,
+      "packed_layout": {
+        "candidate_records": 54694,
+        "filtered_positions": 0,
+        "param_records": 9,
+        "target_groups": 892
+      },
+      "timing_ms": {
+        "max_total_before_write": 6.848206,
+        "mean_core": 6.766581,
+        "mean_total_before_write": 6.84245,
+        "min_total_before_write": 6.837982,
+        "parse": 17.57942,
+        "setup": 8e-05,
+        "write_output": 0.48365
+      }
+    },
+    "captured_query_id_set_matches_requested": true,
+    "captured_query_ids": [
+      -71,
+      -819,
+      443,
+      548,
+      752,
+      596,
+      381,
+      649,
+      695
+    ],
+    "fixture": "toy-raw",
+    "fixture_count": 9,
+    "fixture_paths": [
+      "out/m4k/replay-fixtures/query_neg71",
+      "out/m4k/replay-fixtures/query_neg819",
+      "out/m4k/replay-fixtures/query_443",
+      "out/m4k/replay-fixtures/query_548",
+      "out/m4k/replay-fixtures/query_752",
+      "out/m4k/replay-fixtures/query_596",
+      "out/m4k/replay-fixtures/query_381",
+      "out/m4k/replay-fixtures/query_649",
+      "out/m4k/replay-fixtures/query_695"
+    ],
+    "request": {
+      "adapter_mode": "overlap-replay-batch-v0",
+      "backend": "cuda",
+      "batch_execution": "packed",
+      "batch_fixtures_file": "out/m4k/overlap-worker/worker-fixtures.txt",
+      "batch_json_output": "out/m4k/overlap-worker/worker-batch.json",
+      "batch_output_dir": "out/m4k/overlap-worker/worker-output",
+      "benchmark_runs": 20,
+      "captured_query_ids_file": "out/m4k/overlap-worker/worker-query-ids.txt",
+      "cuda_kernel_mode": "serial",
+      "device": 0,
+      "expected_fixture_count": 9,
+      "overlap_abi": "overlap-range-v1",
+      "replay_query_ids": "381,-71,649,443,596,752,-819,695,548",
+      "request_id": "flye-overlap-worker-9",
+      "response_json": "out/m4k/overlap-worker/worker-response.json",
+      "schema": "cuflye-overlap-worker-request-v0",
+      "warmup_runs": 3
+    },
+    "requested_query_ids": [
+      381,
+      -71,
+      649,
+      443,
+      596,
+      752,
+      -819,
+      695,
+      548
+    ],
+    "response": {
+      "adapter_mode": "overlap-replay-batch-v0",
+      "batch_execution": "packed",
+      "batch_json_output": "out/m4k/overlap-worker/worker-batch.json",
+      "batch_output_dir": "out/m4k/overlap-worker/worker-output",
+      "cuda_kernel_mode": "serial",
+      "fixture_count": 9,
+      "kernel_launches_per_timed_run": 1,
+      "output_records": 382,
+      "overlap_abi": "overlap-range-v1",
+      "request_id": "flye-overlap-worker-9",
+      "request_ordinal": 1,
+      "schema": "cuflye-overlap-worker-response-v0",
+      "status": "ok",
+      "timing_ms": {
+        "backend_mean_total_before_write": 6.84245,
+        "backend_timed_total_before_write": 136.849004,
+        "kernel": 6.766581,
+        "parse": 17.57942,
+        "request_total": 177.395387,
+        "worker_overhead": 40.546383,
+        "worker_uptime": 496.341079,
+        "write_output": 0.48365
+      },
+      "worker_context_setup_ms": 318.945516,
+      "worker_cuda_context_warm": false,
+      "worker_device_arena_allocations": 7,
+      "worker_device_arena_capacity_bytes": 3217966,
+      "worker_device_arena_enabled": true,
+      "worker_device_arena_reuses": 154
+    },
+    "run_metadata": {
+      "command": [
+        "out/m4k/upstream-flye/bin/flye",
+        "--pacbio-raw",
+        "out/m4k/upstream-flye/flye/tests/data/ecoli_500kb_reads.fastq.gz",
+        "-g",
+        "500k",
+        "-o",
+        "out/m4k/runs/toy-worker-batch-seam",
+        "-t",
+        "1",
+        "-m",
+        "1000",
+        "--debug"
+      ],
+      "elapsed_seconds": 54,
+      "exit_status": 1,
+      "expected_failure": true,
+      "finished_at_utc": "2026-06-30T15:51:02.110795+00:00",
+      "fixture": "toy-raw",
+      "flye_commit": "886b8c17412cdf3a2868a28237bca6c5ad1da156",
+      "flye_dir": "/tmp/cuflye-m4k-proof-1782834439-git/out/m4k/upstream-flye",
+      "flye_tags": [
+        "2.9.6"
+      ],
+      "genome_size": "500k",
+      "host": "edgexpert-45d2",
+      "machine": "aarch64",
+      "min_overlap": "1000",
+      "nvidia_smi": "GPU 0: NVIDIA GB10 (UUID: GPU-36e1e91e-fa5c-6e0d-d076-203391a7bb03)",
+      "overlap_replay_dump_dir": "/tmp/cuflye-m4k-proof-1782834439-git/out/m4k/replay-fixtures",
+      "overlap_replay_max_fixtures": "9",
+      "overlap_replay_query_ids": "381,-71,649,443,596,752,-819,695,548",
+      "overlap_worker_benchmark_runs": "20",
+      "overlap_worker_bin": "/tmp/cuflye-m4k-proof-1782834439-git/out/m4k/bin/cuflye-cuda-overlap-chain-replay",
+      "overlap_worker_device": "0",
+      "overlap_worker_kernel_mode": "serial",
+      "overlap_worker_mode": "packed-replay-v0",
+      "overlap_worker_output_dir": "/tmp/cuflye-m4k-proof-1782834439-git/out/m4k/overlap-worker",
+      "overlap_worker_warmup_runs": "3",
+      "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+      "python": "3.12.3",
+      "read_type": "pacbio-raw",
+      "reads": "/tmp/cuflye-m4k-proof-1782834439-git/out/m4k/upstream-flye/flye/tests/data/ecoli_500kb_reads.fastq.gz",
+      "repo_commit": "941cf5a412df6a63401a13885dd68ec221dd77ff",
+      "repo_root": "/tmp/cuflye-m4k-proof-1782834439-git",
+      "started_at_utc": "2026-06-30T15:50:08.806143+00:00",
+      "threads": 1
+    },
+    "seam_summary": {
+      "batch_json_output": "out/m4k/overlap-worker/worker-batch.json",
+      "batch_output_dir": "out/m4k/overlap-worker/worker-output",
+      "captured_query_ids_file": "out/m4k/overlap-worker/worker-query-ids.txt",
+      "fixture_count": 9,
+      "fixture_list": "out/m4k/overlap-worker/worker-fixtures.txt",
+      "graph_mutation_consumed_worker_output": false,
+      "replay_query_ids": "381,-71,649,443,596,752,-819,695,548",
+      "request_json": "out/m4k/overlap-worker/worker-request.json",
+      "response_json": "out/m4k/overlap-worker/worker-response.json",
+      "schema": "cuflye-flye-overlap-worker-seam-v0",
+      "status": "stopped-before-graph-mutation"
+    },
+    "validation": {
+      "all_diff_match_oracle": true,
+      "all_validate": true,
+      "fixture_count": 9,
+      "per_fixture": [
+        {
+          "canonical_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+          "diff_status": "match",
+          "fixture_dir": "out/m4k/replay-fixtures/query_neg71",
+          "name": "query_neg71",
+          "oracle_canonical_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+          "query_id": -71,
+          "records": 51,
+          "worker_output": "out/m4k/overlap-worker/worker-output/query_neg71/overlaps.tsv"
+        },
+        {
+          "canonical_sha256": "b88d0f14b6dc23e82cfd1b19a5b9e00c3930809ad3e2be10980c47f869b85f33",
+          "diff_status": "match",
+          "fixture_dir": "out/m4k/replay-fixtures/query_neg819",
+          "name": "query_neg819",
+          "oracle_canonical_sha256": "b88d0f14b6dc23e82cfd1b19a5b9e00c3930809ad3e2be10980c47f869b85f33",
+          "query_id": -819,
+          "records": 38,
+          "worker_output": "out/m4k/overlap-worker/worker-output/query_neg819/overlaps.tsv"
+        },
+        {
+          "canonical_sha256": "b15528f35df0f85b4ef8aa1e0a5966472047f09f20209d80e684be3271593858",
+          "diff_status": "match",
+          "fixture_dir": "out/m4k/replay-fixtures/query_443",
+          "name": "query_443",
+          "oracle_canonical_sha256": "b15528f35df0f85b4ef8aa1e0a5966472047f09f20209d80e684be3271593858",
+          "query_id": 443,
+          "records": 41,
+          "worker_output": "out/m4k/overlap-worker/worker-output/query_443/overlaps.tsv"
+        },
+        {
+          "canonical_sha256": "4bc42e9b445cec08ef6eede2fc0ac2c285735480953ef4881bf33eacba57f0b1",
+          "diff_status": "match",
+          "fixture_dir": "out/m4k/replay-fixtures/query_548",
+          "name": "query_548",
+          "oracle_canonical_sha256": "4bc42e9b445cec08ef6eede2fc0ac2c285735480953ef4881bf33eacba57f0b1",
+          "query_id": 548,
+          "records": 37,
+          "worker_output": "out/m4k/overlap-worker/worker-output/query_548/overlaps.tsv"
+        },
+        {
+          "canonical_sha256": "96c5b20a064a238445fe3abe67d8375ac531768aca81b36e16ecd5a2b224f6cc",
+          "diff_status": "match",
+          "fixture_dir": "out/m4k/replay-fixtures/query_752",
+          "name": "query_752",
+          "oracle_canonical_sha256": "96c5b20a064a238445fe3abe67d8375ac531768aca81b36e16ecd5a2b224f6cc",
+          "query_id": 752,
+          "records": 32,
+          "worker_output": "out/m4k/overlap-worker/worker-output/query_752/overlaps.tsv"
+        },
+        {
+          "canonical_sha256": "3eb60b184f54edd59c875af4b78129dc14765687b506ee27e3354dfa3a69aada",
+          "diff_status": "match",
+          "fixture_dir": "out/m4k/replay-fixtures/query_596",
+          "name": "query_596",
+          "oracle_canonical_sha256": "3eb60b184f54edd59c875af4b78129dc14765687b506ee27e3354dfa3a69aada",
+          "query_id": 596,
+          "records": 41,
+          "worker_output": "out/m4k/overlap-worker/worker-output/query_596/overlaps.tsv"
+        },
+        {
+          "canonical_sha256": "69658d3a37f37115e460cd33ef52044b7e4a4a8a31c8b3d1d888d951448fe399",
+          "diff_status": "match",
+          "fixture_dir": "out/m4k/replay-fixtures/query_381",
+          "name": "query_381",
+          "oracle_canonical_sha256": "69658d3a37f37115e460cd33ef52044b7e4a4a8a31c8b3d1d888d951448fe399",
+          "query_id": 381,
+          "records": 60,
+          "worker_output": "out/m4k/overlap-worker/worker-output/query_381/overlaps.tsv"
+        },
+        {
+          "canonical_sha256": "57da34f3cf7d51c2bc1e8cfb5c9bd40b658b0755663046c92e421a027b82ecbb",
+          "diff_status": "match",
+          "fixture_dir": "out/m4k/replay-fixtures/query_649",
+          "name": "query_649",
+          "oracle_canonical_sha256": "57da34f3cf7d51c2bc1e8cfb5c9bd40b658b0755663046c92e421a027b82ecbb",
+          "query_id": 649,
+          "records": 47,
+          "worker_output": "out/m4k/overlap-worker/worker-output/query_649/overlaps.tsv"
+        },
+        {
+          "canonical_sha256": "b63b08c697c5a1b9b52e08672dca8d64291423a3010cda5930491a4b0211d0e4",
+          "diff_status": "match",
+          "fixture_dir": "out/m4k/replay-fixtures/query_695",
+          "name": "query_695",
+          "oracle_canonical_sha256": "b63b08c697c5a1b9b52e08672dca8d64291423a3010cda5930491a4b0211d0e4",
+          "query_id": 695,
+          "records": 35,
+          "worker_output": "out/m4k/overlap-worker/worker-output/query_695/overlaps.tsv"
+        }
+      ]
+    }
+  }
+}

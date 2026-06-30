@@ -1,6 +1,6 @@
 # Flye Overlap Worker Seam v0
 
-Status: accepted in M4j; M4k batch allowlist extension active
+Status: accepted in M4j; batch allowlist extension accepted in M4k
 
 Introduced: M4j
 
@@ -10,10 +10,12 @@ mutation.
 
 ## Purpose
 
-M4j is the first Flye-side boundary for the M4i overlap worker. It does not let
-GPU output feed downstream graph logic. Instead, Flye captures CPU overlap replay
-fixtures, writes a worker request for those fixtures, optionally invokes the
-M4i worker binary, records the response, and throws a controlled stop.
+M4j is the first Flye-side boundary for the M4i overlap worker. M4k extends that
+boundary from one selected query to an explicit query-id allowlist. The seam does
+not let GPU output feed downstream graph logic. Instead, Flye captures CPU
+overlap replay fixtures, writes a worker request for those fixtures, optionally
+invokes the M4i worker binary, records the response, and throws a controlled
+stop.
 
 The seam exists so later milestones can integrate worker output behind the same
 request/response and validation gates without changing default CPU behavior.

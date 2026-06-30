@@ -7,16 +7,19 @@ change is considered complete.
 
 Active cards:
 
-- `2026-06-30-cuflye-m4k-flye-overlap-worker-batch-seam.md`: make the Flye
-  seam collect an explicit replay-match query allowlist and invoke the packed
-  overlap worker as a batch before graph mutation.
+- None. M4k is complete; M4l is proposed.
 
 Proposed cards:
 
-- None. M4k is active.
+- `2026-06-30-cuflye-m4l-overlap-worker-validated-consumption-gate.md`: add a
+  fail-closed validation gate before any future graph-consumption path can treat
+  CUDA overlap worker output as consumption-eligible.
 
 Completed cards:
 
+- `2026-06-30-cuflye-m4k-flye-overlap-worker-batch-seam.md`: make the Flye
+  seam collect an explicit replay-match query allowlist and invoke the packed
+  overlap worker as a batch before graph mutation.
 - `2026-06-30-cuflye-m4j-flye-overlap-worker-seam.md`: add a fail-closed
   Flye-side overlap worker seam without feeding GPU output into graph mutation.
 - `2026-06-30-cuflye-m4i-packed-overlap-worker-protocol.md`: move the packed

@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4k Flye Overlap Worker Batch Seam
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -82,12 +82,36 @@ before graph mutation.
 
 ## Execution Checklist
 
-- [ ] Define the batch allowlist environment selector.
-- [ ] Add Flye patch for allowlist capture and batch worker request metadata.
-- [ ] Extend fixture runner options and metadata.
-- [ ] Build patched Flye on DGX.
-- [ ] Prove default CPU fixture behavior remains unchanged.
-- [ ] Prove explicit batch worker mode captures only allowlisted query ids.
-- [ ] Validate and diff every worker output.
-- [ ] Compare packed worker timing with M4h baselines.
-- [ ] Record compact DGX proof and close this card.
+- [x] Define the batch allowlist environment selector.
+- [x] Add Flye patch for allowlist capture and batch worker request metadata.
+- [x] Extend fixture runner options and metadata.
+- [x] Build patched Flye on DGX.
+- [x] Prove default CPU fixture behavior remains unchanged.
+- [x] Prove explicit batch worker mode captures only allowlisted query ids.
+- [x] Validate and diff every worker output.
+- [x] Compare packed worker timing with M4h baselines.
+- [x] Record compact DGX proof and close this card.
+
+## Merge Note
+
+Implementation commit: `941cf5a412df6a63401a13885dd68ec221dd77ff`
+
+DGX proof:
+`tests/golden/cuflye-m4k-flye-overlap-worker-batch-seam-dgx-aarch64.json`
+
+Results:
+
+- Default `toy-hifi` CPU run completed and all 9 canonical artifact hashes
+  matched the M0 golden manifest.
+- Explicit `toy-raw` worker seam captured exactly the requested query-id set:
+  `381,-71,649,443,596,752,-819,695,548`.
+- Flye generated a packed worker request with `batch_execution=packed`, the
+  CUDA worker returned `status=ok`, and the batch used one CUDA launch per
+  timed run.
+- All 9 per-query worker outputs validated as `overlap-range-v1` and
+  canonical-diffed `match` against the Flye CPU oracle.
+- The seam stopped before graph mutation and recorded
+  `graph_mutation_consumed_worker_output=false`.
+- Flye-generated packed worker timing was
+  `6.84245 ms` backend mean total before write versus the M4h CPU replay batch
+  baseline `14.977639 ms`, a bounded replay speedup of `2.188929x`.

@@ -152,6 +152,15 @@ Completed:
   query `-71`, produced `51` worker overlap records, validated
   `overlap-range-v1`, canonical-diffed `match` against the Flye CPU oracle, and
   preserved default `toy-hifi` CPU artifact hashes against the M0 golden set.
+- M4k: Flye can collect an explicit replay-match query-id allowlist, generate
+  one packed CUDA overlap worker request for the captured batch, and still stop
+  before graph mutation. The DGX proof captured 9 allowlisted raw-read queries,
+  produced `382` total worker overlap records, validated every worker output as
+  `overlap-range-v1`, canonical-diffed every output `match` against the Flye CPU
+  oracle, and preserved default `toy-hifi` CPU artifact hashes against the M0
+  golden set. The Flye-generated packed worker request reported
+  `6.84245 ms` backend mean total before write versus the M4h CPU replay batch
+  baseline `14.977639 ms`, a bounded replay speedup of `2.188929x`.
 
 Current allowed performance claim:
 
@@ -192,6 +201,11 @@ claim that Flye graph logic consumes GPU overlap output.
 cuFlye now has a Flye-side proof seam that can request CUDA overlap worker
 output and stop before graph mutation. This is an integration-boundary claim,
 not an end-to-end GPU Flye or graph-consumption claim.
+
+cuFlye can now request a packed multi-query CUDA overlap worker batch from the
+Flye seam using an explicit query-id allowlist. This preserves the M4h bounded
+overlap-chain replay speedup at the Flye request boundary, while still refusing
+to feed GPU overlap output into Flye graph logic.
 ```
 
 Current forbidden claim:
@@ -364,13 +378,11 @@ Use precise milestone labels:
 Next highest-ROI task:
 
 ```text
-M4k: extend the Flye-side overlap worker seam from one selected replay fixture
-to an explicit replay-match query allowlist, so Flye can request a packed
-multi-query overlap batch and preserve M4h's CUDA-over-CPU replay speedup at
-the Flye request boundary.
+M4l: add a validated consumption gate before any future graph-consumption path
+can treat CUDA overlap worker output as consumption-eligible.
 ```
 
-Acceptance should preserve exact per-fixture `overlap-range-v1` hashes, record
-the packed worker timing from the Flye-generated request, and still stop before
-graph mutation. CUDA output is not allowed into Flye graph logic until a later
-validated consumption gate exists.
+Acceptance should preserve exact per-fixture `overlap-range-v1` hashes, require
+ABI validation and oracle diff checks before marking worker output
+consumption-eligible, include a negative fail-closed validation case, and still
+stop before graph mutation.
