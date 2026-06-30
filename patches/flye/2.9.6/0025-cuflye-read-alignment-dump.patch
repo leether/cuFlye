@@ -1,0 +1,104 @@
+diff --git a/src/repeat_graph/read_aligner.cpp b/src/repeat_graph/read_aligner.cpp
+index 2961e2a..bd59939 100644
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -6,7 +6,10 @@
+ #include "../sequence/alignment.h"
+ #include "../common/parallel.h"
+ #include <cmath>
++#include <cstdlib>
++#include <fstream>
+ #include <iomanip>
++#include <mutex>
+ #include <queue>
+ 
+ namespace
+@@ -16,6 +19,71 @@ namespace
+ 		std::vector<const EdgeAlignment*> aln;
+ 		int32_t score;
+ 	};
++
++	std::mutex& readAlignmentDumpMutex()
++	{
++		static std::mutex dumpMutex;
++		return dumpMutex;
++	}
++
++	const char* readAlignmentDumpPath()
++	{
++		static const char* dumpPath = std::getenv("CUFLYE_READ_ALIGNMENT_DUMP");
++		return dumpPath;
++	}
++
++	bool readAlignmentDumpEnabled()
++	{
++		const char* dumpPath = readAlignmentDumpPath();
++		return dumpPath && dumpPath[0];
++	}
++
++	void validateReadAlignmentDumpConfig()
++	{
++		if (!readAlignmentDumpEnabled()) return;
++		if (Parameters::get().numThreads != 1)
++		{
++			throw std::runtime_error(
++				"cuFlye read alignment dump requires --threads 1 for deterministic "
++				"chain ordering");
++		}
++	}
++
++	void dumpReadAlignmentRecords(const std::vector<GraphAlignment>& alignments)
++	{
++		if (!readAlignmentDumpEnabled()) return;
++
++		std::lock_guard<std::mutex> lock(readAlignmentDumpMutex());
++		std::ofstream fout(readAlignmentDumpPath(), std::ios::out);
++		if (!fout)
++		{
++			throw std::runtime_error("Can't open CUFLYE_READ_ALIGNMENT_DUMP path");
++		}
++
++		fout << std::setprecision(9);
++		for (size_t chainId = 0; chainId < alignments.size(); ++chainId)
++		{
++			const auto& chain = alignments[chainId];
++			for (size_t segmentId = 0; segmentId < chain.size(); ++segmentId)
++			{
++				const auto& aln = chain[segmentId];
++				const auto& ovlp = aln.overlap;
++				fout << chainId << "\t"
++					 << segmentId << "\t"
++					 << ovlp.curId.signedId() << "\t"
++					 << ovlp.curBegin << "\t"
++					 << ovlp.curEnd << "\t"
++					 << ovlp.curLen << "\t"
++					 << aln.edge->edgeId.signedId() << "\t"
++					 << ovlp.extId.signedId() << "\t"
++					 << ovlp.extBegin << "\t"
++					 << ovlp.extEnd << "\t"
++					 << ovlp.extLen << "\t"
++					 << ovlp.score << "\t"
++					 << ovlp.seqDivergence << "\n";
++			}
++		}
++	}
+ }
+ 
+ //Give alignments to separate edges for a single read, merges them
+@@ -155,6 +223,8 @@ std::vector<GraphAlignment>
+ 
+ void ReadAligner::alignReads()
+ {
++	validateReadAlignmentDumpConfig();
++
+ 	static const int SMALL_ALN = 100;
+ 	static const int BIG_ALN = 500;
+ 	static const int LONG_EDGE = 900;
+@@ -290,6 +360,7 @@ void ReadAligner::alignReads()
+ 	Logger::get().info() << "Aligned read sequence: " << alignedLength << " / " 
+ 		<< totalLength << " (" << (float)alignedLength / totalLength << ")";
+ 	readsOverlaps.overlapDivergenceStats(divergenceStats, MAX_DIVERGENCE);
++	dumpReadAlignmentRecords(_readAlignments);
+ }
+ 
+ //updates alignments with respect to the new graph

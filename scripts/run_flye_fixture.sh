@@ -20,6 +20,8 @@ Options:
   --candidate-dump PATH
                        Enable cuFlye patched candidate dump at PATH
   --overlap-dump PATH  Enable cuFlye patched overlap-range dump at PATH
+  --read-alignment-dump PATH
+                       Enable cuFlye patched read-alignment-v1 dump at PATH
   --overlap-replay-dump-dir PATH
                        Set CUFLYE_OVERLAP_REPLAY_DUMP_DIR for M4b replay fixture
   --overlap-replay-query-id ID
@@ -128,6 +130,7 @@ force=0
 expect_failure=0
 candidate_dump=""
 overlap_dump=""
+read_alignment_dump="${CUFLYE_READ_ALIGNMENT_DUMP:-}"
 overlap_replay_dump_dir="${CUFLYE_OVERLAP_REPLAY_DUMP_DIR:-}"
 overlap_replay_query_id="${CUFLYE_OVERLAP_REPLAY_QUERY_ID:-}"
 overlap_replay_query_ids="${CUFLYE_OVERLAP_REPLAY_QUERY_IDS:-}"
@@ -211,6 +214,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --overlap-dump)
       overlap_dump="$2"
+      shift 2
+      ;;
+    --read-alignment-dump)
+      read_alignment_dump="$2"
       shift 2
       ;;
     --overlap-replay-dump-dir)
@@ -462,6 +469,10 @@ if [ -n "${overlap_dump}" ]; then
   mkdir -p "$(dirname "${overlap_dump}")"
   rm -f "${overlap_dump}"
 fi
+if [ -n "${read_alignment_dump}" ]; then
+  mkdir -p "$(dirname "${read_alignment_dump}")"
+  rm -f "${read_alignment_dump}"
+fi
 if [ -n "${overlap_replay_dump_dir}" ]; then
   rm -rf "${overlap_replay_dump_dir}"
   mkdir -p "${overlap_replay_dump_dir}"
@@ -520,6 +531,9 @@ if [ -n "${candidate_dump}" ]; then
 fi
 if [ -n "${overlap_dump}" ]; then
   export CUFLYE_OVERLAP_DUMP="${overlap_dump}"
+fi
+if [ -n "${read_alignment_dump}" ]; then
+  export CUFLYE_READ_ALIGNMENT_DUMP="${read_alignment_dump}"
 fi
 if [ -n "${overlap_replay_dump_dir}" ]; then
   export CUFLYE_OVERLAP_REPLAY_DUMP_DIR="${overlap_replay_dump_dir}"
@@ -646,7 +660,7 @@ if [ -n "${overlap_vector_substitution_proof_fault}" ]; then
 fi
 
 metadata_tmp="${out_dir}/run_metadata.pre.json"
-python3 - "$metadata_tmp" "$repo_root" "$flye_dir" "$fixture" "$reads" "$read_type" "$genome_size" "$min_overlap" "$threads" "$candidate_dump" "$overlap_dump" "$overlap_replay_dump_dir" "$overlap_replay_query_id" "$overlap_replay_query_ids" "$overlap_replay_max_fixtures" "$overlap_replay_stop_after_dump" "$candidate_backend" "$cuda_device" "$cuda_memory_budget_bytes" "$cuda_adapter_mode" "$cuda_backend_bin" "$cuda_packed_fixture_dir" "$cuda_adapter_output_tsv" "$cuda_adapter_json" "$cuda_packed_kmer_size" "$cuda_pack_dump_dir" "$cuda_pack_query_id" "$cuda_stop_after_packed_query" "$overlap_worker_mode" "$overlap_worker_bin" "$overlap_worker_output_dir" "$overlap_worker_device" "$overlap_worker_kernel_mode" "$overlap_worker_warmup_runs" "$overlap_worker_benchmark_runs" "$overlap_worker_memory_budget_bytes" "$overlap_worker_validation_mode" "$overlap_worker_shadow_mode" "$overlap_worker_lifecycle_mode" "$overlap_worker_session_dir" "$overlap_worker_session_poll_ms" "$overlap_worker_session_timeout_ms" "$overlap_graph_consumption_mode" "$overlap_rehydration_mode" "$overlap_rehydration_proof_fault" "$overlap_object_rehydration_mode" "$overlap_object_rehydration_proof_fault" "$overlap_vector_substitution_mode" "$overlap_vector_substitution_ledger_mode" "$overlap_gpu_first_audit_mode" "$overlap_gpu_first_audit_query_ids" "$overlap_vector_substitution_proof_fault" "${cmd[@]}" <<'PY'
+python3 - "$metadata_tmp" "$repo_root" "$flye_dir" "$fixture" "$reads" "$read_type" "$genome_size" "$min_overlap" "$threads" "$candidate_dump" "$overlap_dump" "$read_alignment_dump" "$overlap_replay_dump_dir" "$overlap_replay_query_id" "$overlap_replay_query_ids" "$overlap_replay_max_fixtures" "$overlap_replay_stop_after_dump" "$candidate_backend" "$cuda_device" "$cuda_memory_budget_bytes" "$cuda_adapter_mode" "$cuda_backend_bin" "$cuda_packed_fixture_dir" "$cuda_adapter_output_tsv" "$cuda_adapter_json" "$cuda_packed_kmer_size" "$cuda_pack_dump_dir" "$cuda_pack_query_id" "$cuda_stop_after_packed_query" "$overlap_worker_mode" "$overlap_worker_bin" "$overlap_worker_output_dir" "$overlap_worker_device" "$overlap_worker_kernel_mode" "$overlap_worker_warmup_runs" "$overlap_worker_benchmark_runs" "$overlap_worker_memory_budget_bytes" "$overlap_worker_validation_mode" "$overlap_worker_shadow_mode" "$overlap_worker_lifecycle_mode" "$overlap_worker_session_dir" "$overlap_worker_session_poll_ms" "$overlap_worker_session_timeout_ms" "$overlap_graph_consumption_mode" "$overlap_rehydration_mode" "$overlap_rehydration_proof_fault" "$overlap_object_rehydration_mode" "$overlap_object_rehydration_proof_fault" "$overlap_vector_substitution_mode" "$overlap_vector_substitution_ledger_mode" "$overlap_gpu_first_audit_mode" "$overlap_gpu_first_audit_query_ids" "$overlap_vector_substitution_proof_fault" "${cmd[@]}" <<'PY'
 import json
 import os
 import platform
@@ -655,7 +669,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 
-metadata_path, repo_root, flye_dir, fixture, reads, read_type, genome_size, min_overlap, threads, candidate_dump, overlap_dump, overlap_replay_dump_dir, overlap_replay_query_id, overlap_replay_query_ids, overlap_replay_max_fixtures, overlap_replay_stop_after_dump, candidate_backend, cuda_device, cuda_memory_budget_bytes, cuda_adapter_mode, cuda_backend_bin, cuda_packed_fixture_dir, cuda_adapter_output_tsv, cuda_adapter_json, cuda_packed_kmer_size, cuda_pack_dump_dir, cuda_pack_query_id, cuda_stop_after_packed_query, overlap_worker_mode, overlap_worker_bin, overlap_worker_output_dir, overlap_worker_device, overlap_worker_kernel_mode, overlap_worker_warmup_runs, overlap_worker_benchmark_runs, overlap_worker_memory_budget_bytes, overlap_worker_validation_mode, overlap_worker_shadow_mode, overlap_worker_lifecycle_mode, overlap_worker_session_dir, overlap_worker_session_poll_ms, overlap_worker_session_timeout_ms, overlap_graph_consumption_mode, overlap_rehydration_mode, overlap_rehydration_proof_fault, overlap_object_rehydration_mode, overlap_object_rehydration_proof_fault, overlap_vector_substitution_mode, overlap_vector_substitution_ledger_mode, overlap_gpu_first_audit_mode, overlap_gpu_first_audit_query_ids, overlap_vector_substitution_proof_fault, *cmd = sys.argv[1:]
+metadata_path, repo_root, flye_dir, fixture, reads, read_type, genome_size, min_overlap, threads, candidate_dump, overlap_dump, read_alignment_dump, overlap_replay_dump_dir, overlap_replay_query_id, overlap_replay_query_ids, overlap_replay_max_fixtures, overlap_replay_stop_after_dump, candidate_backend, cuda_device, cuda_memory_budget_bytes, cuda_adapter_mode, cuda_backend_bin, cuda_packed_fixture_dir, cuda_adapter_output_tsv, cuda_adapter_json, cuda_packed_kmer_size, cuda_pack_dump_dir, cuda_pack_query_id, cuda_stop_after_packed_query, overlap_worker_mode, overlap_worker_bin, overlap_worker_output_dir, overlap_worker_device, overlap_worker_kernel_mode, overlap_worker_warmup_runs, overlap_worker_benchmark_runs, overlap_worker_memory_budget_bytes, overlap_worker_validation_mode, overlap_worker_shadow_mode, overlap_worker_lifecycle_mode, overlap_worker_session_dir, overlap_worker_session_poll_ms, overlap_worker_session_timeout_ms, overlap_graph_consumption_mode, overlap_rehydration_mode, overlap_rehydration_proof_fault, overlap_object_rehydration_mode, overlap_object_rehydration_proof_fault, overlap_vector_substitution_mode, overlap_vector_substitution_ledger_mode, overlap_gpu_first_audit_mode, overlap_gpu_first_audit_query_ids, overlap_vector_substitution_proof_fault, *cmd = sys.argv[1:]
 
 def run(cmdline):
     try:
@@ -687,6 +701,8 @@ if candidate_dump:
     payload["candidate_dump"] = os.path.abspath(candidate_dump)
 if overlap_dump:
     payload["overlap_dump"] = os.path.abspath(overlap_dump)
+if read_alignment_dump:
+    payload["read_alignment_dump"] = os.path.abspath(read_alignment_dump)
 if overlap_replay_dump_dir:
     payload["overlap_replay_dump_dir"] = os.path.abspath(overlap_replay_dump_dir)
 if overlap_replay_query_id:
@@ -820,19 +836,21 @@ rm -f "${metadata_tmp}"
 "${repo_root}/tools/canonicalize_flye_artifacts.py" --manifest "${out_dir}" \
   > "${out_dir}/artifact_hashes.json"
 
-if [ -n "${candidate_dump}" ] || [ -n "${overlap_dump}" ] || [ -n "${overlap_replay_dump_dir}" ] || [ -n "${candidate_backend}" ]; then
-  python3 - "$out_dir/run_metadata.json" "$candidate_dump" "$overlap_dump" "$overlap_replay_dump_dir" "$candidate_backend" <<'PY'
+if [ -n "${candidate_dump}" ] || [ -n "${overlap_dump}" ] || [ -n "${read_alignment_dump}" ] || [ -n "${overlap_replay_dump_dir}" ] || [ -n "${candidate_backend}" ]; then
+  python3 - "$out_dir/run_metadata.json" "$candidate_dump" "$overlap_dump" "$read_alignment_dump" "$overlap_replay_dump_dir" "$candidate_backend" <<'PY'
 import json
 import os
 import sys
 
-metadata_path, candidate_dump, overlap_dump, overlap_replay_dump_dir, candidate_backend = sys.argv[1:]
+metadata_path, candidate_dump, overlap_dump, read_alignment_dump, overlap_replay_dump_dir, candidate_backend = sys.argv[1:]
 with open(metadata_path, "r", encoding="utf-8") as handle:
     payload = json.load(handle)
 if candidate_dump:
     payload["candidate_dump"] = os.path.abspath(candidate_dump)
 if overlap_dump:
     payload["overlap_dump"] = os.path.abspath(overlap_dump)
+if read_alignment_dump:
+    payload["read_alignment_dump"] = os.path.abspath(read_alignment_dump)
 if overlap_replay_dump_dir:
     payload["overlap_replay_dump_dir"] = os.path.abspath(overlap_replay_dump_dir)
 if candidate_backend:

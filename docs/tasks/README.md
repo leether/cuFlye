@@ -15,6 +15,10 @@ Proposed cards:
 
 Completed cards:
 
+- `2026-07-01-cuflye-m5a-read-alignment-oracle.md`:
+  define `read-alignment-v1`, add an opt-in CPU oracle dump after
+  `ReadAligner::alignReads`, and prove deterministic read-to-graph alignment
+  dumps before any CUDA replacement work.
 - `2026-07-01-cuflye-m4z-validation-safe-selection-planner.md`:
   rank validation-safe GPU-first query allowlists, reject known validation
   failures such as query `798`, and compare serial versus parallel-reduce

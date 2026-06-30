@@ -1019,3 +1019,52 @@ M5a: start the read-to-graph alignment oracle by locating Flye's
 ReadAligner::alignReads contract, defining a compact alignment-record ABI, and
 dumping CPU oracle records before any CUDA read-to-graph acceleration.
 ```
+
+Completed.
+
+M5a defines `read-alignment-v1`, a flat TSV CPU oracle for Flye
+`GraphAlignment` records after `ReadAligner::alignReads` accepts and
+divergence-filters read-to-repeat-graph chains. The opt-in dump is controlled by
+`CUFLYE_READ_ALIGNMENT_DUMP` and fails closed unless Flye runs with
+`--threads 1`, because raw chain append order is not deterministic in the
+parallel aligner.
+
+The DGX toy-hifi proof applied and built the patch series through
+`0025-cuflye-read-alignment-dump.patch`. Two deterministic runs produced the
+same `read-alignment-v1` oracle:
+
+```text
+records=7232
+chains=7092
+reads=7092
+edges=14
+canonical_sha256=f4815278bffdb993fd815a8a0ead2db44263aefe2fc38d65836bc48186dc904e
+canonical diff=match
+```
+
+The negative DGX run enabled the dump with `--threads 2`; Flye exited with
+status `1`, recorded expected failure metadata, found the fail-closed message
+`cuFlye read alignment dump requires --threads 1`, and produced no dump file.
+
+Allowed M5a claim:
+
+```text
+cuFlye can produce and validate a deterministic CPU read-to-graph alignment
+oracle after ReadAligner::alignReads, and it fails closed when the proof is not
+single-thread deterministic.
+```
+
+Forbidden M5a claim:
+
+```text
+M5a does not prove CUDA read-to-graph acceleration, default GPU mode, graph
+mutation consumption, or end-to-end Flye speedup.
+```
+
+Next highest-ROI task:
+
+```text
+M5b: isolate a bounded read-to-graph replay fixture that captures the graph-edge
+sequences, read sequence, and per-read edge-overlap inputs needed to reproduce
+one read alignment chain outside a full Flye run.
+```
