@@ -216,6 +216,7 @@ def build_worker_request(
 ) -> dict:
     label = sample["sample_label"]
     output_dir = out_dir / "worker"
+    output_dir.mkdir(parents=True, exist_ok=True)
     request = {
         "schema": "cuflye-worker-request-v0",
         "request_id": f"sample-{request_ordinal:03d}-{label}",
