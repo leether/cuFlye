@@ -7,7 +7,8 @@ change is considered complete.
 
 Active cards:
 
-- None.
+- `2026-06-30-cuflye-m3e-sampled-pack-batch-planner.md`: generate sampled
+  real-pack fixtures and plan heterogeneous worker requests.
 
 Completed cards:
 
