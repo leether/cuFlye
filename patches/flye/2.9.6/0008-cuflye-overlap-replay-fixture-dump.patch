@@ -1,0 +1,200 @@
+diff --git a/src/sequence/overlap.cpp b/src/sequence/overlap.cpp
+index d328c20..f2b6f5c 100644
+--- a/src/sequence/overlap.cpp
++++ b/src/sequence/overlap.cpp
+@@ -133,6 +133,29 @@ namespace
+ 		return dumpPath;
+ 	}
+ 
++	std::atomic<size_t>& overlapReplayDumpCounter()
++	{
++		static std::atomic<size_t> counter(0);
++		return counter;
++	}
++
++	std::mutex& overlapReplayDumpMutex()
++	{
++		static std::mutex dumpMutex;
++		return dumpMutex;
++	}
++
++	const char* overlapReplayDumpDir()
++	{
++		static const char* dumpDir = std::getenv("CUFLYE_OVERLAP_REPLAY_DUMP_DIR");
++		return dumpDir;
++	}
++
++	const char* boolJson(bool value)
++	{
++		return value ? "true" : "false";
++	}
++
+ 	CandidateBackend candidateBackend()
+ 	{
+ 		static CandidateBackend backend = []()
+@@ -605,6 +628,151 @@ namespace
+ 		}
+ 	}
+ 
++	template <class Matches>
++	void dumpOverlapReplayFixture(const FastaRecord& fastaRec,
++								  Matches& matches,
++								  const std::vector<int32_t>& curFilteredPos,
++								  const std::vector<OverlapRange>& overlaps,
++								  const SequenceContainer& seqContainer,
++								  bool forceLocal,
++								  int maxOverlaps,
++								  int kmerSize,
++								  float minKmerSurvivalRate,
++								  float lgGap,
++								  float smGap,
++								  int gapJumpThreshold,
++								  int maxGap,
++								  int maxJump,
++								  int minOverlap,
++								  int maxOverhang,
++								  bool checkOverhang,
++								  bool keepAlignment,
++								  bool onlyMaxExt,
++								  bool nuclAlignment,
++								  bool partitionBadMappings,
++								  bool useHpc,
++								  float maxDivergence,
++								  float sampleRate)
++	{
++		const char* dumpRoot = overlapReplayDumpDir();
++		if (!dumpRoot || !dumpRoot[0]) return;
++		if (overlaps.empty()) return;
++		if (Parameters::get().numThreads != 1)
++		{
++			throw std::runtime_error(
++				"cuFlye overlap replay fixture dump requires --threads 1");
++		}
++
++		const char* requestedQuery = std::getenv("CUFLYE_OVERLAP_REPLAY_QUERY_ID");
++		int64_t queryId = fastaRec.id.signedId();
++		if (requestedQuery && requestedQuery[0] && std::stoll(requestedQuery) != queryId)
++		{
++			return;
++		}
++
++		size_t expected = 0;
++		if (!overlapReplayDumpCounter().compare_exchange_strong(expected, 1))
++		{
++			return;
++		}
++
++		std::lock_guard<std::mutex> lock(overlapReplayDumpMutex());
++		std::string queryDir = joinPath(dumpRoot, queryDirName(queryId));
++		ensureDirectory(queryDir);
++
++		std::map<int64_t, int32_t> targetLengths;
++		{
++			std::ofstream candidatesOut(joinPath(queryDir, "candidates.tsv"));
++			for (const auto& match : matches)
++			{
++				candidatesOut << queryId << "\t"
++							  << match.curPos << "\t"
++							  << match.kmerRepr << "\t"
++							  << match.extId.signedId() << "\t"
++							  << match.extPos << "\t"
++							  << (match.extId.strand() ? "+" : "-") << "\n";
++				targetLengths[match.extId.signedId()] = seqContainer.seqLen(match.extId);
++			}
++		}
++		{
++			std::ofstream filteredOut(joinPath(queryDir, "filtered-positions.tsv"));
++			for (auto pos : curFilteredPos) filteredOut << pos << "\n";
++		}
++		{
++			std::ofstream targetsOut(joinPath(queryDir, "targets.tsv"));
++			for (const auto& target : targetLengths)
++			{
++				targetsOut << target.first << "\t" << target.second << "\n";
++			}
++		}
++		{
++			std::ofstream oracleOut(joinPath(queryDir, "oracle.overlaps.tsv"));
++			oracleOut << std::setprecision(9);
++			for (const auto& ovlp : overlaps)
++			{
++				oracleOut << ovlp.curId.signedId() << "\t"
++						  << ovlp.curBegin << "\t"
++						  << ovlp.curEnd << "\t"
++						  << ovlp.curLen << "\t"
++						  << ovlp.extId.signedId() << "\t"
++						  << ovlp.extBegin << "\t"
++						  << ovlp.extEnd << "\t"
++						  << ovlp.extLen << "\t"
++						  << ovlp.score << "\t"
++						  << ovlp.seqDivergence << "\n";
++			}
++		}
++		{
++			std::ofstream manifestOut(joinPath(queryDir, "manifest.json"));
++			manifestOut << std::setprecision(9)
++						<< "{\n"
++						<< "  \"schema\": \"cuflye-overlap-replay-fixture-v0\",\n"
++						<< "  \"status\": \"captured\",\n"
++						<< "  \"query_id\": " << queryId << ",\n"
++						<< "  \"query_length\": " << fastaRec.sequence.length() << ",\n"
++						<< "  \"candidate_records\": " << matches.size() << ",\n"
++						<< "  \"filtered_positions\": " << curFilteredPos.size() << ",\n"
++						<< "  \"target_records\": " << targetLengths.size() << ",\n"
++						<< "  \"oracle_overlap_records\": " << overlaps.size() << ",\n"
++						<< "  \"files\": {\n"
++						<< "    \"candidates\": \"candidates.tsv\",\n"
++						<< "    \"filtered_positions\": \"filtered-positions.tsv\",\n"
++						<< "    \"targets\": \"targets.tsv\",\n"
++						<< "    \"oracle_overlaps\": \"oracle.overlaps.tsv\"\n"
++						<< "  },\n"
++						<< "  \"parameters\": {\n"
++						<< "    \"force_local\": " << boolJson(forceLocal) << ",\n"
++						<< "    \"max_overlaps\": " << maxOverlaps << ",\n"
++						<< "    \"kmer_size\": " << kmerSize << ",\n"
++						<< "    \"min_kmer_survival_rate\": " << minKmerSurvivalRate << ",\n"
++						<< "    \"chain_large_gap_penalty\": " << lgGap << ",\n"
++						<< "    \"chain_small_gap_penalty\": " << smGap << ",\n"
++						<< "    \"chain_gap_jump_threshold\": " << gapJumpThreshold << ",\n"
++						<< "    \"max_jump_gap\": " << maxGap << ",\n"
++						<< "    \"maximum_jump\": " << maxJump << ",\n"
++						<< "    \"minimum_overlap\": " << minOverlap << ",\n"
++						<< "    \"maximum_overhang\": " << maxOverhang << ",\n"
++						<< "    \"check_overhang\": " << boolJson(checkOverhang) << ",\n"
++						<< "    \"keep_alignment\": " << boolJson(keepAlignment) << ",\n"
++						<< "    \"only_max_ext\": " << boolJson(onlyMaxExt) << ",\n"
++						<< "    \"nucl_alignment\": " << boolJson(nuclAlignment) << ",\n"
++						<< "    \"partition_bad_mappings\": " << boolJson(partitionBadMappings) << ",\n"
++						<< "    \"use_hpc\": " << boolJson(useHpc) << ",\n"
++						<< "    \"max_divergence\": " << maxDivergence << ",\n"
++						<< "    \"sample_rate\": " << sampleRate << "\n"
++						<< "  }\n"
++						<< "}\n";
++		}
++
++		if (cudaEnvFlag("CUFLYE_OVERLAP_REPLAY_STOP_AFTER_DUMP"))
++		{
++			throw std::runtime_error(
++				"cuFlye overlap replay fixture captured; query_id=" +
++				std::to_string(queryId) + "; fixture_dir=" + queryDir +
++				"; stop_after_dump=1");
++		}
++	}
++
+ 	template <class Matches>
+ 	void collectCandidateMatchesCudaAdapter(const FastaRecord& fastaRec,
+ 											const VertexIndex& vertexIndex,
+@@ -1118,6 +1286,13 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
+ 			divStats.add(ovlp.seqDivergence);
+ 		}
+ 	}
++	dumpOverlapReplayFixture(fastaRec, vecMatches, curFilteredPos, detectedOverlaps,
++							 _seqContainer, forceLocal, maxOverlaps, kmerSize,
++							 minKmerSruvivalRate, LG_GAP, SM_GAP, GAP_JUMP_THLD,
++							 MAX_GAP, _maxJump, _minOverlap, _maxOverhang,
++							 _checkOverhang, _keepAlignment, _onlyMaxExt,
++							 _nuclAlignment, _partitionBadMappings, _useHpc,
++							 _maxDivergence, _vertexIndex.getSampleRate());
+ 	dumpOverlapRanges(detectedOverlaps);
+ 	return detectedOverlaps;
+ }
