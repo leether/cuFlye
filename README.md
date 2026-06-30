@@ -112,6 +112,21 @@ Expected stderr includes `adapter=stub`, the requested CUDA device, the memory
 budget, and `CUDA candidate kernel is not implemented yet`. This path must never
 silently fall back to CPU.
 
+## M1e CUDA Runtime Probe
+
+Before writing kernels, build and run the standalone CUDA runtime probe:
+
+```sh
+scripts/build_cuda_probe.sh
+out/m1e/bin/cuflye-cuda-probe \
+  --device 0 \
+  --memory-budget-bytes 1073741824 \
+  --json-output out/m1e/cuda_probe.json
+```
+
+The probe links `libcudart`, queries CUDA driver/runtime versions, selected
+device properties, and free/total memory. It emits no candidate records.
+
 ## Licensing
 
 Original code in this repository is BSD-3-Clause by default.

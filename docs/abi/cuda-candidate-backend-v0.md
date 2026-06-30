@@ -66,3 +66,6 @@ that:
 - emits candidate-record-v1 compatible records;
 - passes `tools/validate_candidate_dump.py`;
 - passes `tools/diff_candidate_dumps.py` against the CPU oracle.
+
+M1e provides the standalone runtime probe for the first two bullets; see
+`docs/abi/cuda-runtime-probe-v0.md`.

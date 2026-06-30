@@ -7,7 +7,8 @@ change is considered complete.
 
 Active cards:
 
-- None.
+- `2026-06-30-cuflye-m1e-cuda-runtime-probe.md`: build and validate a
+  standalone CUDA Runtime API probe on DGX.
 
 Completed cards:
 
