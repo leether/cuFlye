@@ -1,0 +1,69 @@
+{
+  "abi": {
+    "document": "docs/abi/candidate-record-v1.md",
+    "name": "candidate-record-v1",
+    "validator": "tools/validate_candidate_dump.py"
+  },
+  "build": {
+    "cuda_arch": "sm_121",
+    "cuda_home": "/usr/local/cuda",
+    "manifest": "out/m1g/2d83322/build_manifest.json",
+    "nvcc": "/usr/local/cuda/bin/nvcc",
+    "nvcc_version": "Cuda compilation tools, release 13.0, V13.0.88",
+    "output_binary": "out/m1g/2d83322/bin/cuflye-cuda-kmer-join-smoke",
+    "repo_commit": "2d83322bf70dae9471f9d1272bd8a4d832f0361d"
+  },
+  "fixture": {
+    "expected_candidates": "tests/fixtures/kmer-join-smoke-v0/expected.candidates.tsv",
+    "index_tsv": "tests/fixtures/kmer-join-smoke-v0/index.tsv",
+    "name": "kmer-join-smoke-v0",
+    "queries_tsv": "tests/fixtures/kmer-join-smoke-v0/queries.tsv",
+    "repetitive_kmers_tsv": "tests/fixtures/kmer-join-smoke-v0/repetitive-kmers.tsv"
+  },
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "nvidia_smi": "GPU 0: NVIDIA GB10",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39"
+  },
+  "kmer_join_smoke": {
+    "adapter": "cuda-kmer-join-smoke-v0",
+    "candidate_record_size_bytes": 48,
+    "cpu_oracle": "out/m1g/2d83322/cpu-oracle.tsv",
+    "device_allocation_bytes": 3460,
+    "expected_vs_cpu_diff": "out/m1g/2d83322/expected-vs-cpu.candidate-diff.json",
+    "expected_vs_cpu_status": "match",
+    "gpu_output": "out/m1g/2d83322/gpu-candidates.tsv",
+    "index_entries": 10,
+    "memory_budget_bytes": 1048576,
+    "memory_budget_satisfied": true,
+    "pair_count": 60,
+    "queries": 6,
+    "raw_sha256": "c07761a6cf2dca8d2c3d511b938b454d8e272e0f035a147a59674f1c1c2c67ad",
+    "records": 6,
+    "repetitive_kmers": 1,
+    "runtime_json": "out/m1g/2d83322/cuda-kmer-join-smoke.json",
+    "size_bytes": 90,
+    "cpu_vs_gpu_diff": "out/m1g/2d83322/cpu-vs-gpu.candidate-diff.json",
+    "cpu_vs_gpu_status": "match"
+  },
+  "negative_budget_probe": {
+    "memory_budget_bytes": 1,
+    "status": "failed_as_expected",
+    "stderr_excerpt": "cuFlye CUDA k-mer join smoke failed: CUDA k-mer join smoke memory budget is smaller than required device allocation"
+  },
+  "scope": {
+    "device_side_kmer_encoding": false,
+    "device_side_standard_form": false,
+    "flye_backend_replaced": false,
+    "full_vertex_index_upload": false,
+    "performance_claim": false
+  },
+  "validation": {
+    "cpu_oracle_validator": "out/m1g/2d83322/cpu-oracle.validator.json",
+    "expected_validator": "out/m1g/2d83322/expected.validator.json",
+    "gpu_output_validator": "out/m1g/2d83322/gpu-candidates.validator.json",
+    "raw_sorted_by_canonical_key": true,
+    "validated_on_utc": "2026-06-30T00:35:46Z"
+  }
+}

@@ -26,3 +26,7 @@ CUDA runtime proof:
 CUDA candidate smoke proof:
 
 - Candidate smoke manifest: `cuda-candidate-smoke-dgx-aarch64.json`
+
+CUDA k-mer join smoke proof:
+
+- K-mer join smoke manifest: `cuda-kmer-join-smoke-dgx-aarch64.json`

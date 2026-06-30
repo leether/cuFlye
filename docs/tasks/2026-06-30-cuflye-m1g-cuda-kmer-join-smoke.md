@@ -1,6 +1,6 @@
 # Task Card: cuFlye M1g CUDA K-mer Join Smoke Prototype
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -53,6 +53,7 @@ the join semantics can be tested without yet embedding CUDA into Flye's
 - `scripts/build_cuda_kmer_join_smoke.sh`
 - `tests/fixtures/kmer-join-smoke-v0/`
 - `docs/abi/cuda-kmer-join-smoke-v0.md`
+- `tests/golden/cuda-kmer-join-smoke-dgx-aarch64.json`
 - DGX proof that GPU TSV validates and matches CPU oracle and expected fixture
 
 ## Acceptance Gates
@@ -69,16 +70,42 @@ the join semantics can be tested without yet embedding CUDA into Flye's
 
 ## Execution Checklist
 
-- [ ] Add CUDA k-mer join smoke source.
-- [ ] Add build script.
-- [ ] Add fixture.
-- [ ] Add ABI/contract doc.
-- [ ] Build prototype on DGX with `nvcc`.
-- [ ] Generate CPU oracle and GPU TSV.
-- [ ] Validate expected, CPU oracle, and GPU TSV.
-- [ ] Diff expected vs CPU and CPU vs GPU.
-- [ ] Record compact proof and close this card.
+- [x] Add CUDA k-mer join smoke source.
+- [x] Add build script.
+- [x] Add fixture.
+- [x] Add ABI/contract doc.
+- [x] Build prototype on DGX with `nvcc`.
+- [x] Generate CPU oracle and GPU TSV.
+- [x] Validate expected, CPU oracle, and GPU TSV.
+- [x] Diff expected vs CPU and CPU vs GPU.
+- [x] Record compact proof and close this card.
 
 ## Merge Note
 
-Pending implementation.
+Implemented in repo commit `2d83322bf70dae9471f9d1272bd8a4d832f0361d` and
+validated on DGX host `edgexpert-45d2` with `/usr/local/cuda/bin/nvcc`
+`13.0.88` targeting `sm_121`.
+
+The smoke run used the `kmer-join-smoke-v0` fixture: 6 query k-mers, 10 index
+entries, and 1 repetitive lookup k-mer. The CUDA kernel evaluated 60 query/index
+pairs, skipped repetitive and trivial self hits, and emitted 6
+candidate-record-v1 rows.
+
+Expected fixture, CPU oracle, and GPU output all validated with raw SHA-256
+`c07761a6cf2dca8d2c3d511b938b454d8e272e0f035a147a59674f1c1c2c67ad`; expected
+vs CPU diff and CPU vs GPU diff both returned `match`.
+
+Proof paths:
+
+- Build manifest: `out/m1g/2d83322/build_manifest.json`
+- Runtime JSON: `out/m1g/2d83322/cuda-kmer-join-smoke.json`
+- Expected validator: `out/m1g/2d83322/expected.validator.json`
+- CPU validator: `out/m1g/2d83322/cpu-oracle.validator.json`
+- GPU validator: `out/m1g/2d83322/gpu-candidates.validator.json`
+- Expected vs CPU diff: `out/m1g/2d83322/expected-vs-cpu.candidate-diff.json`
+- CPU vs GPU diff: `out/m1g/2d83322/cpu-vs-gpu.candidate-diff.json`
+- Compact golden proof: `tests/golden/cuda-kmer-join-smoke-dgx-aarch64.json`
+
+Negative budget gate also passed: `--memory-budget-bytes 1` failed before GPU
+allocation with `CUDA k-mer join smoke memory budget is smaller than required
+device allocation`.

@@ -7,11 +7,12 @@ change is considered complete.
 
 Active cards:
 
-- `2026-06-30-cuflye-m1g-cuda-kmer-join-smoke.md`: generate a small
-  candidate-record-v1 TSV on GPU from query k-mers and a k-mer index fixture.
+- None.
 
 Completed cards:
 
+- `2026-06-30-cuflye-m1g-cuda-kmer-join-smoke.md`: generate a small
+  candidate-record-v1 TSV on GPU from query k-mers and a k-mer index fixture.
 - `2026-06-30-cuflye-m1f-cuda-candidate-smoke.md`: build the first CUDA kernel
   that emits a small candidate-record-v1 TSV matching a CPU oracle sample.
 - `2026-06-30-cuflye-m1e-cuda-runtime-probe.md`: build and validate a
