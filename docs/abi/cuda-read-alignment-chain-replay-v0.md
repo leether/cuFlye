@@ -42,6 +42,26 @@ fixture contract `N` independent times in one benchmark call. The output TSV
 contains the first representative fixture only; JSON records `batch_size` and
 `total_input_records`.
 
+M5e adds real multi-fixture batch mode:
+
+```text
+--batch-fixtures-file FILE
+--batch-output-dir DIR
+--batch-json-output PATH
+```
+
+The fixture list is a newline-delimited file of
+`read-alignment-replay-fixture-v0` directories. Blank lines are ignored and
+lines starting with `#` are comments. Batch mode emits one
+`read-alignment-v1` TSV per fixture under:
+
+```text
+<batch-output-dir>/<fixture-basename>/read-alignment.tsv
+```
+
+Batch mode does not allow `--replicate-fixture`; it is for real multiple
+fixtures, not copies of one fixture.
+
 ## Supported Shape
 
 - Fixture schema must be `cuflye-read-alignment-replay-fixture-v0`.
@@ -51,6 +71,10 @@ contains the first representative fixture only; JSON records `batch_size` and
 - `alignment_input_records` must be non-empty and at most `2048`.
 - `chain-divergence.tsv` must have contiguous chain ids starting at zero and
   must match the replayed pre-divergence chain count.
+- In M5e batch mode, all fixtures must have the same
+  `alignment_input_records`, the same `chain-divergence.tsv` row count, and the
+  same replay parameters. Heterogeneous batches fail closed until a later
+  scheduler/packing contract exists.
 
 Unsupported shapes must fail closed before writing a successful JSON summary.
 
@@ -69,6 +93,18 @@ The JSON summary uses schema
 - warmup and timed run counts.
 - representative-output-only batch metadata when `--replicate-fixture` is
   greater than one.
+
+Batch JSON uses schema
+`cuflye-cuda-read-alignment-chain-replay-batch-v0` and records:
+
+- backend, fixture count, input records per fixture, total input records,
+  candidate chains, accepted chains, and output records;
+- batch fixture list path and batch output directory;
+- one fixture entry per selected read with fixture dir, output TSV, query id,
+  input record count, and output record count;
+- CUDA device, memory, timing, and benchmark fields when backend is CUDA;
+- supported-shape flags documenting same-shape requirements and that the output
+  is not representative-only.
 
 ## Determinism
 

@@ -15,6 +15,9 @@ Proposed cards:
 
 Completed cards:
 
+- `2026-07-01-cuflye-m5e-real-multiread-replay-batch.md`: replace
+  replicated-batch read-alignment evidence with real multi-read fixture harvest
+  and packed CUDA execution while preserving per-read oracle diffs.
 - `2026-07-01-cuflye-m5d-read-alignment-replicated-batch.md`:
   turn the M5c single-read correctness benchmark into a replicated-batch CUDA
   occupancy test without changing the representative oracle.

@@ -52,3 +52,26 @@ the replay tool to reimplement Flye's optional edlib base realignment.
 
 Fixture dump requires `--threads 1` and a positive
 `CUFLYE_READ_ALIGNMENT_REPLAY_QUERY_ID`. The dump fails closed otherwise.
+
+M5e adds multi-query fixture harvest with
+`CUFLYE_READ_ALIGNMENT_REPLAY_QUERY_IDS`, a comma-separated list of positive
+read ids. When this variable is set, the dump root contains one fixture
+directory per selected read:
+
+```text
+<dump-root>/
+  query_200/
+    manifest.json
+    read.tsv
+    edge-sequences.tsv
+    edge-overlaps.tsv
+    chain-divergence.tsv
+    oracle.read-alignment.tsv
+  query_201/
+    ...
+```
+
+`CUFLYE_READ_ALIGNMENT_REPLAY_QUERY_IDS` fails closed on empty list elements,
+non-decimal values, or non-positive ids. The single-query
+`CUFLYE_READ_ALIGNMENT_REPLAY_QUERY_ID` mode keeps the original flat fixture
+directory layout for compatibility with M5b-M5d proofs.

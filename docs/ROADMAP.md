@@ -1236,3 +1236,87 @@ M5e: replace replicated-batch evidence with real multi-read replay fixture
 harvest and packed CUDA execution, preserving per-read oracle diffs before any
 Flye graph-consumption integration.
 ```
+
+Completed.
+
+M5e adds multi-query read-alignment replay fixture harvest with
+`CUFLYE_READ_ALIGNMENT_REPLAY_QUERY_IDS`. In multi-query mode, Flye writes one
+`read-alignment-replay-fixture-v0` directory per selected read under
+`query_<id>/`, while the older single-query flat layout remains compatible with
+M5b-M5d.
+
+M5e also adds real multi-fixture batch mode to
+`cuflye-cuda-read-alignment-chain-replay`:
+
+```text
+--batch-fixtures-file FILE
+--batch-output-dir DIR
+--batch-json-output PATH
+```
+
+The first packed CUDA contract requires same-shape fixtures: identical
+`alignment_input_records`, identical chain-divergence row counts, and identical
+replay parameters. Unsupported mixed-shape batches fail closed instead of
+falling back.
+
+The DGX proof applied and built Flye 2.9.6 plus patches through
+`0027-cuflye-read-alignment-multi-replay-fixture-dump.patch`. A toy-hifi
+multi-query harvest dumped `68` real read fixtures from one Flye run. The
+largest useful same-shape group selected for packed replay contained `19` real
+reads:
+
+```text
+query_ids=1069,1100,1229,1252,1279,1480,1500,1584,1716,1820,1909,1930,1989,2080,2214,2332,2345,2390,667
+alignment_input_records_per_fixture=3
+total_input_records=57
+output_records=38
+```
+
+Every selected CPU batch output and CUDA batch output validated as
+`read-alignment-v1`. CPU vs oracle, CUDA vs oracle, and CPU vs CUDA
+canonical diffs were `match` for all `19` reads.
+
+Warm benchmark timing with `5` warmups and `200` timed runs:
+
+```text
+cpu_mean_total_before_json_ms=0.003566
+cpu_mean_core_ms=0.003566
+cuda_mean_total_before_json_ms=0.233540
+cuda_mean_kernel_ms=0.011199
+cuda_total_speedup_vs_cpu=0.015269x
+cuda_total_slowdown_vs_cpu=65.490746x
+cuda_core_speedup_vs_cpu=0.318421x
+cuda_required_bytes=9595
+```
+
+The negative gates passed:
+
+```text
+mixed_shape: unsupported read-alignment batch: alignment_input_records differ
+memory_budget: CUDA memory budget exceeded for read-alignment batch
+```
+
+Allowed M5e claim:
+
+```text
+cuFlye can harvest multiple real Flye read-alignment replay fixtures, execute a
+same-shape 19-read packed CPU/CUDA batch, and preserve every per-read
+read-alignment-v1 oracle diff.
+```
+
+Forbidden M5e claim:
+
+```text
+M5e does not prove real-batch CUDA speedup, default GPU mode, graph mutation
+consumption, heterogeneous-shape batching, edlib/base realignment replay, or
+end-to-end Flye acceleration.
+```
+
+Next highest-ROI task:
+
+```text
+M5f: increase useful real read-alignment work per CUDA launch, either by
+harvesting larger same-shape batches from non-toy data, adding heterogeneous
+packing, or moving read-alignment replay into a persistent worker before any
+graph-consumption integration.
+```

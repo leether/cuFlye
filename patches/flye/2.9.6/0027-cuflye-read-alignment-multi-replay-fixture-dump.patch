@@ -1,0 +1,133 @@
+diff --git a/src/repeat_graph/read_aligner.cpp b/src/repeat_graph/read_aligner.cpp
+index 17e4394..cae5aa8 100644
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -5,7 +5,9 @@
+ #include "read_aligner.h"
+ #include "../sequence/alignment.h"
+ #include "../common/parallel.h"
++#include <cerrno>
+ #include <cmath>
++#include <cstring>
+ #include <cstdlib>
+ #include <fstream>
+ #include <iomanip>
+@@ -13,6 +15,8 @@
+ #include <queue>
+ #include <sstream>
+ #include <unordered_set>
++#include <sys/stat.h>
++#include <sys/types.h>
+ 
+ namespace
+ {
+@@ -119,10 +123,54 @@ namespace
+ 		return queryId;
+ 	}
+ 
+-	int64_t readAlignmentReplayQueryId()
++	std::unordered_set<int64_t> parseReplayQueryIds()
+ 	{
+-		static int64_t queryId = parseReplayQueryId();
+-		return queryId;
++		std::unordered_set<int64_t> queryIds;
++		const char* rawList = std::getenv("CUFLYE_READ_ALIGNMENT_REPLAY_QUERY_IDS");
++		if (rawList && rawList[0])
++		{
++			std::stringstream stream(rawList);
++			std::string token;
++			while (std::getline(stream, token, ','))
++			{
++				if (token.empty())
++				{
++					throw std::runtime_error(
++						"CUFLYE_READ_ALIGNMENT_REPLAY_QUERY_IDS contains an empty id");
++				}
++				size_t parsedChars = 0;
++				int64_t queryId = std::stoll(token, &parsedChars);
++				if (parsedChars != token.size() || queryId <= 0)
++				{
++					throw std::runtime_error(
++						"CUFLYE_READ_ALIGNMENT_REPLAY_QUERY_IDS must contain positive "
++						"decimal integers");
++				}
++				queryIds.insert(queryId);
++			}
++		}
++		else
++		{
++			queryIds.insert(parseReplayQueryId());
++		}
++		if (queryIds.empty())
++		{
++			throw std::runtime_error(
++				"CUFLYE_READ_ALIGNMENT_REPLAY_QUERY_IDS must not be empty");
++		}
++		return queryIds;
++	}
++
++	const std::unordered_set<int64_t>& readAlignmentReplayQueryIds()
++	{
++		static std::unordered_set<int64_t> queryIds = parseReplayQueryIds();
++		return queryIds;
++	}
++
++	bool readAlignmentReplayMultiDumpEnabled()
++	{
++		const char* rawList = std::getenv("CUFLYE_READ_ALIGNMENT_REPLAY_QUERY_IDS");
++		return rawList && rawList[0];
+ 	}
+ 
+ 	void validateReadAlignmentReplayDumpConfig()
+@@ -133,7 +181,7 @@ namespace
+ 			throw std::runtime_error(
+ 				"cuFlye read alignment replay fixture dump requires --threads 1");
+ 		}
+-		(void)readAlignmentReplayQueryId();
++		(void)readAlignmentReplayQueryIds();
+ 	}
+ 
+ 	std::string joinReplayPath(const std::string& root, const std::string& leaf)
+@@ -143,6 +191,20 @@ namespace
+ 		return root + "/" + leaf;
+ 	}
+ 
++	std::string replayQueryDirName(int64_t queryId)
++	{
++		return std::string("query_") + std::to_string(queryId);
++	}
++
++	void ensureReplayDirectory(const std::string& path)
++	{
++		if (::mkdir(path.c_str(), 0775) != 0 && errno != EEXIST)
++		{
++			throw std::runtime_error("Can't create read alignment replay directory " +
++									 path + ": " + std::strerror(errno));
++		}
++	}
++
+ 	void writeAlignmentRows(const std::string& path,
+ 							const std::vector<GraphAlignment>& chains)
+ 	{
+@@ -186,7 +248,7 @@ namespace
+ 		const SequenceContainer& edgeSeqs)
+ 	{
+ 		if (!readAlignmentReplayDumpEnabled()) return;
+-		if (seqId.signedId() != readAlignmentReplayQueryId()) return;
++		if (!readAlignmentReplayQueryIds().count(seqId.signedId())) return;
+ 		if (chainDivergences.size() != readChains.size())
+ 		{
+ 			throw std::runtime_error(
+@@ -194,6 +256,12 @@ namespace
+ 		}
+ 
+ 		std::string dumpDir(readAlignmentReplayDumpDir());
++		if (readAlignmentReplayMultiDumpEnabled())
++		{
++			ensureReplayDirectory(dumpDir);
++			dumpDir = joinReplayPath(dumpDir, replayQueryDirName(seqId.signedId()));
++			ensureReplayDirectory(dumpDir);
++		}
+ 		std::ofstream readOut(joinReplayPath(dumpDir, "read.tsv"));
+ 		std::ofstream edgeSeqOut(joinReplayPath(dumpDir, "edge-sequences.tsv"));
+ 		std::ofstream overlapOut(joinReplayPath(dumpDir, "edge-overlaps.tsv"));
