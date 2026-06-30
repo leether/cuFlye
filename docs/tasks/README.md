@@ -7,7 +7,9 @@ change is considered complete.
 
 Active cards:
 
-- None.
+- `2026-06-30-cuflye-m4b-overlap-chain-replay-harness.md`: isolate Flye's
+  candidate-to-overlap chaining contract in a bounded CPU replay before CUDA
+  chain DP.
 
 Completed cards:
 
