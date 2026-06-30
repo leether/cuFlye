@@ -7,11 +7,13 @@ change is considered complete.
 
 Active cards:
 
-- `2026-06-30-cuflye-m4d-overlap-chain-hotpath-benchmark.md`: add a fair CPU
-  baseline and warm CUDA hotpath benchmark for the M4c supported fixture.
+- `2026-06-30-cuflye-m4e-overlap-chain-parallel-reduction.md`: increase CUDA
+  overlap-chain occupancy with group-internal parallel predecessor reduction.
 
 Completed cards:
 
+- `2026-06-30-cuflye-m4d-overlap-chain-hotpath-benchmark.md`: add a fair CPU
+  baseline and warm CUDA hotpath benchmark for the M4c supported fixture.
 - `2026-06-30-cuflye-m4c-cuda-overlap-chain-dp-prototype.md`: implement the
   first CUDA overlap-chain DP prototype for the M4b supported fixture shape.
 - `2026-06-30-cuflye-m4b-overlap-chain-replay-harness.md`: isolate Flye's

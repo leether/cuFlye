@@ -1,0 +1,328 @@
+{
+  "acceptance": {
+    "cold_setup_separated_by_warmups": true,
+    "cpu_cuda_diff_match": true,
+    "cpu_oracle_diff_match": true,
+    "cpu_output_validates": true,
+    "cuda_build_succeeds": true,
+    "cuda_oracle_diff_match": true,
+    "cuda_output_validates": true,
+    "local_syntax_style_gates_pass": true,
+    "memory_budget_fails_closed": true,
+    "no_large_tsv_committed": true,
+    "ownership_scan_no_new_direct_resource_api": true,
+    "timed_runs_recorded": true,
+    "unsupported_shape_fails_closed": true
+  },
+  "benchmark_summary": {
+    "cpu_mean_core_ms": 2.328756,
+    "cpu_mean_total_before_json_ms": 2.330413,
+    "cuda_core_slowdown_vs_cpu": 1.962816198863256,
+    "cuda_core_speedup_vs_cpu": 0.5094720537659814,
+    "cuda_hotpath_slowdown_vs_cpu": 2.0260421650582967,
+    "cuda_hotpath_speedup_vs_cpu": 0.4935731433660594,
+    "cuda_is_faster": false,
+    "cuda_mean_core_ms": 4.57092,
+    "cuda_mean_total_before_json_ms": 4.721515
+  },
+  "build": {
+    "created_at_utc": "2026-06-30T14:15:18.630730+00:00",
+    "cuda_arch": "sm_121",
+    "cuda_home": "/usr/local/cuda",
+    "host": "edgexpert-45d2",
+    "machine": "aarch64",
+    "nvcc": "/usr/local/cuda/bin/nvcc",
+    "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:57:39_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+    "output_binary": "/tmp/cuflye-m4d-proof-1782828914-git/out/m4d/bin/cuflye-cuda-overlap-chain-replay",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+    "python": "3.12.3",
+    "repo_commit": "e3deb3efb0043c7b01c203bf986def52c63d247c",
+    "repo_root": "/tmp/cuflye-m4d-proof-1782828914-git"
+  },
+  "claims": {
+    "allowed": [
+      "CPU baseline and CUDA benchmark outputs both reproduce the M4b oracle for query_neg71.",
+      "For this single small fixture, the current CUDA overlap-chain hotpath is slower than the CPU baseline."
+    ],
+    "next_optimization_target": "increase overlap-chain GPU occupancy with batched supported fixtures or group-internal parallel DP reduction",
+    "not_claimed": [
+      "No overlap-chain speedup claim.",
+      "No Flye graph integration.",
+      "No base-level alignment replay.",
+      "No bad-mapping trim replay.",
+      "No workload-level Flye GPU mode claim."
+    ]
+  },
+  "cpu_run": {
+    "backend": "cpu",
+    "benchmark": {
+      "max_total_before_json_ms": 2.355852,
+      "mean_core_ms": 2.328756,
+      "mean_total_before_json_ms": 2.330413,
+      "min_total_before_json_ms": 2.318043,
+      "timed_runs": 20,
+      "warmup_runs": 3
+    },
+    "candidate_records": 7859,
+    "device": null,
+    "filtered_positions": 0,
+    "fixture_dir": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/replay-fixtures/query_neg71",
+    "memory": {
+      "required_bytes": 78411
+    },
+    "output_records": 51,
+    "output_tsv": "out/m4d/cpu.overlaps.tsv",
+    "query_id": -71,
+    "schema": "cuflye-cuda-overlap-chain-replay-v0",
+    "status": "ok",
+    "supported_shape": {
+      "keep_alignment": false,
+      "nucl_alignment": false,
+      "only_max_ext": true,
+      "partition_bad_mappings": false
+    },
+    "target_groups": 120,
+    "timing_ms": {
+      "cpu_chain": 2.316763,
+      "device_allocation": 0.0,
+      "device_to_host": 0.0,
+      "finalize": 0.00128,
+      "host_to_device": 0.0,
+      "kernel": 0.0,
+      "setup": 0.0,
+      "total_before_json": 6.997138,
+      "write_output": 0.208273
+    }
+  },
+  "created_at_utc": "2026-06-30T14:17:17.004183+00:00",
+  "cuda_run": {
+    "backend": "cuda",
+    "benchmark": {
+      "max_total_before_json_ms": 4.742471,
+      "mean_core_ms": 4.57092,
+      "mean_total_before_json_ms": 4.721515,
+      "min_total_before_json_ms": 4.699159,
+      "timed_runs": 20,
+      "warmup_runs": 3
+    },
+    "candidate_records": 7859,
+    "device": {
+      "free_bytes": 94185586688,
+      "id": 0,
+      "name": "NVIDIA GB10",
+      "total_bytes": 130594660352
+    },
+    "filtered_positions": 0,
+    "fixture_dir": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/replay-fixtures/query_neg71",
+    "memory": {
+      "required_bytes": 461407
+    },
+    "output_records": 51,
+    "output_tsv": "out/m4d/cuda.overlaps.tsv",
+    "query_id": -71,
+    "schema": "cuflye-cuda-overlap-chain-replay-v0",
+    "status": "ok",
+    "supported_shape": {
+      "keep_alignment": false,
+      "nucl_alignment": false,
+      "only_max_ext": true,
+      "partition_bad_mappings": false
+    },
+    "target_groups": 120,
+    "timing_ms": {
+      "cpu_chain": 0.0,
+      "device_allocation": 0.099409,
+      "device_to_host": 0.008496,
+      "finalize": 0.003056,
+      "host_to_device": 0.024992,
+      "kernel": 4.570134,
+      "setup": 0.012688,
+      "total_before_json": 7.194387,
+      "write_output": 0.136993
+    }
+  },
+  "diff": {
+    "cpu_vs_cuda": {
+      "left": "/tmp/cuflye-m4d-proof-1782828914-git/out/m4d/cpu.overlaps.tsv",
+      "left_records": 51,
+      "left_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+      "right": "/tmp/cuflye-m4d-proof-1782828914-git/out/m4d/cuda.overlaps.tsv",
+      "right_records": 51,
+      "right_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+      "status": "match"
+    },
+    "oracle_vs_cpu": {
+      "left": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/replay-fixtures/query_neg71/oracle.overlaps.tsv",
+      "left_records": 51,
+      "left_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+      "right": "/tmp/cuflye-m4d-proof-1782828914-git/out/m4d/cpu.overlaps.tsv",
+      "right_records": 51,
+      "right_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+      "status": "match"
+    },
+    "oracle_vs_cuda": {
+      "left": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/replay-fixtures/query_neg71/oracle.overlaps.tsv",
+      "left_records": 51,
+      "left_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+      "right": "/tmp/cuflye-m4d-proof-1782828914-git/out/m4d/cuda.overlaps.tsv",
+      "right_records": 51,
+      "right_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+      "status": "match"
+    }
+  },
+  "fixture": {
+    "candidate_records": 7859,
+    "dir": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/replay-fixtures/query_neg71",
+    "filtered_positions": 0,
+    "inventory": {
+      "candidate_groups": 120,
+      "candidate_records": 7859,
+      "m4b_fixture_count": 2,
+      "m4c_supported_fixture_count": 1,
+      "max_group_candidates": 363,
+      "median_group_candidates": 14,
+      "top_group_candidates": [
+        363,
+        339,
+        301,
+        284,
+        268,
+        260,
+        257,
+        245,
+        243,
+        208,
+        205,
+        196,
+        196,
+        190,
+        181,
+        167,
+        162,
+        161,
+        146,
+        144
+      ]
+    },
+    "oracle_overlap_records": 51,
+    "parameters": {
+      "chain_gap_jump_threshold": 100,
+      "chain_large_gap_penalty": 2,
+      "chain_small_gap_penalty": 0.5,
+      "check_overhang": true,
+      "force_local": false,
+      "keep_alignment": false,
+      "kmer_size": 17,
+      "max_divergence": 1,
+      "max_jump_gap": 500,
+      "max_overlaps": 0,
+      "maximum_jump": 1500,
+      "maximum_overhang": 1500,
+      "min_kmer_survival_rate": 0.00999999978,
+      "minimum_overlap": 1000,
+      "nucl_alignment": false,
+      "only_max_ext": true,
+      "partition_bad_mappings": false,
+      "sample_rate": 1,
+      "use_hpc": false
+    },
+    "query_id": -71,
+    "query_length": 23257,
+    "schema": "cuflye-overlap-replay-fixture-v0",
+    "target_records": 120,
+    "unsupported_dir": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/replay-fixtures/query_1"
+  },
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+    "python": "3.12.3"
+  },
+  "milestone": "M4d-overlap-chain-hotpath-benchmark",
+  "negative_gates": {
+    "memory_budget": {
+      "budget_bytes": 1,
+      "stderr_first_line": "CUDA overlap chain replay failed: CUDA overlap replay memory budget exceeded: required=461407 budget=1"
+    },
+    "unsupported_shape": {
+      "fixture_dir": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/replay-fixtures/query_1",
+      "stderr_first_line": "CUDA overlap chain replay failed: unsupported overlap CUDA replay shape; nucl_alignment=true requires base-alignment replay; partition_bad_mappings=true requires trim replay; keep_alignment=true is outside M4c prototype scope; only_max_ext=false is outside M4c prototype scope"
+    }
+  },
+  "repo": {
+    "commit": "e3deb3efb0043c7b01c203bf986def52c63d247c",
+    "remote_dir": "/tmp/cuflye-m4d-proof-1782828914-git",
+    "root": "/tmp/cuflye-m4d-proof-1782828914-git",
+    "status_short": "## main...origin/main [ahead 1]"
+  },
+  "schema": "cuflye-dgx-proof-v1",
+  "status": "passed",
+  "validation": {
+    "cpu": {
+      "abi": "overlap-range-v1",
+      "canonical_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+      "first_record": [
+        -71,
+        89,
+        4589,
+        23257,
+        17,
+        6008,
+        10428,
+        10457,
+        338,
+        0.229469001
+      ],
+      "last_record": [
+        -71,
+        5791,
+        9972,
+        23257,
+        911,
+        214,
+        4354,
+        4816,
+        421,
+        0.217857465
+      ],
+      "path": "/tmp/cuflye-m4d-proof-1782828914-git/out/m4d/cpu.overlaps.tsv",
+      "raw_sha256": "2549e299addcaf5bf903c0e5319d3097164220daaf1ad189d87f69de98daae80",
+      "raw_sorted_by_canonical_key": false,
+      "records": 51,
+      "size_bytes": 2870
+    },
+    "cuda": {
+      "abi": "overlap-range-v1",
+      "canonical_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+      "first_record": [
+        -71,
+        89,
+        4589,
+        23257,
+        17,
+        6008,
+        10428,
+        10457,
+        338,
+        0.229469001
+      ],
+      "last_record": [
+        -71,
+        5791,
+        9972,
+        23257,
+        911,
+        214,
+        4354,
+        4816,
+        421,
+        0.217857465
+      ],
+      "path": "/tmp/cuflye-m4d-proof-1782828914-git/out/m4d/cuda.overlaps.tsv",
+      "raw_sha256": "2549e299addcaf5bf903c0e5319d3097164220daaf1ad189d87f69de98daae80",
+      "raw_sorted_by_canonical_key": false,
+      "records": 51,
+      "size_bytes": 2870
+    }
+  }
+}

@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4d Overlap Chain Hotpath Benchmark
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -88,11 +88,45 @@ overlap-chain speedup.
 
 ## Execution Checklist
 
-- [ ] Inspect M4c timing breakdown and M4b fixture inventory.
-- [ ] Add CPU replay baseline for the supported fixture shape.
-- [ ] Add warm repeated CUDA benchmark mode.
-- [ ] Validate CPU and CUDA benchmark outputs on DGX.
-- [ ] Diff CPU and CUDA outputs against the M4b oracle.
-- [ ] Record timing summary and speed ratio.
-- [ ] Run ownership/resource scan.
-- [ ] Record compact DGX proof and close this card.
+- [x] Inspect M4c timing breakdown and M4b fixture inventory.
+- [x] Add CPU replay baseline for the supported fixture shape.
+- [x] Add warm repeated CUDA benchmark mode.
+- [x] Validate CPU and CUDA benchmark outputs on DGX.
+- [x] Diff CPU and CUDA outputs against the M4b oracle.
+- [x] Record timing summary and speed ratio.
+- [x] Run ownership/resource scan.
+- [x] Record compact DGX proof and close this card.
+
+## Merge Note
+
+Implementation commit: `e3deb3efb0043c7b01c203bf986def52c63d247c`
+
+DGX proof manifest:
+`tests/golden/cuflye-m4d-overlap-chain-hotpath-benchmark-dgx-aarch64.json`
+
+Proof summary:
+
+- Host: `edgexpert-45d2` (`aarch64`)
+- GPU: `NVIDIA GB10`, CUDA arch `sm_121`
+- Fixture: M4b `query_neg71`
+- Candidate records: `7,859`
+- Target groups: `120`
+- Overlap records: `51`
+- CPU, CUDA, and oracle canonical SHA-256:
+  `1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73`
+- CPU vs oracle diff: `match`
+- CUDA vs oracle diff: `match`
+- CPU vs CUDA diff: `match`
+- Warmup runs: `3`
+- Timed runs: `20`
+- CPU mean hotpath before JSON: `2.330413 ms`
+- CUDA mean hotpath before JSON: `4.721515 ms`
+- CUDA hotpath speedup vs CPU: `0.493573x`
+- CUDA hotpath slowdown vs CPU: `2.026042x`
+- Fixture inventory: only one M4c-supported fixture in the M4b proof
+  directory; maximum target group size `363`, median group size `14`
+
+Conclusion: correctness is preserved, but the current CUDA overlap-chain
+hotpath is not faster for this small single-query fixture. The next optimization
+target is higher GPU occupancy through group-internal parallel DP reduction or
+more supported batched fixtures.

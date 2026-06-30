@@ -110,6 +110,10 @@ Completed:
   `1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73`,
   canonical diff `match`. The single-fixture CUDA kernel time was
   `4.80657 ms` on DGX `NVIDIA GB10`.
+- M4d: a fair C++ CPU baseline and warm CUDA benchmark reproduce the same
+  M4b oracle, but the current CUDA hotpath is slower for this small single-query
+  fixture: CPU mean hotpath `2.330413 ms`, CUDA mean hotpath `4.721515 ms`,
+  CUDA speedup vs CPU `0.493573x`, CUDA slowdown vs CPU `2.026042x`.
 
 Current allowed performance claim:
 
@@ -129,6 +133,10 @@ CUDA or end-to-end performance claim.
 cuFlye has also reproduced that same bounded overlap-chain replay shape with a
 standalone CUDA prototype; this is a CUDA correctness claim for one supported
 fixture, not a Flye graph-integration or workload-level speed claim.
+
+The current CUDA overlap-chain hotpath is not faster than the C++ CPU baseline
+for the only supported M4b fixture; this is a measured optimization blocker,
+not a speedup claim.
 ```
 
 Current forbidden claim:
@@ -301,12 +309,12 @@ Use precise milestone labels:
 Next highest-ROI task:
 
 ```text
-M4d: add a fair CPU baseline and warm CUDA hotpath benchmark for the M4c
-supported overlap-chain replay fixture.
+M4e: increase CUDA overlap-chain occupancy with an explicit group-internal
+parallel-reduction kernel mode, then benchmark it against the M4d CPU baseline
+and serial CUDA kernel.
 ```
 
 Acceptance should keep the M4b `query_neg71` fixture as the correctness oracle,
-separate cold CUDA context setup from warm hotpath timing, and record whether
-the CUDA path is faster than the CPU baseline for this bounded shape. CUDA
-output is still not allowed into Flye graph logic until broader overlap-chain
-coverage exists.
+preserve exact `overlap-range-v1` hashes, and only claim a scoped speedup if the
+parallel-reduction CUDA mode beats the M4d CPU baseline. CUDA output is still
+not allowed into Flye graph logic until broader overlap-chain coverage exists.
