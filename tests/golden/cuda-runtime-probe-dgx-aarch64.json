@@ -1,0 +1,50 @@
+{
+  "build": {
+    "compiler": "g++",
+    "cuda_home": "/usr/local/cuda",
+    "include_dir": "/usr/local/cuda/include",
+    "lib_dir": "/usr/local/cuda/lib64",
+    "manifest": "out/m1e/d08667d/build_manifest.json",
+    "output_binary": "out/m1e/d08667d/bin/cuflye-cuda-probe",
+    "repo_commit": "d08667db341dba4301835f3bb21ccac41a3f0b13"
+  },
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39"
+  },
+  "probe": {
+    "adapter": "cuda-runtime-probe-v0",
+    "compute_capability": "12.1",
+    "cuda_driver_version": 13000,
+    "cuda_runtime_version": 13000,
+    "device": 0,
+    "device_count": 1,
+    "device_name": "NVIDIA GB10",
+    "global_memory_bytes": 130594660352,
+    "json": "out/m1e/d08667d/cuda_probe.ok.json",
+    "max_threads_per_block": 1024,
+    "memory_budget_bytes": 1073741824,
+    "memory_budget_satisfied": true,
+    "memory_bus_width_bits": 256,
+    "memory_free_bytes_observed": 16678821888,
+    "memory_total_bytes": 130594660352,
+    "multi_processor_count": 48,
+    "registers_per_block": 65536,
+    "shared_memory_per_block_bytes": 49152,
+    "status": "ok",
+    "warp_size": 32
+  },
+  "negative_budget_probe": {
+    "json": "out/m1e/d08667d/cuda_probe.insufficient.json",
+    "memory_budget_bytes": 999999999999999,
+    "memory_budget_satisfied": false,
+    "status": "insufficient_memory_budget"
+  },
+  "scope": {
+    "candidate_records_emitted": false,
+    "flye_backend_replaced": false,
+    "kernel_implemented": false
+  },
+  "validated_on_utc": "2026-06-30T00:09:41Z"
+}

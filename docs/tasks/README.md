@@ -7,11 +7,12 @@ change is considered complete.
 
 Active cards:
 
-- `2026-06-30-cuflye-m1e-cuda-runtime-probe.md`: build and validate a
-  standalone CUDA Runtime API probe on DGX.
+- None.
 
 Completed cards:
 
+- `2026-06-30-cuflye-m1e-cuda-runtime-probe.md`: build and validate a
+  standalone CUDA Runtime API probe on DGX.
 - `2026-06-30-cuflye-m1d-cuda-backend-stub.md`: add a fail-fast CUDA backend
   adapter path before implementing kernels.
 - `2026-06-30-cuflye-m1c-candidate-abi-contract.md`: define and validate the

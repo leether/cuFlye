@@ -1,6 +1,6 @@
 # Task Card: cuFlye M1e CUDA Runtime Probe
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -63,14 +63,51 @@ CUDA runtime client that queries device properties and memory budget status.
 
 ## Execution Checklist
 
-- [ ] Add CUDA runtime probe source.
-- [ ] Add probe build script.
-- [ ] Add probe ABI/contract doc.
-- [ ] Build probe locally where possible or syntax-check scripts.
-- [ ] Build probe on DGX.
-- [ ] Run probe on DGX with a memory budget.
-- [ ] Record compact proof and close this card.
+- [x] Add CUDA runtime probe source.
+- [x] Add probe build script.
+- [x] Add probe ABI/contract doc.
+- [x] Build probe locally where possible or syntax-check scripts.
+- [x] Build probe on DGX.
+- [x] Run probe on DGX with a memory budget.
+- [x] Record compact proof and close this card.
 
 ## Merge Note
 
-Pending implementation.
+Completed on DGX host `edgexpert-45d2` against cuFlye commit
+`d08667db341dba4301835f3bb21ccac41a3f0b13`.
+
+Build proof:
+
+- Build script: `scripts/build_cuda_probe.sh`
+- Source: `cuda/cuflye_cuda_probe.cpp`
+- Build manifest: `out/m1e/d08667d/build_manifest.json`
+- Output binary: `out/m1e/d08667d/bin/cuflye-cuda-probe`
+- Compiler: `g++`
+- CUDA include dir: `/usr/local/cuda/include`
+- CUDA runtime lib dir: `/usr/local/cuda/lib64`
+
+Runtime proof:
+
+- JSON report: `out/m1e/d08667d/cuda_probe.ok.json`
+- Adapter: `cuda-runtime-probe-v0`
+- Status: `ok`
+- Device count: `1`
+- Device 0: `NVIDIA GB10`
+- Compute capability: `12.1`
+- CUDA driver version: `13000`
+- CUDA runtime version: `13000`
+- Total memory: `130594660352` bytes
+- Observed free memory: `16678821888` bytes
+- Requested memory budget: `1073741824` bytes
+- Memory budget satisfied: `true`
+
+Negative budget proof:
+
+- JSON report: `out/m1e/d08667d/cuda_probe.insufficient.json`
+- Requested memory budget: `999999999999999` bytes
+- Status: `insufficient_memory_budget`
+- Memory budget satisfied: `false`
+
+Tracked compact proof:
+
+- `tests/golden/cuda-runtime-probe-dgx-aarch64.json`

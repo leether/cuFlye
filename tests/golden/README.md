@@ -18,3 +18,7 @@ Accepted fixtures:
 
 ABI proof manifests use the same fixture and must reference compact validator
 summaries, not full candidate TSV files.
+
+CUDA runtime proof:
+
+- Runtime probe manifest: `cuda-runtime-probe-dgx-aarch64.json`
