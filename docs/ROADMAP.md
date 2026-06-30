@@ -215,6 +215,16 @@ Completed:
   validation, shadow comparison, and guard still passed, but typed-vector
   comparison produced `12` mismatching fixtures and failed closed with
   `status=rehydration-failed-before-graph-mutation` before graph mutation.
+- M4v: Flye can invoke the packed overlap worker through a two-request
+  persistent JSONL lifecycle in opt-in session-batch mode. The positive DGX
+  proof wrote a cold warmup response with `request_ordinal=1` and
+  `worker_cuda_context_warm=false`, then an actual warm response with
+  `request_ordinal=2`, `worker_cuda_context_warm=true`, and
+  `timing_ms.request_total=8.223469 ms`. Exact toy-raw Flye artifacts matched
+  the CPU baseline. This reduced measured per-request lifecycle cost by
+  `98.134393%` versus the M4u cold batch-run worker process, but the full
+  toy-raw run was still slower than CPU (`88s` vs `82s`) because the proof still
+  pays for one synthetic warmup request inside the same Flye run.
 
 Current allowed performance claim:
 
@@ -286,6 +296,11 @@ cuFlye can now rehydrate validated CUDA overlap worker records into a
 Flye-side typed overlap vector and prove that vector matches CPU overlap
 records captured in memory. This is a representation-boundary claim; it still
 does not feed GPU output into graph mutation.
+
+cuFlye can now keep the actual overlap-worker request warm inside a two-request
+persistent JSONL lifecycle and preserve exact toy-raw Flye artifacts. This is a
+worker-lifecycle seam claim: the warm request is much cheaper than the M4u cold
+batch worker process, but the proof is not yet a whole-Flye speedup.
 ```
 
 Current forbidden claim:
@@ -694,4 +709,53 @@ Next highest-ROI task:
 M4v: introduce an explicit persistent overlap-worker lifecycle so warm
 sequential batch requests avoid paying external worker process startup cost each
 time.
+Completed.
+```
+
+M4v proof on DGX used toy-raw query ids `353,381` in
+`verified-overlap-range-session-batch-v0` with
+`CUFLYE_OVERLAP_WORKER_LIFECYCLE_MODE=jsonl-persistent-v0`. The positive run
+preserved exact canonical Flye artifacts against the CPU toy-raw baseline. The
+worker processed two requests from `worker-requests.jsonl`: a cold warmup
+request, then an actual warm request. The actual response reported:
+
+```text
+request_ordinal: 2
+worker_cuda_context_warm: true
+timing_ms.request_total: 8.223469 ms
+timing_ms.backend_mean_total_before_write: 5.530894 ms
+timing_ms.worker_overhead: 2.692575 ms
+```
+
+Compared with M4u's cold batch-run worker process time of `440.793131 ms`, the
+M4v actual warm request total is `53.601847x` faster, a `98.134393%` reduction
+in measured request-lifecycle cost.
+
+M4v is still not an end-to-end Flye speedup. CPU toy-raw elapsed `82s`; the
+persistent lifecycle run elapsed `88s` (`1.073171x` CPU wall time), because this
+proof still pays for one synthetic warmup batch inside the same Flye run. The
+mismatch negative proof failed closed at exact substitution comparison, and the
+unsupported-shape negative proof failed closed before worker invocation with
+`worker_process_ms=0`.
+
+Allowed M4v claim:
+
+```text
+cuFlye can invoke the overlap worker through a two-request persistent JSONL
+lifecycle, keep the actual request warm, preserve exact toy-raw Flye artifacts,
+and fail closed on mismatch or unsupported selected shapes.
+```
+
+Forbidden M4v claim:
+
+```text
+M4v does not prove default GPU mode, broad unsupported-shape substitution, or
+end-to-end Flye speedup.
+```
+
+Next highest-ROI task:
+
+```text
+M4w: turn the M4v warm-request lifecycle proof into a Flye-visible persistent
+worker session that avoids a duplicate warmup batch in the same proof path.
 ```

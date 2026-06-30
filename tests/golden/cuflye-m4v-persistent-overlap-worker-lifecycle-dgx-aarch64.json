@@ -1,0 +1,362 @@
+{
+  "acceptance": {
+    "actual_request_total_lower_than_m4u_batch_worker_process_ms": true,
+    "cold_warmup_response_is_request_ordinal_1": true,
+    "cold_warmup_response_reports_context_cold": true,
+    "cuda_overlap_worker_build_succeeds_on_dgx": true,
+    "local_and_dgx_syntax_style_gates_pass": true,
+    "mismatch_negative_fails_closed": true,
+    "patch_series_applies_and_builds_through_m4v": true,
+    "persistent_lifecycle_processed_two_requests": true,
+    "positive_toy_raw_artifacts_match_cpu": true,
+    "unsupported_negative_fails_closed_before_worker": true,
+    "warm_actual_response_is_request_ordinal_2": true,
+    "warm_actual_response_reports_context_warm": true
+  },
+  "benefit_assessment_plain_language": "M4v still does not prove end-to-end Flye GPU speedup: CPU toy-raw elapsed 82s and the persistent lifecycle run elapsed 88s. The direct benefit is at the worker lifecycle seam: the actual warm request ran as request ordinal 2 with CUDA context warm, and its request_total was 8.223469 ms versus M4u batch-run worker_process_ms 440.793131 ms, a 98.134393% reduction in the measured per-request lifecycle cost. This shows the persistent worker seam can remove the dominant external startup/CUDA context cost, but the current proof still pays for a warmup request inside one Flye run and is not yet a whole-stage speedup.",
+  "builds": {
+    "cuda_overlap_worker": {
+      "arch": null,
+      "binary": "out/m4v/bin/cuflye-cuda-overlap-chain-replay",
+      "manifest": "out/m4v/cuda_overlap_chain_replay_build_manifest.json",
+      "nvcc": "/usr/local/cuda/bin/nvcc"
+    },
+    "flye": {
+      "applied_patch_count": 21,
+      "last_applied_patches": [
+        "0019-cuflye-substitution-session-timing-attribution.patch",
+        "0020-cuflye-substitution-session-batch-cache.patch",
+        "0021-cuflye-persistent-overlap-worker-lifecycle.patch"
+      ],
+      "manifest": "out/m4v/flye_build_manifest.json"
+    }
+  },
+  "claims": {
+    "allowed": "cuFlye can invoke the overlap worker through a two-request persistent JSONL lifecycle, keep the second request warm, preserve exact toy-raw Flye artifacts, and fail closed on mismatch or unsupported selected shapes.",
+    "forbidden": "M4v does not prove default GPU mode, broad unsupported-shape substitution, or end-to-end Flye speedup."
+  },
+  "created_at_utc": "2026-06-30T20:05:15.908402+00:00",
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "nvidia_smi": "GPU 0: NVIDIA GB10 (UUID: GPU-36e1e91e-fa5c-6e0d-d076-203391a7bb03)"
+  },
+  "m4u_comparison": {
+    "m4u_batch_run_worker_process_ms": 440.793131,
+    "m4u_manifest": "tests/golden/cuflye-m4u-substitution-worker-overhead-reduction-dgx-aarch64.json",
+    "m4u_selected_seam_total_ms_avg": 228.892051,
+    "m4u_selected_worker_process_ms_avg": 220.396566,
+    "m4v_warm_actual_backend_mean_total_before_write_ms": 5.530894,
+    "m4v_warm_actual_request_total_ms": 8.223469,
+    "m4v_warm_actual_worker_overhead_ms": 2.692575,
+    "request_total_reduction_vs_m4u_batch_worker_process_pct": 98.134393,
+    "request_total_speedup_vs_m4u_batch_worker_process": 53.601847
+  },
+  "milestone": "M4v",
+  "negative_mismatch_session": {
+    "error": "verified substitution object vector differs from current CPU overlaps",
+    "exit_status": 1,
+    "expected_failure": true,
+    "graph_mutation_consumed_worker_output": false,
+    "ledger": {
+      "counts": {
+        "deferred-session-batch-waiting": 1,
+        "failed-closed": 1,
+        "skipped-not-selected": 38
+      },
+      "selected_entries": [
+        {
+          "decision": "deferred-session-batch-waiting",
+          "query_id": 353,
+          "reason": "waiting for selected supported fixtures to amortize worker invocation",
+          "selected": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 1.393512,
+            "graph_guard_ms": 0.0,
+            "ledger_entry_build_ms": 0.021968,
+            "object_rehydration_ms": 0.0,
+            "request_io_ms": 1.946891,
+            "seam_total_ms": 1.949339,
+            "shadow_ms": 0.0,
+            "substitution_comparison_ms": 0.0,
+            "typed_rehydration_ms": 0.0,
+            "validation_ms": 0.0,
+            "worker_process_ms": 0.0
+          }
+        },
+        {
+          "decision": "failed-closed",
+          "query_id": 381,
+          "reason": "verified substitution object vector differs from current CPU overlaps",
+          "selected": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 8.001563,
+            "graph_guard_ms": 3.584515,
+            "ledger_entry_build_ms": 0.008865,
+            "object_rehydration_ms": 1.317543,
+            "request_io_ms": 6.872837,
+            "seam_total_ms": 536.427818,
+            "shadow_ms": 1.02839,
+            "substitution_comparison_ms": 0.877204,
+            "typed_rehydration_ms": 2.191596,
+            "validation_ms": 1.723801,
+            "worker_process_ms": 518.786796
+          }
+        }
+      ]
+    },
+    "proof_fault": "drop-first-substitution-overlap",
+    "seam_status": "substitution-failed-before-graph-mutation",
+    "selected_query_id": 381,
+    "substitution_decision": "failed-closed-before-graph-mutation",
+    "substitution_state": "failed-closed",
+    "substitution_status": "failed"
+  },
+  "negative_unsupported_shape_session": {
+    "error": "unsupported selected overlap replay shape: proof fault forced unsupported selected shape",
+    "exit_status": 1,
+    "expected_failure": true,
+    "ledger": {
+      "counts": {
+        "failed-closed-unsupported-selected-shape": 1,
+        "skipped-not-selected": 1
+      },
+      "selected_entries": [
+        {
+          "decision": "failed-closed-unsupported-selected-shape",
+          "query_id": 353,
+          "reason": "proof fault forced unsupported selected shape",
+          "selected": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 1.360599,
+            "graph_guard_ms": 0.0,
+            "ledger_entry_build_ms": 0.027776,
+            "object_rehydration_ms": 0.0,
+            "request_io_ms": 0.0,
+            "seam_total_ms": 12.789172,
+            "shadow_ms": 0.0,
+            "substitution_comparison_ms": 0.0,
+            "typed_rehydration_ms": 0.0,
+            "validation_ms": 0.0,
+            "worker_process_ms": 0.0
+          }
+        }
+      ]
+    },
+    "proof_fault": "force-unsupported-selected-shape",
+    "selected_query_id": 353,
+    "substitution_decision": "failed-closed-before-graph-mutation",
+    "substitution_state": "failed-closed",
+    "substitution_status": "failed",
+    "worker_requests_jsonl_exists": false,
+    "worker_response_exists": false
+  },
+  "positive_session": {
+    "actual_response": {
+      "fixture_count": 2,
+      "output_records": 68,
+      "path": "out/m4v/overlap-worker-session-persistent-pass/worker-response.json",
+      "request_ordinal": 2,
+      "status": "ok",
+      "timing_ms": {
+        "backend_mean_total_before_write": 5.530894,
+        "backend_timed_total_before_write": 5.530894,
+        "kernel": 5.497582,
+        "parse": 2.572158,
+        "request_total": 8.223469,
+        "worker_overhead": 2.692575,
+        "worker_uptime": 349.908941,
+        "write_output": 0.084833
+      },
+      "worker_context_setup_ms": 332.779904,
+      "worker_cuda_context_warm": true
+    },
+    "artifact_diff_first_line": "Flye run diff: match",
+    "artifact_diff_match": true,
+    "cpu_baseline_elapsed_seconds": 82,
+    "fixture": "toy-raw",
+    "jsonl_request_count": 2,
+    "ledger": {
+      "counts": {
+        "deferred-session-batch-waiting": 1,
+        "skipped-already-substituted": 4,
+        "skipped-not-selected": 1892,
+        "skipped-unsupported-non-selected-shape": 987,
+        "substituted-from-session-batch-cache": 1,
+        "substituted-from-session-batch-run": 1
+      },
+      "selected_entries": [
+        {
+          "decision": "deferred-session-batch-waiting",
+          "query_id": 353,
+          "reason": "waiting for selected supported fixtures to amortize worker invocation",
+          "selected": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 0.674803,
+            "graph_guard_ms": 0.0,
+            "ledger_entry_build_ms": 0.016304,
+            "object_rehydration_ms": 0.0,
+            "request_io_ms": 36.565349,
+            "seam_total_ms": 36.566533,
+            "shadow_ms": 0.0,
+            "substitution_comparison_ms": 0.0,
+            "typed_rehydration_ms": 0.0,
+            "validation_ms": 0.0,
+            "worker_process_ms": 0.0
+          }
+        },
+        {
+          "decision": "substituted-from-session-batch-run",
+          "query_id": 381,
+          "reason": "selected supported shape evaluated by worker",
+          "selected": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 7.127478,
+            "graph_guard_ms": 0.874661,
+            "ledger_entry_build_ms": 0.00608,
+            "object_rehydration_ms": 1.356087,
+            "request_io_ms": 5.481293,
+            "seam_total_ms": 475.79717,
+            "shadow_ms": 1.066133,
+            "substitution_comparison_ms": 1.144982,
+            "typed_rehydration_ms": 1.182135,
+            "validation_ms": 1.256823,
+            "worker_process_ms": 463.39856
+          }
+        },
+        {
+          "decision": "substituted-from-session-batch-cache",
+          "query_id": 353,
+          "reason": "selected supported shape reused verified session batch output",
+          "selected": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 0.558643,
+            "graph_guard_ms": 0.0,
+            "ledger_entry_build_ms": 0.005072,
+            "object_rehydration_ms": 0.0,
+            "request_io_ms": 0.710132,
+            "seam_total_ms": 1.628537,
+            "shadow_ms": 0.0,
+            "substitution_comparison_ms": 0.917285,
+            "typed_rehydration_ms": 0.0,
+            "validation_ms": 0.0,
+            "worker_process_ms": 0.0
+          }
+        },
+        {
+          "decision": "skipped-already-substituted",
+          "query_id": 353,
+          "reason": "query already has a durable substitution sentinel",
+          "selected": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 0.597875,
+            "graph_guard_ms": 0.0,
+            "ledger_entry_build_ms": 0.007536,
+            "object_rehydration_ms": 0.0,
+            "request_io_ms": 0.0,
+            "seam_total_ms": 0.684292,
+            "shadow_ms": 0.0,
+            "substitution_comparison_ms": 0.0,
+            "typed_rehydration_ms": 0.0,
+            "validation_ms": 0.0,
+            "worker_process_ms": 0.0
+          }
+        },
+        {
+          "decision": "skipped-already-substituted",
+          "query_id": 381,
+          "reason": "query already has a durable substitution sentinel",
+          "selected": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 6.808821,
+            "graph_guard_ms": 0.0,
+            "ledger_entry_build_ms": 0.01,
+            "object_rehydration_ms": 0.0,
+            "request_io_ms": 0.0,
+            "seam_total_ms": 0.906164,
+            "shadow_ms": 0.0,
+            "substitution_comparison_ms": 0.0,
+            "typed_rehydration_ms": 0.0,
+            "validation_ms": 0.0,
+            "worker_process_ms": 0.0
+          }
+        },
+        {
+          "decision": "skipped-already-substituted",
+          "query_id": 353,
+          "reason": "query already has a durable substitution sentinel",
+          "selected": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 2.548141,
+            "graph_guard_ms": 0.0,
+            "ledger_entry_build_ms": 0.006688,
+            "object_rehydration_ms": 0.0,
+            "request_io_ms": 0.0,
+            "seam_total_ms": 1.996187,
+            "shadow_ms": 0.0,
+            "substitution_comparison_ms": 0.0,
+            "typed_rehydration_ms": 0.0,
+            "validation_ms": 0.0,
+            "worker_process_ms": 0.0
+          }
+        },
+        {
+          "decision": "skipped-already-substituted",
+          "query_id": 381,
+          "reason": "query already has a durable substitution sentinel",
+          "selected": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 1.881018,
+            "graph_guard_ms": 0.0,
+            "ledger_entry_build_ms": 0.005952,
+            "object_rehydration_ms": 0.0,
+            "request_io_ms": 0.0,
+            "seam_total_ms": 3.089793,
+            "shadow_ms": 0.0,
+            "substitution_comparison_ms": 0.0,
+            "typed_rehydration_ms": 0.0,
+            "validation_ms": 0.0,
+            "worker_process_ms": 0.0
+          }
+        }
+      ]
+    },
+    "lifecycle_mode": "jsonl-persistent-v0",
+    "persistent_elapsed_seconds": 88,
+    "request_jsonl": "out/m4v/overlap-worker-session-persistent-pass/worker-requests.jsonl",
+    "seam_summary": {
+      "graph_guard_status": "passed",
+      "graph_mutation_consumed_worker_output": true,
+      "overlap_object_rehydration_status": "passed",
+      "overlap_rehydration_status": "passed",
+      "overlap_vector_substitution_status": "passed",
+      "path": "out/m4v/overlap-worker-session-persistent-pass/seam-summary.json",
+      "shadow_status": "passed",
+      "status": "session-batch-cache-substitution-consumed",
+      "validation_status": "passed"
+    },
+    "wall_clock_ratio_vs_cpu": 1.073171,
+    "warmup_response": {
+      "path": "out/m4v/overlap-worker-session-persistent-pass/worker-response-warmup.json",
+      "request_ordinal": 1,
+      "status": "ok",
+      "timing_ms": {
+        "backend_mean_total_before_write": 5.938992,
+        "backend_timed_total_before_write": 5.938992,
+        "kernel": 5.658942,
+        "parse": 2.721279,
+        "request_total": 8.884432,
+        "worker_overhead": 2.94544,
+        "worker_uptime": 341.664528,
+        "write_output": 0.127089
+      },
+      "worker_context_setup_ms": 332.779904,
+      "worker_cuda_context_warm": false
+    }
+  },
+  "repo": {
+    "commit": "116d6458b7a0db94fb68cd74ab8178bf3322dc48",
+    "status_short": ""
+  },
+  "schema": "cuflye-dgx-proof-v1"
+}

@@ -1,6 +1,6 @@
 # cuFlye CUDA Overlap Worker Protocol v0
 
-Status: draft for M4i; persistent lifecycle extension drafted in M4v
+Status: draft for M4i; persistent lifecycle extension accepted in M4v
 
 Introduced: M4i
 

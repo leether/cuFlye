@@ -7,16 +7,20 @@ change is considered complete.
 
 Active cards:
 
-- `2026-07-01-cuflye-m4v-persistent-overlap-worker-lifecycle.md`:
-  move beyond cache-only amortization by reducing per-batch external worker
-  process startup cost with an explicit persistent-worker lifecycle.
+- None.
 
 Proposed cards:
 
-- None.
+- `2026-07-01-cuflye-m4w-true-persistent-overlap-worker-session.md`:
+  turn the M4v warm-request lifecycle proof into a Flye-visible persistent
+  worker session that avoids a duplicate warmup batch in the same proof path.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m4v-persistent-overlap-worker-lifecycle.md`:
+  invoke the overlap worker through a two-request persistent JSONL lifecycle,
+  keep the actual request warm, preserve exact toy-raw artifacts, and reduce
+  measured request lifecycle cost versus the M4u cold batch worker process.
 - `2026-07-01-cuflye-m4u-substitution-worker-overhead-reduction.md`:
   add opt-in session batch/cache substitution, preserving exact artifacts while
   reducing selected substitution worker-process and seam-total average timing

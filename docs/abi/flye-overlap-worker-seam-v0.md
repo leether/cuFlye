@@ -6,7 +6,7 @@ consumption guard dry-run accepted in M4o; typed rehydration dry-run accepted
 in M4p; `OverlapRange` object rehydration dry-run accepted in M4q; verified
 overlap-vector substitution smoke accepted in M4r; substitution session ledger
 accepted in M4s; substitution timing attribution accepted in M4t; substitution
-session batch cache accepted in M4u; persistent JSONL worker lifecycle drafted
+session batch cache accepted in M4u; persistent JSONL worker lifecycle accepted
 in M4v
 
 Introduced: M4j
