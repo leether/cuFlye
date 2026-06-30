@@ -1,0 +1,98 @@
+{
+  "acceptance": {
+    "abi_doc_describes_fields_and_determinism": true,
+    "cpu_replay_canonical_diff_matches_oracle": true,
+    "cpu_replay_output_validates_as_read_alignment_v1": true,
+    "dgx_fixture_dump_has_selected_read_and_nonempty_inputs": true,
+    "multi_thread_fixture_dump_fails_closed": true,
+    "no_direct_resource_ownership_introduced": true,
+    "patch_series_applies_and_builds_through_0026": true,
+    "whole_flye_speedup_claimed": false
+  },
+  "benefit_assessment_plain_language": "M5b still does not make Flye faster. It turns one read-to-graph alignment decision into a small replayable contract so the next CUDA prototype can be tested against Flye semantics before touching graph mutation.",
+  "build": {
+    "applied_patch_count": 26,
+    "flye_version": "2.9.6-b1802",
+    "last_patch": "0026-cuflye-read-alignment-replay-fixture-dump.patch",
+    "manifest": "/tmp/cuflye-m5b-proof-20260630T221339Z/out/m5b/flye_build_manifest.json"
+  },
+  "claims": {
+    "allowed": "cuFlye can capture one deterministic read-to-graph replay fixture and reproduce its accepted read-alignment-v1 oracle outside a full Flye run.",
+    "forbidden": "M5b does not prove CUDA read-alignment acceleration, multi-read batching, graph mutation consumption, default GPU mode, or end-to-end Flye speedup."
+  },
+  "created_at_utc": "2026-06-30T22:13:39Z",
+  "dgx_proof": {
+    "proof_dir": "/tmp/cuflye-m5b-proof-20260630T221339Z",
+    "summary": "/tmp/cuflye-m5b-proof-20260630T221339Z/out/m5b/dgx-read-alignment-replay-fixture-proof.json"
+  },
+  "diff_replay_vs_oracle": {
+    "left": "/tmp/cuflye-m5b-proof-20260630T221339Z/out/m5b/runs/toy-hifi-read200/read-alignment-replay-fixture/oracle.read-alignment.tsv",
+    "left_records": 3,
+    "left_sha256": "c8aa478626cad18a598140a00a39effba464c187109a2b71a2509806ff7aa802",
+    "right": "/tmp/cuflye-m5b-proof-20260630T221339Z/out/m5b/replayed.read-alignment.tsv",
+    "right_records": 3,
+    "right_sha256": "c8aa478626cad18a598140a00a39effba464c187109a2b71a2509806ff7aa802",
+    "status": "match"
+  },
+  "fixture": {
+    "alignment_input_records": 4,
+    "candidate_chains": 1,
+    "fixture": "toy-hifi",
+    "fixture_dir": "/tmp/cuflye-m5b-proof-20260630T221339Z/out/m5b/runs/toy-hifi-read200/read-alignment-replay-fixture",
+    "max_read_overlap": 50,
+    "max_separation": 500,
+    "maximum_jump": 1500,
+    "minimum_overlap": 1000,
+    "oracle_chains": 1,
+    "query_id": 200,
+    "read_align_ovlp_divergence": 0.100000001,
+    "reads_base_alignment": true,
+    "run_dir": "/tmp/cuflye-m5b-proof-20260630T221339Z/out/m5b/runs/toy-hifi-read200",
+    "schema": "cuflye-read-alignment-replay-fixture-v0",
+    "threads": 1
+  },
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "nvidia_smi": "NVIDIA GB10, GPU-36e1e91e-fa5c-6e0d-d076-203391a7bb03",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+    "python": "3.12.3"
+  },
+  "local_validation": {
+    "accepted_chains": 1,
+    "candidate_chains": 2,
+    "fixture_dir": "tests/fixtures/read-alignment-replay-fixture-v0/simple",
+    "replay_records": 2,
+    "self_diff_status": "match"
+  },
+  "milestone": "M5b",
+  "negative_threads2": {
+    "exit_status": 1,
+    "expected_failure": true,
+    "fail_closed_message_found": true,
+    "fixture_manifest_exists": false,
+    "run_dir": "/tmp/cuflye-m5b-proof-20260630T221339Z/out/m5b/runs/toy-hifi-read200-threads2-negative"
+  },
+  "oracle_validation": {
+    "abi": "read-alignment-v1",
+    "canonical_sha256": "c8aa478626cad18a598140a00a39effba464c187109a2b71a2509806ff7aa802",
+    "chains": 1,
+    "edges": 3,
+    "path": "/tmp/cuflye-m5b-proof-20260630T221339Z/out/m5b/runs/toy-hifi-read200/read-alignment-replay-fixture/oracle.read-alignment.tsv",
+    "raw_sorted_by_canonical_key": true,
+    "reads": 1,
+    "records": 3
+  },
+  "replay": {
+    "accepted_chains": 1,
+    "candidate_chains": 1,
+    "input_records": 4,
+    "output_records": 3,
+    "schema": "cuflye-read-alignment-replay-result-v0",
+    "validation_sha256": "c8aa478626cad18a598140a00a39effba464c187109a2b71a2509806ff7aa802"
+  },
+  "repo": {
+    "base_commit": "29ba91b481a6f4e14d1a6777a8429f070ce2a146",
+    "remote": "https://github.com/leether/cuFlye.git"
+  }
+}

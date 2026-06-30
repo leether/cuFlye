@@ -1,0 +1,232 @@
+diff --git a/src/repeat_graph/read_aligner.cpp b/src/repeat_graph/read_aligner.cpp
+index bd59939..17e4394 100644
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -11,6 +11,8 @@
+ #include <iomanip>
+ #include <mutex>
+ #include <queue>
++#include <sstream>
++#include <unordered_set>
+ 
+ namespace
+ {
+@@ -84,6 +86,188 @@ namespace
+ 			}
+ 		}
+ 	}
++
++	const char* readAlignmentReplayDumpDir()
++	{
++		static const char* dumpDir =
++			std::getenv("CUFLYE_READ_ALIGNMENT_REPLAY_DUMP_DIR");
++		return dumpDir;
++	}
++
++	bool readAlignmentReplayDumpEnabled()
++	{
++		const char* dumpDir = readAlignmentReplayDumpDir();
++		return dumpDir && dumpDir[0];
++	}
++
++	int64_t parseReplayQueryId()
++	{
++		const char* raw = std::getenv("CUFLYE_READ_ALIGNMENT_REPLAY_QUERY_ID");
++		if (!raw || !raw[0])
++		{
++			throw std::runtime_error(
++				"CUFLYE_READ_ALIGNMENT_REPLAY_QUERY_ID is required when "
++				"CUFLYE_READ_ALIGNMENT_REPLAY_DUMP_DIR is set");
++		}
++		size_t parsedChars = 0;
++		int64_t queryId = std::stoll(raw, &parsedChars);
++		if (parsedChars != std::string(raw).size() || queryId <= 0)
++		{
++			throw std::runtime_error(
++				"CUFLYE_READ_ALIGNMENT_REPLAY_QUERY_ID must be a positive integer");
++		}
++		return queryId;
++	}
++
++	int64_t readAlignmentReplayQueryId()
++	{
++		static int64_t queryId = parseReplayQueryId();
++		return queryId;
++	}
++
++	void validateReadAlignmentReplayDumpConfig()
++	{
++		if (!readAlignmentReplayDumpEnabled()) return;
++		if (Parameters::get().numThreads != 1)
++		{
++			throw std::runtime_error(
++				"cuFlye read alignment replay fixture dump requires --threads 1");
++		}
++		(void)readAlignmentReplayQueryId();
++	}
++
++	std::string joinReplayPath(const std::string& root, const std::string& leaf)
++	{
++		if (root.empty()) return leaf;
++		if (root.back() == '/') return root + leaf;
++		return root + "/" + leaf;
++	}
++
++	void writeAlignmentRows(const std::string& path,
++							const std::vector<GraphAlignment>& chains)
++	{
++		std::ofstream fout(path);
++		if (!fout)
++		{
++			throw std::runtime_error("Can't open read alignment replay oracle path");
++		}
++		fout << std::setprecision(9);
++		for (size_t chainId = 0; chainId < chains.size(); ++chainId)
++		{
++			const auto& chain = chains[chainId];
++			for (size_t segmentId = 0; segmentId < chain.size(); ++segmentId)
++			{
++				const auto& aln = chain[segmentId];
++				const auto& ovlp = aln.overlap;
++				fout << chainId << "\t"
++					 << segmentId << "\t"
++					 << ovlp.curId.signedId() << "\t"
++					 << ovlp.curBegin << "\t"
++					 << ovlp.curEnd << "\t"
++					 << ovlp.curLen << "\t"
++					 << aln.edge->edgeId.signedId() << "\t"
++					 << ovlp.extId.signedId() << "\t"
++					 << ovlp.extBegin << "\t"
++					 << ovlp.extEnd << "\t"
++					 << ovlp.extLen << "\t"
++					 << ovlp.score << "\t"
++					 << ovlp.seqDivergence << "\n";
++			}
++		}
++	}
++
++	void dumpReadAlignmentReplayFixture(
++		const FastaRecord::Id& seqId,
++		const std::vector<EdgeAlignment>& alignments,
++		const std::vector<GraphAlignment>& readChains,
++		const std::vector<float>& chainDivergences,
++		const std::vector<GraphAlignment>& goodChains,
++		const SequenceContainer& readSeqs,
++		const SequenceContainer& edgeSeqs)
++	{
++		if (!readAlignmentReplayDumpEnabled()) return;
++		if (seqId.signedId() != readAlignmentReplayQueryId()) return;
++		if (chainDivergences.size() != readChains.size())
++		{
++			throw std::runtime_error(
++				"cuFlye internal error: read alignment replay divergence count mismatch");
++		}
++
++		std::string dumpDir(readAlignmentReplayDumpDir());
++		std::ofstream readOut(joinReplayPath(dumpDir, "read.tsv"));
++		std::ofstream edgeSeqOut(joinReplayPath(dumpDir, "edge-sequences.tsv"));
++		std::ofstream overlapOut(joinReplayPath(dumpDir, "edge-overlaps.tsv"));
++		std::ofstream divergenceOut(joinReplayPath(dumpDir, "chain-divergence.tsv"));
++		if (!readOut || !edgeSeqOut || !overlapOut || !divergenceOut)
++		{
++			throw std::runtime_error(
++				"Can't open CUFLYE_READ_ALIGNMENT_REPLAY_DUMP_DIR output files");
++		}
++
++		readOut << seqId.signedId() << "\t" << readSeqs.getSeq(seqId).str() << "\n";
++
++		std::unordered_set<int64_t> writtenEdgeSeqs;
++		overlapOut << std::setprecision(9);
++		for (size_t index = 0; index < alignments.size(); ++index)
++		{
++			const auto& aln = alignments[index];
++			const auto& ovlp = aln.overlap;
++			overlapOut << index << "\t"
++					   << ovlp.curId.signedId() << "\t"
++					   << ovlp.curBegin << "\t"
++					   << ovlp.curEnd << "\t"
++					   << ovlp.curLen << "\t"
++					   << aln.edge->edgeId.signedId() << "\t"
++					   << aln.edge->nodeLeft->nodeId << "\t"
++					   << aln.edge->nodeRight->nodeId << "\t"
++					   << ovlp.extId.signedId() << "\t"
++					   << ovlp.extBegin << "\t"
++					   << ovlp.extEnd << "\t"
++					   << ovlp.extLen << "\t"
++					   << ovlp.score << "\t"
++					   << ovlp.seqDivergence << "\n";
++			if (writtenEdgeSeqs.insert(ovlp.extId.signedId()).second)
++			{
++				edgeSeqOut << ovlp.extId.signedId() << "\t"
++						   << edgeSeqs.getSeq(ovlp.extId).str() << "\n";
++			}
++		}
++
++		for (size_t chainId = 0; chainId < readChains.size(); ++chainId)
++		{
++			bool accepted =
++				chainDivergences[chainId] <
++				static_cast<float>(Config::get("read_align_ovlp_divergence"));
++			divergenceOut << chainId << "\t"
++						  << std::setprecision(9) << chainDivergences[chainId] << "\t"
++						  << (accepted ? 1 : 0) << "\n";
++		}
++
++		writeAlignmentRows(joinReplayPath(dumpDir, "oracle.read-alignment.tsv"),
++						   goodChains);
++
++		std::ofstream manifestOut(joinReplayPath(dumpDir, "manifest.json"));
++		if (!manifestOut)
++		{
++			throw std::runtime_error("Can't open read alignment replay manifest");
++		}
++		manifestOut << "{\n"
++					<< "  \"schema\": \"cuflye-read-alignment-replay-fixture-v0\",\n"
++					<< "  \"query_id\": " << seqId.signedId() << ",\n"
++					<< "  \"alignment_input_records\": " << alignments.size() << ",\n"
++					<< "  \"candidate_chains\": " << readChains.size() << ",\n"
++					<< "  \"oracle_chains\": " << goodChains.size() << ",\n"
++					<< "  \"maximum_jump\": " << static_cast<int>(Config::get("maximum_jump")) << ",\n"
++					<< "  \"max_read_overlap\": 50,\n"
++					<< "  \"minimum_overlap\": " << Parameters::get().minimumOverlap << ",\n"
++					<< "  \"max_separation\": " << static_cast<int>(Config::get("max_separation")) << ",\n"
++					<< "  \"read_align_ovlp_divergence\": "
++					<< std::setprecision(9)
++					<< static_cast<float>(Config::get("read_align_ovlp_divergence")) << ",\n"
++					<< "  \"reads_base_alignment\": "
++					<< ((bool)Config::get("reads_base_alignment") ? "true" : "false") << "\n"
++					<< "}\n";
++	}
+ }
+ 
+ //Give alignments to separate edges for a single read, merges them
+@@ -224,6 +408,7 @@ std::vector<GraphAlignment>
+ void ReadAligner::alignReads()
+ {
+ 	validateReadAlignmentDumpConfig();
++	validateReadAlignmentReplayDumpConfig();
+ 
+ 	static const int SMALL_ALN = 100;
+ 	static const int BIG_ALN = 500;
+@@ -306,16 +491,21 @@ void ReadAligner::alignReads()
+ 
+ 		//check divergence once the chain is formed
+ 		std::vector<GraphAlignment> goodChains;
++		std::vector<float> chainDivergences;
+ 		for (auto& chain : readChains)
+ 		{
+ 			float chainDivergence = 
+ 				this->getChainBaseDivergence(chain, (bool)Config::get("reads_base_alignment"));
++			chainDivergences.push_back(chainDivergence);
+ 			divergenceStats.add(chainDivergence);
+ 			if (chainDivergence < MAX_DIVERGENCE)
+ 			{
+ 				goodChains.push_back(chain);
+ 			}
+ 		}
++		dumpReadAlignmentReplayFixture(seqId, alignments, readChains,
++									   chainDivergences, goodChains, _readSeqs,
++									   _graph.edgeSequences());
+ 
+ 		std::vector<GraphAlignment> complChains(goodChains);
+ 		for (auto& chain : complChains)

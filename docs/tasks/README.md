@@ -15,6 +15,9 @@ Proposed cards:
 
 Completed cards:
 
+- `2026-07-01-cuflye-m5b-read-alignment-replay-fixture.md`:
+  isolate one bounded read-to-graph alignment chain fixture and replay it
+  outside full Flye before CUDA read-alignment work starts.
 - `2026-07-01-cuflye-m5a-read-alignment-oracle.md`:
   define `read-alignment-v1`, add an opt-in CPU oracle dump after
   `ReadAligner::alignReads`, and prove deterministic read-to-graph alignment

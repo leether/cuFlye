@@ -122,3 +122,5 @@ M5 read-to-graph alignment proof:
 
 - Read alignment oracle manifest:
   `cuflye-m5a-read-alignment-oracle-dgx-aarch64.json`
+- Read alignment replay fixture manifest:
+  `cuflye-m5b-read-alignment-replay-fixture-dgx-aarch64.json`

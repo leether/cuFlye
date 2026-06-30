@@ -1,0 +1,13 @@
+{
+  "alignment_input_records": 2,
+  "candidate_chains": 2,
+  "max_read_overlap": 50,
+  "max_separation": 500,
+  "maximum_jump": 1500,
+  "minimum_overlap": 100,
+  "oracle_chains": 1,
+  "query_id": 101,
+  "read_align_ovlp_divergence": 0.25,
+  "reads_base_alignment": false,
+  "schema": "cuflye-read-alignment-replay-fixture-v0"
+}

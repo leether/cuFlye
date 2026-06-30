@@ -1068,3 +1068,53 @@ M5b: isolate a bounded read-to-graph replay fixture that captures the graph-edge
 sequences, read sequence, and per-read edge-overlap inputs needed to reproduce
 one read alignment chain outside a full Flye run.
 ```
+
+Completed.
+
+M5b adds `read-alignment-replay-fixture-v0`, an opt-in fixture dump for one
+selected `ReadAligner::chainReadAlignments` input/output contract. The patch is
+controlled by `CUFLYE_READ_ALIGNMENT_REPLAY_DUMP_DIR` and
+`CUFLYE_READ_ALIGNMENT_REPLAY_QUERY_ID`, requires `--threads 1`, and dumps the
+selected read, graph edge sequences, graph edge adjacency, edge-overlap inputs,
+chain divergence decisions, and accepted oracle `read-alignment-v1` records.
+
+The DGX toy-hifi proof applied and built the patch series through
+`0026-cuflye-read-alignment-replay-fixture-dump.patch`. The selected read was
+query `200`:
+
+```text
+alignment_input_records=4
+candidate_chains=1
+oracle_chains=1
+replayed_records=3
+canonical_sha256=c8aa478626cad18a598140a00a39effba464c187109a2b71a2509806ff7aa802
+canonical diff=match
+```
+
+The negative DGX run enabled replay fixture dumping with `--threads 2`; Flye
+exited with status `1`, recorded expected failure metadata, found the
+fail-closed message
+`cuFlye read alignment replay fixture dump requires --threads 1`, and produced
+no replay fixture manifest.
+
+Allowed M5b claim:
+
+```text
+cuFlye can capture one deterministic read-to-graph replay fixture and reproduce
+its accepted read-alignment-v1 oracle outside a full Flye run.
+```
+
+Forbidden M5b claim:
+
+```text
+M5b does not prove CUDA read-alignment acceleration, multi-read batching, graph
+mutation consumption, default GPU mode, or end-to-end Flye speedup.
+```
+
+Next highest-ROI task:
+
+```text
+M5c: implement the first CUDA/CPU benchmark prototype for the bounded
+read-alignment chain replay fixture, preserving the replay oracle output while
+measuring whether the chain DP hot path has a real GPU advantage.
+```
