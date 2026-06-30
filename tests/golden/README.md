@@ -34,3 +34,7 @@ CUDA k-mer join smoke proof:
 CUDA k-mer encode smoke proof:
 
 - K-mer encode smoke manifest: `cuda-kmer-encode-smoke-dgx-aarch64.json`
+
+CUDA read-window smoke proof:
+
+- Read-window smoke manifest: `cuda-read-window-smoke-dgx-aarch64.json`
