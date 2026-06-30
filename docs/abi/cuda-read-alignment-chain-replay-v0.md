@@ -30,11 +30,17 @@ Optional arguments:
 --device ID
 --warmup-runs N
 --benchmark-runs N
+--replicate-fixture N
 --memory-budget-bytes BYTES
 ```
 
 `--memory-budget-bytes` is CUDA-only and must fail before device allocation if
 the bounded replay buffers exceed the budget.
+
+`--replicate-fixture` is a benchmark-only occupancy control. It runs the same
+fixture contract `N` independent times in one benchmark call. The output TSV
+contains the first representative fixture only; JSON records `batch_size` and
+`total_input_records`.
 
 ## Supported Shape
 
@@ -61,6 +67,8 @@ The JSON summary uses schema
 - setup, allocation, host-to-device, kernel, CPU-chain, device-to-host,
   finalize, write, and benchmark timing fields;
 - warmup and timed run counts.
+- representative-output-only batch metadata when `--replicate-fixture` is
+  greater than one.
 
 ## Determinism
 

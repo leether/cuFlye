@@ -1175,3 +1175,64 @@ M5d: collect and benchmark a deterministic multi-read read-alignment replay
 fixture batch, then add packed CUDA execution so the chain DP proof has enough
 parallel work to test whether GPU occupancy can beat the CPU baseline.
 ```
+
+Completed as a controlled replicated-batch proof.
+
+M5d adds `--replicate-fixture N` to
+`cuflye-cuda-read-alignment-chain-replay`. The CPU backend repeats the same
+fixture work `N` times. The CUDA backend packs `N` independent copies and
+launches one block per logical fixture. The TSV output remains the first
+representative `read-alignment-v1` result so the existing oracle diff gate stays
+small and exact.
+
+The DGX scan showed the crossover point for the M5b read `200` fixture:
+
+```text
+batch_size=1     total_speedup=0.003843x  core_speedup=0.044659x
+batch_size=64    total_speedup=0.114514x  core_speedup=1.314436x
+batch_size=1024  total_speedup=1.090091x  core_speedup=14.275613x
+batch_size=4096  total_speedup=4.791615x  core_speedup=47.841914x
+batch_size=16384 total_speedup=2.978410x  core_speedup=44.619671x
+```
+
+The selected stable proof used `batch_size=4096`, `5` warmups, and `200` timed
+runs:
+
+```text
+total_input_records=16384
+representative_output_records=3
+canonical_sha256=c8aa478626cad18a598140a00a39effba464c187109a2b71a2509806ff7aa802
+cpu_mean_total_before_json_ms=1.031995
+cuda_mean_total_before_json_ms=0.323783
+cuda_total_speedup_vs_cpu=3.187304x
+cpu_mean_core_ms=1.031995
+cuda_mean_kernel_ms=0.030339
+cuda_core_speedup_vs_cpu=34.015459x
+```
+
+Representative CPU, CUDA, and oracle `read-alignment-v1` outputs canonical-diff
+`match`. The replicated memory-budget negative gate used `budget=1` and failed
+closed before writing success JSON/TSV.
+
+Allowed M5d claim:
+
+```text
+cuFlye CUDA read-alignment chain replay is faster than the C++ CPU baseline for
+the controlled replicated-batch M5b fixture at batch_size=4096 while preserving
+the representative read-alignment-v1 oracle.
+```
+
+Forbidden M5d claim:
+
+```text
+M5d does not prove real multi-read Flye speedup, default GPU mode, graph
+mutation consumption, or end-to-end Flye acceleration.
+```
+
+Next highest-ROI task:
+
+```text
+M5e: replace replicated-batch evidence with real multi-read replay fixture
+harvest and packed CUDA execution, preserving per-read oracle diffs before any
+Flye graph-consumption integration.
+```

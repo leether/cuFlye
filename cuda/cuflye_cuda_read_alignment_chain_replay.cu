@@ -110,6 +110,7 @@ struct Options
 	int device = 0;
 	uint32_t warmupRuns = 0;
 	uint32_t benchmarkRuns = 1;
+	uint32_t replicateFixture = 1;
 	bool hasMemoryBudget = false;
 	unsigned long long memoryBudgetBytes = 0;
 };
@@ -132,7 +133,9 @@ struct RunSummary
 	double benchmarkMeanCoreMs = 0.0;
 	uint32_t warmupRuns = 0;
 	uint32_t timedRuns = 0;
+	size_t batchSize = 1;
 	size_t inputRecords = 0;
+	size_t totalInputRecords = 0;
 	size_t candidateChains = 0;
 	size_t preDivergenceAcceptedChains = 0;
 	size_t acceptedChains = 0;
@@ -604,7 +607,17 @@ __global__ void readAlignmentChainKernel(const EdgeOverlap* overlaps,
 										 int32_t outputCapacity,
 										 DeviceSummary* summary)
 {
-	if (blockIdx.x != 0 || threadIdx.x != 0) return;
+	if (threadIdx.x != 0) return;
+	uint32_t batchId = blockIdx.x;
+	overlaps += static_cast<size_t>(batchId) * static_cast<size_t>(overlapCount);
+	chains += static_cast<size_t>(batchId) * static_cast<size_t>(overlapCount);
+	activeIds += static_cast<size_t>(batchId) * static_cast<size_t>(overlapCount);
+	frozenIds += static_cast<size_t>(batchId) * static_cast<size_t>(overlapCount);
+	orderedIds += static_cast<size_t>(batchId) * static_cast<size_t>(overlapCount);
+	acceptedIds += static_cast<size_t>(batchId) * static_cast<size_t>(overlapCount);
+	scratch += static_cast<size_t>(batchId) * static_cast<size_t>(overlapCount);
+	output += static_cast<size_t>(batchId) * static_cast<size_t>(outputCapacity);
+	summary += batchId;
 	summary->valid = 0;
 	summary->errorCode = 0;
 	summary->candidateChains = 0;
@@ -854,19 +867,34 @@ size_t checkedOutputCapacity(size_t overlapCount)
 	return overlapCount * overlapCount;
 }
 
-RunSummary runCpu(const LoadedFixture& fixture, std::vector<OutputSegment>& segments)
+RunSummary runCpu(const Options& options, const LoadedFixture& fixture,
+				  std::vector<OutputSegment>& segments)
 {
 	RunSummary summary;
 	summary.backend = "cpu";
+	summary.batchSize = options.replicateFixture;
 	summary.inputRecords = fixture.overlaps.size();
+	summary.totalInputRecords = fixture.overlaps.size() * options.replicateFixture;
 	auto start = Clock::now();
-	std::vector<CpuChain> chains =
-		cpuChainReadAlignments(fixture.overlaps, fixture.manifest.params);
-	segments = buildSegmentsFromCpuChains(chains, fixture.divergenceAccepted);
+	std::vector<CpuChain> representativeChains;
+	std::vector<OutputSegment> representativeSegments;
+	for (uint32_t repeat = 0; repeat < options.replicateFixture; ++repeat)
+	{
+		std::vector<CpuChain> chains =
+			cpuChainReadAlignments(fixture.overlaps, fixture.manifest.params);
+		std::vector<OutputSegment> repeatedSegments =
+			buildSegmentsFromCpuChains(chains, fixture.divergenceAccepted);
+		if (repeat == 0)
+		{
+			representativeChains = chains;
+			representativeSegments = repeatedSegments;
+		}
+	}
+	segments = representativeSegments;
 	auto end = Clock::now();
 	summary.cpuChainMs = elapsedMs(start, end);
-	summary.candidateChains = chains.size();
-	summary.preDivergenceAcceptedChains = chains.size();
+	summary.candidateChains = representativeChains.size();
+	summary.preDivergenceAcceptedChains = representativeChains.size();
 	summary.acceptedChains = 0;
 	for (uint8_t accepted : fixture.divergenceAccepted)
 	{
@@ -877,14 +905,15 @@ RunSummary runCpu(const LoadedFixture& fixture, std::vector<OutputSegment>& segm
 	return summary;
 }
 
-size_t cudaRequiredBytes(size_t overlapCount, size_t outputCapacity)
+size_t cudaRequiredBytes(size_t overlapCount, size_t divergenceCount,
+						 size_t outputCapacity, size_t batchSize)
 {
-	return overlapCount * sizeof(EdgeOverlap) +
-		   overlapCount * sizeof(uint8_t) +
-		   overlapCount * sizeof(ChainRecord) +
-		   overlapCount * sizeof(int32_t) * 5 +
-		   outputCapacity * sizeof(OutputSegment) +
-		   sizeof(DeviceSummary);
+	return batchSize * overlapCount * sizeof(EdgeOverlap) +
+		   divergenceCount * sizeof(uint8_t) +
+		   batchSize * overlapCount * sizeof(ChainRecord) +
+		   batchSize * overlapCount * sizeof(int32_t) * 5 +
+		   batchSize * outputCapacity * sizeof(OutputSegment) +
+		   batchSize * sizeof(DeviceSummary);
 }
 
 RunSummary runCuda(const Options& options, const LoadedFixture& fixture,
@@ -893,10 +922,20 @@ RunSummary runCuda(const Options& options, const LoadedFixture& fixture,
 	RunSummary summary;
 	summary.backend = "cuda";
 	summary.device = options.device;
+	summary.batchSize = options.replicateFixture;
 	summary.inputRecords = fixture.overlaps.size();
+	summary.totalInputRecords = fixture.overlaps.size() * options.replicateFixture;
 	size_t overlapCount = fixture.overlaps.size();
 	size_t outputCapacity = checkedOutputCapacity(overlapCount);
-	summary.requiredBytes = cudaRequiredBytes(overlapCount, outputCapacity);
+	size_t batchSize = options.replicateFixture;
+	if (batchSize > std::numeric_limits<size_t>::max() / overlapCount ||
+		batchSize > std::numeric_limits<size_t>::max() / outputCapacity)
+	{
+		throw std::runtime_error("replicated fixture batch size overflows buffer sizing");
+	}
+	summary.requiredBytes =
+		cudaRequiredBytes(overlapCount, fixture.divergenceAccepted.size(),
+						  outputCapacity, batchSize);
 	if (options.hasMemoryBudget &&
 		summary.requiredBytes > static_cast<size_t>(options.memoryBudgetBytes))
 	{
@@ -904,6 +943,13 @@ RunSummary runCuda(const Options& options, const LoadedFixture& fixture,
 	}
 
 	auto setupStart = Clock::now();
+	std::vector<EdgeOverlap> packedOverlaps;
+	packedOverlaps.reserve(overlapCount * batchSize);
+	for (size_t index = 0; index < batchSize; ++index)
+	{
+		packedOverlaps.insert(packedOverlaps.end(), fixture.overlaps.begin(),
+							  fixture.overlaps.end());
+	}
 	cuflye::cuda_raii::checkCuda(cudaSetDevice(options.device), "set CUDA device");
 	cudaDeviceProp props{};
 	cuflye::cuda_raii::checkCuda(
@@ -916,32 +962,33 @@ RunSummary runCuda(const Options& options, const LoadedFixture& fixture,
 
 	auto allocStart = Clock::now();
 	cuflye::cuda_raii::DeviceBuffer<EdgeOverlap> dOverlaps(
-		overlapCount * sizeof(EdgeOverlap), "read alignment edge overlaps");
+		packedOverlaps.size() * sizeof(EdgeOverlap), "read alignment edge overlaps");
 	cuflye::cuda_raii::DeviceBuffer<uint8_t> dDivergence(
 		fixture.divergenceAccepted.size() * sizeof(uint8_t), "chain divergence flags");
 	cuflye::cuda_raii::DeviceBuffer<ChainRecord> dChains(
-		overlapCount * sizeof(ChainRecord), "read alignment chains");
+		batchSize * overlapCount * sizeof(ChainRecord), "read alignment chains");
 	cuflye::cuda_raii::DeviceBuffer<int32_t> dActive(
-		overlapCount * sizeof(int32_t), "active chain ids");
+		batchSize * overlapCount * sizeof(int32_t), "active chain ids");
 	cuflye::cuda_raii::DeviceBuffer<int32_t> dFrozen(
-		overlapCount * sizeof(int32_t), "frozen chain ids");
+		batchSize * overlapCount * sizeof(int32_t), "frozen chain ids");
 	cuflye::cuda_raii::DeviceBuffer<int32_t> dOrdered(
-		overlapCount * sizeof(int32_t), "ordered chain ids");
+		batchSize * overlapCount * sizeof(int32_t), "ordered chain ids");
 	cuflye::cuda_raii::DeviceBuffer<int32_t> dAccepted(
-		overlapCount * sizeof(int32_t), "accepted chain ids");
+		batchSize * overlapCount * sizeof(int32_t), "accepted chain ids");
 	cuflye::cuda_raii::DeviceBuffer<int32_t> dScratch(
-		overlapCount * sizeof(int32_t), "chain reconstruction scratch");
+		batchSize * overlapCount * sizeof(int32_t), "chain reconstruction scratch");
 	cuflye::cuda_raii::DeviceBuffer<OutputSegment> dOutput(
-		outputCapacity * sizeof(OutputSegment), "read alignment output segments");
+		batchSize * outputCapacity * sizeof(OutputSegment),
+		"read alignment output segments");
 	cuflye::cuda_raii::DeviceBuffer<DeviceSummary> dSummary(
-		sizeof(DeviceSummary), "read alignment summary");
+		batchSize * sizeof(DeviceSummary), "read alignment summary");
 	auto allocEnd = Clock::now();
 	summary.deviceAllocationMs = elapsedMs(allocStart, allocEnd);
 
 	auto h2dStart = Clock::now();
 	cuflye::cuda_raii::checkCuda(
-		cudaMemcpy(dOverlaps.get(), fixture.overlaps.data(),
-				   overlapCount * sizeof(EdgeOverlap), cudaMemcpyHostToDevice),
+		cudaMemcpy(dOverlaps.get(), packedOverlaps.data(),
+				   packedOverlaps.size() * sizeof(EdgeOverlap), cudaMemcpyHostToDevice),
 		"copy read alignment overlaps to device");
 	cuflye::cuda_raii::checkCuda(
 		cudaMemcpy(dDivergence.get(), fixture.divergenceAccepted.data(),
@@ -952,7 +999,7 @@ RunSummary runCuda(const Options& options, const LoadedFixture& fixture,
 	summary.hostToDeviceMs = elapsedMs(h2dStart, h2dEnd);
 
 	auto kernelStart = Clock::now();
-	readAlignmentChainKernel<<<1, 1>>>(
+	readAlignmentChainKernel<<<static_cast<unsigned int>(batchSize), 1>>>(
 		dOverlaps.get(),
 		static_cast<int32_t>(overlapCount),
 		dDivergence.get(),
@@ -973,18 +1020,19 @@ RunSummary runCuda(const Options& options, const LoadedFixture& fixture,
 	auto kernelEnd = Clock::now();
 	summary.kernelMs = elapsedMs(kernelStart, kernelEnd);
 
-	DeviceSummary deviceSummary{};
+	std::vector<DeviceSummary> deviceSummaries(batchSize);
 	std::vector<OutputSegment> rawSegments(outputCapacity);
 	auto d2hStart = Clock::now();
 	cuflye::cuda_raii::checkCuda(
-		cudaMemcpy(&deviceSummary, dSummary.get(), sizeof(DeviceSummary),
+		cudaMemcpy(deviceSummaries.data(), dSummary.get(),
+				   batchSize * sizeof(DeviceSummary),
 				   cudaMemcpyDeviceToHost),
 		"copy read alignment summary to host");
-	if (deviceSummary.outputRecords > 0)
+	if (deviceSummaries[0].outputRecords > 0)
 	{
 		cuflye::cuda_raii::checkCuda(
 			cudaMemcpy(rawSegments.data(), dOutput.get(),
-					   static_cast<size_t>(deviceSummary.outputRecords) *
+					   static_cast<size_t>(deviceSummaries[0].outputRecords) *
 					   sizeof(OutputSegment),
 					   cudaMemcpyDeviceToHost),
 			"copy read alignment output to host");
@@ -993,19 +1041,23 @@ RunSummary runCuda(const Options& options, const LoadedFixture& fixture,
 	summary.deviceToHostMs = elapsedMs(d2hStart, d2hEnd);
 
 	auto finalizeStart = Clock::now();
-	if (!deviceSummary.valid)
+	for (size_t index = 0; index < deviceSummaries.size(); ++index)
 	{
-		throw std::runtime_error("read alignment CUDA replay kernel failed with code " +
-								 std::to_string(deviceSummary.errorCode));
+		if (!deviceSummaries[index].valid)
+		{
+			throw std::runtime_error("read alignment CUDA replay kernel failed at batch " +
+									 std::to_string(index) + " with code " +
+									 std::to_string(deviceSummaries[index].errorCode));
+		}
 	}
 	segments = cudaSegmentsToVector(rawSegments,
-									static_cast<size_t>(deviceSummary.outputRecords));
+									static_cast<size_t>(deviceSummaries[0].outputRecords));
 	auto finalizeEnd = Clock::now();
 	summary.finalizeMs = elapsedMs(finalizeStart, finalizeEnd);
-	summary.candidateChains = static_cast<size_t>(deviceSummary.candidateChains);
+	summary.candidateChains = static_cast<size_t>(deviceSummaries[0].candidateChains);
 	summary.preDivergenceAcceptedChains =
-		static_cast<size_t>(deviceSummary.preDivergenceAcceptedChains);
-	summary.acceptedChains = static_cast<size_t>(deviceSummary.acceptedChains);
+		static_cast<size_t>(deviceSummaries[0].preDivergenceAcceptedChains);
+	summary.acceptedChains = static_cast<size_t>(deviceSummaries[0].acceptedChains);
 	summary.outputRecords = segments.size();
 	summary.totalBeforeJsonMs = summary.setupMs + summary.deviceAllocationMs +
 								summary.hostToDeviceMs + summary.kernelMs +
@@ -1052,7 +1104,7 @@ RunSummary runBenchmark(const Options& options, const LoadedFixture& fixture,
 		}
 		else
 		{
-			(void)runCpu(fixture, scratch);
+			(void)runCpu(options, fixture, scratch);
 		}
 	}
 
@@ -1060,7 +1112,7 @@ RunSummary runBenchmark(const Options& options, const LoadedFixture& fixture,
 	for (uint32_t index = 0; index < options.benchmarkRuns; ++index)
 	{
 		RunSummary summary = options.backend == "cuda" ?
-			runCuda(options, fixture, segments) : runCpu(fixture, segments);
+			runCuda(options, fixture, segments) : runCpu(options, fixture, segments);
 		timedRuns.push_back(summary);
 	}
 	RunSummary summary = timedRuns.back();
@@ -1085,7 +1137,9 @@ void writeJsonSummary(const std::string& path, const Options& options,
 		   << "  \"fixture_dir\": \"" << jsonEscape(options.fixtureDir) << "\",\n"
 		   << "  \"output_tsv\": \"" << jsonEscape(options.outputTsv) << "\",\n"
 		   << "  \"query_id\": " << manifest.queryId << ",\n"
+		   << "  \"batch_size\": " << summary.batchSize << ",\n"
 		   << "  \"input_records\": " << summary.inputRecords << ",\n"
+		   << "  \"total_input_records\": " << summary.totalInputRecords << ",\n"
 		   << "  \"candidate_chains\": " << summary.candidateChains << ",\n"
 		   << "  \"pre_divergence_accepted_chains\": "
 		   << summary.preDivergenceAcceptedChains << ",\n"
@@ -1138,6 +1192,7 @@ void writeJsonSummary(const std::string& path, const Options& options,
 		   << "    \"reads_base_alignment\": "
 		   << (manifest.readsBaseAlignment ? "true" : "false") << ",\n"
 		   << "    \"uses_fixture_divergence_acceptance\": true,\n"
+		   << "    \"representative_output_only\": true,\n"
 		   << "    \"max_replay_records\": " << MAX_REPLAY_RECORDS << "\n"
 		   << "  }\n"
 		   << "}\n";
@@ -1169,6 +1224,10 @@ void parseArgs(int argc, char** argv, Options& options)
 		{
 			options.benchmarkRuns = static_cast<uint32_t>(std::stoul(nextValue()));
 		}
+		else if (arg == "--replicate-fixture")
+		{
+			options.replicateFixture = static_cast<uint32_t>(std::stoul(nextValue()));
+		}
 		else if (arg == "--memory-budget-bytes")
 		{
 			options.hasMemoryBudget = true;
@@ -1181,6 +1240,7 @@ void parseArgs(int argc, char** argv, Options& options)
 				<< "--fixture-dir DIR --output-tsv PATH --json-output PATH "
 				<< "[--backend cpu|cuda] [--device ID] "
 				<< "[--warmup-runs N] [--benchmark-runs N] "
+				<< "[--replicate-fixture N] "
 				<< "[--memory-budget-bytes BYTES]\n";
 			std::exit(0);
 		}
@@ -1205,6 +1265,10 @@ void parseArgs(int argc, char** argv, Options& options)
 	{
 		throw std::runtime_error("--benchmark-runs must be greater than zero");
 	}
+	if (options.replicateFixture == 0)
+	{
+		throw std::runtime_error("--replicate-fixture must be greater than zero");
+	}
 }
 }
 
@@ -1226,7 +1290,9 @@ int main(int argc, char** argv)
 
 		std::cout << "cuFlye read-alignment chain replay: ok\n"
 				  << "  backend: " << summary.backend << "\n"
+				  << "  batch size: " << summary.batchSize << "\n"
 				  << "  input records: " << summary.inputRecords << "\n"
+				  << "  total input records: " << summary.totalInputRecords << "\n"
 				  << "  output records: " << summary.outputRecords << "\n"
 				  << "  mean total before JSON: "
 				  << summary.benchmarkMeanTotalMs << " ms\n";

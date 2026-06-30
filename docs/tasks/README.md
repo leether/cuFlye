@@ -15,6 +15,9 @@ Proposed cards:
 
 Completed cards:
 
+- `2026-07-01-cuflye-m5d-read-alignment-replicated-batch.md`:
+  turn the M5c single-read correctness benchmark into a replicated-batch CUDA
+  occupancy test without changing the representative oracle.
 - `2026-07-01-cuflye-m5c-cuda-read-alignment-chain-benchmark.md`:
   implement the first CUDA/CPU benchmark prototype for the bounded M5b
   read-alignment replay fixture while preserving the `read-alignment-v1`
