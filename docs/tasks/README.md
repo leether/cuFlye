@@ -7,14 +7,13 @@ change is considered complete.
 
 Active cards:
 
-- None. M4h reached the requested stop condition by proving a bounded
-  CUDA-over-CPU overlap-chain replay speedup.
-
-Proposed cards:
-
 - `2026-06-30-cuflye-m4i-packed-overlap-worker-protocol.md`: move the packed
   overlap speedup toward a governed worker boundary without changing Flye graph
   semantics.
+
+Proposed cards:
+
+- None.
 
 Completed cards:
 
