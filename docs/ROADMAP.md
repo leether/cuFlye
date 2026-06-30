@@ -114,6 +114,11 @@ Completed:
   M4b oracle, but the current CUDA hotpath is slower for this small single-query
   fixture: CPU mean hotpath `2.330413 ms`, CUDA mean hotpath `4.721515 ms`,
   CUDA speedup vs CPU `0.493573x`, CUDA slowdown vs CPU `2.026042x`.
+- M4e: an explicit `parallel-reduce` CUDA kernel mode preserves exact
+  `overlap-range-v1` output but is still slower on the single supported
+  fixture: CPU mean hotpath `1.317636 ms`, serial CUDA `4.742383 ms`,
+  parallel-reduce CUDA `5.794421 ms`; parallel-reduce speedup vs CPU
+  `0.227397x`.
 
 Current allowed performance claim:
 
@@ -137,6 +142,10 @@ fixture, not a Flye graph-integration or workload-level speed claim.
 The current CUDA overlap-chain hotpath is not faster than the C++ CPU baseline
 for the only supported M4b fixture; this is a measured optimization blocker,
 not a speedup claim.
+
+The current parallel-reduce CUDA overlap-chain kernel preserves correctness but
+does not improve the single-query benchmark. Further overlap-chain performance
+work must increase real batched work before claiming speed.
 ```
 
 Current forbidden claim:
@@ -309,12 +318,12 @@ Use precise milestone labels:
 Next highest-ROI task:
 
 ```text
-M4e: increase CUDA overlap-chain occupancy with an explicit group-internal
-parallel-reduction kernel mode, then benchmark it against the M4d CPU baseline
-and serial CUDA kernel.
+M4f: audit and expand real overlap-chain replay fixtures, then benchmark CPU
+and CUDA over a real multi-query batch if additional supported fixtures exist.
 ```
 
 Acceptance should keep the M4b `query_neg71` fixture as the correctness oracle,
 preserve exact `overlap-range-v1` hashes, and only claim a scoped speedup if the
-parallel-reduction CUDA mode beats the M4d CPU baseline. CUDA output is still
-not allowed into Flye graph logic until broader overlap-chain coverage exists.
+batched CUDA mode beats the CPU baseline on real supported fixtures. CUDA
+output is still not allowed into Flye graph logic until broader overlap-chain
+coverage exists.

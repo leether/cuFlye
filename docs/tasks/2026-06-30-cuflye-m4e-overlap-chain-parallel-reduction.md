@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4e Overlap Chain Parallel Reduction
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -85,12 +85,48 @@ group size of `14`; this is not enough work to hide GPU overhead.
 
 ## Execution Checklist
 
-- [ ] Inspect M4d benchmark and group-size distribution.
-- [ ] Add explicit CUDA kernel mode option.
-- [ ] Implement group-internal parallel predecessor reduction.
-- [ ] Validate serial and parallel-reduce outputs on DGX.
-- [ ] Diff CPU, serial CUDA, and parallel-reduce CUDA outputs against the M4b
+- [x] Inspect M4d benchmark and group-size distribution.
+- [x] Add explicit CUDA kernel mode option.
+- [x] Implement group-internal parallel predecessor reduction.
+- [x] Validate serial and parallel-reduce outputs on DGX.
+- [x] Diff CPU, serial CUDA, and parallel-reduce CUDA outputs against the M4b
   oracle.
-- [ ] Record benchmark speed ratios.
-- [ ] Run ownership/resource scan.
-- [ ] Record compact DGX proof and close this card.
+- [x] Record benchmark speed ratios.
+- [x] Run ownership/resource scan.
+- [x] Record compact DGX proof and close this card.
+
+## Merge Note
+
+Implementation commit: `6a888f6e171d461a58b90ba7543eb796939ec208`
+
+DGX proof manifest:
+`tests/golden/cuflye-m4e-overlap-chain-parallel-reduction-dgx-aarch64.json`
+
+Proof summary:
+
+- Host: `edgexpert-45d2` (`aarch64`)
+- GPU: `NVIDIA GB10`, CUDA arch `sm_121`
+- Fixture: M4b `query_neg71`
+- Candidate records: `7,859`
+- Target groups: `120`
+- Overlap records: `51`
+- CPU, serial CUDA, parallel CUDA, and oracle canonical SHA-256:
+  `1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73`
+- CPU vs oracle diff: `match`
+- Serial CUDA vs oracle diff: `match`
+- Parallel-reduce CUDA vs oracle diff: `match`
+- Serial CUDA vs parallel-reduce CUDA diff: `match`
+- Warmup runs: `3`
+- Timed runs: `20`
+- CPU mean hotpath before JSON: `1.317636 ms`
+- Serial CUDA mean hotpath before JSON: `4.742383 ms`
+- Parallel-reduce CUDA mean hotpath before JSON: `5.794421 ms`
+- Serial CUDA speedup vs CPU: `0.277843x`
+- Parallel-reduce CUDA speedup vs CPU: `0.227397x`
+- Parallel-reduce speedup vs serial CUDA: `0.818439x`
+
+Conclusion: the parallel-reduce mode preserves exact overlap semantics, but it
+is slower than both CPU and serial CUDA on the only supported small fixture. The
+early-break semantics force a serial boundary scan, and the fixture is too small
+to amortize block synchronization. The next optimization target is real
+multi-query batching or a long-lived overlap-chain worker.

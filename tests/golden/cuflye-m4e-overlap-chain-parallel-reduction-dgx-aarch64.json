@@ -1,0 +1,423 @@
+{
+  "acceptance": {
+    "benchmark_records_three_modes": true,
+    "cpu_oracle_diff_match": true,
+    "cpu_output_validates": true,
+    "cuda_build_succeeds": true,
+    "local_syntax_style_gates_pass": true,
+    "memory_budget_fails_closed": true,
+    "no_large_tsv_committed": true,
+    "ownership_scan_no_new_direct_resource_api": true,
+    "parallel_cuda_oracle_diff_match": true,
+    "parallel_cuda_output_validates": true,
+    "serial_cuda_oracle_diff_match": true,
+    "serial_cuda_output_validates": true,
+    "serial_parallel_diff_match": true,
+    "unsupported_shape_fails_closed": true
+  },
+  "benchmark_summary": {
+    "cpu_mean_core_ms": 1.317037,
+    "cpu_mean_total_before_json_ms": 1.317636,
+    "parallel_cuda_is_faster_than_cpu": false,
+    "parallel_cuda_is_faster_than_serial_cuda": false,
+    "parallel_cuda_mean_core_ms": 5.621535,
+    "parallel_cuda_mean_total_before_json_ms": 5.794421,
+    "parallel_cuda_speedup_vs_cpu": 0.22739735341978087,
+    "parallel_cuda_speedup_vs_serial_cuda": 0.8184394955078342,
+    "serial_cuda_mean_core_ms": 4.57085,
+    "serial_cuda_mean_total_before_json_ms": 4.742383,
+    "serial_cuda_speedup_vs_cpu": 0.27784259516787235
+  },
+  "build": {
+    "created_at_utc": "2026-06-30T14:21:50.376643+00:00",
+    "cuda_arch": "sm_121",
+    "cuda_home": "/usr/local/cuda",
+    "host": "edgexpert-45d2",
+    "machine": "aarch64",
+    "nvcc": "/usr/local/cuda/bin/nvcc",
+    "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:57:39_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+    "output_binary": "/tmp/cuflye-m4e-proof-1782829304-git/out/m4e/bin/cuflye-cuda-overlap-chain-replay",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+    "python": "3.12.3",
+    "repo_commit": "6a888f6e171d461a58b90ba7543eb796939ec208",
+    "repo_root": "/tmp/cuflye-m4e-proof-1782829304-git"
+  },
+  "claims": {
+    "allowed": [
+      "Parallel-reduce CUDA output reproduces the M4b oracle for query_neg71.",
+      "For this single small fixture, parallel-reduce CUDA is slower than both CPU and serial CUDA."
+    ],
+    "next_optimization_target": "batch multiple real supported overlap-chain fixtures or move to a long-lived multi-query worker so GPU occupancy is driven by real concurrent work",
+    "not_claimed": [
+      "No overlap-chain speedup claim.",
+      "No Flye graph integration.",
+      "No base-level alignment replay.",
+      "No bad-mapping trim replay.",
+      "No workload-level Flye GPU mode claim."
+    ]
+  },
+  "created_at_utc": "2026-06-30T14:23:29.389812+00:00",
+  "diff": {
+    "oracle_vs_cpu": {
+      "left": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/replay-fixtures/query_neg71/oracle.overlaps.tsv",
+      "left_records": 51,
+      "left_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+      "right": "/tmp/cuflye-m4e-proof-1782829304-git/out/m4e/cpu.overlaps.tsv",
+      "right_records": 51,
+      "right_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+      "status": "match"
+    },
+    "oracle_vs_cuda_parallel": {
+      "left": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/replay-fixtures/query_neg71/oracle.overlaps.tsv",
+      "left_records": 51,
+      "left_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+      "right": "/tmp/cuflye-m4e-proof-1782829304-git/out/m4e/cuda-parallel.overlaps.tsv",
+      "right_records": 51,
+      "right_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+      "status": "match"
+    },
+    "oracle_vs_cuda_serial": {
+      "left": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/replay-fixtures/query_neg71/oracle.overlaps.tsv",
+      "left_records": 51,
+      "left_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+      "right": "/tmp/cuflye-m4e-proof-1782829304-git/out/m4e/cuda-serial.overlaps.tsv",
+      "right_records": 51,
+      "right_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+      "status": "match"
+    },
+    "serial_vs_parallel": {
+      "left": "/tmp/cuflye-m4e-proof-1782829304-git/out/m4e/cuda-serial.overlaps.tsv",
+      "left_records": 51,
+      "left_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+      "right": "/tmp/cuflye-m4e-proof-1782829304-git/out/m4e/cuda-parallel.overlaps.tsv",
+      "right_records": 51,
+      "right_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+      "status": "match"
+    }
+  },
+  "fixture": {
+    "candidate_records": 7859,
+    "dir": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/replay-fixtures/query_neg71",
+    "inventory": {
+      "candidate_groups": 120,
+      "candidate_records": 7859,
+      "m4b_fixture_count": 2,
+      "m4c_supported_fixture_count": 1,
+      "max_group_candidates": 363,
+      "median_group_candidates": 14,
+      "top_group_candidates": [
+        363,
+        339,
+        301,
+        284,
+        268,
+        260,
+        257,
+        245,
+        243,
+        208,
+        205,
+        196,
+        196,
+        190,
+        181,
+        167,
+        162,
+        161,
+        146,
+        144
+      ]
+    },
+    "oracle_overlap_records": 51,
+    "parameters": {
+      "chain_gap_jump_threshold": 100,
+      "chain_large_gap_penalty": 2,
+      "chain_small_gap_penalty": 0.5,
+      "check_overhang": true,
+      "force_local": false,
+      "keep_alignment": false,
+      "kmer_size": 17,
+      "max_divergence": 1,
+      "max_jump_gap": 500,
+      "max_overlaps": 0,
+      "maximum_jump": 1500,
+      "maximum_overhang": 1500,
+      "min_kmer_survival_rate": 0.00999999978,
+      "minimum_overlap": 1000,
+      "nucl_alignment": false,
+      "only_max_ext": true,
+      "partition_bad_mappings": false,
+      "sample_rate": 1,
+      "use_hpc": false
+    },
+    "query_id": -71,
+    "query_length": 23257,
+    "schema": "cuflye-overlap-replay-fixture-v0",
+    "target_records": 120,
+    "unsupported_dir": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/replay-fixtures/query_1"
+  },
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+    "python": "3.12.3"
+  },
+  "milestone": "M4e-overlap-chain-parallel-reduction",
+  "negative_gates": {
+    "memory_budget": {
+      "budget_bytes": 1,
+      "stderr_first_line": "CUDA overlap chain replay failed: CUDA overlap replay memory budget exceeded: required=461407 budget=1"
+    },
+    "unsupported_shape": {
+      "fixture_dir": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/replay-fixtures/query_1",
+      "stderr_first_line": "CUDA overlap chain replay failed: unsupported overlap CUDA replay shape; nucl_alignment=true requires base-alignment replay; partition_bad_mappings=true requires trim replay; keep_alignment=true is outside M4c prototype scope; only_max_ext=false is outside M4c prototype scope"
+    }
+  },
+  "repo": {
+    "commit": "6a888f6e171d461a58b90ba7543eb796939ec208",
+    "remote_dir": "/tmp/cuflye-m4e-proof-1782829304-git",
+    "root": "/tmp/cuflye-m4e-proof-1782829304-git",
+    "status_short": "## main...origin/main [ahead 1]"
+  },
+  "runs": {
+    "cpu": {
+      "backend": "cpu",
+      "benchmark": {
+        "max_total_before_json_ms": 1.374343,
+        "mean_core_ms": 1.317037,
+        "mean_total_before_json_ms": 1.317636,
+        "min_total_before_json_ms": 1.30719,
+        "timed_runs": 20,
+        "warmup_runs": 3
+      },
+      "candidate_records": 7859,
+      "cuda_kernel_mode": "serial",
+      "device": null,
+      "filtered_positions": 0,
+      "fixture_dir": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/replay-fixtures/query_neg71",
+      "memory": {
+        "required_bytes": 78411
+      },
+      "output_records": 51,
+      "output_tsv": "out/m4e/cpu.overlaps.tsv",
+      "query_id": -71,
+      "schema": "cuflye-cuda-overlap-chain-replay-v0",
+      "status": "ok",
+      "supported_shape": {
+        "keep_alignment": false,
+        "nucl_alignment": false,
+        "only_max_ext": true,
+        "partition_bad_mappings": false
+      },
+      "target_groups": 120,
+      "timing_ms": {
+        "cpu_chain": 1.30967,
+        "device_allocation": 0.0,
+        "device_to_host": 0.0,
+        "finalize": 0.000544,
+        "host_to_device": 0.0,
+        "kernel": 0.0,
+        "setup": 0.0,
+        "total_before_json": 3.729538,
+        "write_output": 0.130737
+      }
+    },
+    "cuda_parallel_reduce": {
+      "backend": "cuda",
+      "benchmark": {
+        "max_total_before_json_ms": 5.8067,
+        "mean_core_ms": 5.621535,
+        "mean_total_before_json_ms": 5.794421,
+        "min_total_before_json_ms": 5.786395,
+        "timed_runs": 20,
+        "warmup_runs": 3
+      },
+      "candidate_records": 7859,
+      "cuda_kernel_mode": "parallel-reduce",
+      "device": {
+        "free_bytes": 76297715712,
+        "id": 0,
+        "name": "NVIDIA GB10",
+        "total_bytes": 130594660352
+      },
+      "filtered_positions": 0,
+      "fixture_dir": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/replay-fixtures/query_neg71",
+      "memory": {
+        "required_bytes": 461407
+      },
+      "output_records": 51,
+      "output_tsv": "out/m4e/cuda-parallel.overlaps.tsv",
+      "query_id": -71,
+      "schema": "cuflye-cuda-overlap-chain-replay-v0",
+      "status": "ok",
+      "supported_shape": {
+        "keep_alignment": false,
+        "nucl_alignment": false,
+        "only_max_ext": true,
+        "partition_bad_mappings": false
+      },
+      "target_groups": 120,
+      "timing_ms": {
+        "cpu_chain": 0.0,
+        "device_allocation": 0.120609,
+        "device_to_host": 0.007841,
+        "finalize": 0.003552,
+        "host_to_device": 0.024912,
+        "kernel": 5.620666,
+        "setup": 0.015616,
+        "total_before_json": 8.271784,
+        "write_output": 0.166449
+      }
+    },
+    "cuda_serial": {
+      "backend": "cuda",
+      "benchmark": {
+        "max_total_before_json_ms": 4.768518,
+        "mean_core_ms": 4.57085,
+        "mean_total_before_json_ms": 4.742383,
+        "min_total_before_json_ms": 4.731527,
+        "timed_runs": 20,
+        "warmup_runs": 3
+      },
+      "candidate_records": 7859,
+      "cuda_kernel_mode": "serial",
+      "device": {
+        "free_bytes": 76291469312,
+        "id": 0,
+        "name": "NVIDIA GB10",
+        "total_bytes": 130594660352
+      },
+      "filtered_positions": 0,
+      "fixture_dir": "/tmp/cuflye-m4b-proof-1782827490-git/out/m4b/replay-fixtures/query_neg71",
+      "memory": {
+        "required_bytes": 461407
+      },
+      "output_records": 51,
+      "output_tsv": "out/m4e/cuda-serial.overlaps.tsv",
+      "query_id": -71,
+      "schema": "cuflye-cuda-overlap-chain-replay-v0",
+      "status": "ok",
+      "supported_shape": {
+        "keep_alignment": false,
+        "nucl_alignment": false,
+        "only_max_ext": true,
+        "partition_bad_mappings": false
+      },
+      "target_groups": 120,
+      "timing_ms": {
+        "cpu_chain": 0.0,
+        "device_allocation": 0.124001,
+        "device_to_host": 0.00808,
+        "finalize": 0.004544,
+        "host_to_device": 0.02432,
+        "kernel": 4.569958,
+        "setup": 0.015712,
+        "total_before_json": 9.321453,
+        "write_output": 0.156513
+      }
+    }
+  },
+  "schema": "cuflye-dgx-proof-v1",
+  "status": "passed",
+  "validation": {
+    "cpu": {
+      "abi": "overlap-range-v1",
+      "canonical_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+      "first_record": [
+        -71,
+        89,
+        4589,
+        23257,
+        17,
+        6008,
+        10428,
+        10457,
+        338,
+        0.229469001
+      ],
+      "last_record": [
+        -71,
+        5791,
+        9972,
+        23257,
+        911,
+        214,
+        4354,
+        4816,
+        421,
+        0.217857465
+      ],
+      "path": "/tmp/cuflye-m4e-proof-1782829304-git/out/m4e/cpu.overlaps.tsv",
+      "raw_sha256": "2549e299addcaf5bf903c0e5319d3097164220daaf1ad189d87f69de98daae80",
+      "raw_sorted_by_canonical_key": false,
+      "records": 51,
+      "size_bytes": 2870
+    },
+    "cuda-parallel": {
+      "abi": "overlap-range-v1",
+      "canonical_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+      "first_record": [
+        -71,
+        89,
+        4589,
+        23257,
+        17,
+        6008,
+        10428,
+        10457,
+        338,
+        0.229469001
+      ],
+      "last_record": [
+        -71,
+        5791,
+        9972,
+        23257,
+        911,
+        214,
+        4354,
+        4816,
+        421,
+        0.217857465
+      ],
+      "path": "/tmp/cuflye-m4e-proof-1782829304-git/out/m4e/cuda-parallel.overlaps.tsv",
+      "raw_sha256": "2549e299addcaf5bf903c0e5319d3097164220daaf1ad189d87f69de98daae80",
+      "raw_sorted_by_canonical_key": false,
+      "records": 51,
+      "size_bytes": 2870
+    },
+    "cuda-serial": {
+      "abi": "overlap-range-v1",
+      "canonical_sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+      "first_record": [
+        -71,
+        89,
+        4589,
+        23257,
+        17,
+        6008,
+        10428,
+        10457,
+        338,
+        0.229469001
+      ],
+      "last_record": [
+        -71,
+        5791,
+        9972,
+        23257,
+        911,
+        214,
+        4354,
+        4816,
+        421,
+        0.217857465
+      ],
+      "path": "/tmp/cuflye-m4e-proof-1782829304-git/out/m4e/cuda-serial.overlaps.tsv",
+      "raw_sha256": "2549e299addcaf5bf903c0e5319d3097164220daaf1ad189d87f69de98daae80",
+      "raw_sorted_by_canonical_key": false,
+      "records": 51,
+      "size_bytes": 2870
+    }
+  }
+}

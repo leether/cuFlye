@@ -73,3 +73,5 @@ M4 overlap-range oracle proof:
   `cuflye-m4c-cuda-overlap-chain-dp-dgx-aarch64.json`
 - Overlap-chain hotpath benchmark manifest:
   `cuflye-m4d-overlap-chain-hotpath-benchmark-dgx-aarch64.json`
+- Overlap-chain parallel-reduction manifest:
+  `cuflye-m4e-overlap-chain-parallel-reduction-dgx-aarch64.json`
