@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4t Substitution Session Timing Attribution
 
-Status: proposed
+Status: in_progress
 
 Created: 2026-07-01
 

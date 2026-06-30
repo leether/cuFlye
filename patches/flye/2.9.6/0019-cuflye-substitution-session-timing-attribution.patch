@@ -1,0 +1,360 @@
+--- a/src/sequence/overlap.cpp
++++ b/src/sequence/overlap.cpp
+@@ -432,6 +432,21 @@
+ 		std::string unsupportedReason;
+ 	};
+ 
++	struct OverlapWorkerSeamTiming
++	{
++		double cpuOverlapMs = 0.0;
++		double requestIoMs = 0.0;
++		double workerProcessMs = 0.0;
++		double validationMs = 0.0;
++		double shadowMs = 0.0;
++		double graphGuardMs = 0.0;
++		double typedRehydrationMs = 0.0;
++		double objectRehydrationMs = 0.0;
++		double substitutionComparisonMs = 0.0;
++		double ledgerEntryBuildMs = 0.0;
++		double seamTotalMs = 0.0;
++	};
++
+ 	std::map<std::string, std::vector<OverlapDumpRecord>>&
+ 	overlapReplayCapturedCpuRecords()
+ 	{
+@@ -805,6 +820,20 @@
+ 	const char* boolJson(bool value)
+ 	{
+ 		return value ? "true" : "false";
++	}
++
++	typedef std::chrono::steady_clock OverlapWorkerTimingClock;
++
++	OverlapWorkerTimingClock::time_point overlapWorkerTimingNow()
++	{
++		return OverlapWorkerTimingClock::now();
++	}
++
++	double overlapWorkerElapsedMs(
++		const OverlapWorkerTimingClock::time_point& start)
++	{
++		return std::chrono::duration<double, std::milli>(
++			OverlapWorkerTimingClock::now() - start).count();
+ 	}
+ 
+ 	CandidateBackend candidateBackend()
+@@ -1994,15 +2023,35 @@
+ 					   queryDirName(queryId) + ".consumed");
+ 	}
+ 
+-	void appendOverlapWorkerVectorSubstitutionLedgerEntry(
+-		const std::string& path,
++	void writeOverlapWorkerTimingJsonFields(
++		std::ostringstream& json,
++		const OverlapWorkerSeamTiming& timing)
++	{
++		json << "\"timing_ms\":{"
++			 << std::fixed << std::setprecision(6)
++			 << "\"cpu_overlap_ms\":" << timing.cpuOverlapMs << ","
++			 << "\"request_io_ms\":" << timing.requestIoMs << ","
++			 << "\"worker_process_ms\":" << timing.workerProcessMs << ","
++			 << "\"validation_ms\":" << timing.validationMs << ","
++			 << "\"shadow_ms\":" << timing.shadowMs << ","
++			 << "\"graph_guard_ms\":" << timing.graphGuardMs << ","
++			 << "\"typed_rehydration_ms\":" << timing.typedRehydrationMs << ","
++			 << "\"object_rehydration_ms\":" << timing.objectRehydrationMs << ","
++			 << "\"substitution_comparison_ms\":"
++			 << timing.substitutionComparisonMs << ","
++			 << "\"ledger_entry_build_ms\":" << timing.ledgerEntryBuildMs << ","
++			 << "\"seam_total_ms\":" << timing.seamTotalMs << "}";
++	}
++
++	std::string makeOverlapWorkerVectorSubstitutionLedgerEntry(
+ 		int64_t queryId,
+ 		const std::string& fixtureDir,
+ 		const OverlapWorkerReplayShape& shape,
+ 		bool selected,
+ 		const std::string& decision,
+ 		const std::string& reason,
+-		const OverlapWorkerVectorSubstitutionResult& substitution)
++		const OverlapWorkerVectorSubstitutionResult& substitution,
++		const OverlapWorkerSeamTiming& timing)
+ 	{
+ 		std::ostringstream json;
+ 		json << "{"
+@@ -2042,15 +2091,39 @@
+ 			 << "\"substitution_status\":\""
+ 			 << jsonEscape(substitution.status) << "\","
+ 			 << "\"substitution_state\":\""
+-			 << jsonEscape(substitution.state) << "\"";
++			 << jsonEscape(substitution.state) << "\",";
++		writeOverlapWorkerTimingJsonFields(json, timing);
+ 		if (!substitution.error.empty())
+ 		{
+ 			json << ",\"error\":\"" << jsonEscape(substitution.error) << "\"";
+ 		}
+ 		json << "}\n";
+-		appendTextFile(path, json.str());
++		return json.str();
+ 	}
+ 
++	void appendOverlapWorkerVectorSubstitutionLedgerEntry(
++		const std::string& path,
++		int64_t queryId,
++		const std::string& fixtureDir,
++		const OverlapWorkerReplayShape& shape,
++		bool selected,
++		const std::string& decision,
++		const std::string& reason,
++		const OverlapWorkerVectorSubstitutionResult& substitution,
++		const OverlapWorkerSeamTiming& timing)
++	{
++		auto buildStart = overlapWorkerTimingNow();
++		std::string draft = makeOverlapWorkerVectorSubstitutionLedgerEntry(
++			queryId, fixtureDir, shape, selected, decision, reason,
++			substitution, timing);
++		(void)draft;
++		OverlapWorkerSeamTiming measuredTiming = timing;
++		measuredTiming.ledgerEntryBuildMs = overlapWorkerElapsedMs(buildStart);
++		appendTextFile(path, makeOverlapWorkerVectorSubstitutionLedgerEntry(
++			queryId, fixtureDir, shape, selected, decision, reason,
++			substitution, measuredTiming));
++	}
++
+ 	OverlapWorkerVectorSubstitutionResult evaluateOverlapWorkerVectorSubstitution(
+ 		const std::vector<std::string>& fixtures,
+ 		const std::string& batchOutputDir,
+@@ -2466,11 +2539,15 @@
+ 		const std::string& currentFixtureDir,
+ 		int64_t currentQueryId,
+ 		const std::vector<OverlapRange>& currentCpuOverlaps,
+-		const OverlapWorkerReplayShape& currentShape)
++		const OverlapWorkerReplayShape& currentShape,
++		double cpuOverlapMs)
+ 	{
+ 		OverlapWorkerVectorSubstitutionResult substitution;
+ 		if (!overlapWorkerEnabled()) return substitution;
+ 		if (overlapWorkerSeamCompleted().load()) return substitution;
++		OverlapWorkerSeamTiming timing;
++		timing.cpuOverlapMs = cpuOverlapMs;
++		auto seamStart = overlapWorkerTimingNow();
+ 
+ 		auto& fixtures = overlapReplayCapturedFixtures();
+ 		if (!overlapWorkerVectorSubstitutionSessionEnabled() &&
+@@ -2496,6 +2573,7 @@
+ 			overlapWorkerSeamCompleted().store(true);
+ 			return substitution;
+ 		}
++		auto requestIoStart = overlapWorkerTimingNow();
+ 		ensureDirectory(outputRoot);
+ 
+ 		std::vector<std::string> requestFixtures = fixtures;
+@@ -2535,11 +2613,14 @@
+ 		writeOverlapWorkerRequestJson(requestJson, requestId, fixtureList, queryIdsFile,
+ 									  batchOutputDir, batchJson, responseJson,
+ 									  requestFixtures.size());
++		timing.requestIoMs = overlapWorkerElapsedMs(requestIoStart);
+ 
+ 		std::string command = shellQuote(workerBin) + " --worker-request-json " +
+ 							  shellQuote(requestJson) + " > " + shellQuote(stdoutLog) +
+ 							  " 2> " + shellQuote(stderrLog);
++		auto workerStart = overlapWorkerTimingNow();
+ 		int status = std::system(command.c_str());
++		timing.workerProcessMs = overlapWorkerElapsedMs(workerStart);
+ 		if (status != 0)
+ 		{
+ 			throw std::runtime_error(
+@@ -2548,8 +2629,10 @@
+ 		}
+ 		ensureReadableFile(responseJson, "overlap worker response JSON");
+ 
++		auto validationStart = overlapWorkerTimingNow();
+ 		auto validation = validateOverlapWorkerOutputs(requestFixtures, batchOutputDir);
+ 		writeOverlapWorkerValidationJson(validationJson, validation);
++		timing.validationMs = overlapWorkerElapsedMs(validationStart);
+ 		OverlapWorkerShadowResult shadow;
+ 		OverlapWorkerRehydrationResult rehydration;
+ 		OverlapWorkerObjectRehydrationResult objectRehydration;
+@@ -2578,8 +2661,10 @@
+ 
+ 		if (overlapWorkerShadowEnabled())
+ 		{
+-			shadow = compareOverlapWorkerShadowOutputs(fixtures, batchOutputDir);
++			auto shadowStart = overlapWorkerTimingNow();
++			shadow = compareOverlapWorkerShadowOutputs(requestFixtures, batchOutputDir);
+ 			writeOverlapWorkerShadowJson(shadowJson, shadow);
++			timing.shadowMs = overlapWorkerElapsedMs(shadowStart);
+ 			if (!shadow.shadowConsumptionEligible)
+ 			{
+ 				auto graphGuard = evaluateOverlapWorkerGraphGuard(validation, shadow,
+@@ -2604,12 +2689,14 @@
+ 			}
+ 		}
+ 
++		auto guardStart = overlapWorkerTimingNow();
+ 		auto graphGuard = evaluateOverlapWorkerGraphGuard(validation, shadow,
+ 														 requestFixtures.size(),
+ 														 graphGuardJson);
+ 		if (overlapWorkerGraphConsumptionDryRunEnabled())
+ 		{
+ 			writeOverlapWorkerGraphGuardJson(graphGuardJson, graphGuard);
++			timing.graphGuardMs = overlapWorkerElapsedMs(guardStart);
+ 			if (graphGuard.failedClosed)
+ 			{
+ 				writeOverlapWorkerSeamSummary(
+@@ -2629,10 +2716,12 @@
+ 		}
+ 		if (overlapWorkerRehydrationEnabled())
+ 		{
++			auto rehydrationStart = overlapWorkerTimingNow();
+ 			rehydration = compareOverlapWorkerRehydrationOutputs(
+ 				requestFixtures, batchOutputDir, validation, shadow, graphGuard,
+ 				rehydrationJson);
+ 			writeOverlapWorkerRehydrationJson(rehydrationJson, rehydration);
++			timing.typedRehydrationMs = overlapWorkerElapsedMs(rehydrationStart);
+ 			if (rehydration.failedClosed)
+ 			{
+ 				writeOverlapWorkerSeamSummary(
+@@ -2652,10 +2741,13 @@
+ 		}
+ 		if (overlapWorkerObjectRehydrationEnabled())
+ 		{
++			auto objectRehydrationStart = overlapWorkerTimingNow();
+ 			objectRehydration = compareOverlapWorkerObjectRehydrationOutputs(
+ 				requestFixtures, batchOutputDir, rehydration, objectRehydrationJson);
+ 			writeOverlapWorkerObjectRehydrationJson(objectRehydrationJson,
+ 													objectRehydration);
++			timing.objectRehydrationMs =
++				overlapWorkerElapsedMs(objectRehydrationStart);
+ 			if (objectRehydration.failedClosed)
+ 			{
+ 				writeOverlapWorkerSeamSummary(
+@@ -2675,20 +2767,24 @@
+ 		}
+ 		if (overlapWorkerVectorSubstitutionEnabled())
+ 		{
++			auto substitutionStart = overlapWorkerTimingNow();
+ 			substitution = evaluateOverlapWorkerVectorSubstitution(
+ 				requestFixtures, batchOutputDir, objectRehydration, vectorSubstitutionJson,
+ 				currentFixtureDir, currentQueryId, currentCpuOverlaps);
+ 			writeOverlapWorkerVectorSubstitutionJson(vectorSubstitutionJson,
+ 													 substitution);
++			timing.substitutionComparisonMs =
++				overlapWorkerElapsedMs(substitutionStart);
+ 			if (overlapWorkerVectorSubstitutionSessionEnabled())
+ 			{
++				timing.seamTotalMs = overlapWorkerElapsedMs(seamStart);
+ 				appendOverlapWorkerVectorSubstitutionLedgerEntry(
+ 					ledgerJsonl, currentQueryId, currentFixtureDir, currentShape, true,
+ 					substitution.failedClosed ? "failed-closed" :
+ 						(substitution.consumed ? "substituted" : "not-consumed"),
+ 					substitution.failedClosed ? substitution.error :
+ 						"selected supported shape evaluated by worker",
+-					substitution);
++					substitution, timing);
+ 			}
+ 			if (substitution.failedClosed)
+ 			{
+@@ -3152,7 +3248,8 @@
+ 							 bool partitionBadMappings,
+ 							 bool useHpc,
+ 							 float maxDivergence,
+-							 float sampleRate)
++							 float sampleRate,
++							 double cpuOverlapMs)
+ 	{
+ 		OverlapWorkerVectorSubstitutionResult substitution;
+ 		validateOverlapWorkerReplayConfig();
+@@ -3184,10 +3281,13 @@
+ 
+ 		if (overlapWorkerVectorSubstitutionSessionEnabled())
+ 		{
++			auto decisionStart = overlapWorkerTimingNow();
+ 			std::string outputRoot = overlapWorkerOutputDir(dumpRoot);
+ 			std::string ledgerJsonl = joinPath(
+ 				outputRoot, "worker-vector-substitution-ledger.jsonl");
+ 			std::string fixtureDir = joinPath(dumpRoot, queryDirName(queryId));
++			OverlapWorkerSeamTiming ledgerTiming;
++			ledgerTiming.cpuOverlapMs = cpuOverlapMs;
+ 			OverlapWorkerVectorSubstitutionResult ledgerSubstitution;
+ 			ledgerSubstitution.mode = overlapWorkerVectorSubstitutionMode();
+ 			ledgerSubstitution.proofFault =
+@@ -3200,13 +3300,14 @@
+ 			if (!selectedQuery)
+ 			{
+ 				ensureDirectory(outputRoot);
++				ledgerTiming.seamTotalMs = overlapWorkerElapsedMs(decisionStart);
+ 				appendOverlapWorkerVectorSubstitutionLedgerEntry(
+ 					ledgerJsonl, queryId, fixtureDir, replayShape, false,
+ 					replayShape.supported ? "skipped-not-selected"
+ 										  : "skipped-unsupported-non-selected-shape",
+ 					replayShape.supported ? "query id is outside substitution allowlist"
+ 										  : replayShape.unsupportedReason,
+-					ledgerSubstitution);
++					ledgerSubstitution, ledgerTiming);
+ 				return substitution;
+ 			}
+ 
+@@ -3215,11 +3316,12 @@
+ 			if (fileExists(queryDone))
+ 			{
+ 				ensureDirectory(outputRoot);
++				ledgerTiming.seamTotalMs = overlapWorkerElapsedMs(decisionStart);
+ 				appendOverlapWorkerVectorSubstitutionLedgerEntry(
+ 					ledgerJsonl, queryId, fixtureDir, replayShape, true,
+ 					"skipped-already-substituted",
+ 					"query already has a durable substitution sentinel",
+-					ledgerSubstitution);
++					ledgerSubstitution, ledgerTiming);
+ 				return substitution;
+ 			}
+ 
+@@ -3242,10 +3344,12 @@
+ 					outputRoot, "worker-vector-substitution.json");
+ 				writeOverlapWorkerVectorSubstitutionJson(vectorSubstitutionJson,
+ 														 ledgerSubstitution);
++				ledgerTiming.seamTotalMs = overlapWorkerElapsedMs(decisionStart);
+ 				appendOverlapWorkerVectorSubstitutionLedgerEntry(
+ 					ledgerJsonl, queryId, fixtureDir, replayShape, true,
+ 					"failed-closed-unsupported-selected-shape",
+-					replayShape.unsupportedReason, ledgerSubstitution);
++					replayShape.unsupportedReason, ledgerSubstitution,
++					ledgerTiming);
+ 				throw std::runtime_error(
+ 					"cuFlye overlap worker seam fail-closed; unsupported selected "
+ 					"overlap replay shape; substitution_json=" +
+@@ -3359,7 +3463,8 @@
+ 			overlapReplayCapturedFixtures().push_back(queryDir);
+ 			overlapReplayCapturedQueryIds().push_back(queryId);
+ 			substitution = maybeInvokeOverlapWorker(dumpRoot, queryDir, queryId,
+-													overlaps, replayShape);
++													overlaps, replayShape,
++													cpuOverlapMs);
+ 
+ 		if (cudaEnvFlag("CUFLYE_OVERLAP_REPLAY_STOP_AFTER_DUMP"))
+ 		{
+@@ -3472,6 +3577,7 @@
+ 	static const float SM_GAP = (float)Config::get("chain_small_gap_penalty");
+ 	static const int GAP_JUMP_THLD = (int)Config::get("chain_gap_jump_threshold");
+ 	static const int MAX_GAP = (int)Config::get("max_jump_gap");
++	auto cpuOverlapTimingStart = overlapWorkerTimingNow();
+ 
+ 	//outSuggestChimeric = false;
+ 	int32_t curLen = fastaRec.sequence.length();
+@@ -3884,6 +3990,7 @@
+ 			divStats.add(ovlp.seqDivergence);
+ 		}
+ 	}
++	double cpuOverlapMs = overlapWorkerElapsedMs(cpuOverlapTimingStart);
+ 	auto substitution = dumpOverlapReplayFixture(
+ 		fastaRec, vecMatches, curFilteredPos, detectedOverlaps,
+ 		_seqContainer, forceLocal, maxOverlaps, kmerSize,
+@@ -3891,7 +3998,7 @@
+ 		MAX_GAP, _maxJump, _minOverlap, _maxOverhang,
+ 		_checkOverhang, _keepAlignment, _onlyMaxExt,
+ 		_nuclAlignment, _partitionBadMappings, _useHpc,
+-		_maxDivergence, _vertexIndex.getSampleRate());
++		_maxDivergence, _vertexIndex.getSampleRate(), cpuOverlapMs);
+ 	if (substitution.consumed)
+ 	{
+ 		dumpOverlapRanges(substitution.overlaps);

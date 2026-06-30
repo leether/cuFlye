@@ -1,6 +1,6 @@
 # Substitution Session Ledger v0
 
-Status: accepted in M4s
+Status: accepted in M4s; timing attribution proposed for M4t
 
 Introduced: M4s
 
@@ -93,6 +93,19 @@ Each ledger line is one compact JSON object:
   "cpu_records": 8,
   "worker_records": 8,
   "object_records": 8,
+  "timing_ms": {
+    "cpu_overlap_ms": 12.3,
+    "request_io_ms": 0.2,
+    "worker_process_ms": 18.1,
+    "validation_ms": 0.5,
+    "shadow_ms": 0.3,
+    "graph_guard_ms": 0.1,
+    "typed_rehydration_ms": 0.4,
+    "object_rehydration_ms": 0.3,
+    "substitution_comparison_ms": 0.2,
+    "ledger_entry_build_ms": 0.01,
+    "seam_total_ms": 20.2
+  },
   "shape": {
     "max_overlaps": 0,
     "keep_alignment": false,
@@ -130,6 +143,28 @@ worker-vector-substitution.query_353.consumed
 Later calls for that query append `skipped-already-substituted` to the ledger
 and return the CPU vector. This keeps the smoke scope explicit while preventing
 later unsupported Flye subprocess calls from overwriting accepted worker proof.
+
+## Timing Attribution
+
+M4t adds a `timing_ms` object to every ledger entry. Timing fields are
+best-effort observations and must not affect substitution eligibility.
+
+| Field | Meaning |
+| --- | --- |
+| `cpu_overlap_ms` | Time spent in the current `getSeqOverlaps` call before the cuFlye replay seam. |
+| `request_io_ms` | Time spent creating the seam output directory and writing request/list JSON files. |
+| `worker_process_ms` | Wall time spent in the external overlap worker process. |
+| `validation_ms` | Time spent validating worker output and writing validation JSON. |
+| `shadow_ms` | Time spent parsing and comparing shadow overlap records. |
+| `graph_guard_ms` | Time spent evaluating and writing graph-consumption guard metadata. |
+| `typed_rehydration_ms` | Time spent rehydrating typed overlap records and writing rehydration JSON. |
+| `object_rehydration_ms` | Time spent constructing Flye `OverlapRange` objects and writing object rehydration JSON. |
+| `substitution_comparison_ms` | Time spent comparing the worker-derived object vector against current CPU overlaps and writing substitution JSON. |
+| `ledger_entry_build_ms` | Time spent building the JSONL ledger entry. |
+| `seam_total_ms` | Total observed seam time for the selected or skipped decision before ledger append. |
+
+All timing fields are milliseconds and must be non-negative. They are intended
+for ROI attribution, not deterministic correctness checks.
 
 ## M4s Benefit Assessment
 

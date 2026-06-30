@@ -7,13 +7,13 @@ change is considered complete.
 
 Active cards:
 
-- None.
-
-Proposed cards:
-
 - `2026-07-01-cuflye-m4t-substitution-session-timing-attribution.md`:
   add timing attribution to graph-facing substitution sessions before choosing
   the next performance optimization path.
+
+Proposed cards:
+
+- None. M4t is in progress.
 
 Completed cards:
 
