@@ -93,6 +93,8 @@ Options:
                        Set CUFLYE_OVERLAP_OBJECT_REHYDRATION_PROOF_FAULT
   --overlap-vector-substitution-mode MODE
                        Set CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE
+  --overlap-gpu-first-audit-mode MODE
+                       Set CUFLYE_OVERLAP_GPU_FIRST_AUDIT_MODE
   --overlap-vector-substitution-proof-fault NAME
                        Set CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_PROOF_FAULT
   --extra-arg ARG      Extra Flye argument. May be repeated.
@@ -159,6 +161,7 @@ overlap_rehydration_proof_fault="${CUFLYE_OVERLAP_REHYDRATION_PROOF_FAULT:-}"
 overlap_object_rehydration_mode="${CUFLYE_OVERLAP_OBJECT_REHYDRATION_MODE:-}"
 overlap_object_rehydration_proof_fault="${CUFLYE_OVERLAP_OBJECT_REHYDRATION_PROOF_FAULT:-}"
 overlap_vector_substitution_mode="${CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE:-}"
+overlap_gpu_first_audit_mode="${CUFLYE_OVERLAP_GPU_FIRST_AUDIT_MODE:-}"
 overlap_vector_substitution_proof_fault="${CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_PROOF_FAULT:-}"
 extra_args=()
 
@@ -350,6 +353,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --overlap-vector-substitution-mode)
       overlap_vector_substitution_mode="$2"
+      shift 2
+      ;;
+    --overlap-gpu-first-audit-mode)
+      overlap_gpu_first_audit_mode="$2"
       shift 2
       ;;
     --overlap-vector-substitution-proof-fault)
@@ -611,12 +618,15 @@ fi
 if [ -n "${overlap_vector_substitution_mode}" ]; then
   export CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE="${overlap_vector_substitution_mode}"
 fi
+if [ -n "${overlap_gpu_first_audit_mode}" ]; then
+  export CUFLYE_OVERLAP_GPU_FIRST_AUDIT_MODE="${overlap_gpu_first_audit_mode}"
+fi
 if [ -n "${overlap_vector_substitution_proof_fault}" ]; then
   export CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_PROOF_FAULT="${overlap_vector_substitution_proof_fault}"
 fi
 
 metadata_tmp="${out_dir}/run_metadata.pre.json"
-python3 - "$metadata_tmp" "$repo_root" "$flye_dir" "$fixture" "$reads" "$read_type" "$genome_size" "$min_overlap" "$threads" "$candidate_dump" "$overlap_dump" "$overlap_replay_dump_dir" "$overlap_replay_query_id" "$overlap_replay_query_ids" "$overlap_replay_max_fixtures" "$overlap_replay_stop_after_dump" "$candidate_backend" "$cuda_device" "$cuda_memory_budget_bytes" "$cuda_adapter_mode" "$cuda_backend_bin" "$cuda_packed_fixture_dir" "$cuda_adapter_output_tsv" "$cuda_adapter_json" "$cuda_packed_kmer_size" "$cuda_pack_dump_dir" "$cuda_pack_query_id" "$cuda_stop_after_packed_query" "$overlap_worker_mode" "$overlap_worker_bin" "$overlap_worker_output_dir" "$overlap_worker_device" "$overlap_worker_kernel_mode" "$overlap_worker_warmup_runs" "$overlap_worker_benchmark_runs" "$overlap_worker_memory_budget_bytes" "$overlap_worker_validation_mode" "$overlap_worker_shadow_mode" "$overlap_worker_lifecycle_mode" "$overlap_worker_session_dir" "$overlap_worker_session_poll_ms" "$overlap_worker_session_timeout_ms" "$overlap_graph_consumption_mode" "$overlap_rehydration_mode" "$overlap_rehydration_proof_fault" "$overlap_object_rehydration_mode" "$overlap_object_rehydration_proof_fault" "$overlap_vector_substitution_mode" "$overlap_vector_substitution_proof_fault" "${cmd[@]}" <<'PY'
+python3 - "$metadata_tmp" "$repo_root" "$flye_dir" "$fixture" "$reads" "$read_type" "$genome_size" "$min_overlap" "$threads" "$candidate_dump" "$overlap_dump" "$overlap_replay_dump_dir" "$overlap_replay_query_id" "$overlap_replay_query_ids" "$overlap_replay_max_fixtures" "$overlap_replay_stop_after_dump" "$candidate_backend" "$cuda_device" "$cuda_memory_budget_bytes" "$cuda_adapter_mode" "$cuda_backend_bin" "$cuda_packed_fixture_dir" "$cuda_adapter_output_tsv" "$cuda_adapter_json" "$cuda_packed_kmer_size" "$cuda_pack_dump_dir" "$cuda_pack_query_id" "$cuda_stop_after_packed_query" "$overlap_worker_mode" "$overlap_worker_bin" "$overlap_worker_output_dir" "$overlap_worker_device" "$overlap_worker_kernel_mode" "$overlap_worker_warmup_runs" "$overlap_worker_benchmark_runs" "$overlap_worker_memory_budget_bytes" "$overlap_worker_validation_mode" "$overlap_worker_shadow_mode" "$overlap_worker_lifecycle_mode" "$overlap_worker_session_dir" "$overlap_worker_session_poll_ms" "$overlap_worker_session_timeout_ms" "$overlap_graph_consumption_mode" "$overlap_rehydration_mode" "$overlap_rehydration_proof_fault" "$overlap_object_rehydration_mode" "$overlap_object_rehydration_proof_fault" "$overlap_vector_substitution_mode" "$overlap_gpu_first_audit_mode" "$overlap_vector_substitution_proof_fault" "${cmd[@]}" <<'PY'
 import json
 import os
 import platform
@@ -625,7 +635,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 
-metadata_path, repo_root, flye_dir, fixture, reads, read_type, genome_size, min_overlap, threads, candidate_dump, overlap_dump, overlap_replay_dump_dir, overlap_replay_query_id, overlap_replay_query_ids, overlap_replay_max_fixtures, overlap_replay_stop_after_dump, candidate_backend, cuda_device, cuda_memory_budget_bytes, cuda_adapter_mode, cuda_backend_bin, cuda_packed_fixture_dir, cuda_adapter_output_tsv, cuda_adapter_json, cuda_packed_kmer_size, cuda_pack_dump_dir, cuda_pack_query_id, cuda_stop_after_packed_query, overlap_worker_mode, overlap_worker_bin, overlap_worker_output_dir, overlap_worker_device, overlap_worker_kernel_mode, overlap_worker_warmup_runs, overlap_worker_benchmark_runs, overlap_worker_memory_budget_bytes, overlap_worker_validation_mode, overlap_worker_shadow_mode, overlap_worker_lifecycle_mode, overlap_worker_session_dir, overlap_worker_session_poll_ms, overlap_worker_session_timeout_ms, overlap_graph_consumption_mode, overlap_rehydration_mode, overlap_rehydration_proof_fault, overlap_object_rehydration_mode, overlap_object_rehydration_proof_fault, overlap_vector_substitution_mode, overlap_vector_substitution_proof_fault, *cmd = sys.argv[1:]
+metadata_path, repo_root, flye_dir, fixture, reads, read_type, genome_size, min_overlap, threads, candidate_dump, overlap_dump, overlap_replay_dump_dir, overlap_replay_query_id, overlap_replay_query_ids, overlap_replay_max_fixtures, overlap_replay_stop_after_dump, candidate_backend, cuda_device, cuda_memory_budget_bytes, cuda_adapter_mode, cuda_backend_bin, cuda_packed_fixture_dir, cuda_adapter_output_tsv, cuda_adapter_json, cuda_packed_kmer_size, cuda_pack_dump_dir, cuda_pack_query_id, cuda_stop_after_packed_query, overlap_worker_mode, overlap_worker_bin, overlap_worker_output_dir, overlap_worker_device, overlap_worker_kernel_mode, overlap_worker_warmup_runs, overlap_worker_benchmark_runs, overlap_worker_memory_budget_bytes, overlap_worker_validation_mode, overlap_worker_shadow_mode, overlap_worker_lifecycle_mode, overlap_worker_session_dir, overlap_worker_session_poll_ms, overlap_worker_session_timeout_ms, overlap_graph_consumption_mode, overlap_rehydration_mode, overlap_rehydration_proof_fault, overlap_object_rehydration_mode, overlap_object_rehydration_proof_fault, overlap_vector_substitution_mode, overlap_gpu_first_audit_mode, overlap_vector_substitution_proof_fault, *cmd = sys.argv[1:]
 
 def run(cmdline):
     try:
@@ -731,6 +741,8 @@ if overlap_object_rehydration_proof_fault:
     payload["overlap_object_rehydration_proof_fault"] = overlap_object_rehydration_proof_fault
 if overlap_vector_substitution_mode:
     payload["overlap_vector_substitution_mode"] = overlap_vector_substitution_mode
+if overlap_gpu_first_audit_mode:
+    payload["overlap_gpu_first_audit_mode"] = overlap_gpu_first_audit_mode
 if overlap_vector_substitution_proof_fault:
     payload["overlap_vector_substitution_proof_fault"] = overlap_vector_substitution_proof_fault
 

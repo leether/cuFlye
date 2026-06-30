@@ -1,0 +1,493 @@
+{
+  "acceptance": {
+    "audit_mode_catches_forced_gpu_cpu_mismatch": true,
+    "audit_negative_fails_closed_before_graph_mutation": true,
+    "cuda_overlap_worker_build_succeeds_on_dgx": true,
+    "gpu_first_records_ledger_decision": true,
+    "gpu_first_skips_live_cpu_overlap_for_selected_cached_query": true,
+    "local_and_dgx_syntax_style_ownership_gates_pass": true,
+    "patch_series_applies_and_builds_through_m4x": true,
+    "positive_toy_raw_artifacts_match_cpu": true,
+    "wall_time_improved_vs_cpu": false
+  },
+  "audit_mismatch_negative": {
+    "failed_entry": {
+      "accepted": false,
+      "attempted": true,
+      "consumed": false,
+      "cpu_records": 8,
+      "decision": "failed-closed",
+      "error": "gpu-first audit object vector differs from captured CPU oracle",
+      "failed_closed": true,
+      "graph_facing_returned_worker_output": false,
+      "graph_mutation_consumed_worker_output": false,
+      "object_records": 7,
+      "query_id": 353,
+      "reason": "gpu-first audit object vector differs from captured CPU oracle",
+      "selected": true,
+      "substitution_state": "failed-closed",
+      "substitution_status": "failed",
+      "supported_shape": true,
+      "timing_ms": {
+        "cpu_overlap_ms": 0.0,
+        "seam_total_ms": 2.866233,
+        "substitution_comparison_ms": 1.560325,
+        "worker_process_ms": 0.0
+      },
+      "worker_records": 8
+    },
+    "ledger": {
+      "decision_counts": {
+        "deferred-session-batch-waiting": 1,
+        "failed-closed": 1,
+        "skipped-not-selected": 152,
+        "substituted-from-session-batch-run": 1
+      },
+      "entries": 155,
+      "selected_entries": [
+        {
+          "accepted": false,
+          "attempted": false,
+          "consumed": false,
+          "cpu_records": 8,
+          "decision": "deferred-session-batch-waiting",
+          "error": null,
+          "failed_closed": false,
+          "graph_facing_returned_worker_output": false,
+          "graph_mutation_consumed_worker_output": false,
+          "object_records": 0,
+          "query_id": 353,
+          "reason": "waiting for selected supported fixtures to amortize worker invocation",
+          "selected": true,
+          "substitution_state": "not-consumed",
+          "substitution_status": "not-requested",
+          "supported_shape": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 1.029731,
+            "seam_total_ms": 1.400501,
+            "substitution_comparison_ms": 0.0,
+            "worker_process_ms": 0.0
+          },
+          "worker_records": 0
+        },
+        {
+          "accepted": true,
+          "attempted": true,
+          "consumed": true,
+          "cpu_records": 60,
+          "decision": "substituted-from-session-batch-run",
+          "error": null,
+          "failed_closed": false,
+          "graph_facing_returned_worker_output": true,
+          "graph_mutation_consumed_worker_output": true,
+          "object_records": 60,
+          "query_id": 381,
+          "reason": "selected supported shape evaluated by worker",
+          "selected": true,
+          "substitution_state": "consumed",
+          "substitution_status": "passed",
+          "supported_shape": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 10.605393,
+            "seam_total_ms": 28.058199,
+            "substitution_comparison_ms": 1.196387,
+            "worker_process_ms": 15.342415
+          },
+          "worker_records": 60
+        },
+        {
+          "accepted": false,
+          "attempted": true,
+          "consumed": false,
+          "cpu_records": 8,
+          "decision": "failed-closed",
+          "error": "gpu-first audit object vector differs from captured CPU oracle",
+          "failed_closed": true,
+          "graph_facing_returned_worker_output": false,
+          "graph_mutation_consumed_worker_output": false,
+          "object_records": 7,
+          "query_id": 353,
+          "reason": "gpu-first audit object vector differs from captured CPU oracle",
+          "selected": true,
+          "substitution_state": "failed-closed",
+          "substitution_status": "failed",
+          "supported_shape": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 0.0,
+            "seam_total_ms": 2.866233,
+            "substitution_comparison_ms": 1.560325,
+            "worker_process_ms": 0.0
+          },
+          "worker_records": 8
+        }
+      ]
+    },
+    "response": {
+      "request_ordinal": 1,
+      "status": "ok",
+      "timing_ms": {
+        "backend_mean_total_before_write": 6.52034,
+        "kernel": 5.997074,
+        "request_total": 11.847893,
+        "worker_overhead": 5.327553
+      },
+      "worker_context_setup_ms": 304.701434,
+      "worker_cuda_context_warm": true
+    },
+    "seam_summary": {
+      "graph_facing_returned_worker_output": false,
+      "graph_mutation_consumed_worker_output": false,
+      "overlap_vector_substitution_consumed": false,
+      "overlap_vector_substitution_decision": "failed-closed-before-graph-mutation",
+      "overlap_vector_substitution_mode": "gpu-first-supported-v0",
+      "overlap_vector_substitution_selected_query_id": 353,
+      "overlap_vector_substitution_selected_source": "none",
+      "overlap_vector_substitution_state": "failed-closed",
+      "overlap_vector_substitution_status": "failed",
+      "status": "gpu-first-substitution-failed-before-live-cpu-overlap"
+    },
+    "session_complete": {
+      "device_name": "NVIDIA GB10",
+      "status": "complete",
+      "worker_context_setup_ms": 304.701434,
+      "worker_session_max_requests": 1,
+      "worker_session_poll_ms": 1,
+      "worker_session_processed_requests": 1,
+      "worker_session_timeout_ms": 600000
+    },
+    "substitution_json": {
+      "decision": "failed-closed-before-graph-mutation",
+      "error": "gpu-first audit object vector differs from captured CPU oracle",
+      "failed_closed": true,
+      "graph_mutation_consumed_worker_output": false,
+      "proof_fault": "drop-first-gpu-first-overlap",
+      "proof_fault_applied": true,
+      "state": "failed-closed",
+      "status": "failed"
+    }
+  },
+  "benefit_assessment_plain_language": "M4x proves the first real GPU-first graph-facing shortcut: after the verified session batch exists, query 353 returned the cached worker OverlapRange vector with cpu_overlap_ms=0 and worker_process_ms=0, and the full toy-raw artifacts still matched CPU. The audit negative proves a forced GPU-first mismatch fails closed before graph mutation. This is a seam-level benefit, not an end-to-end speedup yet: CPU toy-raw took 72s and M4x positive took 84s because only one selected cached overlap was bypassed while the rest of Flye remains CPU-bound.",
+  "builds": {
+    "cuda_overlap_worker": {
+      "arch": "sm_121",
+      "binary": "out/m4x/bin/cuflye-cuda-overlap-chain-replay",
+      "manifest": "out/m4x/cuda_overlap_chain_replay_build_manifest.json",
+      "nvcc": "/usr/local/cuda/bin/nvcc"
+    },
+    "flye": {
+      "applied_patch_count": 23,
+      "flye_version": "2.9.6-b1802",
+      "last_applied_patches": [
+        "0021-cuflye-persistent-overlap-worker-lifecycle.patch",
+        "0022-cuflye-true-persistent-overlap-worker-session.patch",
+        "0023-cuflye-gpu-first-overlap-substitution-perf-gate.patch"
+      ],
+      "manifest": "out/m4x/flye_build_manifest.json"
+    }
+  },
+  "claim_boundary": {
+    "allowed": "cuFlye can reuse a verified file-backed CUDA session batch cache for a later allowlisted supported overlap query before live CPU overlap, preserve exact toy-raw artifacts, and fail closed on GPU-first audit mismatch.",
+    "forbidden": "M4x does not prove default GPU mode, broad unsupported-shape substitution, or end-to-end Flye speedup."
+  },
+  "comparison": {
+    "cpu_elapsed_seconds": 72,
+    "gpu_first_positive_elapsed_seconds": 84,
+    "gpu_first_positive_vs_cpu_wall_time_ratio": 1.1666666666666667,
+    "gpu_first_selected_cpu_overlap_ms": 0.0,
+    "gpu_first_selected_worker_process_ms": 0.0,
+    "initial_session_batch_worker_process_ms": 12.997414
+  },
+  "created_at_utc": "2026-06-30T21:13:56.011048+00:00",
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "nvcc": "/usr/local/cuda/bin/nvcc",
+    "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:57:39_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+    "nvidia_smi": "GPU 0: NVIDIA GB10 (UUID: GPU-36e1e91e-fa5c-6e0d-d076-203391a7bb03)",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39"
+  },
+  "milestone": "M4x",
+  "positive_gpu_first": {
+    "artifact_diff": "out/m4x/diff-cpu-vs-gpu-first-positive.txt",
+    "artifact_diff_status": "match",
+    "gpu_first_entry": {
+      "accepted": true,
+      "attempted": true,
+      "consumed": true,
+      "cpu_records": 0,
+      "decision": "gpu-first-from-session-batch-cache",
+      "error": null,
+      "failed_closed": false,
+      "graph_facing_returned_worker_output": true,
+      "graph_mutation_consumed_worker_output": true,
+      "object_records": 8,
+      "query_id": 353,
+      "reason": "selected supported shape evaluated from verified worker cache before live CPU overlap",
+      "selected": true,
+      "substitution_state": "consumed",
+      "substitution_status": "passed",
+      "supported_shape": true,
+      "timing_ms": {
+        "cpu_overlap_ms": 0.0,
+        "seam_total_ms": 2.317095,
+        "substitution_comparison_ms": 1.52386,
+        "worker_process_ms": 0.0
+      },
+      "worker_records": 8
+    },
+    "ledger": {
+      "decision_counts": {
+        "deferred-session-batch-waiting": 1,
+        "gpu-first-from-session-batch-cache": 1,
+        "skipped-already-substituted": 4,
+        "skipped-not-selected": 1892,
+        "skipped-unsupported-non-selected-shape": 987,
+        "substituted-from-session-batch-run": 1
+      },
+      "entries": 2886,
+      "selected_entries": [
+        {
+          "accepted": false,
+          "attempted": false,
+          "consumed": false,
+          "cpu_records": 8,
+          "decision": "deferred-session-batch-waiting",
+          "error": null,
+          "failed_closed": false,
+          "graph_facing_returned_worker_output": false,
+          "graph_mutation_consumed_worker_output": false,
+          "object_records": 0,
+          "query_id": 353,
+          "reason": "waiting for selected supported fixtures to amortize worker invocation",
+          "selected": true,
+          "substitution_state": "not-consumed",
+          "substitution_status": "not-requested",
+          "supported_shape": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 0.939491,
+            "seam_total_ms": 1.390388,
+            "substitution_comparison_ms": 0.0,
+            "worker_process_ms": 0.0
+          },
+          "worker_records": 0
+        },
+        {
+          "accepted": true,
+          "attempted": true,
+          "consumed": true,
+          "cpu_records": 60,
+          "decision": "substituted-from-session-batch-run",
+          "error": null,
+          "failed_closed": false,
+          "graph_facing_returned_worker_output": true,
+          "graph_mutation_consumed_worker_output": true,
+          "object_records": 60,
+          "query_id": 381,
+          "reason": "selected supported shape evaluated by worker",
+          "selected": true,
+          "substitution_state": "consumed",
+          "substitution_status": "passed",
+          "supported_shape": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 9.166123,
+            "seam_total_ms": 27.148785,
+            "substitution_comparison_ms": 1.942757,
+            "worker_process_ms": 12.997414
+          },
+          "worker_records": 60
+        },
+        {
+          "accepted": true,
+          "attempted": true,
+          "consumed": true,
+          "cpu_records": 0,
+          "decision": "gpu-first-from-session-batch-cache",
+          "error": null,
+          "failed_closed": false,
+          "graph_facing_returned_worker_output": true,
+          "graph_mutation_consumed_worker_output": true,
+          "object_records": 8,
+          "query_id": 353,
+          "reason": "selected supported shape evaluated from verified worker cache before live CPU overlap",
+          "selected": true,
+          "substitution_state": "consumed",
+          "substitution_status": "passed",
+          "supported_shape": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 0.0,
+            "seam_total_ms": 2.317095,
+            "substitution_comparison_ms": 1.52386,
+            "worker_process_ms": 0.0
+          },
+          "worker_records": 8
+        },
+        {
+          "accepted": false,
+          "attempted": false,
+          "consumed": false,
+          "cpu_records": 8,
+          "decision": "skipped-already-substituted",
+          "error": null,
+          "failed_closed": false,
+          "graph_facing_returned_worker_output": false,
+          "graph_mutation_consumed_worker_output": false,
+          "object_records": 0,
+          "query_id": 353,
+          "reason": "query already has a durable substitution sentinel",
+          "selected": true,
+          "substitution_state": "not-consumed",
+          "substitution_status": "not-requested",
+          "supported_shape": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 0.727618,
+            "seam_total_ms": 1.28074,
+            "substitution_comparison_ms": 0.0,
+            "worker_process_ms": 0.0
+          },
+          "worker_records": 0
+        },
+        {
+          "accepted": false,
+          "attempted": false,
+          "consumed": false,
+          "cpu_records": 59,
+          "decision": "skipped-already-substituted",
+          "error": null,
+          "failed_closed": false,
+          "graph_facing_returned_worker_output": false,
+          "graph_mutation_consumed_worker_output": false,
+          "object_records": 0,
+          "query_id": 381,
+          "reason": "query already has a durable substitution sentinel",
+          "selected": true,
+          "substitution_state": "not-consumed",
+          "substitution_status": "not-requested",
+          "supported_shape": true,
+          "timing_ms": {
+            "cpu_overlap_ms": 9.127259,
+            "seam_total_ms": 1.354372,
+            "substitution_comparison_ms": 0.0,
+            "worker_process_ms": 0.0
+          },
+          "worker_records": 0
+        },
+        {
+          "accepted": false,
+          "attempted": false,
+          "consumed": false,
+          "cpu_records": 1,
+          "decision": "skipped-already-substituted",
+          "error": null,
+          "failed_closed": false,
+          "graph_facing_returned_worker_output": false,
+          "graph_mutation_consumed_worker_output": false,
+          "object_records": 0,
+          "query_id": 353,
+          "reason": "query already has a durable substitution sentinel",
+          "selected": true,
+          "substitution_state": "not-consumed",
+          "substitution_status": "not-requested",
+          "supported_shape": false,
+          "timing_ms": {
+            "cpu_overlap_ms": 2.4206,
+            "seam_total_ms": 0.807778,
+            "substitution_comparison_ms": 0.0,
+            "worker_process_ms": 0.0
+          },
+          "worker_records": 0
+        },
+        {
+          "accepted": false,
+          "attempted": false,
+          "consumed": false,
+          "cpu_records": 1,
+          "decision": "skipped-already-substituted",
+          "error": null,
+          "failed_closed": false,
+          "graph_facing_returned_worker_output": false,
+          "graph_mutation_consumed_worker_output": false,
+          "object_records": 0,
+          "query_id": 381,
+          "reason": "query already has a durable substitution sentinel",
+          "selected": true,
+          "substitution_state": "not-consumed",
+          "substitution_status": "not-requested",
+          "supported_shape": false,
+          "timing_ms": {
+            "cpu_overlap_ms": 1.741381,
+            "seam_total_ms": 1.324372,
+            "substitution_comparison_ms": 0.0,
+            "worker_process_ms": 0.0
+          },
+          "worker_records": 0
+        }
+      ]
+    },
+    "response": {
+      "request_ordinal": 1,
+      "status": "ok",
+      "timing_ms": {
+        "backend_mean_total_before_write": 6.484756,
+        "kernel": 6.009282,
+        "request_total": 9.387068,
+        "worker_overhead": 2.902312
+      },
+      "worker_context_setup_ms": 308.481802,
+      "worker_cuda_context_warm": true
+    },
+    "seam_summary": {
+      "graph_facing_returned_worker_output": true,
+      "graph_mutation_consumed_worker_output": true,
+      "overlap_vector_substitution_consumed": true,
+      "overlap_vector_substitution_decision": "gpu-first-supported-overlap-vector-substituted",
+      "overlap_vector_substitution_mode": "gpu-first-supported-v0",
+      "overlap_vector_substitution_selected_query_id": 353,
+      "overlap_vector_substitution_selected_source": "worker-overlap-range-object-vector-gpu-first",
+      "overlap_vector_substitution_state": "consumed",
+      "overlap_vector_substitution_status": "passed",
+      "status": "gpu-first-substitution-consumed-before-live-cpu-overlap"
+    },
+    "session_complete": {
+      "device_name": "NVIDIA GB10",
+      "status": "complete",
+      "worker_context_setup_ms": 308.481802,
+      "worker_session_max_requests": 1,
+      "worker_session_poll_ms": 1,
+      "worker_session_processed_requests": 1,
+      "worker_session_timeout_ms": 600000
+    },
+    "session_ready": {
+      "device_name": "NVIDIA GB10",
+      "status": "ready",
+      "worker_context_setup_ms": 308.481802,
+      "worker_session_max_requests": 1,
+      "worker_session_poll_ms": 1,
+      "worker_session_processed_requests": 0,
+      "worker_session_timeout_ms": 600000
+    }
+  },
+  "remote_proof_dir": "/tmp/cuflye-m4x-proof-20260630T210115Z",
+  "remote_status": {
+    "status_short": "A  .clang-format\nA  .clang-format-ignore\nA  .gitignore\nA  CUDA_FLYE_DESIGN.md\nA  GENOMEWORKS_NOTES.md\nA  LICENSE\nA  LICENSES/Apache-2.0.txt\nA  LICENSES/BSD-3-Clause.txt\nA  LICENSES/Boost-1.0.txt\nA  LICENSES/MIT.txt\nA  README.md\nA  THIRD_PARTY_NOTICES.md\nA  bench/profile_flye_cpu.sh\nA  cuda/cuflye_cuda_candidate_core_bench.cu\nA  cuda/cuflye_cuda_candidate_smoke.cu\nA  cuda/cuflye_cuda_kmer_encode_smoke.cu\nA  cuda/cuflye_cuda_kmer_join_smoke.cu\nA  cuda/cuflye_cuda_overlap_chain_replay.cu\nA  cuda/cuflye_cuda_probe.cpp\nA  cuda/cuflye_cuda_raii.hpp\nA  cuda/cuflye_cuda_read_window_smoke.cu\nA  docs/CODING_STYLE.md\nA  docs/ROADMAP.md\nA  docs/abi/candidate-record-v1.md\nA  docs/abi/cuda-candidate-adapter-shell-v0.md\nA  docs/abi/cuda-candidate-backend-v0.md\nA  docs/abi/cuda-candidate-core-bench-v0.md\nA  docs/abi/cuda-candidate-smoke-v0.md\nA  docs/abi/cuda-kmer-encode-smoke-v0.md\nA  docs/abi/cuda-kmer-join-smoke-v0.md\nA  docs/abi/cuda-overlap-worker-protocol-v0.md\nA  docs/abi/cuda-read-window-smoke-v0.md\nA  docs/abi/cuda-real-data-pack-dump-v0.md\nA  docs/abi/cuda-runtime-probe-v0.md\nA  docs/abi/cuda-worker-protocol-v0.md\nA  docs/abi/flye-overlap-worker-seam-v0.md\nA  docs/abi/overlap-graph-consumption-guard-v0.md\nA  docs/abi/overlap-range-object-rehydration-dry-run-v0.md\nA  docs/abi/overlap-range-v1.md\nA  docs/abi/overlap-rehydration-dry-run-v0.md\nA  docs/abi/overlap-replay-fixture-v0.md\nA  docs/abi/substitution-session-ledger-v0.md\nA  docs/abi/verified-overlap-vector-substitution-smoke-v0.md\nA  docs/design/m3a-integration-path-decision.md\nA  docs/tasks/2026-06-29-cuflye-m0-cpu-oracle-profiling.md\nA  docs/tasks/2026-06-30-cuflye-cuda-raii-resource-layer.md\nA  docs/tasks/2026-06-30-cuflye-governance-coding-style-v0.md\nA  docs/tasks/2026-06-30-cuflye-governance-memory-ownership-scan.md\nA  docs/tasks/2026-06-30-cuflye-m1a-candidate-oracle-backend-seam.md\nA  docs/tasks/2026-06-30-cuflye-m1b-candidate-backend-seam.md\nA  docs/tasks/2026-06-30-cuflye-m1c-candidate-abi-contract.md\nA  docs/tasks/2026-06-30-cuflye-m1d-cuda-backend-stub.md\nA  docs/tasks/2026-06-30-cuflye-m1e-cuda-runtime-probe.md\nA  docs/tasks/2026-06-30-cuflye-m1f-cuda-candidate-smoke.md\nA  docs/tasks/2026-06-30-cuflye-m1g-cuda-kmer-join-smoke.md\nA  docs/tasks/2026-06-30-cuflye-m1h-cuda-kmer-encoding-smoke.md\nA  docs/tasks/2026-06-30-cuflye-m1i-cuda-read-window-smoke.md\nA  docs/tasks/2026-06-30-cuflye-m1j-cuda-candidate-core-benchmark.md\nA  docs/tasks/2026-06-30-cuflye-m2a-cuda-candidate-adapter-shell.md\nA  docs/tasks/2026-06-30-cuflye-m2b-real-data-pack-dump.md\nA  docs/tasks/2026-06-30-cuflye-m2c-real-pack-cuda-consumer.md\nA  docs/tasks/2026-06-30-cuflye-m2d-external-pack-query-stop.md\nA  docs/tasks/2026-06-30-cuflye-m2e-real-pack-timing-proof.md\nA  docs/tasks/2026-06-30-cuflye-m2f-sparse-output-compaction.md\nA  docs/tasks/2026-06-30-cuflye-m3a-integration-path-decision.md\nA  docs/tasks/2026-06-30-cuflye-m3b-long-lived-cuda-worker.md\nA  docs/tasks/2026-06-30-cuflye-m3c-device-prefix-compaction.md\nA  docs/tasks/2026-06-30-cuflye-m3d-worker-device-buffer-arena.md\nA  docs/tasks/2026-06-30-cuflye-m3e-sampled-pack-batch-planner.md\nA  docs/tasks/2026-06-30-cuflye-m4a-overlap-range-oracle.md\nA  docs/tasks/2026-06-30-cuflye-m4b-overlap-chain-replay-harness.md\nA  docs/tasks/2026-06-30-cuflye-m4c-cuda-overlap-chain-dp-prototype.md\nA  docs/tasks/2026-06-30-cuflye-m4d-overlap-chain-hotpath-benchmark.md\nA  docs/tasks/2026-06-30-cuflye-m4e-overlap-chain-parallel-reduction.md\nA  docs/tasks/2026-06-30-cuflye-m4f-overlap-chain-batched-fixtures.md\nA  docs/tasks/2026-06-30-cuflye-m4g-batched-overlap-worker.md\nA  docs/tasks/2026-06-30-cuflye-m4h-packed-multi-query-overlap-kernel.md\nA  docs/tasks/2026-06-30-cuflye-m4i-packed-overlap-worker-protocol.md\nA  docs/tasks/2026-06-30-cuflye-m4j-flye-overlap-worker-seam.md\nA  docs/tasks/2026-06-30-cuflye-m4k-flye-overlap-worker-batch-seam.md\nA  docs/tasks/2026-06-30-cuflye-m4l-overlap-worker-validated-consumption-gate.md\nA  docs/tasks/2026-06-30-cuflye-m4m-overlap-worker-shadow-consumption.md\nA  docs/tasks/2026-07-01-cuflye-m4n-heterogeneous-shadow-batch-matrix.md\nA  docs/tasks/2026-07-01-cuflye-m4o-guarded-overlap-graph-consumption-design.md\nA  docs/tasks/2026-07-01-cuflye-m4p-overlap-graph-consumption-rehydration-dry-run.md\nA  docs/tasks/2026-07-01-cuflye-m4q-overlap-range-object-rehydration-dry-run.md\nA  docs/tasks/2026-07-01-cuflye-m4r-verified-overlap-vector-substitution-smoke.md\nA  docs/tasks/2026-07-01-cuflye-m4s-substitution-supported-shape-expansion.md\nA  docs/tasks/2026-07-01-cuflye-m4t-substitution-session-timing-attribution.md\nA  docs/tasks/2026-07-01-cuflye-m4u-substitution-worker-overhead-reduction.md\nA  docs/tasks/2026-07-01-cuflye-m4v-persistent-overlap-worker-lifecycle.md\nA  docs/tasks/2026-07-01-cuflye-m4w-true-persistent-overlap-worker-session.md\nA  docs/tasks/2026-07-01-cuflye-m4x-gpu-first-overlap-substitution-perf-gate.md\nA  docs/tasks/README.md\nA  patches/flye/2.9.6/0001-cuflye-candidate-dump.patch\nA  patches/flye/2.9.6/0002-cuflye-candidate-backend-seam.patch\nA  patches/flye/2.9.6/0003-cuflye-cuda-backend-stub.patch\nA  patches/flye/2.9.6/0004-cuflye-cuda-adapter-shell.patch\nA  patches/flye/2.9.6/0005-cuflye-real-data-pack-dump.patch\nA  patches/flye/2.9.6/0006-cuflye-external-pack-query-stop.patch\nA  patches/flye/2.9.6/0007-cuflye-overlap-range-dump.patch\nA  patches/flye/2.9.6/0008-cuflye-overlap-replay-fixture-dump.patch\nA  patches/flye/2.9.6/0009-cuflye-overlap-replay-max-fixtures.patch\nA  patches/flye/2.9.6/0010-cuflye-flye-overlap-worker-seam.patch\nA  patches/flye/2.9.6/0011-cuflye-flye-overlap-worker-batch-allowlist.patch\nA  patches/flye/2.9.6/0012-cuflye-overlap-worker-validation-gate.patch\nA  patches/flye/2.9.6/0013-cuflye-overlap-worker-shadow-consumption.patch\nA  patches/flye/2.9.6/0014-cuflye-overlap-graph-consumption-guard-dry-run.patch\nA  patches/flye/2.9.6/0015-cuflye-overlap-rehydration-dry-run.patch\nA  patches/flye/2.9.6/0016-cuflye-overlap-range-object-rehydration-dry-run.patch\nA  patches/flye/2.9.6/0017-cuflye-verified-overlap-vector-substitution-smoke.patch\nA  patches/flye/2.9.6/0018-cuflye-substitution-session-ledger.patch\nA  patches/flye/2.9.6/0019-cuflye-substitution-session-timing-attribution.patch\nA  patches/flye/2.9.6/0020-cuflye-substitution-session-batch-cache.patch\nA  patches/flye/2.9.6/0021-cuflye-persistent-overlap-worker-lifecycle.patch\nA  patches/flye/2.9.6/0022-cuflye-true-persistent-overlap-worker-session.patch\nA  patches/flye/2.9.6/0023-cuflye-gpu-first-overlap-substitution-perf-gate.patch\nA  scripts/build_cuda_candidate_core_bench.sh\nA  scripts/build_cuda_candidate_smoke.sh\nA  scripts/build_cuda_kmer_encode_smoke.sh\nA  scripts/build_cuda_kmer_join_smoke.sh\nA  scripts/build_cuda_overlap_chain_replay.sh\nA  scripts/build_cuda_probe.sh\nA  scripts/build_cuda_read_window_smoke.sh\nA  scripts/build_cuda_worker.sh\nA  scripts/build_flye_cpu.sh\nA  scripts/run_flye_fixture.sh\nA  tests/fixtures/kmer-encode-smoke-v0/expected.candidates.tsv\nA  tests/fixtures/kmer-encode-smoke-v0/index.tsv\nA  tests/fixtures/kmer-encode-smoke-v0/queries.tsv\nA  tests/fixtures/kmer-encode-smoke-v0/repetitive-kmers.tsv\nA  tests/fixtures/kmer-join-smoke-v0/expected.candidates.tsv\nA  tests/fixtures/kmer-join-smoke-v0/index.tsv\nA  tests/fixtures/kmer-join-smoke-v0/queries.tsv\nA  tests/fixtures/kmer-join-smoke-v0/repetitive-kmers.tsv\nA  tests/fixtures/read-window-smoke-v0/expected.candidates.tsv\nA  tests/fixtures/read-window-smoke-v0/index.tsv\nA  tests/fixtures/read-window-smoke-v0/reads.tsv\nA  tests/fixtures/read-window-smoke-v0/repetitive-kmers.tsv\nA  tests/golden/README.md\nA  tests/golden/cuda-candidate-adapter-shell-dgx-aarch64.json\nA  tests/golden/cuda-candidate-core-bench-dgx-aarch64.json\nA  tests/golden/cuda-candidate-smoke-dgx-aarch64.json\nA  tests/golden/cuda-kmer-encode-smoke-dgx-aarch64.json\nA  tests/golden/cuda-kmer-join-smoke-dgx-aarch64.json\nA  tests/golden/cuda-raii-resource-layer-dgx-aarch64.json\nA  tests/golden/cuda-read-window-smoke-dgx-aarch64.json\nA  tests/golden/cuda-real-data-pack-dump-dgx-aarch64.json\nA  tests/golden/cuda-runtime-probe-dgx-aarch64.json\nA  tests/golden/cuflye-m2c-real-pack-cuda-consumer-dgx-aarch64.json\nA  tests/golden/cuflye-m2d-external-pack-query-stop-dgx-aarch64.json\nA  tests/golden/cuflye-m2e-real-pack-timing-proof-dgx-aarch64.json\nA  tests/golden/cuflye-m2f-sparse-output-compaction-dgx-aarch64.json\nA  tests/golden/cuflye-m3b-long-lived-cuda-worker-dgx-aarch64.json\nA  tests/golden/cuflye-m3c-device-prefix-compaction-dgx-aarch64.json\nA  tests/golden/cuflye-m3d-worker-device-buffer-arena-dgx-aarch64.json\nA  tests/golden/cuflye-m3e-sampled-pack-batch-planner-dgx-aarch64.json\nA  tests/golden/cuflye-m4a-overlap-range-oracle-dgx-aarch64.json\nA  tests/golden/cuflye-m4b-overlap-chain-replay-dgx-aarch64.json\nA  tests/golden/cuflye-m4c-cuda-overlap-chain-dp-dgx-aarch64.json\nA  tests/golden/cuflye-m4d-overlap-chain-hotpath-benchmark-dgx-aarch64.json\nA  tests/golden/cuflye-m4e-overlap-chain-parallel-reduction-dgx-aarch64.json\nA  tests/golden/cuflye-m4f-overlap-chain-batched-fixtures-dgx-aarch64.json\nA  tests/golden/cuflye-m4g-batched-overlap-worker-dgx-aarch64.json\nA  tests/golden/cuflye-m4h-packed-multi-query-overlap-kernel-dgx-aarch64.json\nA  tests/golden/cuflye-m4i-packed-overlap-worker-protocol-dgx-aarch64.json\nA  tests/golden/cuflye-m4j-flye-overlap-worker-seam-dgx-aarch64.json\nA  tests/golden/cuflye-m4k-flye-overlap-worker-batch-seam-dgx-aarch64.json\nA  tests/golden/cuflye-m4l-overlap-worker-validated-consumption-gate-dgx-aarch64.json\nA  tests/golden/cuflye-m4m-overlap-worker-shadow-consumption-dgx-aarch64.json\nA  tests/golden/cuflye-m4n-heterogeneous-shadow-batch-matrix-dgx-aarch64.json\nA  tests/golden/cuflye-m4o-guarded-overlap-graph-consumption-dgx-aarch64.json\nA  tests/golden/cuflye-m4p-overlap-rehydration-dry-run-dgx-aarch64.json\nA  tests/golden/cuflye-m4q-overlap-range-object-rehydration-dry-run-dgx-aarch64.json\nA  tests/golden/cuflye-m4r-verified-overlap-vector-substitution-smoke-dgx-aarch64.json\nA  tests/golden/cuflye-m4s-substitution-session-ledger-dgx-aarch64.json\nA  tests/golden/cuflye-m4t-substitution-session-timing-attribution-dgx-aarch64.json\nA  tests/golden/cuflye-m4u-substitution-worker-overhead-reduction-dgx-aarch64.json\nA  tests/golden/cuflye-m4v-persistent-overlap-worker-lifecycle-dgx-aarch64.json\nA  tests/golden/cuflye-m4w-true-persistent-overlap-worker-session-dgx-aarch64.json\nA  tests/golden/toy-hifi-backend-dgx-aarch64.json\nA  tests/golden/toy-hifi-candidate-abi-dgx-aarch64.json\nA  tests/golden/toy-hifi-candidate-dgx-aarch64.json\nA  tests/golden/toy-hifi-cuda-stub-dgx-aarch64.json\nA  tests/golden/toy-hifi-dgx-aarch64.json\nA  tools/benchmark_overlap_replay_batch.py\nA  tools/canonicalize_flye_artifacts.py\nA  tools/diff_candidate_dumps.py\nA  tools/diff_flye_runs.py\nA  tools/diff_overlap_dumps.py\nA  tools/plan_cuda_worker_batch.py\nA  tools/replay_overlap_chains.py\nA  tools/select_overlap_shadow_matrix.py\nA  tools/validate_candidate_dump.py\nA  tools/validate_overlap_dump.py"
+  },
+  "runs": {
+    "audit_mismatch_negative": {
+      "elapsed_seconds": 43,
+      "exit_status": 1,
+      "expected_failure": true,
+      "metadata": "out/m4x/runs/toy-gpu-first-audit-mismatch/run_metadata.json"
+    },
+    "cpu_toy_raw": {
+      "elapsed_seconds": 72,
+      "exit_status": 0,
+      "metadata": "out/m4x/runs/toy-cpu/run_metadata.json"
+    },
+    "positive_gpu_first": {
+      "elapsed_seconds": 84,
+      "exit_status": 0,
+      "metadata": "out/m4x/runs/toy-gpu-first-pass/run_metadata.json"
+    }
+  },
+  "schema": "cuflye-dgx-proof-v1",
+  "title": "GPU-first overlap substitution perf gate"
+}

@@ -817,3 +817,64 @@ M4x: split the proof-only live CPU oracle from a bounded GPU-first supported
 overlap substitution path, so performance runs can avoid computing the selected
 CPU overlap before invoking CUDA while still retaining an audit gate.
 ```
+
+Completed.
+
+M4x proof on DGX used toy-raw query ids `353,381` in
+`gpu-first-supported-v0` with `CUFLYE_OVERLAP_WORKER_LIFECYCLE_MODE=session-file-v0`.
+Flye first built the same verified session batch cache as M4w. A later
+allowlisted supported call for query `353` then returned the cached
+CUDA-worker `OverlapRange` vector before live CPU overlap.
+
+The positive selected ledger evidence was:
+
+```text
+353 deferred-session-batch-waiting cpu_overlap_ms=0.939491 worker_process_ms=0.0
+381 substituted-from-session-batch-run cpu_overlap_ms=9.166123 worker_process_ms=12.997414
+353 gpu-first-from-session-batch-cache cpu_overlap_ms=0.0 worker_process_ms=0.0
+```
+
+The positive DGX proof preserved exact toy-raw artifacts against CPU:
+
+```text
+Flye run diff: match
+```
+
+The audit negative enabled `CUFLYE_OVERLAP_GPU_FIRST_AUDIT_MODE=oracle-file-v0`
+and `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_PROOF_FAULT=drop-first-gpu-first-overlap`.
+It failed closed before graph mutation:
+
+```text
+status: gpu-first-substitution-failed-before-live-cpu-overlap
+error: gpu-first audit object vector differs from captured CPU oracle
+graph_mutation_consumed_worker_output: false
+```
+
+M4x is a real seam-level benefit, but it is still not an end-to-end Flye
+speedup. CPU toy-raw elapsed `72s`; the M4x positive run elapsed `84s`
+(`1.166667x` CPU wall time), because the proof bypasses one selected cached
+overlap while the rest of Flye remains CPU-bound and instrumentation still
+records ledger decisions.
+
+Allowed M4x claim:
+
+```text
+cuFlye can reuse a verified file-backed CUDA session batch cache for a later
+allowlisted supported overlap query before live CPU overlap, preserve exact
+toy-raw artifacts, and fail closed on GPU-first audit mismatch.
+```
+
+Forbidden M4x claim:
+
+```text
+M4x does not prove default GPU mode, broad unsupported-shape substitution, or
+end-to-end Flye speedup.
+```
+
+Next highest-ROI task:
+
+```text
+M4y: reduce proof overhead and broaden GPU-first selection to a bounded set of
+high-cost supported overlap calls, while keeping the sparse ledger and audit
+sampling explicit.
+```

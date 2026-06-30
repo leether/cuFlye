@@ -57,7 +57,7 @@ Optional environment:
 | `CUFLYE_OVERLAP_WORKER_MEMORY_BUDGET_BYTES` | unset | Optional worker memory budget. |
 | `CUFLYE_OVERLAP_WORKER_VALIDATION_MODE` | `oracle-diff-v0` | Validate every worker output as `overlap-range-v1` and canonical-diff it against the captured CPU oracle before marking worker output consumption-eligible. |
 | `CUFLYE_OVERLAP_WORKER_SHADOW_MODE` | unset | Optional M4m proof mode. `canonical-overlap-v0` parses worker output into Flye-side canonical overlap records and compares them against CPU overlap ranges captured in memory. |
-| `CUFLYE_OVERLAP_WORKER_LIFECYCLE_MODE` | unset | Optional M4v/M4w proof mode. `jsonl-persistent-v0` invokes the overlap worker once with a two-request JSONL lifecycle: a cold warmup request followed by the actual warm request. `session-file-v0` submits the actual request to an already-running file-backed worker session without a duplicate warmup request. Both modes require `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE=verified-overlap-range-session-batch-v0`. |
+| `CUFLYE_OVERLAP_WORKER_LIFECYCLE_MODE` | unset | Optional M4v/M4w/M4x proof mode. `jsonl-persistent-v0` invokes the overlap worker once with a two-request JSONL lifecycle: a cold warmup request followed by the actual warm request. `session-file-v0` submits the actual request to an already-running file-backed worker session without a duplicate warmup request. Persistent modes require `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE=verified-overlap-range-session-batch-v0` or `gpu-first-supported-v0`; GPU-first mode specifically requires `session-file-v0`. |
 | `CUFLYE_OVERLAP_WORKER_SESSION_DIR` | unset | Required when `CUFLYE_OVERLAP_WORKER_LIFECYCLE_MODE=session-file-v0`. Directory containing the worker session `session-ready.json`, `inbox/`, and `done/` files. |
 | `CUFLYE_OVERLAP_WORKER_SESSION_POLL_MS` | `2` | Poll interval while waiting for session ready/done files. |
 | `CUFLYE_OVERLAP_WORKER_SESSION_TIMEOUT_MS` | `600000` | Timeout for session ready/done waits. |
@@ -66,8 +66,9 @@ Optional environment:
 | `CUFLYE_OVERLAP_REHYDRATION_PROOF_FAULT` | unset | Optional M4p negative-proof fault. `drop-first-worker-record` forces typed-vector mismatch after validation, shadow, and guard success. |
 | `CUFLYE_OVERLAP_OBJECT_REHYDRATION_MODE` | unset | Optional M4q proof mode. `overlap-range-object-v0` converts typed records into actual Flye `OverlapRange` objects after M4p passes. |
 | `CUFLYE_OVERLAP_OBJECT_REHYDRATION_PROOF_FAULT` | unset | Optional M4q negative-proof fault. `drop-first-overlap-range` forces object-vector mismatch after M4p success. |
-| `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE` | unset | Optional M4r/M4s/M4u mode. `verified-overlap-range-v0` returns the verified worker-derived `OverlapRange` vector for one selected query after M4q passes. `verified-overlap-range-session-v0` records a per-query session ledger and evaluates each allowlisted supported query separately. `verified-overlap-range-session-batch-v0` verifies one allowlisted supported batch, reuses that batch output for later selected queries through a run-local cache, and is required by the M4v persistent lifecycle proof. |
-| `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_PROOF_FAULT` | unset | Optional M4r/M4s negative-proof fault. `drop-first-substitution-overlap` forces substitution mismatch after M4q success. `force-unsupported-selected-shape` forces the selected query through the unsupported-shape fail-closed gate before worker invocation. |
+| `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE` | unset | Optional M4r/M4s/M4u/M4x mode. `verified-overlap-range-v0` returns the verified worker-derived `OverlapRange` vector for one selected query after M4q passes. `verified-overlap-range-session-v0` records a per-query session ledger and evaluates each allowlisted supported query separately. `verified-overlap-range-session-batch-v0` verifies one allowlisted supported batch, reuses that batch output for later selected queries through a run-local cache, and is required by the M4v/M4w persistent lifecycle proof. `gpu-first-supported-v0` reuses a verified session batch cache before live CPU overlap for later selected supported queries. |
+| `CUFLYE_OVERLAP_GPU_FIRST_AUDIT_MODE` | unset | Optional M4x audit mode. `oracle-file-v0` compares GPU-first object vectors against the captured CPU `oracle.overlaps.tsv` from the verified fixture before accepting GPU-first substitution. |
+| `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_PROOF_FAULT` | unset | Optional M4r/M4s/M4x negative-proof fault. `drop-first-substitution-overlap` forces substitution mismatch after M4q success. `force-unsupported-selected-shape` forces the selected query through the unsupported-shape fail-closed gate before worker invocation. `drop-first-gpu-first-overlap` forces a GPU-first audit mismatch after the verified session batch cache exists. |
 
 ## Generated Files
 
@@ -90,9 +91,9 @@ Given `CUFLYE_OVERLAP_WORKER_OUTPUT_DIR=/path/to/seam`, Flye writes:
 | `worker-graph-consumption-guard.json` | Dry-run graph-consumption guard summary when `CUFLYE_OVERLAP_GRAPH_CONSUMPTION_MODE=dry-run-v0`. |
 | `worker-rehydration.json` | Typed overlap-vector rehydration dry-run summary when `CUFLYE_OVERLAP_REHYDRATION_MODE=typed-overlap-v0`. |
 | `worker-object-rehydration.json` | Flye `OverlapRange` object-vector rehydration dry-run summary when `CUFLYE_OVERLAP_OBJECT_REHYDRATION_MODE=overlap-range-object-v0`. |
-| `worker-vector-substitution.json` | Verified graph-facing overlap-vector substitution smoke summary when `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE=verified-overlap-range-v0`. |
+| `worker-vector-substitution.json` | Verified graph-facing overlap-vector substitution summary when `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE` selects a verified substitution mode, including M4x GPU-first. |
 | `worker-vector-substitution.consumed` | Durable M4r one-shot sentinel written after a verified worker-derived overlap vector is returned; later Flye subprocesses skip worker invocation when this file exists. |
-| `worker-vector-substitution-ledger.jsonl` | M4s session ledger, one JSON line per selected, skipped, or failed-closed substitution decision when `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE=verified-overlap-range-session-v0`. |
+| `worker-vector-substitution-ledger.jsonl` | M4s/M4u/M4x session ledger, one JSON line per selected, skipped, cached, GPU-first, or failed-closed substitution decision when a session substitution mode is selected. |
 | `worker-vector-substitution.query_<id>.consumed` | Durable M4s per-query sentinel written after a selected supported query returns a verified worker-derived overlap vector. |
 | `worker-stdout.log` | Worker stdout. |
 | `worker-stderr.log` | Worker stderr. |
@@ -270,6 +271,24 @@ substitution, Flye waits for
 CUDA context setup are recorded by the session worker, while Flye's
 `worker_process_ms` measures only submit/wait time for the actual request.
 
+M4x adds a bounded GPU-first substitution mode. When
+`CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE=gpu-first-supported-v0` is set with
+`CUFLYE_OVERLAP_WORKER_LIFECYCLE_MODE=session-file-v0`, Flye first builds the
+same verified session batch cache as M4w. Later allowlisted supported query
+calls that are already present in that cache may return the cached
+worker-derived `OverlapRange` vector before computing live CPU overlaps. This
+path appends `gpu-first-from-session-batch-cache` to
+`worker-vector-substitution-ledger.jsonl` and writes
+`seam-summary.json` with
+`gpu-first-substitution-consumed-before-live-cpu-overlap`.
+
+GPU-first mode is still opt-in, allowlisted, and shape-bounded. If
+`CUFLYE_OVERLAP_GPU_FIRST_AUDIT_MODE=oracle-file-v0` is set, Flye compares the
+GPU-first object vector against the captured CPU `oracle.overlaps.tsv` for that
+fixture before accepting it. Without audit mode, the GPU-first path relies on
+the existing session batch cache having already passed validation, shadow,
+guard, typed rehydration, and object rehydration.
+
 ## Failure Semantics
 
 The seam fails closed when:
@@ -286,7 +305,9 @@ The seam fails closed when:
 - the worker response file is missing or unreadable.
 - `CUFLYE_OVERLAP_WORKER_LIFECYCLE_MODE` is unsupported;
 - persistent lifecycle mode is selected outside
-  `verified-overlap-range-session-batch-v0`;
+  `verified-overlap-range-session-batch-v0` or `gpu-first-supported-v0`;
+- `gpu-first-supported-v0` is selected without
+  `CUFLYE_OVERLAP_WORKER_LIFECYCLE_MODE=session-file-v0`;
 - persistent lifecycle mode is selected and the warmup response file is missing
   or unreadable;
 - `session-file-v0` is selected and `CUFLYE_OVERLAP_WORKER_SESSION_DIR` is
@@ -317,12 +338,15 @@ The seam fails closed when:
   memory.
 - `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE` is unsupported;
 - `CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_PROOF_FAULT` is unsupported;
+- `CUFLYE_OVERLAP_GPU_FIRST_AUDIT_MODE` is unsupported;
 - vector substitution smoke mode is selected before M4q object rehydration is
   eligible;
 - the current CPU `OverlapRange` vector carries `kmerMatches` payload that the
   worker object vector cannot represent in M4r;
 - the selected worker `OverlapRange` vector differs from the current CPU
   overlap vector.
+- GPU-first audit mode is selected and the cached worker object vector differs
+  from the captured CPU `oracle.overlaps.tsv`.
 
 There is no silent CPU fallback when the seam is explicitly enabled.
 

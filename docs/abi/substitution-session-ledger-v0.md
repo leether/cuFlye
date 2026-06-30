@@ -1,7 +1,7 @@
 # Substitution Session Ledger v0
 
 Status: accepted in M4s; timing attribution accepted in M4t; session batch
-cache accepted in M4u
+cache accepted in M4u; GPU-first cache reuse accepted in M4x
 
 Introduced: M4s
 
@@ -45,6 +45,20 @@ batch, then later selected query calls may reuse that verified batch output, but
 the graph-facing return still requires an exact comparison against the current
 CPU `OverlapRange` vector.
 
+M4x adds an opt-in GPU-first session batch/cache mode:
+
+```text
+CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE=gpu-first-supported-v0
+CUFLYE_OVERLAP_WORKER_LIFECYCLE_MODE=session-file-v0
+```
+
+In this mode, Flye first builds the same verified session batch cache. Later
+selected supported query calls that are already present in that cache may reuse
+the worker-derived object vector before live CPU overlap is computed. When
+`CUFLYE_OVERLAP_GPU_FIRST_AUDIT_MODE=oracle-file-v0` is set, that GPU-first
+object vector is compared against the captured CPU `oracle.overlaps.tsv` from
+the fixture before acceptance.
+
 The existing M4r single-smoke selector remains valid:
 
 ```text
@@ -75,6 +89,12 @@ The existing mismatch negative proof fault remains:
 
 ```text
 CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_PROOF_FAULT=drop-first-substitution-overlap
+```
+
+The M4x GPU-first audit mismatch proof fault is:
+
+```text
+CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_PROOF_FAULT=drop-first-gpu-first-overlap
 ```
 
 ## Generated Files
@@ -133,6 +153,9 @@ Possible `decision` values are:
 
 - `substituted`: selected supported query returned the verified worker-derived
   `OverlapRange` vector.
+- `gpu-first-from-session-batch-cache`: selected supported query returned a
+  cached worker-derived `OverlapRange` vector before live CPU overlap was
+  computed.
 - `skipped-not-selected`: query is outside the deterministic substitution
   allowlist.
 - `skipped-unsupported-non-selected-shape`: query is outside the allowlist and
@@ -151,6 +174,9 @@ Possible `decision` values are:
 - `substituted-from-session-batch-cache`: selected supported query returned a
   verified worker-derived `OverlapRange` vector by reusing the already validated
   session batch output.
+- `gpu-first-not-consumed`: GPU-first mode evaluated a selected cached query but
+  did not return worker output, usually because a required check failed before
+  acceptance.
 
 ## Consumption Semantics
 

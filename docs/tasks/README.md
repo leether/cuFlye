@@ -11,12 +11,14 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m4x-gpu-first-overlap-substitution-perf-gate.md`:
-  split proof-only live CPU overlap from a bounded GPU-first supported
-  substitution path with an audit gate.
+- None.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m4x-gpu-first-overlap-substitution-perf-gate.md`:
+  reuse a verified file-backed CUDA session batch cache for a later allowlisted
+  supported overlap query before live CPU overlap, preserve exact toy-raw
+  artifacts, and fail closed on GPU-first audit mismatch.
 - `2026-07-01-cuflye-m4w-true-persistent-overlap-worker-session.md`:
   submit a verified Flye overlap worker request to a true file-backed
   persistent CUDA session without a duplicate warmup request, preserve exact

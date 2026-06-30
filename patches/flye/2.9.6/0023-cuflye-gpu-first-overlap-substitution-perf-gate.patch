@@ -1,0 +1,466 @@
+diff --git a/src/sequence/overlap.cpp b/src/sequence/overlap.cpp
+index f718d3b..33ee3f6 100644
+--- a/src/sequence/overlap.cpp
++++ b/src/sequence/overlap.cpp
+@@ -665,7 +665,8 @@ namespace
+ 			std::string selected(raw);
+ 			if (selected != "verified-overlap-range-v0" &&
+ 				selected != "verified-overlap-range-session-v0" &&
+-				selected != "verified-overlap-range-session-batch-v0")
++				selected != "verified-overlap-range-session-batch-v0" &&
++				selected != "gpu-first-supported-v0")
+ 			{
+ 				throw std::runtime_error(
+ 					"Unsupported CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE: " +
+@@ -685,13 +686,43 @@ namespace
+ 	{
+ 		std::string mode = overlapWorkerVectorSubstitutionMode();
+ 		return mode == "verified-overlap-range-session-v0" ||
+-			   mode == "verified-overlap-range-session-batch-v0";
++			   mode == "verified-overlap-range-session-batch-v0" ||
++			   mode == "gpu-first-supported-v0";
+ 	}
+ 
+ 	bool overlapWorkerVectorSubstitutionSessionBatchEnabled()
+ 	{
+-		return overlapWorkerVectorSubstitutionMode() ==
+-			   "verified-overlap-range-session-batch-v0";
++		std::string mode = overlapWorkerVectorSubstitutionMode();
++		return mode == "verified-overlap-range-session-batch-v0" ||
++			   mode == "gpu-first-supported-v0";
++	}
++
++	bool overlapWorkerVectorSubstitutionGpuFirstEnabled()
++	{
++		return overlapWorkerVectorSubstitutionMode() == "gpu-first-supported-v0";
++	}
++
++	std::string overlapWorkerGpuFirstAuditMode()
++	{
++		static std::string mode = []()
++		{
++			const char* raw = std::getenv("CUFLYE_OVERLAP_GPU_FIRST_AUDIT_MODE");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "oracle-file-v0")
++			{
++				throw std::runtime_error(
++					"Unsupported CUFLYE_OVERLAP_GPU_FIRST_AUDIT_MODE: " +
++					selected);
++			}
++			return selected;
++		}();
++		return mode;
++	}
++
++	bool overlapWorkerGpuFirstAuditEnabled()
++	{
++		return !overlapWorkerGpuFirstAuditMode().empty();
+ 	}
+ 
+ 	std::string overlapWorkerLifecycleMode()
+@@ -773,7 +804,8 @@ namespace
+ 			if (!raw || !raw[0]) return std::string();
+ 			std::string selected(raw);
+ 			if (selected != "drop-first-substitution-overlap" &&
+-				selected != "force-unsupported-selected-shape")
++				selected != "force-unsupported-selected-shape" &&
++				selected != "drop-first-gpu-first-overlap")
+ 			{
+ 				throw std::runtime_error(
+ 					"Unsupported CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_PROOF_FAULT: " +
+@@ -884,6 +916,7 @@ namespace
+ 			overlapWorkerObjectRehydrationProofFault();
+ 			overlapWorkerVectorSubstitutionMode();
+ 			overlapWorkerVectorSubstitutionProofFault();
++			overlapWorkerGpuFirstAuditMode();
+ 			overlapWorkerLifecycleMode();
+ 			const auto& queryIds = overlapReplayQueryIds();
+ 			if (overlapWorkerVectorSubstitutionSessionEnabled() &&
+@@ -907,7 +940,8 @@ namespace
+ 				throw std::runtime_error(
+ 					"CUFLYE_OVERLAP_WORKER_LIFECYCLE_MODE persistent lifecycle "
+ 					"modes require CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE="
+-					"verified-overlap-range-session-batch-v0");
++					"verified-overlap-range-session-batch-v0 or "
++					"gpu-first-supported-v0");
+ 			}
+ 			if (overlapWorkerFileSessionLifecycleEnabled())
+ 			{
+@@ -915,6 +949,13 @@ namespace
+ 				overlapWorkerFileSessionPollMs();
+ 				overlapWorkerFileSessionTimeoutMs();
+ 			}
++			if (overlapWorkerVectorSubstitutionGpuFirstEnabled() &&
++				overlapWorkerLifecycleMode() != "session-file-v0")
++			{
++				throw std::runtime_error(
++					"CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE=gpu-first-supported-v0 "
++					"requires CUFLYE_OVERLAP_WORKER_LIFECYCLE_MODE=session-file-v0");
++			}
+ 			if (!overlapWorkerVectorSubstitutionSessionEnabled() &&
+ 				!queryIds.empty() &&
+ 				overlapReplayMaxFixtures() != queryIds.size())
+@@ -2315,6 +2356,18 @@ namespace
+ 		return vectorContainsQueryId(cache.queryIds, queryId);
+ 	}
+ 
++	std::string sessionBatchCacheFixtureForQuery(
++		const OverlapWorkerSessionBatchCache& cache,
++		int64_t queryId)
++	{
++		for (size_t idx = 0; idx < cache.queryIds.size() &&
++							 idx < cache.fixtures.size(); ++idx)
++		{
++			if (cache.queryIds[idx] == queryId) return cache.fixtures[idx];
++		}
++		return std::string();
++	}
++
+ 	void writeOverlapWorkerTimingJsonFields(
+ 		std::ostringstream& json,
+ 		const OverlapWorkerSeamTiming& timing)
+@@ -2445,7 +2498,9 @@ namespace
+ 									   result.mode ==
+ 										   "verified-overlap-range-session-v0" ||
+ 									   result.mode ==
+-										   "verified-overlap-range-session-batch-v0",
++										   "verified-overlap-range-session-batch-v0" ||
++									   result.mode ==
++										   "gpu-first-supported-v0",
+ 								   "CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE selects a verified overlap-range substitution mode");
+ 		addVectorSubstitutionCheck(result, "object_rehydration_passed",
+ 								   objectRehydration.status == "passed" &&
+@@ -2516,6 +2571,106 @@ namespace
+ 		return result;
+ 	}
+ 
++	OverlapWorkerVectorSubstitutionResult evaluateOverlapWorkerGpuFirstSubstitution(
++		const OverlapWorkerSessionBatchCache& sessionBatchCache,
++		const OverlapWorkerReplayShape& currentShape,
++		const std::string& vectorSubstitutionJson,
++		int64_t currentQueryId)
++	{
++		OverlapWorkerVectorSubstitutionResult result;
++		result.mode = overlapWorkerVectorSubstitutionMode();
++		result.proofFault = overlapWorkerVectorSubstitutionProofFault();
++		if (!overlapWorkerVectorSubstitutionGpuFirstEnabled()) return result;
++
++		markVectorSubstitutionFailed(result);
++		result.attempted = true;
++		result.selectedQueryId = currentQueryId;
++		result.selectedFixtureDir =
++			sessionBatchCacheFixtureForQuery(sessionBatchCache, currentQueryId);
++		result.selectedFixtureName = pathBasename(result.selectedFixtureDir);
++		result.workerPath = joinPath(joinPath(sessionBatchCache.batchOutputDir,
++											  result.selectedFixtureName),
++									 "overlaps.tsv");
++
++		addVectorSubstitutionCheck(result, "explicit_gpu_first_mode",
++								   result.mode == "gpu-first-supported-v0",
++								   "CUFLYE_OVERLAP_VECTOR_SUBSTITUTION_MODE selects gpu-first-supported-v0");
++		addVectorSubstitutionCheck(result, "session_batch_cache_ready",
++								   sessionBatchCache.ready,
++								   "verified session batch cache must be ready");
++		addVectorSubstitutionCheck(result, "selected_query_in_session_batch",
++								   sessionBatchCacheContainsQuery(sessionBatchCache,
++																  currentQueryId),
++								   "selected query must be present in the verified session batch");
++		addVectorSubstitutionCheck(result, "supported_shape",
++								   currentShape.supported,
++								   "GPU-first substitution is limited to supported replay shapes");
++		addVectorSubstitutionCheck(result, "object_rehydration_passed",
++								   sessionBatchCache.objectRehydration.status ==
++									   "passed" &&
++									   sessionBatchCache.objectRehydration.eligible,
++								   "M4q object rehydration must pass for the cached batch");
++		addVectorSubstitutionCheck(result, "selected_fixture_available",
++								   !result.selectedFixtureDir.empty(),
++								   "selected overlap fixture must be available from the cached batch");
++		addVectorSubstitutionCheck(result, "audit_metadata_available",
++								   !vectorSubstitutionJson.empty(),
++								   "vector substitution audit JSON path must be available");
++
++		if (!allVectorSubstitutionChecksPassed(result)) return result;
++
++		try
++		{
++			auto workerRecords = readCanonicalOverlapDump(result.workerPath);
++			result.workerRecords = workerRecords.size();
++			auto typedRecords = rehydrateTypedOverlapRecords(workerRecords,
++															 result.workerPath);
++			auto objectRecords = rehydrateOverlapRangeObjects(typedRecords);
++			if (result.proofFault == "drop-first-gpu-first-overlap" &&
++				!objectRecords.empty())
++			{
++				objectRecords.erase(objectRecords.begin());
++				result.proofFaultApplied = true;
++			}
++			result.objectRecords = objectRecords.size();
++
++			if (overlapWorkerGpuFirstAuditEnabled())
++			{
++				auto oracleRecords = readCanonicalOverlapDump(
++					joinPath(result.selectedFixtureDir, "oracle.overlaps.tsv"));
++				result.cpuRecords = oracleRecords.size();
++				auto objectDumpRecords =
++					canonicalOverlapRecordsFromRanges(objectRecords);
++				if (oracleRecords != objectDumpRecords)
++				{
++					result.error =
++						"gpu-first audit object vector differs from captured CPU oracle";
++					return result;
++				}
++			}
++
++			result.status = "passed";
++			result.state = "consumed";
++			result.decision = "gpu-first-supported-overlap-vector-substituted";
++			result.selectedOverlapSource =
++				"worker-overlap-range-object-vector-gpu-first";
++			result.eligible = true;
++			result.accepted = true;
++			result.consumed = true;
++			result.notConsumed = false;
++			result.failedClosed = false;
++			result.graphFacingReturnedWorkerOutput = true;
++			result.graphMutationConsumedWorkerOutput = true;
++			result.overlaps = objectRecords;
++		}
++		catch (const std::exception& exc)
++		{
++			result.error = exc.what();
++		}
++
++		return result;
++	}
++
+ 	void writeOverlapWorkerObjectRehydrationJson(
+ 		const std::string& path,
+ 		const OverlapWorkerObjectRehydrationResult& objectRehydration)
+@@ -3354,6 +3509,208 @@ namespace
+ 			"; seam_summary=" + seamSummary);
+ 	}
+ 
++	void addOverlapDivergenceStatsFromRanges(
++		const std::vector<OverlapRange>& overlaps,
++		int32_t curLen,
++		OvlpDivStats& divStats)
++	{
++		const int STAT_WND = 10000;
++		std::vector<OverlapRange> divStatWindows(curLen / STAT_WND + 1);
++		for (const auto& ovlp : overlaps)
++		{
++			if (ovlp.curBegin < 0) continue;
++			size_t wnd = static_cast<size_t>(ovlp.curBegin / STAT_WND);
++			if (wnd >= divStatWindows.size()) continue;
++			if (ovlp.curRange() > divStatWindows[wnd].curRange())
++			{
++				divStatWindows[wnd] = ovlp;
++			}
++		}
++		for (const auto& ovlp : divStatWindows)
++		{
++			if (ovlp.curRange() > 0)
++			{
++				divStats.add(ovlp.seqDivergence);
++			}
++		}
++	}
++
++	OverlapWorkerVectorSubstitutionResult maybeUseGpuFirstOverlapWorkerCache(
++		const FastaRecord& fastaRec,
++		bool forceLocal,
++		int maxOverlaps,
++		bool keepAlignment,
++		bool onlyMaxExt,
++		bool nuclAlignment,
++		bool partitionBadMappings)
++	{
++		OverlapWorkerVectorSubstitutionResult substitution;
++		if (!overlapWorkerEnabled()) return substitution;
++		if (!overlapWorkerVectorSubstitutionGpuFirstEnabled()) return substitution;
++
++		validateOverlapWorkerReplayConfig();
++		const char* dumpRoot = overlapReplayDumpDir();
++		if (!dumpRoot || !dumpRoot[0]) return substitution;
++		if (Parameters::get().numThreads != 1)
++		{
++			throw std::runtime_error(
++				"cuFlye overlap replay fixture dump requires --threads 1");
++		}
++
++		int64_t queryId = fastaRec.id.signedId();
++		if (!overlapReplayQuerySelected(queryId)) return substitution;
++
++		OverlapWorkerReplayShape replayShape = makeOverlapWorkerReplayShape(
++			forceLocal, maxOverlaps, keepAlignment, onlyMaxExt, nuclAlignment,
++			partitionBadMappings);
++		if (overlapWorkerVectorSubstitutionProofFault() ==
++			"force-unsupported-selected-shape")
++		{
++			replayShape.supported = false;
++			replayShape.unsupportedReason =
++				replayShape.unsupportedReason.empty()
++					? "proof fault forced unsupported selected shape"
++					: replayShape.unsupportedReason +
++						  "; proof fault forced unsupported selected shape";
++		}
++
++		auto& sessionBatchCache = overlapWorkerSessionBatchCache();
++		if (!sessionBatchCache.ready ||
++			!sessionBatchCacheContainsQuery(sessionBatchCache, queryId))
++		{
++			return substitution;
++		}
++
++		std::string outputRoot = overlapWorkerOutputDir(dumpRoot);
++		std::string queryDone =
++			vectorSubstitutionQueryDoneFile(outputRoot, queryId);
++		if (fileExists(queryDone)) return substitution;
++
++		OverlapWorkerSeamTiming timing;
++		auto seamStart = overlapWorkerTimingNow();
++		auto requestIoStart = overlapWorkerTimingNow();
++		ensureDirectory(outputRoot);
++		std::string ledgerJsonl = joinPath(
++			outputRoot, "worker-vector-substitution-ledger.jsonl");
++		std::string vectorSubstitutionJson = joinPath(
++			outputRoot, "worker-vector-substitution.json");
++		std::string seamSummary = joinPath(outputRoot, "seam-summary.json");
++		std::string fixtureDir =
++			sessionBatchCacheFixtureForQuery(sessionBatchCache, queryId);
++		timing.requestIoMs = overlapWorkerElapsedMs(requestIoStart);
++
++		if (!replayShape.supported)
++		{
++			markVectorSubstitutionFailed(substitution);
++			substitution.mode = overlapWorkerVectorSubstitutionMode();
++			substitution.proofFault =
++				overlapWorkerVectorSubstitutionProofFault();
++			substitution.attempted = true;
++			substitution.selectedQueryId = queryId;
++			substitution.selectedFixtureDir = fixtureDir;
++			substitution.selectedFixtureName = pathBasename(fixtureDir);
++			substitution.error =
++				"unsupported selected overlap replay shape: " +
++				replayShape.unsupportedReason;
++			addVectorSubstitutionCheck(substitution, "supported_shape", false,
++									   replayShape.unsupportedReason);
++			writeOverlapWorkerVectorSubstitutionJson(vectorSubstitutionJson,
++													 substitution);
++			timing.seamTotalMs = overlapWorkerElapsedMs(seamStart);
++			appendOverlapWorkerVectorSubstitutionLedgerEntry(
++				ledgerJsonl, queryId, fixtureDir, replayShape, true,
++				"failed-closed-unsupported-selected-shape",
++				replayShape.unsupportedReason, substitution, timing);
++			writeOverlapWorkerSeamSummary(
++				seamSummary, sessionBatchCache.requestJson,
++				sessionBatchCache.responseJson, sessionBatchCache.fixtureList,
++				sessionBatchCache.queryIdsFile, sessionBatchCache.validationJson,
++				sessionBatchCache.validation.status, true,
++				sessionBatchCache.shadowJson, sessionBatchCache.shadow.status,
++				sessionBatchCache.shadow.shadowConsumptionEligible,
++				sessionBatchCache.graphGuardJson, sessionBatchCache.graphGuard,
++				sessionBatchCache.rehydrationJson, sessionBatchCache.rehydration,
++				sessionBatchCache.objectRehydrationJson,
++				sessionBatchCache.objectRehydration,
++				vectorSubstitutionJson, substitution,
++				"gpu-first-unsupported-selected-shape-before-live-cpu-overlap",
++				sessionBatchCache.batchJson, sessionBatchCache.batchOutputDir,
++				sessionBatchCache.fixtures.size());
++			throw std::runtime_error(
++				"cuFlye overlap worker seam fail-closed; unsupported selected "
++				"GPU-first overlap replay shape; substitution_json=" +
++				vectorSubstitutionJson + "; seam_summary=" + seamSummary);
++		}
++
++		auto substitutionStart = overlapWorkerTimingNow();
++		substitution = evaluateOverlapWorkerGpuFirstSubstitution(
++			sessionBatchCache, replayShape, vectorSubstitutionJson, queryId);
++		writeOverlapWorkerVectorSubstitutionJson(vectorSubstitutionJson,
++												 substitution);
++		timing.substitutionComparisonMs =
++			overlapWorkerElapsedMs(substitutionStart);
++		timing.seamTotalMs = overlapWorkerElapsedMs(seamStart);
++
++		std::string ledgerDecision = "gpu-first-not-consumed";
++		std::string ledgerReason =
++			"selected supported shape evaluated from verified worker cache before live CPU overlap";
++		if (substitution.failedClosed)
++		{
++			ledgerDecision = "failed-closed";
++			ledgerReason = substitution.error;
++		}
++		else if (substitution.consumed)
++		{
++			ledgerDecision = "gpu-first-from-session-batch-cache";
++		}
++		appendOverlapWorkerVectorSubstitutionLedgerEntry(
++			ledgerJsonl, queryId, fixtureDir, replayShape, true, ledgerDecision,
++			ledgerReason, substitution, timing);
++
++		if (substitution.failedClosed)
++		{
++			writeOverlapWorkerSeamSummary(
++				seamSummary, sessionBatchCache.requestJson,
++				sessionBatchCache.responseJson, sessionBatchCache.fixtureList,
++				sessionBatchCache.queryIdsFile, sessionBatchCache.validationJson,
++				sessionBatchCache.validation.status, true,
++				sessionBatchCache.shadowJson, sessionBatchCache.shadow.status,
++				sessionBatchCache.shadow.shadowConsumptionEligible,
++				sessionBatchCache.graphGuardJson, sessionBatchCache.graphGuard,
++				sessionBatchCache.rehydrationJson, sessionBatchCache.rehydration,
++				sessionBatchCache.objectRehydrationJson,
++				sessionBatchCache.objectRehydration,
++				vectorSubstitutionJson, substitution,
++				"gpu-first-substitution-failed-before-live-cpu-overlap",
++				sessionBatchCache.batchJson, sessionBatchCache.batchOutputDir,
++				sessionBatchCache.fixtures.size());
++			throw std::runtime_error(
++				"cuFlye overlap worker seam fail-closed; GPU-first overlap "
++				"vector substitution failed; substitution_json=" +
++				vectorSubstitutionJson + "; seam_summary=" + seamSummary);
++		}
++		if (substitution.consumed)
++		{
++			writeOverlapWorkerSeamSummary(
++				seamSummary, sessionBatchCache.requestJson,
++				sessionBatchCache.responseJson, sessionBatchCache.fixtureList,
++				sessionBatchCache.queryIdsFile, sessionBatchCache.validationJson,
++				sessionBatchCache.validation.status, true,
++				sessionBatchCache.shadowJson, sessionBatchCache.shadow.status,
++				sessionBatchCache.shadow.shadowConsumptionEligible,
++				sessionBatchCache.graphGuardJson, sessionBatchCache.graphGuard,
++				sessionBatchCache.rehydrationJson, sessionBatchCache.rehydration,
++				sessionBatchCache.objectRehydrationJson,
++				sessionBatchCache.objectRehydration,
++				vectorSubstitutionJson, substitution,
++				"gpu-first-substitution-consumed-before-live-cpu-overlap",
++				sessionBatchCache.batchJson, sessionBatchCache.batchOutputDir,
++				sessionBatchCache.fixtures.size());
++			writeOverlapWorkerVectorSubstitutionDoneFile(queryDone, substitution);
++		}
++		return substitution;
++	}
++
+ 	std::vector<std::string> splitTabLine(const std::string& line)
+ 	{
+ 		std::vector<std::string> fields;
+@@ -4087,6 +4444,16 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
+ 
+ 	//outSuggestChimeric = false;
+ 	int32_t curLen = fastaRec.sequence.length();
++	auto gpuFirstSubstitution = maybeUseGpuFirstOverlapWorkerCache(
++		fastaRec, forceLocal, maxOverlaps, _keepAlignment, _onlyMaxExt,
++		_nuclAlignment, _partitionBadMappings);
++	if (gpuFirstSubstitution.consumed)
++	{
++		addOverlapDivergenceStatsFromRanges(gpuFirstSubstitution.overlaps,
++											curLen, divStats);
++		dumpOverlapRanges(gpuFirstSubstitution.overlaps);
++		return gpuFirstSubstitution.overlaps;
++	}
+ 	std::vector<int32_t> curFilteredPos;
+ 
+ 	//cache memory-intensive containers as
