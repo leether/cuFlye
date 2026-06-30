@@ -46,3 +46,8 @@ CUDA candidate-core benchmark proof:
 CUDA RAII resource-layer proof:
 
 - CUDA RAII resource-layer manifest: `cuda-raii-resource-layer-dgx-aarch64.json`
+
+M2 real-pack CUDA consumer proof:
+
+- Real-pack CUDA consumer manifest:
+  `cuflye-m2c-real-pack-cuda-consumer-dgx-aarch64.json`

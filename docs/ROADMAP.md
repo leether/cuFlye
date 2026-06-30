@@ -69,6 +69,10 @@ Completed:
 - M2b: Flye can extract a real query and relevant `VertexIndex` buckets into a
   replayable packed candidate-backend bundle with per-query CPU candidate
   oracle output, then fail closed before downstream graph logic.
+- M2c: CUDA read-window backend can consume the M2b real pack with dynamic
+  read-base storage and reproduce the Flye CPU candidate list: 15,571 records,
+  canonical SHA-256
+  `5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae`.
 
 Current allowed performance claim:
 

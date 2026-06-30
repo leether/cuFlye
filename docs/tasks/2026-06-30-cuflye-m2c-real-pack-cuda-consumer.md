@@ -1,6 +1,6 @@
 # Task Card: cuFlye M2c Real Pack CUDA Consumer
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -72,10 +72,55 @@ flat read-base buffer.
 
 ## Execution Checklist
 
-- [ ] Replace fixed read structs with dynamic read-base storage.
-- [ ] Update ABI docs.
-- [ ] Build backend on DGX.
-- [ ] Re-run M1i fixture parity on DGX.
-- [ ] Run backend against M2b real pack on DGX.
-- [ ] Validate and diff outputs.
-- [ ] Record compact golden proof and close this card.
+- [x] Replace fixed read structs with dynamic read-base storage.
+- [x] Update ABI docs.
+- [x] Build backend on DGX.
+- [x] Re-run M1i fixture parity on DGX.
+- [x] Run backend against M2b real pack on DGX.
+- [x] Validate and diff outputs.
+- [x] Record compact golden proof and close this card.
+
+## Merge Note
+
+Implemented in repo commit `98cc45fa196bd333392b043346a518e46bcb738a` and
+validated on DGX host `edgexpert-45d2` with `/usr/local/cuda/bin/nvcc`
+`13.0.88` targeting `sm_121`.
+
+M1i regression proof:
+
+- Fixture: `read-window-smoke-v0`
+- K-mer size: `4`
+- Reads: `2`
+- Query windows: `23`
+- Max read length: `19`
+- Candidate records: `6`
+- Expected vs backend CPU diff: `match`
+- Backend CPU vs GPU diff: `match`
+- GPU raw SHA-256:
+  `f0ef59dafc1a8efa5f007443d4c11191e3f03b2500c87874b40fa89f2803010d`
+
+Real pack proof:
+
+- Source pack: `/tmp/cuflye-m2b-1782793203/out/m2b/proof/pack/query_neg253`
+- Query id: `-253`
+- Query length: `3339`
+- K-mer size: `17`
+- Runtime query windows evaluated: `3323`
+- Pack manifest query windows: `3322`
+- Index entries: `15571`
+- Pair comparisons: `51742433`
+- Device allocation bytes: `2536379140`
+- Candidate records: `15571`
+- Backend CPU vs GPU diff: `match`
+- Flye packed CPU vs GPU diff: `match`
+- GPU canonical SHA-256:
+  `5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae`
+
+The one-window count difference is a counting-definition difference between
+the M2b pack manifest and the backend runtime window formula
+`read_length - kmer_size + 1`. It did not affect candidate parity: the GPU
+candidate set matches the Flye CPU oracle exactly after canonical sorting.
+
+Tracked compact proof:
+
+- `tests/golden/cuflye-m2c-real-pack-cuda-consumer-dgx-aarch64.json`

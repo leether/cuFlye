@@ -7,12 +7,13 @@ change is considered complete.
 
 Active cards:
 
-- `2026-06-30-cuflye-m2c-real-pack-cuda-consumer.md`: make the CUDA
-  read-window backend consume a real `pack-dump-v0` bundle and match the
-  packed CPU oracle.
+- None.
 
 Completed cards:
 
+- `2026-06-30-cuflye-m2c-real-pack-cuda-consumer.md`: make the CUDA
+  read-window backend consume a real `pack-dump-v0` bundle and match the
+  packed CPU oracle.
 - `2026-06-30-cuflye-cuda-raii-resource-layer.md`: add a move-only CUDA RAII
   resource layer and migrate standalone prototypes away from direct CUDA
   allocation/event ownership.

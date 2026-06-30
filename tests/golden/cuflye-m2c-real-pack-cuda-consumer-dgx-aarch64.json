@@ -1,0 +1,114 @@
+{
+  "build_manifest": "read-window.build.json",
+  "cuda_arch": "sm_121",
+  "device": "NVIDIA GB10",
+  "host": "edgexpert-45d2",
+  "m1i_regression": {
+    "cpu_vs_gpu": {
+      "left_records": 6,
+      "left_sha256": "f0ef59dafc1a8efa5f007443d4c11191e3f03b2500c87874b40fa89f2803010d",
+      "right_records": 6,
+      "right_sha256": "f0ef59dafc1a8efa5f007443d4c11191e3f03b2500c87874b40fa89f2803010d",
+      "status": "match"
+    },
+    "expected_vs_cpu": {
+      "left_records": 6,
+      "left_sha256": "f0ef59dafc1a8efa5f007443d4c11191e3f03b2500c87874b40fa89f2803010d",
+      "right_records": 6,
+      "right_sha256": "f0ef59dafc1a8efa5f007443d4c11191e3f03b2500c87874b40fa89f2803010d",
+      "status": "match"
+    },
+    "gpu_validator": {
+      "abi": "candidate-record-v1",
+      "raw_sha256": "f0ef59dafc1a8efa5f007443d4c11191e3f03b2500c87874b40fa89f2803010d",
+      "records": 6
+    },
+    "runtime": {
+      "adapter": "cuda-read-window-smoke-v0",
+      "device_allocation_bytes": 12044,
+      "dynamic_read_bases": true,
+      "kmer_size": 4,
+      "max_read_length": 19,
+      "pair_count": 230,
+      "query_windows": 23,
+      "read_base_bytes": 29,
+      "reads": 2,
+      "records": 6,
+      "status": "ok"
+    }
+  },
+  "machine": "aarch64",
+  "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:57:39_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+  "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+  "proof_root": "out/m2c/98cc45f",
+  "real_pack": {
+    "backend_cpu_validator": {
+      "abi": "candidate-record-v1",
+      "canonical_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+      "raw_sha256": "f24d05c6fccc494f0b45d24330d6ed24e80b984b7ff281b31b4bb302ae162191",
+      "records": 15571
+    },
+    "backend_cpu_vs_gpu": {
+      "left_records": 15571,
+      "left_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+      "right_records": 15571,
+      "right_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+      "status": "match"
+    },
+    "flye_cpu_vs_gpu": {
+      "left_records": 15571,
+      "left_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+      "right_records": 15571,
+      "right_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+      "status": "match"
+    },
+    "gpu_validator": {
+      "abi": "candidate-record-v1",
+      "canonical_sha256": "5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae",
+      "raw_sha256": "f24d05c6fccc494f0b45d24330d6ed24e80b984b7ff281b31b4bb302ae162191",
+      "records": 15571
+    },
+    "pack_manifest": {
+      "absent_windows": 2100,
+      "adapter": "pack-dump-v0",
+      "candidate_records": 15571,
+      "index_entries": 15571,
+      "kmer_size": 17,
+      "query_id": -253,
+      "query_length": 3339,
+      "query_windows": 3322,
+      "repetitive_kmers": 0,
+      "repetitive_windows": 0,
+      "status": "captured_and_failed_closed",
+      "trivial_hits": 1092
+    },
+    "runtime": {
+      "adapter": "cuda-read-window-smoke-v0",
+      "device_allocation_bytes": 2536379140,
+      "dynamic_read_bases": true,
+      "index_entries": 15571,
+      "kmer_size": 17,
+      "max_read_length": 3339,
+      "memory_budget_bytes": 4294967296,
+      "pair_count": 51742433,
+      "query_windows": 3323,
+      "read_base_bytes": 3339,
+      "reads": 1,
+      "records": 15571,
+      "repetitive_kmers": 0,
+      "status": "ok"
+    }
+  },
+  "repo_commit": "98cc45fa196bd333392b043346a518e46bcb738a",
+  "repo_commit_short": "98cc45f",
+  "schema": "cuflye-m2c-real-pack-cuda-consumer-proof-v0",
+  "scope": {
+    "cuda_kernel_invoked_on_real_pack": true,
+    "dynamic_read_bases": true,
+    "full_flye_cuda_assembly_success": false,
+    "full_flye_speed_claim": false,
+    "silent_cpu_fallback": false
+  },
+  "source_pack_dir": "/tmp/cuflye-m2b-1782793203/out/m2b/proof/pack/query_neg253",
+  "status": "ok"
+}
