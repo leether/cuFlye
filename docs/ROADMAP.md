@@ -250,10 +250,10 @@ Use precise milestone labels:
 Next highest-ROI task:
 
 ```text
-M2c: make a CUDA backend consume a `pack-dump-v0` bundle from real Flye data.
-This requires replacing the M1i fixed-size smoke limits with chunked or dynamic
-read-window buffers, then diffing GPU output against the pack's
-`cpu-candidates.tsv`.
+M2d: make Flye invoke the external CUDA packed backend on one real
+`pack-dump-v0` query, parse candidate records into Flye's candidate boundary,
+then fail closed before downstream graph logic.
 ```
 
-Acceptance should remain candidate-list equivalence, not full assembly speed.
+Acceptance should remain adapter-boundary proof plus candidate-list equivalence,
+not full assembly speed.

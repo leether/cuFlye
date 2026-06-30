@@ -44,6 +44,7 @@ Optional inputs:
 | `CUFLYE_CUDA_DEVICE` | CUDA device id. Defaults to `0`. |
 | `CUFLYE_CUDA_MEMORY_BUDGET_BYTES` | External backend memory budget. |
 | `CUFLYE_CUDA_PACKED_KMER_SIZE` | Packed fixture k-mer size. Defaults to Flye's current k-mer size. |
+| `CUFLYE_CUDA_STOP_AFTER_PACKED_QUERY` | If set to a true value, stop after records for the current packed query are parsed into Flye's candidate collection. |
 
 ## Packed Fixture Format
 
@@ -114,3 +115,25 @@ M2a does not:
 M2b adds `CUFLYE_CUDA_ADAPTER_MODE=pack-dump-v0` for extracting real Flye
 query/index data into packed candidate-backend input bundles. See
 `docs/abi/cuda-real-data-pack-dump-v0.md`.
+
+## M2d Stop-After-Query Proof Mode
+
+M2d extends `external-packed-v0` with
+`CUFLYE_CUDA_STOP_AFTER_PACKED_QUERY=1`. In this mode, Flye still invokes the
+external CUDA backend, parses the resulting candidate-record-v1 TSV, validates
+the packed query id and sequence, and appends matching records to Flye's
+candidate collection.
+
+After appending records for the current query, the adapter fails closed with a
+diagnostic that includes:
+
+- `adapter=external-packed-v0`;
+- `stop_after_packed_query=1`;
+- `query_id`;
+- `emitted_records`;
+- `candidate_tsv`;
+- `json`.
+
+This mode exists only to prove the Flye-to-CUDA adapter boundary on one real
+packed query. It must not be used to claim full assembly equivalence or
+end-to-end speedup.

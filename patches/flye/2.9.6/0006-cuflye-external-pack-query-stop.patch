@@ -1,0 +1,49 @@
+diff --git a/src/sequence/overlap.cpp b/src/sequence/overlap.cpp
+--- a/src/sequence/overlap.cpp
++++ b/src/sequence/overlap.cpp
+@@ -148,6 +148,18 @@ namespace
+ 		return value;
+ 	}
+ 
++	bool cudaEnvFlag(const char* name)
++	{
++		std::string value = cudaEnvOrDefault(name, "");
++		return value == "1" ||
++			   value == "true" ||
++			   value == "TRUE" ||
++			   value == "yes" ||
++			   value == "YES" ||
++			   value == "on" ||
++			   value == "ON";
++	}
++
+ 	const char* cudaEnvRequired(const char* name)
+ 	{
+ 		const char* value = std::getenv(name);
+@@ -588,6 +600,7 @@ namespace
+ 				"packed reads TSV for query id " + std::to_string(queryId));
+ 		}
+ 
++		size_t emittedRecords = 0;
+ 		for (const auto& record : fixture.records)
+ 		{
+ 			if (record.queryId != queryId) continue;
+@@ -595,6 +608,18 @@ namespace
+ 								 record.targetPos,
+ 								 record.targetId,
+ 								 record.kmerRepr);
++			++emittedRecords;
++		}
++
++		if (cudaEnvFlag("CUFLYE_CUDA_STOP_AFTER_PACKED_QUERY"))
++		{
++			throw std::runtime_error(
++				"cuFlye CUDA adapter stopped after packed query; "
++				"adapter=external-packed-v0; stop_after_packed_query=1; query_id=" +
++				std::to_string(queryId) +
++				"; emitted_records=" + std::to_string(emittedRecords) +
++				"; candidate_tsv=" + fixture.outputTsv +
++				"; json=" + fixture.jsonOutput);
+ 		}
+ 	}
+ 

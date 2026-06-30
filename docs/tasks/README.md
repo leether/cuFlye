@@ -7,7 +7,9 @@ change is considered complete.
 
 Active cards:
 
-- None.
+- `2026-06-30-cuflye-m2d-external-pack-query-stop.md`: make Flye invoke the
+  external CUDA packed backend on one real packed query, parse records into the
+  candidate boundary, and fail closed before downstream graph logic.
 
 Completed cards:
 
