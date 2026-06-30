@@ -1,0 +1,692 @@
+{
+  "acceptance": {
+    "all_cpu_outputs_match": true,
+    "all_cuda_parallel_outputs_match": true,
+    "all_cuda_serial_outputs_match": true,
+    "arena_reuses_buffers": true,
+    "cuda_build_succeeds": true,
+    "cuda_context_setup_separated": true,
+    "local_syntax_style_gates_pass": true,
+    "no_large_tsv_committed": true,
+    "ownership_scan_no_new_direct_resource_api": true,
+    "single_process_batch_cpu_runs": true,
+    "single_process_batch_cuda_parallel_runs": true,
+    "single_process_batch_cuda_serial_runs": true
+  },
+  "benchmark_summary": {
+    "batch_worker_parallel_speedup_vs_m4f_external": 1.044842241911054,
+    "batch_worker_serial_speedup_vs_m4f_external": 1.0549015217353834,
+    "cpu_batch_mean_total_before_write_ms": 9.21796,
+    "cuda_parallel_batch_mean_total_before_write_ms": 45.26424,
+    "cuda_parallel_is_faster_than_cpu": false,
+    "cuda_parallel_speedup_vs_cpu": 0.20364773604947303,
+    "cuda_serial_batch_mean_total_before_write_ms": 36.781822,
+    "cuda_serial_is_faster_than_cpu": false,
+    "cuda_serial_speedup_vs_cpu": 0.25061183755388733,
+    "fixture_count": 9,
+    "m4f_external_cuda_parallel_total_mean_ms": 47.29399,
+    "m4f_external_cuda_serial_total_mean_ms": 38.8012
+  },
+  "build": {
+    "created_at_utc": "2026-06-30T14:45:50.667560+00:00",
+    "cuda_arch": "sm_121",
+    "cuda_home": "/usr/local/cuda",
+    "host": "edgexpert-45d2",
+    "machine": "aarch64",
+    "nvcc": "/usr/local/cuda/bin/nvcc",
+    "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:57:39_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+    "output_binary": "/tmp/cuflye-m4g-proof-1782830746-git/out/m4g/bin/cuflye-cuda-overlap-chain-replay",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+    "python": "3.12.3",
+    "repo_commit": "64bf39000cc6fe7c3bc18e5f9d0b88961226af6a",
+    "repo_root": "/tmp/cuflye-m4g-proof-1782830746-git"
+  },
+  "claims": {
+    "allowed": [
+      "Single-process batch worker validates top 9 M4f replay-match fixtures for CPU, serial CUDA, and parallel CUDA modes.",
+      "CUDA arena buffers are reused across fixture requests in one process.",
+      "Batch worker reduces external per-fixture CUDA overhead slightly versus M4f, but remains slower than CPU."
+    ],
+    "next_optimization_target": "M4h should combine multiple fixtures into fewer kernel launches or a packed multi-query device layout; process/context reuse alone is insufficient.",
+    "not_claimed": [
+      "No overlap-chain CUDA speedup over CPU.",
+      "No Flye graph integration.",
+      "No base-level alignment replay.",
+      "No bad-mapping trim replay.",
+      "No workload-level Flye GPU mode claim."
+    ]
+  },
+  "created_at_utc": "2026-06-30T14:47:01.958156+00:00",
+  "fixture_list": "/tmp/cuflye-m4g-proof-1782830746-git/out/m4g/top9-fixtures.txt",
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+    "python": "3.12.3"
+  },
+  "milestone": "M4g-batched-overlap-worker",
+  "repo": {
+    "commit": "64bf39000cc6fe7c3bc18e5f9d0b88961226af6a",
+    "remote_dir": "/tmp/cuflye-m4g-proof-1782830746-git",
+    "root": "/tmp/cuflye-m4g-proof-1782830746-git",
+    "status_short": "## main...origin/main [ahead 1]"
+  },
+  "runs": {
+    "cpu": {
+      "arena": {
+        "allocations": 0,
+        "capacity_bytes": 0,
+        "reuses": 0
+      },
+      "backend": "cpu",
+      "batch_fixtures_file": "out/m4g/top9-fixtures.txt",
+      "batch_output_dir": "out/m4g/batch-cpu",
+      "benchmark": {
+        "timed_runs": 5,
+        "warmup_runs": 1
+      },
+      "cuda_kernel_mode": "serial",
+      "fixture_count": 9,
+      "fixtures": [
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 0,
+          "candidate_records": 8372,
+          "fixture_dir": "out/m4f/replay-fixtures/query_381",
+          "mean_core_ms": 1.581535,
+          "mean_total_before_json_ms": 1.582614,
+          "name": "query_381",
+          "output_records": 60,
+          "output_tsv": "out/m4g/batch-cpu/query_381/overlaps.tsv",
+          "query_id": 381,
+          "target_groups": 120
+        },
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 0,
+          "candidate_records": 7859,
+          "fixture_dir": "out/m4f/replay-fixtures/query_neg71",
+          "mean_core_ms": 1.498012,
+          "mean_total_before_json_ms": 1.498879,
+          "name": "query_neg71",
+          "output_records": 51,
+          "output_tsv": "out/m4g/batch-cpu/query_neg71/overlaps.tsv",
+          "query_id": -71,
+          "target_groups": 120
+        },
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 0,
+          "candidate_records": 7378,
+          "fixture_dir": "out/m4f/replay-fixtures/query_649",
+          "mean_core_ms": 1.55373,
+          "mean_total_before_json_ms": 1.554489,
+          "name": "query_649",
+          "output_records": 47,
+          "output_tsv": "out/m4g/batch-cpu/query_649/overlaps.tsv",
+          "query_id": 649,
+          "target_groups": 85
+        },
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 0,
+          "candidate_records": 6033,
+          "fixture_dir": "out/m4f/replay-fixtures/query_443",
+          "mean_core_ms": 1.141348,
+          "mean_total_before_json_ms": 1.142513,
+          "name": "query_443",
+          "output_records": 41,
+          "output_tsv": "out/m4g/batch-cpu/query_443/overlaps.tsv",
+          "query_id": 443,
+          "target_groups": 82
+        },
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 0,
+          "candidate_records": 5411,
+          "fixture_dir": "out/m4f/replay-fixtures/query_596",
+          "mean_core_ms": 0.78992,
+          "mean_total_before_json_ms": 0.790636,
+          "name": "query_596",
+          "output_records": 41,
+          "output_tsv": "out/m4g/batch-cpu/query_596/overlaps.tsv",
+          "query_id": 596,
+          "target_groups": 137
+        },
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 0,
+          "candidate_records": 5345,
+          "fixture_dir": "out/m4f/replay-fixtures/query_752",
+          "mean_core_ms": 0.74238,
+          "mean_total_before_json_ms": 0.74286,
+          "name": "query_752",
+          "output_records": 32,
+          "output_tsv": "out/m4g/batch-cpu/query_752/overlaps.tsv",
+          "query_id": 752,
+          "target_groups": 75
+        },
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 0,
+          "candidate_records": 5157,
+          "fixture_dir": "out/m4f/replay-fixtures/query_neg819",
+          "mean_core_ms": 0.671346,
+          "mean_total_before_json_ms": 0.672031,
+          "name": "query_neg819",
+          "output_records": 38,
+          "output_tsv": "out/m4g/batch-cpu/query_neg819/overlaps.tsv",
+          "query_id": -819,
+          "target_groups": 122
+        },
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 0,
+          "candidate_records": 4932,
+          "fixture_dir": "out/m4f/replay-fixtures/query_695",
+          "mean_core_ms": 0.723132,
+          "mean_total_before_json_ms": 0.723696,
+          "name": "query_695",
+          "output_records": 35,
+          "output_tsv": "out/m4g/batch-cpu/query_695/overlaps.tsv",
+          "query_id": 695,
+          "target_groups": 77
+        },
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 0,
+          "candidate_records": 4207,
+          "fixture_dir": "out/m4f/replay-fixtures/query_548",
+          "mean_core_ms": 0.509656,
+          "mean_total_before_json_ms": 0.510242,
+          "name": "query_548",
+          "output_records": 37,
+          "output_tsv": "out/m4g/batch-cpu/query_548/overlaps.tsv",
+          "query_id": 548,
+          "target_groups": 74
+        }
+      ],
+      "schema": "cuflye-overlap-replay-batch-worker-v0",
+      "status": "ok",
+      "timing_ms": {
+        "max_total_before_write": 11.867404,
+        "mean_core": 9.211061,
+        "mean_total_before_write": 9.21796,
+        "min_total_before_write": 8.503424,
+        "parse": 29.487501,
+        "setup": 0.0,
+        "write_output": 0.453553
+      },
+      "total_candidate_records": 54694,
+      "total_output_records": 382
+    },
+    "cuda_parallel": {
+      "arena": {
+        "allocations": 9,
+        "capacity_bytes": 492552,
+        "reuses": 369
+      },
+      "backend": "cuda",
+      "batch_fixtures_file": "out/m4g/top9-fixtures.txt",
+      "batch_output_dir": "out/m4g/batch-cuda-parallel",
+      "benchmark": {
+        "timed_runs": 5,
+        "warmup_runs": 1
+      },
+      "cuda_kernel_mode": "parallel-reduce",
+      "fixture_count": 9,
+      "fixtures": [
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 7,
+          "candidate_records": 8372,
+          "fixture_dir": "out/m4f/replay-fixtures/query_381",
+          "mean_core_ms": 6.817759,
+          "mean_total_before_json_ms": 6.846265,
+          "name": "query_381",
+          "output_records": 60,
+          "output_tsv": "out/m4g/batch-cuda-parallel/query_381/overlaps.tsv",
+          "query_id": 381,
+          "target_groups": 120
+        },
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 7,
+          "candidate_records": 7859,
+          "fixture_dir": "out/m4f/replay-fixtures/query_neg71",
+          "mean_core_ms": 5.62836,
+          "mean_total_before_json_ms": 5.653861,
+          "name": "query_neg71",
+          "output_records": 51,
+          "output_tsv": "out/m4g/batch-cuda-parallel/query_neg71/overlaps.tsv",
+          "query_id": -71,
+          "target_groups": 120
+        },
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 7,
+          "candidate_records": 7378,
+          "fixture_dir": "out/m4f/replay-fixtures/query_649",
+          "mean_core_ms": 8.311291,
+          "mean_total_before_json_ms": 8.336091,
+          "name": "query_649",
+          "output_records": 47,
+          "output_tsv": "out/m4g/batch-cuda-parallel/query_649/overlaps.tsv",
+          "query_id": 649,
+          "target_groups": 85
+        },
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 7,
+          "candidate_records": 6033,
+          "fixture_dir": "out/m4f/replay-fixtures/query_443",
+          "mean_core_ms": 4.599316,
+          "mean_total_before_json_ms": 4.622596,
+          "name": "query_443",
+          "output_records": 41,
+          "output_tsv": "out/m4g/batch-cuda-parallel/query_443/overlaps.tsv",
+          "query_id": 443,
+          "target_groups": 82
+        },
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 7,
+          "candidate_records": 5411,
+          "fixture_dir": "out/m4f/replay-fixtures/query_596",
+          "mean_core_ms": 3.204988,
+          "mean_total_before_json_ms": 3.228908,
+          "name": "query_596",
+          "output_records": 41,
+          "output_tsv": "out/m4g/batch-cuda-parallel/query_596/overlaps.tsv",
+          "query_id": 596,
+          "target_groups": 137
+        },
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 7,
+          "candidate_records": 5345,
+          "fixture_dir": "out/m4f/replay-fixtures/query_752",
+          "mean_core_ms": 4.220729,
+          "mean_total_before_json_ms": 4.242348,
+          "name": "query_752",
+          "output_records": 32,
+          "output_tsv": "out/m4g/batch-cuda-parallel/query_752/overlaps.tsv",
+          "query_id": 752,
+          "target_groups": 75
+        },
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 7,
+          "candidate_records": 5157,
+          "fixture_dir": "out/m4f/replay-fixtures/query_neg819",
+          "mean_core_ms": 4.990988,
+          "mean_total_before_json_ms": 5.013174,
+          "name": "query_neg819",
+          "output_records": 38,
+          "output_tsv": "out/m4g/batch-cuda-parallel/query_neg819/overlaps.tsv",
+          "query_id": -819,
+          "target_groups": 122
+        },
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 7,
+          "candidate_records": 4932,
+          "fixture_dir": "out/m4f/replay-fixtures/query_695",
+          "mean_core_ms": 4.815403,
+          "mean_total_before_json_ms": 4.837896,
+          "name": "query_695",
+          "output_records": 35,
+          "output_tsv": "out/m4g/batch-cuda-parallel/query_695/overlaps.tsv",
+          "query_id": 695,
+          "target_groups": 77
+        },
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 7,
+          "candidate_records": 4207,
+          "fixture_dir": "out/m4f/replay-fixtures/query_548",
+          "mean_core_ms": 2.461651,
+          "mean_total_before_json_ms": 2.4831,
+          "name": "query_548",
+          "output_records": 37,
+          "output_tsv": "out/m4g/batch-cuda-parallel/query_548/overlaps.tsv",
+          "query_id": 548,
+          "target_groups": 74
+        }
+      ],
+      "schema": "cuflye-overlap-replay-batch-worker-v0",
+      "status": "ok",
+      "timing_ms": {
+        "max_total_before_write": 45.289383,
+        "mean_core": 45.050485,
+        "mean_total_before_write": 45.26424,
+        "min_total_before_write": 45.25071,
+        "parse": 30.169407,
+        "setup": 273.517117,
+        "write_output": 0.788147
+      },
+      "total_candidate_records": 54694,
+      "total_output_records": 382
+    },
+    "cuda_serial": {
+      "arena": {
+        "allocations": 9,
+        "capacity_bytes": 492552,
+        "reuses": 369
+      },
+      "backend": "cuda",
+      "batch_fixtures_file": "out/m4g/top9-fixtures.txt",
+      "batch_output_dir": "out/m4g/batch-cuda-serial",
+      "benchmark": {
+        "timed_runs": 5,
+        "warmup_runs": 1
+      },
+      "cuda_kernel_mode": "serial",
+      "fixture_count": 9,
+      "fixtures": [
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 7,
+          "candidate_records": 8372,
+          "fixture_dir": "out/m4f/replay-fixtures/query_381",
+          "mean_core_ms": 5.597944,
+          "mean_total_before_json_ms": 5.621061,
+          "name": "query_381",
+          "output_records": 60,
+          "output_tsv": "out/m4g/batch-cuda-serial/query_381/overlaps.tsv",
+          "query_id": 381,
+          "target_groups": 120
+        },
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 7,
+          "candidate_records": 7859,
+          "fixture_dir": "out/m4f/replay-fixtures/query_neg71",
+          "mean_core_ms": 4.574078,
+          "mean_total_before_json_ms": 4.595719,
+          "name": "query_neg71",
+          "output_records": 51,
+          "output_tsv": "out/m4g/batch-cuda-serial/query_neg71/overlaps.tsv",
+          "query_id": -71,
+          "target_groups": 120
+        },
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 7,
+          "candidate_records": 7378,
+          "fixture_dir": "out/m4f/replay-fixtures/query_649",
+          "mean_core_ms": 6.840012,
+          "mean_total_before_json_ms": 6.860892,
+          "name": "query_649",
+          "output_records": 47,
+          "output_tsv": "out/m4g/batch-cuda-serial/query_649/overlaps.tsv",
+          "query_id": 649,
+          "target_groups": 85
+        },
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 7,
+          "candidate_records": 6033,
+          "fixture_dir": "out/m4f/replay-fixtures/query_443",
+          "mean_core_ms": 3.72987,
+          "mean_total_before_json_ms": 3.749723,
+          "name": "query_443",
+          "output_records": 41,
+          "output_tsv": "out/m4g/batch-cuda-serial/query_443/overlaps.tsv",
+          "query_id": 443,
+          "target_groups": 82
+        },
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 7,
+          "candidate_records": 5411,
+          "fixture_dir": "out/m4f/replay-fixtures/query_596",
+          "mean_core_ms": 2.566032,
+          "mean_total_before_json_ms": 2.586009,
+          "name": "query_596",
+          "output_records": 41,
+          "output_tsv": "out/m4g/batch-cuda-serial/query_596/overlaps.tsv",
+          "query_id": 596,
+          "target_groups": 137
+        },
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 7,
+          "candidate_records": 5345,
+          "fixture_dir": "out/m4f/replay-fixtures/query_752",
+          "mean_core_ms": 3.389849,
+          "mean_total_before_json_ms": 3.407824,
+          "name": "query_752",
+          "output_records": 32,
+          "output_tsv": "out/m4g/batch-cuda-serial/query_752/overlaps.tsv",
+          "query_id": 752,
+          "target_groups": 75
+        },
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 7,
+          "candidate_records": 5157,
+          "fixture_dir": "out/m4f/replay-fixtures/query_neg819",
+          "mean_core_ms": 4.044044,
+          "mean_total_before_json_ms": 4.063161,
+          "name": "query_neg819",
+          "output_records": 38,
+          "output_tsv": "out/m4g/batch-cuda-serial/query_neg819/overlaps.tsv",
+          "query_id": -819,
+          "target_groups": 122
+        },
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 7,
+          "candidate_records": 4932,
+          "fixture_dir": "out/m4f/replay-fixtures/query_695",
+          "mean_core_ms": 3.904081,
+          "mean_total_before_json_ms": 3.922801,
+          "name": "query_695",
+          "output_records": 35,
+          "output_tsv": "out/m4g/batch-cuda-serial/query_695/overlaps.tsv",
+          "query_id": 695,
+          "target_groups": 77
+        },
+        {
+          "arena_allocations": 0,
+          "arena_reuses": 7,
+          "candidate_records": 4207,
+          "fixture_dir": "out/m4f/replay-fixtures/query_548",
+          "mean_core_ms": 1.956311,
+          "mean_total_before_json_ms": 1.974632,
+          "name": "query_548",
+          "output_records": 37,
+          "output_tsv": "out/m4g/batch-cuda-serial/query_548/overlaps.tsv",
+          "query_id": 548,
+          "target_groups": 74
+        }
+      ],
+      "schema": "cuflye-overlap-replay-batch-worker-v0",
+      "status": "ok",
+      "timing_ms": {
+        "max_total_before_write": 36.784727,
+        "mean_core": 36.60222,
+        "mean_total_before_write": 36.781822,
+        "min_total_before_write": 36.778375,
+        "parse": 14.862998,
+        "setup": 300.655185,
+        "write_output": 0.451281
+      },
+      "total_candidate_records": 54694,
+      "total_output_records": 382
+    }
+  },
+  "schema": "cuflye-dgx-proof-v1",
+  "status": "passed",
+  "validation_summary": {
+    "cpu": [
+      {
+        "name": "query_381",
+        "records": 60,
+        "sha256": "69658d3a37f37115e460cd33ef52044b7e4a4a8a31c8b3d1d888d951448fe399",
+        "status": "match"
+      },
+      {
+        "name": "query_neg71",
+        "records": 51,
+        "sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+        "status": "match"
+      },
+      {
+        "name": "query_649",
+        "records": 47,
+        "sha256": "57da34f3cf7d51c2bc1e8cfb5c9bd40b658b0755663046c92e421a027b82ecbb",
+        "status": "match"
+      },
+      {
+        "name": "query_443",
+        "records": 41,
+        "sha256": "b15528f35df0f85b4ef8aa1e0a5966472047f09f20209d80e684be3271593858",
+        "status": "match"
+      },
+      {
+        "name": "query_596",
+        "records": 41,
+        "sha256": "3eb60b184f54edd59c875af4b78129dc14765687b506ee27e3354dfa3a69aada",
+        "status": "match"
+      },
+      {
+        "name": "query_752",
+        "records": 32,
+        "sha256": "96c5b20a064a238445fe3abe67d8375ac531768aca81b36e16ecd5a2b224f6cc",
+        "status": "match"
+      },
+      {
+        "name": "query_neg819",
+        "records": 38,
+        "sha256": "b88d0f14b6dc23e82cfd1b19a5b9e00c3930809ad3e2be10980c47f869b85f33",
+        "status": "match"
+      },
+      {
+        "name": "query_695",
+        "records": 35,
+        "sha256": "b63b08c697c5a1b9b52e08672dca8d64291423a3010cda5930491a4b0211d0e4",
+        "status": "match"
+      },
+      {
+        "name": "query_548",
+        "records": 37,
+        "sha256": "4bc42e9b445cec08ef6eede2fc0ac2c285735480953ef4881bf33eacba57f0b1",
+        "status": "match"
+      }
+    ],
+    "cuda_parallel": [
+      {
+        "name": "query_381",
+        "records": 60,
+        "sha256": "69658d3a37f37115e460cd33ef52044b7e4a4a8a31c8b3d1d888d951448fe399",
+        "status": "match"
+      },
+      {
+        "name": "query_neg71",
+        "records": 51,
+        "sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+        "status": "match"
+      },
+      {
+        "name": "query_649",
+        "records": 47,
+        "sha256": "57da34f3cf7d51c2bc1e8cfb5c9bd40b658b0755663046c92e421a027b82ecbb",
+        "status": "match"
+      },
+      {
+        "name": "query_443",
+        "records": 41,
+        "sha256": "b15528f35df0f85b4ef8aa1e0a5966472047f09f20209d80e684be3271593858",
+        "status": "match"
+      },
+      {
+        "name": "query_596",
+        "records": 41,
+        "sha256": "3eb60b184f54edd59c875af4b78129dc14765687b506ee27e3354dfa3a69aada",
+        "status": "match"
+      },
+      {
+        "name": "query_752",
+        "records": 32,
+        "sha256": "96c5b20a064a238445fe3abe67d8375ac531768aca81b36e16ecd5a2b224f6cc",
+        "status": "match"
+      },
+      {
+        "name": "query_neg819",
+        "records": 38,
+        "sha256": "b88d0f14b6dc23e82cfd1b19a5b9e00c3930809ad3e2be10980c47f869b85f33",
+        "status": "match"
+      },
+      {
+        "name": "query_695",
+        "records": 35,
+        "sha256": "b63b08c697c5a1b9b52e08672dca8d64291423a3010cda5930491a4b0211d0e4",
+        "status": "match"
+      },
+      {
+        "name": "query_548",
+        "records": 37,
+        "sha256": "4bc42e9b445cec08ef6eede2fc0ac2c285735480953ef4881bf33eacba57f0b1",
+        "status": "match"
+      }
+    ],
+    "cuda_serial": [
+      {
+        "name": "query_381",
+        "records": 60,
+        "sha256": "69658d3a37f37115e460cd33ef52044b7e4a4a8a31c8b3d1d888d951448fe399",
+        "status": "match"
+      },
+      {
+        "name": "query_neg71",
+        "records": 51,
+        "sha256": "1a3347f96c74e0297a80871b32fa6cce2bccbf2731a7facb95e9333185c23e73",
+        "status": "match"
+      },
+      {
+        "name": "query_649",
+        "records": 47,
+        "sha256": "57da34f3cf7d51c2bc1e8cfb5c9bd40b658b0755663046c92e421a027b82ecbb",
+        "status": "match"
+      },
+      {
+        "name": "query_443",
+        "records": 41,
+        "sha256": "b15528f35df0f85b4ef8aa1e0a5966472047f09f20209d80e684be3271593858",
+        "status": "match"
+      },
+      {
+        "name": "query_596",
+        "records": 41,
+        "sha256": "3eb60b184f54edd59c875af4b78129dc14765687b506ee27e3354dfa3a69aada",
+        "status": "match"
+      },
+      {
+        "name": "query_752",
+        "records": 32,
+        "sha256": "96c5b20a064a238445fe3abe67d8375ac531768aca81b36e16ecd5a2b224f6cc",
+        "status": "match"
+      },
+      {
+        "name": "query_neg819",
+        "records": 38,
+        "sha256": "b88d0f14b6dc23e82cfd1b19a5b9e00c3930809ad3e2be10980c47f869b85f33",
+        "status": "match"
+      },
+      {
+        "name": "query_695",
+        "records": 35,
+        "sha256": "b63b08c697c5a1b9b52e08672dca8d64291423a3010cda5930491a4b0211d0e4",
+        "status": "match"
+      },
+      {
+        "name": "query_548",
+        "records": 37,
+        "sha256": "4bc42e9b445cec08ef6eede2fc0ac2c285735480953ef4881bf33eacba57f0b1",
+        "status": "match"
+      }
+    ]
+  }
+}

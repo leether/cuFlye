@@ -126,6 +126,14 @@ Completed:
   for CPU, serial CUDA, and parallel CUDA, but per-fixture CUDA invocation was
   still slower: CPU `12.300116 ms`, serial CUDA `38.801200 ms`, parallel CUDA
   `47.293990 ms`.
+- M4g: a single-process batched overlap worker validates the same top-9
+  replay-match fixtures while reusing CUDA context and device buffers. All CPU,
+  serial CUDA, and parallel CUDA fixture outputs validate as `overlap-range-v1`
+  and canonical-diff `match`. Arena reuse was recorded with `9` allocations,
+  `369` reuses, and `492552` bytes of final capacity. The worker slightly
+  improves CUDA overhead compared with M4f external invocation, but it is still
+  slower than CPU: CPU `9.217960 ms`, serial CUDA `36.781822 ms`, parallel CUDA
+  `45.264240 ms`.
 
 Current allowed performance claim:
 
@@ -154,10 +162,11 @@ The current parallel-reduce CUDA overlap-chain kernel preserves correctness but
 does not improve the single-query benchmark. Further overlap-chain performance
 work must increase real batched work before claiming speed.
 
-cuFlye now has real multi-query overlap-chain fixtures and a batch validation
-harness, but it still does not have an overlap-chain CUDA speedup. The next
-performance boundary is a single-process batched worker that reuses CUDA context
-and allocations.
+cuFlye now has real multi-query overlap-chain fixtures, a batch validation
+harness, and a single-process batched worker with CUDA arena reuse, but it still
+does not have an overlap-chain CUDA speedup. Process/context/allocation reuse
+alone is insufficient. The next performance boundary is a packed multi-query
+device layout or fewer CUDA launches for the same real replay-match batch.
 ```
 
 Current forbidden claim:

@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4g Batched Overlap Worker
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -85,11 +85,49 @@ CUDA execution boundary.
 
 ## Execution Checklist
 
-- [ ] Design batch input/output contract and provenance.
-- [ ] Implement single-process CPU and CUDA batch modes.
-- [ ] Reuse CUDA context and buffers across compatible fixture shapes.
-- [ ] Validate per-fixture outputs on DGX.
-- [ ] Diff per-fixture outputs against oracles.
-- [ ] Record timing summary and speed ratios.
-- [ ] Run ownership/resource scan.
-- [ ] Record compact DGX proof and close this card.
+- [x] Design batch input/output contract and provenance.
+- [x] Implement single-process CPU and CUDA batch modes.
+- [x] Reuse CUDA context and buffers across compatible fixture shapes.
+- [x] Validate per-fixture outputs on DGX.
+- [x] Diff per-fixture outputs against oracles.
+- [x] Record timing summary and speed ratios.
+- [x] Run ownership/resource scan.
+- [x] Record compact DGX proof and close this card.
+
+## Merge Note
+
+Implementation commit:
+`64bf39000cc6fe7c3bc18e5f9d0b88961226af6a`.
+
+DGX proof:
+`tests/golden/cuflye-m4g-batched-overlap-worker-dgx-aarch64.json`.
+
+M4g added a single-process overlap replay batch mode that loads the M4f top-9
+replay-match fixtures once, runs CPU or CUDA backends inside one process, and
+writes per-fixture overlap TSV outputs with explicit JSON provenance.
+
+The proof passed all correctness gates:
+
+- `9` fixture outputs validated as `overlap-range-v1` for CPU, serial CUDA,
+  and parallel CUDA.
+- All CPU, serial CUDA, and parallel CUDA outputs canonical-diffed `match`
+  against their oracles.
+- CUDA arena reuse was recorded: `9` allocations, `369` reuses,
+  `492552` bytes of final arena capacity.
+- Syntax/style gates and CUDA ownership scan passed.
+
+Measured batch timing on DGX `NVIDIA GB10`:
+
+- CPU batch mean total before write: `9.217960 ms`.
+- Serial CUDA batch mean total before write: `36.781822 ms`, speedup vs CPU
+  `0.250612x`.
+- Parallel CUDA batch mean total before write: `45.264240 ms`, speedup vs CPU
+  `0.203648x`.
+- Compared with M4f external per-fixture invocation, M4g improved serial CUDA
+  by `1.054902x` and parallel CUDA by `1.044842x`.
+
+Conclusion: single-process context and allocation reuse is correct and removes
+some overhead, but it does not produce an overlap-chain CUDA speedup. The next
+ROI target is M4h: pack multiple replay queries into fewer CUDA launches or one
+multi-query device layout before making another overlap-chain performance
+claim.

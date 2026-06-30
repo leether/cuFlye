@@ -7,11 +7,14 @@ change is considered complete.
 
 Active cards:
 
-- `2026-06-30-cuflye-m4g-batched-overlap-worker.md`: run real replay-match
-  overlap fixtures through one long-lived batched CUDA worker.
+- `2026-06-30-cuflye-m4h-packed-multi-query-overlap-kernel.md`: pack multiple
+  replay-match overlap fixtures into fewer CUDA launches while preserving
+  per-query overlap hashes.
 
 Completed cards:
 
+- `2026-06-30-cuflye-m4g-batched-overlap-worker.md`: run real replay-match
+  overlap fixtures through one long-lived batched CUDA worker.
 - `2026-06-30-cuflye-m4f-overlap-chain-batched-fixtures.md`: collect or derive
   real batched overlap-chain fixtures before making further speed claims.
 - `2026-06-30-cuflye-m4e-overlap-chain-parallel-reduction.md`: increase CUDA
