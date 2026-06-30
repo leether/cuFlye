@@ -92,7 +92,9 @@ Successful response:
   "output_tsv": "/path/to/output/candidates.tsv",
   "records": 15571,
   "output_strategy": "sparse-offsets-v1",
+  "prefix_strategy": "device-exclusive-scan-v1",
   "dense_pair_output_materialized": false,
+  "host_prefix_offsets_materialized": false,
   "device": 0,
   "device_name": "NVIDIA GB10",
   "timing_ms": {
@@ -104,8 +106,11 @@ Successful response:
     "device_allocation": 9.169,
     "host_to_device": 4.428,
     "kernel": 6.361,
-    "host_prefix_sum": 83.331,
+    "host_prefix_sum": 0.0,
+    "device_prefix_sum": 3.0,
+    "output_count_device_to_host": 0.1,
     "output_device_to_host": 0.094,
+    "device_to_host": 0.194,
     "write_output": 0.676
   },
   "device_allocation_bytes": 260459496,

@@ -7,7 +7,8 @@ change is considered complete.
 
 Active cards:
 
-- None.
+- `2026-06-30-cuflye-m3c-device-prefix-compaction.md`: move sparse output
+  prefix/compaction into the CUDA backend while preserving worker equivalence.
 
 Completed cards:
 

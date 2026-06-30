@@ -128,3 +128,27 @@ The broad compatibility fields remain:
 - `timing_ms.kernel` is `mark_kernel + emit_kernel`;
 - `timing_ms.device_to_host` is `flag_device_to_host + output_device_to_host`;
 - `timing_ms.compact` is the host prefix-sum compaction step.
+
+## M3c Extension
+
+M3c keeps `output_strategy: sparse-offsets-v1` but moves prefix/offset
+generation to a device-side exclusive scan. The candidate-record-v1 TSV ABI and
+canonical ordering remain unchanged.
+
+Runtime JSON adds:
+
+- `prefix_strategy: device-exclusive-scan-v1`;
+- `host_prefix_offsets_materialized: false`;
+- `timing_ms.device_prefix_sum`;
+- `timing_ms.output_count_device_to_host`.
+
+Compatibility timing fields remain present:
+
+- `timing_ms.host_prefix_sum` is `0.000` for the device-prefix path;
+- `timing_ms.flag_device_to_host` is `0.000` because the full flag array is not
+  copied back to host;
+- `timing_ms.offsets_host_to_device` is `0.000` because output offsets are
+  generated on device;
+- `timing_ms.device_to_host` includes output-count readback plus compact output
+  readback;
+- `timing_ms.compact` is the device prefix-sum compaction step.

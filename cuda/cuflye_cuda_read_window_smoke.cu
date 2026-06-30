@@ -24,6 +24,7 @@
 namespace
 {
 static const uint32_t MAX_KMER_SIZE = 32;
+static const int PREFIX_SCAN_BLOCK_SIZE = 256;
 
 struct QueryReadMeta
 {
@@ -92,6 +93,8 @@ struct TimingSummary
 	double markKernelMs = 0.0;
 	double flagDeviceToHostMs = 0.0;
 	double hostPrefixSumMs = 0.0;
+	double devicePrefixSumMs = 0.0;
+	double outputCountDeviceToHostMs = 0.0;
 	double offsetsHostToDeviceMs = 0.0;
 	double emitKernelMs = 0.0;
 	double hostOutputAllocationMs = 0.0;
@@ -308,6 +311,73 @@ __global__ void emitCandidateRecordsKernel(const QueryReadMeta* reads,
 		return;
 	}
 	output[outputOffsets[pairIndex]] = record;
+}
+
+__global__ void scanFlagsKernel(const uint8_t* flags,
+								uint32_t* outputOffsets,
+								uint32_t* blockSums,
+								size_t count)
+{
+	__shared__ uint32_t scan[PREFIX_SCAN_BLOCK_SIZE];
+	size_t base = static_cast<size_t>(blockIdx.x) * blockDim.x;
+	size_t index = base + threadIdx.x;
+	uint32_t value = index < count ? static_cast<uint32_t>(flags[index]) : 0;
+	scan[threadIdx.x] = value;
+	__syncthreads();
+
+	for (uint32_t offset = 1; offset < blockDim.x; offset <<= 1)
+	{
+		uint32_t addend = threadIdx.x >= offset ? scan[threadIdx.x - offset] : 0;
+		__syncthreads();
+		scan[threadIdx.x] += addend;
+		__syncthreads();
+	}
+
+	if (index < count) outputOffsets[index] = scan[threadIdx.x] - value;
+	size_t validCount = count - base;
+	if (validCount > blockDim.x) validCount = blockDim.x;
+	if (validCount > 0 && threadIdx.x == validCount - 1)
+	{
+		blockSums[blockIdx.x] = scan[threadIdx.x];
+	}
+}
+
+__global__ void scanUint32Kernel(const uint32_t* input,
+								 uint32_t* output,
+								 uint32_t* blockSums,
+								 size_t count)
+{
+	__shared__ uint32_t scan[PREFIX_SCAN_BLOCK_SIZE];
+	size_t base = static_cast<size_t>(blockIdx.x) * blockDim.x;
+	size_t index = base + threadIdx.x;
+	uint32_t value = index < count ? input[index] : 0;
+	scan[threadIdx.x] = value;
+	__syncthreads();
+
+	for (uint32_t offset = 1; offset < blockDim.x; offset <<= 1)
+	{
+		uint32_t addend = threadIdx.x >= offset ? scan[threadIdx.x - offset] : 0;
+		__syncthreads();
+		scan[threadIdx.x] += addend;
+		__syncthreads();
+	}
+
+	if (index < count) output[index] = scan[threadIdx.x] - value;
+	size_t validCount = count - base;
+	if (validCount > blockDim.x) validCount = blockDim.x;
+	if (blockSums && validCount > 0 && threadIdx.x == validCount - 1)
+	{
+		blockSums[blockIdx.x] = scan[threadIdx.x];
+	}
+}
+
+__global__ void addBlockOffsetsKernel(uint32_t* values,
+									  const uint32_t* blockOffsets,
+									  size_t count)
+{
+	size_t index = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+	if (index >= count) return;
+	values[index] += blockOffsets[blockIdx.x];
 }
 
 [[noreturn]] void usageError(const std::string& message)
@@ -803,7 +873,9 @@ std::string buildJson(const Options& options,
 	json << "  \"memory_budget_satisfied\": true,\n";
 	json << "  \"dynamic_read_bases\": true,\n";
 	json << "  \"output_strategy\": \"sparse-offsets-v1\",\n";
+	json << "  \"prefix_strategy\": \"device-exclusive-scan-v1\",\n";
 	json << "  \"dense_pair_output_materialized\": false,\n";
+	json << "  \"host_prefix_offsets_materialized\": false,\n";
 	json << "  \"device_side_read_windowing\": true,\n";
 	json << "  \"device_side_kmer_encoding\": true,\n";
 	json << "  \"device_side_standard_form\": true,\n";
@@ -818,6 +890,8 @@ std::string buildJson(const Options& options,
 	json << "    \"mark_kernel\": " << timing.markKernelMs << ",\n";
 	json << "    \"flag_device_to_host\": " << timing.flagDeviceToHostMs << ",\n";
 	json << "    \"host_prefix_sum\": " << timing.hostPrefixSumMs << ",\n";
+	json << "    \"device_prefix_sum\": " << timing.devicePrefixSumMs << ",\n";
+	json << "    \"output_count_device_to_host\": " << timing.outputCountDeviceToHostMs << ",\n";
 	json << "    \"offsets_host_to_device\": " << timing.offsetsHostToDeviceMs << ",\n";
 	json << "    \"emit_kernel\": " << timing.emitKernelMs << ",\n";
 	json << "    \"host_output_allocation\": " << timing.hostOutputAllocationMs << ",\n";
@@ -864,6 +938,110 @@ size_t checkedAdd(size_t left, size_t right, const std::string& name)
 		throw std::runtime_error(name + " size overflow");
 	}
 	return left + right;
+}
+
+size_t ceilDiv(size_t value, size_t divisor)
+{
+	if (divisor == 0) throw std::runtime_error("ceilDiv divisor is zero");
+	return (value + divisor - 1) / divisor;
+}
+
+int checkedKernelBlocks(size_t itemCount, const std::string& name)
+{
+	size_t blocks = ceilDiv(itemCount, static_cast<size_t>(PREFIX_SCAN_BLOCK_SIZE));
+	if (blocks == 0) throw std::runtime_error(name + " kernel block count is zero");
+	if (blocks > static_cast<size_t>(std::numeric_limits<int>::max()))
+	{
+		throw std::runtime_error(name + " kernel block count exceeds int range");
+	}
+	return static_cast<int>(blocks);
+}
+
+size_t estimateUint32ScanScratchBytes(size_t count)
+{
+	if (count <= static_cast<size_t>(PREFIX_SCAN_BLOCK_SIZE)) return 0;
+	size_t blocks = ceilDiv(count, static_cast<size_t>(PREFIX_SCAN_BLOCK_SIZE));
+	size_t scratch = checkedMultiply(blocks, sizeof(uint32_t), "uint32 scan block sums");
+	scratch = checkedAdd(scratch,
+						 checkedMultiply(blocks, sizeof(uint32_t), "uint32 scan block offsets"),
+						 "uint32 scan scratch");
+	return checkedAdd(scratch, estimateUint32ScanScratchBytes(blocks), "uint32 scan scratch");
+}
+
+size_t estimateFlagScanScratchBytes(size_t count)
+{
+	size_t blocks = ceilDiv(count, static_cast<size_t>(PREFIX_SCAN_BLOCK_SIZE));
+	size_t scratch = checkedMultiply(blocks, sizeof(uint32_t), "flag scan block sums");
+	if (blocks > 1)
+	{
+		scratch = checkedAdd(scratch,
+							 checkedMultiply(blocks, sizeof(uint32_t), "flag scan block offsets"),
+							 "flag scan scratch");
+		scratch = checkedAdd(scratch, estimateUint32ScanScratchBytes(blocks), "flag scan scratch");
+	}
+	return scratch;
+}
+
+void scanUint32Device(const uint32_t* input, uint32_t* output, size_t count)
+{
+	int blocks = checkedKernelBlocks(count, "uint32 scan");
+	if (blocks == 1)
+	{
+		scanUint32Kernel<<<1, PREFIX_SCAN_BLOCK_SIZE>>>(input, output, nullptr, count);
+		checkCuda(cudaGetLastError(), "scanUint32Kernel launch failed");
+		checkCuda(cudaDeviceSynchronize(), "scanUint32Kernel execution failed");
+		return;
+	}
+
+	size_t blockBytes = checkedMultiply(static_cast<size_t>(blocks),
+										sizeof(uint32_t),
+										"uint32 scan block buffer");
+	cuflye::cuda_raii::DeviceBuffer<uint32_t> blockSums(blockBytes,
+														"uint32 scan block sums");
+	cuflye::cuda_raii::DeviceBuffer<uint32_t> blockOffsets(blockBytes,
+														   "uint32 scan block offsets");
+	scanUint32Kernel<<<blocks, PREFIX_SCAN_BLOCK_SIZE>>>(
+		input,
+		output,
+		blockSums.get(),
+		count);
+	checkCuda(cudaGetLastError(), "scanUint32Kernel launch failed");
+	scanUint32Device(blockSums.get(), blockOffsets.get(), static_cast<size_t>(blocks));
+	addBlockOffsetsKernel<<<blocks, PREFIX_SCAN_BLOCK_SIZE>>>(
+		output,
+		blockOffsets.get(),
+		count);
+	checkCuda(cudaGetLastError(), "addBlockOffsetsKernel launch failed");
+	checkCuda(cudaDeviceSynchronize(), "addBlockOffsetsKernel execution failed");
+}
+
+void scanFlagsDevice(const uint8_t* flags, uint32_t* outputOffsets, size_t count)
+{
+	int blocks = checkedKernelBlocks(count, "flag scan");
+	size_t blockBytes = checkedMultiply(static_cast<size_t>(blocks),
+										sizeof(uint32_t),
+										"flag scan block buffer");
+	cuflye::cuda_raii::DeviceBuffer<uint32_t> blockSums(blockBytes,
+														"flag scan block sums");
+	scanFlagsKernel<<<blocks, PREFIX_SCAN_BLOCK_SIZE>>>(
+		flags,
+		outputOffsets,
+		blockSums.get(),
+		count);
+	checkCuda(cudaGetLastError(), "scanFlagsKernel launch failed");
+
+	if (blocks > 1)
+	{
+		cuflye::cuda_raii::DeviceBuffer<uint32_t> blockOffsets(blockBytes,
+															   "flag scan block offsets");
+		scanUint32Device(blockSums.get(), blockOffsets.get(), static_cast<size_t>(blocks));
+		addBlockOffsetsKernel<<<blocks, PREFIX_SCAN_BLOCK_SIZE>>>(
+			outputOffsets,
+			blockOffsets.get(),
+			count);
+		checkCuda(cudaGetLastError(), "addBlockOffsetsKernel launch failed");
+	}
+	checkCuda(cudaDeviceSynchronize(), "scanFlagsDevice execution failed");
 }
 
 BackendRunResult runReadWindowBackend(const Options& options,
@@ -926,12 +1104,14 @@ BackendRunResult runReadWindowBackend(const Options& options,
 												 "repetitive k-mer buffer");
 		size_t flagBytes = checkedMultiply(pairCount, sizeof(uint8_t), "valid flag buffer");
 		size_t outputOffsetBytes = checkedMultiply(pairCount, sizeof(uint32_t), "output offset buffer");
+		size_t prefixScanScratchBytes = estimateFlagScanScratchBytes(pairCount);
 		size_t requiredBytes = checkedAdd(readBytes, offsetBytes, "device allocation");
 		requiredBytes = checkedAdd(requiredBytes, readBaseBytes, "device allocation");
 		requiredBytes = checkedAdd(requiredBytes, indexBytes, "device allocation");
 		requiredBytes = checkedAdd(requiredBytes, repetitiveBytes, "device allocation");
 		requiredBytes = checkedAdd(requiredBytes, flagBytes, "device allocation");
 		requiredBytes = checkedAdd(requiredBytes, outputOffsetBytes, "device allocation");
+		requiredBytes = checkedAdd(requiredBytes, prefixScanScratchBytes, "device allocation");
 
 		if (options.hasMemoryBudget && requiredBytes > options.memoryBudgetBytes)
 		{
@@ -1003,49 +1183,48 @@ BackendRunResult runReadWindowBackend(const Options& options,
 		timing.markKernelMs = cudaEventElapsedMs(markStart, markStop,
 												"cudaEventElapsedTime mark failed");
 
-		auto hostFlagAllocationStart = Clock::now();
-		std::vector<uint8_t> validFlags(pairCount);
-		timing.hostOutputAllocationMs = elapsedMs(hostFlagAllocationStart, Clock::now());
+		cuflye::cuda_raii::CudaEvent prefixStart("device prefix start");
+		cuflye::cuda_raii::CudaEvent prefixStop("device prefix stop");
+		checkCuda(cudaEventRecord(prefixStart.get()), "cudaEventRecord prefix start failed");
+		scanFlagsDevice(deviceFlags.get(), deviceOutputOffsets.get(), pairCount);
+		checkCuda(cudaEventRecord(prefixStop.get()), "cudaEventRecord prefix stop failed");
+		checkCuda(cudaEventSynchronize(prefixStop.get()), "device prefix scan execution failed");
+		timing.devicePrefixSumMs = cudaEventElapsedMs(prefixStart, prefixStop,
+													 "cudaEventElapsedTime prefix failed");
+		timing.compactMs = timing.devicePrefixSumMs;
 
-		cuflye::cuda_raii::CudaEvent flagD2hStart("flag device to host start");
-		cuflye::cuda_raii::CudaEvent flagD2hStop("flag device to host stop");
-		checkCuda(cudaEventRecord(flagD2hStart.get()), "cudaEventRecord flag D2H start failed");
-		checkCuda(cudaMemcpy(validFlags.data(), deviceFlags.get(), flagBytes, cudaMemcpyDeviceToHost),
-				  "cudaMemcpy flags device-to-host failed");
-		checkCuda(cudaEventRecord(flagD2hStop.get()), "cudaEventRecord flag D2H stop failed");
-		checkCuda(cudaEventSynchronize(flagD2hStop.get()), "cudaEventSynchronize flag D2H stop failed");
-		timing.flagDeviceToHostMs = cudaEventElapsedMs(flagD2hStart, flagD2hStop,
-													  "cudaEventElapsedTime flag D2H failed");
-
-		auto prefixStart = Clock::now();
-		std::vector<uint32_t> outputOffsets(pairCount);
-		uint32_t outputCount = 0;
-		for (size_t index = 0; index < validFlags.size(); ++index)
+		cuflye::cuda_raii::CudaEvent countD2hStart("output count device to host start");
+		cuflye::cuda_raii::CudaEvent countD2hStop("output count device to host stop");
+		uint32_t lastOffset = 0;
+		uint8_t lastFlag = 0;
+		checkCuda(cudaEventRecord(countD2hStart.get()),
+				  "cudaEventRecord output count D2H start failed");
+		checkCuda(cudaMemcpy(&lastOffset,
+							 deviceOutputOffsets.get() + pairCount - 1,
+							 sizeof(lastOffset),
+							 cudaMemcpyDeviceToHost),
+				  "cudaMemcpy output count offset device-to-host failed");
+		checkCuda(cudaMemcpy(&lastFlag,
+							 deviceFlags.get() + pairCount - 1,
+							 sizeof(lastFlag),
+							 cudaMemcpyDeviceToHost),
+				  "cudaMemcpy output count flag device-to-host failed");
+		checkCuda(cudaEventRecord(countD2hStop.get()),
+				  "cudaEventRecord output count D2H stop failed");
+		checkCuda(cudaEventSynchronize(countD2hStop.get()),
+				  "cudaEventSynchronize output count D2H stop failed");
+		timing.outputCountDeviceToHostMs = cudaEventElapsedMs(
+			countD2hStart,
+			countD2hStop,
+			"cudaEventElapsedTime output count D2H failed");
+		uint64_t outputCount64 = static_cast<uint64_t>(lastOffset) +
+								 static_cast<uint64_t>(lastFlag);
+		if (outputCount64 == 0) throw std::runtime_error("GPU emitted no candidate records");
+		if (outputCount64 > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()))
 		{
-			outputOffsets[index] = outputCount;
-			if (validFlags[index])
-			{
-				if (outputCount == std::numeric_limits<uint32_t>::max())
-				{
-					throw std::runtime_error("candidate output count exceeds uint32 range");
-				}
-				++outputCount;
-			}
+			throw std::runtime_error("candidate output count exceeds uint32 range");
 		}
-		if (outputCount == 0) throw std::runtime_error("GPU emitted no candidate records");
-		timing.hostPrefixSumMs = elapsedMs(prefixStart, Clock::now());
-		timing.compactMs = timing.hostPrefixSumMs;
-
-		cuflye::cuda_raii::CudaEvent offsetsH2dStart("offsets host to device start");
-		cuflye::cuda_raii::CudaEvent offsetsH2dStop("offsets host to device stop");
-		checkCuda(cudaEventRecord(offsetsH2dStart.get()), "cudaEventRecord offsets H2D start failed");
-		checkCuda(cudaMemcpy(deviceOutputOffsets.get(), outputOffsets.data(), outputOffsetBytes,
-							 cudaMemcpyHostToDevice),
-				  "cudaMemcpy output offsets host-to-device failed");
-		checkCuda(cudaEventRecord(offsetsH2dStop.get()), "cudaEventRecord offsets H2D stop failed");
-		checkCuda(cudaEventSynchronize(offsetsH2dStop.get()), "cudaEventSynchronize offsets H2D stop failed");
-		timing.offsetsHostToDeviceMs = cudaEventElapsedMs(offsetsH2dStart, offsetsH2dStop,
-														 "cudaEventElapsedTime offsets H2D failed");
+		uint32_t outputCount = static_cast<uint32_t>(outputCount64);
 
 		size_t outputBytes = checkedMultiply(static_cast<size_t>(outputCount),
 											 sizeof(CandidateRecord),
@@ -1102,7 +1281,9 @@ BackendRunResult runReadWindowBackend(const Options& options,
 		checkCuda(cudaEventSynchronize(outputD2hStop.get()), "cudaEventSynchronize output D2H stop failed");
 		timing.outputDeviceToHostMs = cudaEventElapsedMs(outputD2hStart, outputD2hStop,
 														"cudaEventElapsedTime output D2H failed");
-		timing.deviceToHostMs = timing.flagDeviceToHostMs + timing.outputDeviceToHostMs;
+		timing.deviceToHostMs = timing.flagDeviceToHostMs +
+								timing.outputCountDeviceToHostMs +
+								timing.outputDeviceToHostMs;
 
 		auto writeStart = Clock::now();
 		writeCandidateTsv(options.outputTsv, gpuRecords);
@@ -1478,7 +1659,9 @@ std::string buildWorkerResponseJson(const WorkerRequest& request,
 	json << ",\n";
 	json << "  \"records\": " << result.outputCount << ",\n";
 	json << "  \"output_strategy\": \"sparse-offsets-v1\",\n";
+	json << "  \"prefix_strategy\": \"device-exclusive-scan-v1\",\n";
 	json << "  \"dense_pair_output_materialized\": false,\n";
+	json << "  \"host_prefix_offsets_materialized\": false,\n";
 	json << "  \"device\": " << request.options.device << ",\n";
 	json << "  \"device_name\": \"" << jsonEscape(result.prop.name) << "\",\n";
 	json << "  \"device_allocation_bytes\": " << result.requiredBytes << ",\n";
@@ -1495,9 +1678,13 @@ std::string buildWorkerResponseJson(const WorkerRequest& request,
 	json << "    \"mark_kernel\": " << result.timing.markKernelMs << ",\n";
 	json << "    \"flag_device_to_host\": " << result.timing.flagDeviceToHostMs << ",\n";
 	json << "    \"host_prefix_sum\": " << result.timing.hostPrefixSumMs << ",\n";
+	json << "    \"device_prefix_sum\": " << result.timing.devicePrefixSumMs << ",\n";
+	json << "    \"output_count_device_to_host\": "
+		 << result.timing.outputCountDeviceToHostMs << ",\n";
 	json << "    \"offsets_host_to_device\": " << result.timing.offsetsHostToDeviceMs << ",\n";
 	json << "    \"emit_kernel\": " << result.timing.emitKernelMs << ",\n";
 	json << "    \"output_device_to_host\": " << result.timing.outputDeviceToHostMs << ",\n";
+	json << "    \"device_to_host\": " << result.timing.deviceToHostMs << ",\n";
 	json << "    \"write_output\": " << result.timing.writeOutputMs << "\n";
 	json << "  }\n";
 	json << "}\n";
