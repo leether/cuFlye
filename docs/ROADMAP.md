@@ -171,6 +171,16 @@ Completed:
   `status=validation-failed-before-graph-mutation`, marked
   `worker_output_consumption_eligible=false`, and exited non-zero before graph
   mutation.
+- M4m: Flye can parse validated packed CUDA overlap worker output back into a
+  Flye-side canonical shadow overlap representation and compare it against CPU
+  overlap ranges captured in memory. The DGX positive proof shadow-compared all
+  9 top-batch worker outputs `match`, wrote `shadow_consumption_eligible=true`,
+  and still recorded `graph_mutation_consumed_worker_output=false`. The DGX
+  negative proof corrupted both the first worker output TSV and its disk oracle,
+  so file validation still passed; shadow comparison caught `query_neg71` as
+  `51` CPU records versus `50` worker records, wrote
+  `status=shadow-failed-before-graph-mutation`, and exited non-zero before graph
+  mutation.
 
 Current allowed performance claim:
 
@@ -221,6 +231,12 @@ cuFlye now has a Flye-side validation gate for packed CUDA overlap worker
 output. Passing output can be marked consumption-eligible, and mismatching
 output fails closed before graph mutation. This is still not a graph-consumption
 claim.
+
+cuFlye now has a Flye-side shadow consumption proof for packed CUDA overlap
+worker output. Validated worker output can be parsed into canonical overlap
+records and compared against CPU overlap ranges captured in memory. This is one
+more integration boundary, but it still does not feed GPU output into graph
+mutation.
 ```
 
 Current forbidden claim:
@@ -393,12 +409,10 @@ Use precise milestone labels:
 Next highest-ROI task:
 
 ```text
-M4m: parse validated CUDA overlap worker output into a Flye-side shadow overlap
-range structure and compare it against CPU overlap ranges without changing graph
-mutation.
+M4n: expand the validation and shadow-consumption proof from the fixed top-9
+batch to a deterministic heterogeneous supported-shape replay matrix.
 ```
 
-Acceptance should require M4l validation status `passed` before shadow parsing,
-prove shadow records match CPU overlap ranges for every selected query, include
-a negative shadow mismatch case, and still record
-`graph_mutation_consumed_worker_output=false`.
+Acceptance should preserve validation and shadow matches for every selected
+fixture, document unsupported exclusions explicitly, include a negative shadow
+mismatch case, and still record `graph_mutation_consumed_worker_output=false`.

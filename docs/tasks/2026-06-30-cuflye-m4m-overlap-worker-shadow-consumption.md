@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4m Overlap Worker Shadow Consumption
 
-Status: active
+Status: completed
 
 Created: 2026-06-30
 
@@ -78,14 +78,38 @@ return or stop without feeding GPU output into graph mutation.
 
 ## Execution Checklist
 
-- [ ] Define shadow mode and seam-summary shadow fields.
-- [ ] Capture CPU overlap ranges in a Flye-side shadow representation.
-- [ ] Parse validated worker output into the same shadow representation.
-- [ ] Compare worker shadow records against captured CPU overlap records.
-- [ ] Extend fixture runner controls and metadata.
-- [ ] Build patched Flye on DGX.
-- [ ] Prove default CPU fixture behavior remains unchanged.
-- [ ] Prove positive shadow mode validates, shadow-compares, and stops before
+- [x] Define shadow mode and seam-summary shadow fields.
+- [x] Capture CPU overlap ranges in a Flye-side shadow representation.
+- [x] Parse validated worker output into the same shadow representation.
+- [x] Compare worker shadow records against captured CPU overlap records.
+- [x] Extend fixture runner controls and metadata.
+- [x] Build patched Flye on DGX.
+- [x] Prove default CPU fixture behavior remains unchanged.
+- [x] Prove positive shadow mode validates, shadow-compares, and stops before
   graph mutation.
-- [ ] Prove negative shadow mismatch fails closed before graph mutation.
-- [ ] Record compact DGX proof and close this card.
+- [x] Prove negative shadow mismatch fails closed before graph mutation.
+- [x] Record compact DGX proof and close this card.
+
+## Merge Note
+
+Implementation commit: `a93f3b01bc7971d85306bb430d9929d8bcfc2075`
+
+DGX proof:
+`tests/golden/cuflye-m4m-overlap-worker-shadow-consumption-dgx-aarch64.json`
+
+Results:
+
+- Default `toy-hifi` CPU run completed and all 9 canonical artifact hashes
+  matched the M0 golden manifest.
+- Positive `toy-raw` shadow run validated 9 worker TSV outputs, parsed them
+  into Flye-side canonical shadow overlap records, matched every shadow record
+  against CPU overlap ranges captured in memory, and still recorded
+  `graph_mutation_consumed_worker_output=false`.
+- The positive packed worker request used one CUDA launch per timed run and
+  reported `6.847707 ms` backend mean total before write.
+- Negative proof used a wrapper that ran the real worker, then removed one
+  overlap record from both the first worker output TSV and its disk
+  `oracle.overlaps.tsv`. File validation still passed, but shadow comparison
+  caught `query_neg71` as `51` CPU records vs `50` worker records, marked
+  `shadow_consumption_eligible=false`, and failed closed before graph mutation.
+- DGX build, patch-series, syntax/style, and ownership gates passed.

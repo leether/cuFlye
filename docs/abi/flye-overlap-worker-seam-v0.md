@@ -1,7 +1,7 @@
 # Flye Overlap Worker Seam v0
 
 Status: accepted in M4j; batch allowlist extension accepted in M4k; validation
-gate accepted in M4l; shadow consumption proof active in M4m
+gate accepted in M4l; shadow consumption proof accepted in M4m
 
 Introduced: M4j
 
