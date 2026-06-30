@@ -196,10 +196,10 @@ std::string readTextFile(const std::string& path)
 	return buffer.str();
 }
 
-size_t findJsonValue(const std::string& text, const std::string& key)
+size_t findJsonValueFrom(const std::string& text, const std::string& key, size_t searchStart)
 {
 	std::string pattern = "\"" + key + "\"";
-	size_t keyPos = text.find(pattern);
+	size_t keyPos = text.find(pattern, searchStart);
 	if (keyPos == std::string::npos)
 	{
 		throw std::runtime_error("manifest missing key: " + key);
@@ -217,9 +217,14 @@ size_t findJsonValue(const std::string& text, const std::string& key)
 	return value;
 }
 
-std::string jsonString(const std::string& text, const std::string& key)
+size_t findJsonValue(const std::string& text, const std::string& key)
 {
-	size_t value = findJsonValue(text, key);
+	return findJsonValueFrom(text, key, 0);
+}
+
+std::string jsonStringFrom(const std::string& text, const std::string& key, size_t searchStart)
+{
+	size_t value = findJsonValueFrom(text, key, searchStart);
 	if (value >= text.size() || text[value] != '"')
 	{
 		throw std::runtime_error("manifest key is not string: " + key);
@@ -230,6 +235,11 @@ std::string jsonString(const std::string& text, const std::string& key)
 		throw std::runtime_error("manifest string is unterminated: " + key);
 	}
 	return text.substr(value + 1, end - value - 1);
+}
+
+std::string jsonString(const std::string& text, const std::string& key)
+{
+	return jsonStringFrom(text, key, 0);
 }
 
 int64_t jsonInt(const std::string& text, const std::string& key)
@@ -280,10 +290,15 @@ FixtureManifest loadManifest(const std::string& fixtureDir)
 	manifest.expectedTargetRecords = static_cast<uint64_t>(jsonInt(text, "target_records"));
 	manifest.expectedOracleOverlapRecords =
 		static_cast<uint64_t>(jsonInt(text, "oracle_overlap_records"));
-	manifest.files.candidates = jsonString(text, "candidates");
-	manifest.files.filteredPositions = jsonString(text, "filtered_positions");
-	manifest.files.targets = jsonString(text, "targets");
-	manifest.files.oracleOverlaps = jsonString(text, "oracle_overlaps");
+	size_t filesObject = findJsonValue(text, "files");
+	if (filesObject >= text.size() || text[filesObject] != '{')
+	{
+		throw std::runtime_error("manifest files key is not an object");
+	}
+	manifest.files.candidates = jsonStringFrom(text, "candidates", filesObject);
+	manifest.files.filteredPositions = jsonStringFrom(text, "filtered_positions", filesObject);
+	manifest.files.targets = jsonStringFrom(text, "targets", filesObject);
+	manifest.files.oracleOverlaps = jsonStringFrom(text, "oracle_overlaps", filesObject);
 
 	manifest.params.forceLocal = jsonBool(text, "force_local");
 	manifest.params.maxOverlaps = static_cast<int32_t>(jsonInt(text, "max_overlaps"));
