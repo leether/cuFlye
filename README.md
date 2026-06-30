@@ -11,6 +11,8 @@ CUDA.
 ## Current Materials
 
 - `CUDA_FLYE_DESIGN.md`: CUDA backend architecture and milestones.
+- `docs/ROADMAP.md`: governed route from standalone CUDA prototypes to an
+  integrated `flye --gpu` mode, including claim boundaries.
 - `GENOMEWORKS_NOTES.md`: source-level notes from NVIDIA GenomeWorks modules.
 - `docs/tasks/`: Task Cards for bounded implementation slices.
 - `scripts/`, `tools/`, `bench/`: M0 CPU oracle, canonical diff, and profiling
