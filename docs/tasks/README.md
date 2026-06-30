@@ -7,7 +7,9 @@ change is considered complete.
 
 Active cards:
 
-- None.
+- `2026-06-30-cuflye-m2e-real-pack-timing-proof.md`: add real-pack
+  candidate-boundary timing for CPU oracle generation, CUDA backend stages, and
+  external adapter overhead without changing candidate semantics.
 
 Completed cards:
 

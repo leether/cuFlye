@@ -4,11 +4,13 @@
 
 #include "cuflye_cuda_raii.hpp"
 
+#include <chrono>
 #include <cerrno>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <limits>
 #include <sstream>
@@ -72,6 +74,23 @@ struct QueryReadSet
 	std::vector<QueryReadMeta> reads;
 	std::vector<char> bases;
 	size_t maxReadLength = 0;
+};
+
+using Clock = std::chrono::steady_clock;
+
+struct TimingSummary
+{
+	double inputParseMs = 0.0;
+	double cpuOracleMs = 0.0;
+	double cudaSetupMs = 0.0;
+	double deviceAllocationMs = 0.0;
+	double hostToDeviceMs = 0.0;
+	double kernelMs = 0.0;
+	double hostOutputAllocationMs = 0.0;
+	double deviceToHostMs = 0.0;
+	double compactMs = 0.0;
+	double writeOutputMs = 0.0;
+	double totalBeforeJsonMs = 0.0;
 };
 
 __host__ __device__ uint64_t dnaBaseToBits(char base)
@@ -342,6 +361,20 @@ void checkCuda(cudaError_t status, const std::string& action)
 								 " name=" + cudaGetErrorName(status) +
 								 " text=" + cudaGetErrorString(status));
 	}
+}
+
+double elapsedMs(Clock::time_point start, Clock::time_point stop)
+{
+	return std::chrono::duration<double, std::milli>(stop - start).count();
+}
+
+double cudaEventElapsedMs(const cuflye::cuda_raii::CudaEvent& start,
+						  const cuflye::cuda_raii::CudaEvent& stop,
+						  const std::string& action)
+{
+	float milliseconds = 0.0f;
+	checkCuda(cudaEventElapsedTime(&milliseconds, start.get(), stop.get()), action);
+	return milliseconds;
 }
 
 int64_t parseInt64Field(const std::string& value, const std::string& fieldName)
@@ -647,9 +680,12 @@ std::string buildJson(const Options& options,
 					  size_t indexCount,
 					  size_t repetitiveCount,
 					  size_t pairCount,
-					  size_t outputCount)
+					  size_t outputCount,
+					  bool cpuOracleEnabled,
+					  const TimingSummary& timing)
 {
 	std::ostringstream json;
+	json << std::fixed << std::setprecision(3);
 	json << "{\n";
 	json << "  \"adapter\": \"cuda-read-window-smoke-v0\",\n";
 	json << "  \"status\": \"ok\",\n";
@@ -682,6 +718,20 @@ std::string buildJson(const Options& options,
 	json << "  \"device_side_read_windowing\": true,\n";
 	json << "  \"device_side_kmer_encoding\": true,\n";
 	json << "  \"device_side_standard_form\": true,\n";
+	json << "  \"cpu_oracle_enabled\": " << (cpuOracleEnabled ? "true" : "false") << ",\n";
+	json << "  \"timing_ms\": {\n";
+	json << "    \"input_parse\": " << timing.inputParseMs << ",\n";
+	json << "    \"cpu_oracle\": " << timing.cpuOracleMs << ",\n";
+	json << "    \"cuda_setup\": " << timing.cudaSetupMs << ",\n";
+	json << "    \"device_allocation\": " << timing.deviceAllocationMs << ",\n";
+	json << "    \"host_to_device\": " << timing.hostToDeviceMs << ",\n";
+	json << "    \"kernel\": " << timing.kernelMs << ",\n";
+	json << "    \"host_output_allocation\": " << timing.hostOutputAllocationMs << ",\n";
+	json << "    \"device_to_host\": " << timing.deviceToHostMs << ",\n";
+	json << "    \"compact\": " << timing.compactMs << ",\n";
+	json << "    \"write_output\": " << timing.writeOutputMs << ",\n";
+	json << "    \"total_before_json\": " << timing.totalBeforeJsonMs << "\n";
+	json << "  },\n";
 	json << "  \"reads_tsv\": \"" << jsonEscape(options.readsTsv) << "\",\n";
 	json << "  \"index_tsv\": \"" << jsonEscape(options.indexTsv) << "\",\n";
 	json << "  \"repetitive_kmers_tsv\": \"" << jsonEscape(options.repetitiveTsv) << "\",\n";
@@ -725,7 +775,11 @@ int main(int argc, char** argv)
 {
 	try
 	{
+		auto totalStart = Clock::now();
+		TimingSummary timing;
 		Options options = parseArgs(argc, argv);
+
+		auto inputStart = Clock::now();
 		QueryReadSet readSet = readReads(options.readsTsv, options.kmerSize);
 		std::vector<uint64_t> readWindowOffsets = buildReadWindowOffsets(readSet.reads, options.kmerSize);
 		std::vector<IndexWindow> indexEntries = readIndex(options.indexTsv, options.kmerSize);
@@ -735,15 +789,19 @@ int main(int argc, char** argv)
 		size_t queryWindows = static_cast<size_t>(readWindowOffsets.back());
 		size_t pairCount = checkedMultiply(queryWindows, indexEntries.size(), "query/index pair");
 		if (pairCount == 0) throw std::runtime_error("query/index pair count is zero");
+		timing.inputParseMs = elapsedMs(inputStart, Clock::now());
 
 		if (!options.cpuOutputTsv.empty())
 		{
+			auto cpuStart = Clock::now();
 			std::vector<CandidateRecord> cpuRecords =
 				generateCpuOracle(readSet, readWindowOffsets, indexEntries, repetitiveKmers, options.kmerSize);
 			if (cpuRecords.empty()) throw std::runtime_error("CPU oracle emitted no candidate records");
 			writeCandidateTsv(options.cpuOutputTsv, cpuRecords);
+			timing.cpuOracleMs = elapsedMs(cpuStart, Clock::now());
 		}
 
+		auto cudaSetupStart = Clock::now();
 		checkCuda(cudaSetDevice(options.device), "cudaSetDevice failed");
 		cudaDeviceProp prop;
 		std::memset(&prop, 0, sizeof(prop));
@@ -752,6 +810,7 @@ int main(int argc, char** argv)
 		size_t freeBytes = 0;
 		size_t totalBytes = 0;
 		checkCuda(cudaMemGetInfo(&freeBytes, &totalBytes), "cudaMemGetInfo failed");
+		timing.cudaSetupMs = elapsedMs(cudaSetupStart, Clock::now());
 
 		size_t readBytes = checkedMultiply(readSet.reads.size(), sizeof(QueryReadMeta), "read metadata buffer");
 		size_t readBaseBytes = checkedMultiply(readSet.bases.size(), sizeof(char), "read base buffer");
@@ -777,6 +836,7 @@ int main(int argc, char** argv)
 			throw std::runtime_error("CUDA read window smoke required device allocation exceeds free device memory");
 		}
 
+		auto allocationStart = Clock::now();
 		cuflye::cuda_raii::DeviceBuffer<QueryReadMeta> deviceReads(readBytes, "read metadata");
 		cuflye::cuda_raii::DeviceBuffer<char> deviceReadBases(readBaseBytes, "read bases");
 		cuflye::cuda_raii::DeviceBuffer<uint64_t> deviceReadWindowOffsets(offsetBytes,
@@ -786,7 +846,11 @@ int main(int argc, char** argv)
 																		   "repetitive k-mers");
 		cuflye::cuda_raii::DeviceBuffer<CandidateRecord> deviceOutput(outputBytes, "output");
 		cuflye::cuda_raii::DeviceBuffer<uint8_t> deviceFlags(flagBytes, "flags");
+		timing.deviceAllocationMs = elapsedMs(allocationStart, Clock::now());
 
+		cuflye::cuda_raii::CudaEvent h2dStart("host to device start");
+		cuflye::cuda_raii::CudaEvent h2dStop("host to device stop");
+		checkCuda(cudaEventRecord(h2dStart.get()), "cudaEventRecord H2D start failed");
 		checkCuda(cudaMemcpy(deviceReads.get(), readSet.reads.data(), readBytes, cudaMemcpyHostToDevice),
 				  "cudaMemcpy reads host-to-device failed");
 		checkCuda(cudaMemcpy(deviceReadBases.get(), readSet.bases.data(), readBaseBytes,
@@ -804,9 +868,16 @@ int main(int argc, char** argv)
 					  "cudaMemcpy repetitive k-mers host-to-device failed");
 		}
 		checkCuda(cudaMemset(deviceFlags.get(), 0, flagBytes), "cudaMemset flags failed");
+		checkCuda(cudaEventRecord(h2dStop.get()), "cudaEventRecord H2D stop failed");
+		checkCuda(cudaEventSynchronize(h2dStop.get()), "cudaEventSynchronize H2D stop failed");
+		timing.hostToDeviceMs = cudaEventElapsedMs(h2dStart, h2dStop,
+												  "cudaEventElapsedTime H2D failed");
 
 		const int threadsPerBlock = 128;
 		const int blocks = static_cast<int>((pairCount + threadsPerBlock - 1) / threadsPerBlock);
+		cuflye::cuda_raii::CudaEvent kernelStart("kernel start");
+		cuflye::cuda_raii::CudaEvent kernelStop("kernel stop");
+		checkCuda(cudaEventRecord(kernelStart.get()), "cudaEventRecord kernel start failed");
 		generateCandidateRecordsKernel<<<blocks, threadsPerBlock>>>(
 			deviceReads.get(),
 			readSet.reads.size(),
@@ -821,22 +892,41 @@ int main(int argc, char** argv)
 			deviceFlags.get(),
 			pairCount);
 		checkCuda(cudaGetLastError(), "generateCandidateRecordsKernel launch failed");
-		checkCuda(cudaDeviceSynchronize(), "generateCandidateRecordsKernel execution failed");
+		checkCuda(cudaEventRecord(kernelStop.get()), "cudaEventRecord kernel stop failed");
+		checkCuda(cudaEventSynchronize(kernelStop.get()), "generateCandidateRecordsKernel execution failed");
+		timing.kernelMs = cudaEventElapsedMs(kernelStart, kernelStop,
+											"cudaEventElapsedTime kernel failed");
 
+		auto hostOutputAllocationStart = Clock::now();
 		std::vector<CandidateRecord> gpuBuffer(pairCount);
 		std::vector<uint8_t> validFlags(pairCount);
+		timing.hostOutputAllocationMs = elapsedMs(hostOutputAllocationStart, Clock::now());
+		cuflye::cuda_raii::CudaEvent d2hStart("device to host start");
+		cuflye::cuda_raii::CudaEvent d2hStop("device to host stop");
+		checkCuda(cudaEventRecord(d2hStart.get()), "cudaEventRecord D2H start failed");
 		checkCuda(cudaMemcpy(gpuBuffer.data(), deviceOutput.get(), outputBytes, cudaMemcpyDeviceToHost),
 				  "cudaMemcpy output device-to-host failed");
 		checkCuda(cudaMemcpy(validFlags.data(), deviceFlags.get(), flagBytes, cudaMemcpyDeviceToHost),
 				  "cudaMemcpy flags device-to-host failed");
+		checkCuda(cudaEventRecord(d2hStop.get()), "cudaEventRecord D2H stop failed");
+		checkCuda(cudaEventSynchronize(d2hStop.get()), "cudaEventSynchronize D2H stop failed");
+		timing.deviceToHostMs = cudaEventElapsedMs(d2hStart, d2hStop,
+												  "cudaEventElapsedTime D2H failed");
 
+		auto compactStart = Clock::now();
 		std::vector<CandidateRecord> gpuRecords = compactGpuRecords(gpuBuffer, validFlags);
+		timing.compactMs = elapsedMs(compactStart, Clock::now());
+
+		auto writeStart = Clock::now();
 		writeCandidateTsv(options.outputTsv, gpuRecords);
+		timing.writeOutputMs = elapsedMs(writeStart, Clock::now());
+		timing.totalBeforeJsonMs = elapsedMs(totalStart, Clock::now());
 
 		std::string json = buildJson(options, prop, freeBytes, totalBytes, requiredBytes,
 									 readSet.reads.size(), queryWindows, readBaseBytes,
 									 readSet.maxReadLength, indexEntries.size(),
-									 repetitiveKmers.size(), pairCount, gpuRecords.size());
+									 repetitiveKmers.size(), pairCount, gpuRecords.size(),
+									 !options.cpuOutputTsv.empty(), timing);
 		writeText(options.jsonOutput, json);
 		std::cout << json;
 		return 0;

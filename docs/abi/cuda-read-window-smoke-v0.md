@@ -80,3 +80,27 @@ work when Flye invokes the external CUDA backend.
 The correctness claim after M2c is that CUDA device code can perform
 read-window generation on both bounded fixtures and one real `pack-dump-v0`
 query bundle before candidate equality join.
+
+## M2e Extension
+
+M2e adds runtime timing metadata to the JSON manifest. The candidate-record-v1
+TSV ABI is unchanged.
+
+Runtime JSON includes:
+
+- `cpu_oracle_enabled`;
+- `timing_ms.input_parse`;
+- `timing_ms.cpu_oracle`;
+- `timing_ms.cuda_setup`;
+- `timing_ms.device_allocation`;
+- `timing_ms.host_to_device`;
+- `timing_ms.kernel`;
+- `timing_ms.host_output_allocation`;
+- `timing_ms.device_to_host`;
+- `timing_ms.compact`;
+- `timing_ms.write_output`;
+- `timing_ms.total_before_json`.
+
+`total_before_json` measures through candidate TSV writing and excludes the JSON
+manifest write itself. Timing values are evidence for the measured pack shape
+only; they are not a full Flye assembly speed claim.
