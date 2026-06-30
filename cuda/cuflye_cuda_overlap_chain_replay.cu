@@ -113,6 +113,8 @@ struct Options
 	std::string batchFixturesFile;
 	std::string batchOutputDir;
 	std::string batchJsonOutput;
+	std::string workerRequestJson;
+	std::string workerRequestsJsonl;
 	std::string backend = "cuda";
 	std::string cudaKernelMode = "serial";
 	std::string batchExecution = "per-fixture";
@@ -255,6 +257,35 @@ struct BatchJsonProvenance
 	size_t packedFilteredPositions = 0;
 };
 
+struct PackedBatchRunResult
+{
+	double setupMs = 0.0;
+	double parseMs = 0.0;
+	double writeMs = 0.0;
+	double meanTotalMs = 0.0;
+	double minTotalMs = 0.0;
+	double maxTotalMs = 0.0;
+	double meanCoreMs = 0.0;
+	size_t fixtureCount = 0;
+	size_t outputRecords = 0;
+	size_t arenaAllocations = 0;
+	size_t arenaReuses = 0;
+	size_t arenaCapacityBytes = 0;
+	BatchJsonProvenance provenance;
+};
+
+struct OverlapWorkerRequest
+{
+	std::string schema;
+	std::string requestId;
+	std::string responseJson;
+	std::string adapterMode;
+	std::string overlapAbi;
+	bool hasExpectedFixtureCount = false;
+	size_t expectedFixtureCount = 0;
+	Options options;
+};
+
 double elapsedMs(Clock::time_point start, Clock::time_point end)
 {
 	return std::chrono::duration<double, std::milli>(end - start).count();
@@ -346,6 +377,197 @@ std::string readTextFile(const std::string& path)
 	std::ostringstream buffer;
 	buffer << input.rdbuf();
 	return buffer.str();
+}
+
+bool isSpace(char ch)
+{
+	return std::isspace(static_cast<unsigned char>(ch)) != 0;
+}
+
+std::string trim(const std::string& text)
+{
+	size_t begin = 0;
+	while (begin < text.size() && isSpace(text[begin])) ++begin;
+	size_t end = text.size();
+	while (end > begin && isSpace(text[end - 1])) --end;
+	return text.substr(begin, end - begin);
+}
+
+void ensureParentDirectory(const std::string& path)
+{
+	size_t slash = path.find_last_of('/');
+	if (slash == std::string::npos || slash == 0) return;
+	ensureDirectory(path.substr(0, slash));
+}
+
+void writeTextFile(const std::string& path, const std::string& text)
+{
+	ensureParentDirectory(path);
+	std::ofstream output(path);
+	if (!output)
+	{
+		throw std::runtime_error("cannot write text file: " + path);
+	}
+	output << text;
+}
+
+void skipJsonWhitespace(const std::string& text, size_t& offset)
+{
+	while (offset < text.size() && isSpace(text[offset])) ++offset;
+}
+
+std::string parseJsonStringToken(const std::string& text, size_t& offset)
+{
+	if (offset >= text.size() || text[offset] != '"')
+	{
+		throw std::runtime_error("JSON string expected");
+	}
+	++offset;
+	std::ostringstream value;
+	while (offset < text.size())
+	{
+		char ch = text[offset++];
+		if (ch == '"') return value.str();
+		if (ch != '\\')
+		{
+			value << ch;
+			continue;
+		}
+		if (offset >= text.size()) throw std::runtime_error("unterminated JSON escape");
+		char escaped = text[offset++];
+		switch (escaped)
+		{
+		case '"': value << '"'; break;
+		case '\\': value << '\\'; break;
+		case '/': value << '/'; break;
+		case 'b': value << '\b'; break;
+		case 'f': value << '\f'; break;
+		case 'n': value << '\n'; break;
+		case 'r': value << '\r'; break;
+		case 't': value << '\t'; break;
+		default:
+			throw std::runtime_error("unsupported JSON escape sequence");
+		}
+	}
+	throw std::runtime_error("unterminated JSON string");
+}
+
+std::string parseJsonValueToken(const std::string& text, size_t& offset)
+{
+	skipJsonWhitespace(text, offset);
+	if (offset >= text.size()) throw std::runtime_error("JSON value expected");
+	if (text[offset] == '"') return parseJsonStringToken(text, offset);
+	if (text[offset] == '{' || text[offset] == '[')
+	{
+		throw std::runtime_error("nested JSON values are not supported by overlap worker v0");
+	}
+	size_t begin = offset;
+	while (offset < text.size() && text[offset] != ',' && text[offset] != '}') ++offset;
+	std::string value = trim(text.substr(begin, offset - begin));
+	if (value.empty()) throw std::runtime_error("JSON scalar value expected");
+	return value;
+}
+
+std::map<std::string, std::string> parseFlatJsonObject(const std::string& text)
+{
+	std::map<std::string, std::string> fields;
+	size_t offset = 0;
+	skipJsonWhitespace(text, offset);
+	if (offset >= text.size() || text[offset] != '{')
+	{
+		throw std::runtime_error("JSON object expected");
+	}
+	++offset;
+	while (true)
+	{
+		skipJsonWhitespace(text, offset);
+		if (offset < text.size() && text[offset] == '}')
+		{
+			++offset;
+			break;
+		}
+		std::string key = parseJsonStringToken(text, offset);
+		skipJsonWhitespace(text, offset);
+		if (offset >= text.size() || text[offset] != ':')
+		{
+			throw std::runtime_error("JSON object field separator ':' expected");
+		}
+		++offset;
+		std::string value = parseJsonValueToken(text, offset);
+		if (!fields.insert(std::make_pair(key, value)).second)
+		{
+			throw std::runtime_error("duplicate JSON field: " + key);
+		}
+		skipJsonWhitespace(text, offset);
+		if (offset < text.size() && text[offset] == ',')
+		{
+			++offset;
+			continue;
+		}
+		if (offset < text.size() && text[offset] == '}')
+		{
+			++offset;
+			break;
+		}
+		throw std::runtime_error("JSON object field separator ',' or '}' expected");
+	}
+	skipJsonWhitespace(text, offset);
+	if (offset != text.size()) throw std::runtime_error("unexpected characters after JSON object");
+	return fields;
+}
+
+std::string requireJsonField(const std::map<std::string, std::string>& fields,
+							 const std::string& key)
+{
+	auto iter = fields.find(key);
+	if (iter == fields.end() || iter->second.empty())
+	{
+		throw std::runtime_error("overlap worker request missing required field: " + key);
+	}
+	return iter->second;
+}
+
+std::string optionalJsonField(const std::map<std::string, std::string>& fields,
+							  const std::string& key)
+{
+	auto iter = fields.find(key);
+	if (iter == fields.end()) return "";
+	return iter->second;
+}
+
+unsigned long long parseWorkerUnsigned(const std::string& value,
+									   const std::string& name)
+{
+	if (value.empty()) throw std::runtime_error(name + " must not be empty");
+	if (value[0] == '-') throw std::runtime_error(name + " must be unsigned: " + value);
+	char* end = nullptr;
+	errno = 0;
+	unsigned long long parsed = std::strtoull(value.c_str(), &end, 10);
+	if (errno != 0 || end == value.c_str() || *end != '\0')
+	{
+		throw std::runtime_error(name + " must be an unsigned decimal integer: " + value);
+	}
+	return parsed;
+}
+
+int parseWorkerInt(const std::string& value, const std::string& name)
+{
+	unsigned long long parsed = parseWorkerUnsigned(value, name);
+	if (parsed > static_cast<unsigned long long>(std::numeric_limits<int>::max()))
+	{
+		throw std::runtime_error(name + " is outside int range: " + value);
+	}
+	return static_cast<int>(parsed);
+}
+
+uint32_t parseWorkerUInt32(const std::string& value, const std::string& name)
+{
+	unsigned long long parsed = parseWorkerUnsigned(value, name);
+	if (parsed > static_cast<unsigned long long>(std::numeric_limits<uint32_t>::max()))
+	{
+		throw std::runtime_error(name + " is outside uint32 range: " + value);
+	}
+	return static_cast<uint32_t>(parsed);
 }
 
 size_t findJsonValueFrom(const std::string& text, const std::string& key, size_t searchStart)
@@ -1508,6 +1730,8 @@ Options parseArgs(int argc, char** argv)
 		else if (arg == "--batch-fixtures-file") options.batchFixturesFile = requireValue(arg);
 		else if (arg == "--batch-output-dir") options.batchOutputDir = requireValue(arg);
 		else if (arg == "--batch-json-output") options.batchJsonOutput = requireValue(arg);
+		else if (arg == "--worker-request-json") options.workerRequestJson = requireValue(arg);
+		else if (arg == "--worker-requests-jsonl") options.workerRequestsJsonl = requireValue(arg);
 		else if (arg == "--backend") options.backend = requireValue(arg);
 		else if (arg == "--cuda-kernel-mode") options.cudaKernelMode = requireValue(arg);
 		else if (arg == "--batch-execution") options.batchExecution = requireValue(arg);
@@ -1531,6 +1755,8 @@ Options parseArgs(int argc, char** argv)
 					  << "--fixture-dir DIR --output-tsv PATH --json-output PATH "
 					  << "or --batch-fixtures-file PATH --batch-output-dir DIR "
 					  << "--batch-json-output PATH "
+					  << "or --worker-request-json PATH "
+					  << "or --worker-requests-jsonl PATH "
 					  << "[--backend cpu|cuda] [--device ID] "
 					  << "[--cuda-kernel-mode serial|parallel-reduce] "
 					  << "[--batch-execution per-fixture|packed] "
@@ -1546,7 +1772,20 @@ Options parseArgs(int argc, char** argv)
 	bool batchMode = !options.batchFixturesFile.empty() ||
 					 !options.batchOutputDir.empty() ||
 					 !options.batchJsonOutput.empty();
-	if (batchMode)
+	bool workerMode = !options.workerRequestJson.empty() || !options.workerRequestsJsonl.empty();
+	if (workerMode)
+	{
+		if (!options.workerRequestJson.empty() && !options.workerRequestsJsonl.empty())
+		{
+			throw std::runtime_error("set only one worker request input");
+		}
+		if (batchMode || !options.fixtureDir.empty() || !options.outputTsv.empty() ||
+			!options.jsonOutput.empty())
+		{
+			throw std::runtime_error("worker mode cannot be combined with direct replay mode");
+		}
+	}
+	else if (batchMode)
 	{
 		if (options.batchFixturesFile.empty())
 		{
@@ -2355,6 +2594,7 @@ void writeBatchJson(const std::string& path,
 					size_t arenaReuses,
 					size_t arenaCapacityBytes)
 {
+	ensureParentDirectory(path);
 	std::ofstream output(path);
 	if (!output)
 	{
@@ -2441,9 +2681,10 @@ void writeBatchJson(const std::string& path,
 		   << "}\n";
 }
 
-int runPackedBatchMain(const Options& options,
-					   const std::vector<LoadedFixture>& fixtures,
-					   double parseMs)
+PackedBatchRunResult runPackedBatchWithArena(const Options& options,
+											 const std::vector<LoadedFixture>& fixtures,
+											 double parseMs,
+											 CudaOverlapArena& arena)
 {
 	auto layoutStart = Clock::now();
 	PackedBatchLayout layout = buildPackedBatchLayout(fixtures);
@@ -2451,7 +2692,8 @@ int runPackedBatchMain(const Options& options,
 	double parseAndLayoutMs = parseMs + elapsedMs(layoutStart, layoutEnd);
 
 	ensureDirectory(options.batchOutputDir);
-	CudaOverlapArena arena;
+	size_t allocationsBefore = arena.allocations;
+	size_t reusesBefore = arena.reuses;
 	auto setupStart = Clock::now();
 	initializeArena(options, arena);
 	auto setupEnd = Clock::now();
@@ -2527,6 +2769,30 @@ int runPackedBatchMain(const Options& options,
 				   setupMs, parseAndLayoutMs, writeMs, meanTotal, minTotal,
 				   maxTotal, meanCore, arena.allocations, arena.reuses,
 				   arena.capacityBytes());
+
+	PackedBatchRunResult result;
+	result.setupMs = setupMs;
+	result.parseMs = parseAndLayoutMs;
+	result.writeMs = writeMs;
+	result.meanTotalMs = meanTotal;
+	result.minTotalMs = minTotal;
+	result.maxTotalMs = maxTotal;
+	result.meanCoreMs = meanCore;
+	result.fixtureCount = fixtures.size();
+	result.outputRecords = lastSummary.outputRecords;
+	result.arenaAllocations = arena.allocations - allocationsBefore;
+	result.arenaReuses = arena.reuses - reusesBefore;
+	result.arenaCapacityBytes = arena.capacityBytes();
+	result.provenance = provenance;
+	return result;
+}
+
+int runPackedBatchMain(const Options& options,
+					   const std::vector<LoadedFixture>& fixtures,
+					   double parseMs)
+{
+	CudaOverlapArena arena;
+	(void)runPackedBatchWithArena(options, fixtures, parseMs, arena);
 	return 0;
 }
 
@@ -2649,6 +2915,280 @@ int runBatchMain(const Options& options)
 				   arena.allocations, arena.reuses, arena.capacityBytes());
 	return 0;
 }
+
+OverlapWorkerRequest parseOverlapWorkerRequestObject(const std::string& text)
+{
+	std::map<std::string, std::string> fields = parseFlatJsonObject(text);
+	OverlapWorkerRequest request;
+	request.schema = requireJsonField(fields, "schema");
+	request.requestId = requireJsonField(fields, "request_id");
+	request.responseJson = requireJsonField(fields, "response_json");
+	request.adapterMode = requireJsonField(fields, "adapter_mode");
+	request.overlapAbi = requireJsonField(fields, "overlap_abi");
+	request.options.backend = requireJsonField(fields, "backend");
+	request.options.batchExecution = requireJsonField(fields, "batch_execution");
+	request.options.cudaKernelMode = requireJsonField(fields, "cuda_kernel_mode");
+	request.options.device = parseWorkerInt(requireJsonField(fields, "device"), "device");
+	request.options.batchFixturesFile = requireJsonField(fields, "batch_fixtures_file");
+	request.options.batchOutputDir = requireJsonField(fields, "batch_output_dir");
+	request.options.batchJsonOutput = requireJsonField(fields, "batch_json_output");
+
+	std::string warmupRuns = optionalJsonField(fields, "warmup_runs");
+	if (!warmupRuns.empty() && warmupRuns != "null")
+	{
+		request.options.warmupRuns = parseWorkerUInt32(warmupRuns, "warmup_runs");
+	}
+	std::string benchmarkRuns = optionalJsonField(fields, "benchmark_runs");
+	if (!benchmarkRuns.empty() && benchmarkRuns != "null")
+	{
+		request.options.benchmarkRuns = parseWorkerUInt32(benchmarkRuns, "benchmark_runs");
+	}
+	std::string memoryBudget = optionalJsonField(fields, "memory_budget_bytes");
+	if (!memoryBudget.empty() && memoryBudget != "null")
+	{
+		request.options.hasMemoryBudget = true;
+		request.options.memoryBudgetBytes = parseWorkerUnsigned(memoryBudget,
+																"memory_budget_bytes");
+	}
+	std::string expectedFixtureCount = optionalJsonField(fields, "expected_fixture_count");
+	if (!expectedFixtureCount.empty() && expectedFixtureCount != "null")
+	{
+		request.hasExpectedFixtureCount = true;
+		request.expectedFixtureCount = static_cast<size_t>(
+			parseWorkerUnsigned(expectedFixtureCount, "expected_fixture_count"));
+	}
+	return request;
+}
+
+std::vector<OverlapWorkerRequest> loadOverlapWorkerRequests(const Options& cliOptions)
+{
+	std::vector<OverlapWorkerRequest> requests;
+	if (!cliOptions.workerRequestJson.empty())
+	{
+		requests.push_back(parseOverlapWorkerRequestObject(
+			readTextFile(cliOptions.workerRequestJson)));
+		return requests;
+	}
+
+	std::ifstream input(cliOptions.workerRequestsJsonl);
+	if (!input)
+	{
+		throw std::runtime_error("cannot read overlap worker requests JSONL: " +
+								 cliOptions.workerRequestsJsonl);
+	}
+	std::string line;
+	size_t lineNumber = 0;
+	while (std::getline(input, line))
+	{
+		++lineNumber;
+		std::string stripped = trim(line);
+		if (stripped.empty()) continue;
+		try
+		{
+			requests.push_back(parseOverlapWorkerRequestObject(stripped));
+		}
+		catch (const std::exception& exc)
+		{
+			throw std::runtime_error(cliOptions.workerRequestsJsonl + ":" +
+									 std::to_string(lineNumber) + ": " + exc.what());
+		}
+	}
+	if (requests.size() < 2)
+	{
+		throw std::runtime_error("--worker-requests-jsonl proof mode requires at least two requests");
+	}
+	return requests;
+}
+
+void validateOverlapWorkerRequest(const OverlapWorkerRequest& request)
+{
+	if (request.schema != "cuflye-overlap-worker-request-v0")
+	{
+		throw std::runtime_error("unsupported overlap worker request schema");
+	}
+	if (request.adapterMode != "overlap-replay-batch-v0")
+	{
+		throw std::runtime_error("unsupported overlap worker adapter_mode");
+	}
+	if (request.overlapAbi != "overlap-range-v1")
+	{
+		throw std::runtime_error("unsupported overlap worker overlap_abi");
+	}
+	if (request.options.backend != "cuda")
+	{
+		throw std::runtime_error("unsupported overlap worker backend");
+	}
+	if (request.options.batchExecution != "packed")
+	{
+		throw std::runtime_error("unsupported overlap worker batch_execution");
+	}
+	if (request.options.cudaKernelMode != "serial" &&
+		request.options.cudaKernelMode != "parallel-reduce")
+	{
+		throw std::runtime_error("unsupported overlap worker cuda_kernel_mode");
+	}
+	if (request.options.benchmarkRuns == 0)
+	{
+		throw std::runtime_error("overlap worker benchmark_runs must be greater than zero");
+	}
+}
+
+void validateOverlapWorkerRequestSet(const std::vector<OverlapWorkerRequest>& requests)
+{
+	if (requests.empty()) throw std::runtime_error("overlap worker request set is empty");
+	int device = requests.front().options.device;
+	for (const auto& request : requests)
+	{
+		if (request.options.device != device)
+		{
+			throw std::runtime_error("overlap worker requires all requests to use one CUDA device");
+		}
+	}
+}
+
+std::vector<LoadedFixture> loadWorkerFixtures(const OverlapWorkerRequest& request,
+											  double& parseMs)
+{
+	auto parseStart = Clock::now();
+	std::vector<std::string> fixtureDirs =
+		loadFixtureList(request.options.batchFixturesFile);
+	if (request.hasExpectedFixtureCount &&
+		fixtureDirs.size() != request.expectedFixtureCount)
+	{
+		throw std::runtime_error("overlap worker expected fixture count mismatch");
+	}
+	std::vector<LoadedFixture> fixtures;
+	for (const auto& fixtureDir : fixtureDirs)
+	{
+		fixtures.push_back(loadFixture(fixtureDir));
+	}
+	auto parseEnd = Clock::now();
+	parseMs = elapsedMs(parseStart, parseEnd);
+	return fixtures;
+}
+
+std::string buildOverlapWorkerResponseJson(const OverlapWorkerRequest& request,
+										   const PackedBatchRunResult& result,
+										   size_t requestOrdinal,
+										   bool workerContextWarm,
+										   double workerContextSetupMs,
+										   double workerUptimeMs,
+										   double requestTotalMs)
+{
+	double timedBackendTotal = result.meanTotalMs *
+		static_cast<double>(request.options.benchmarkRuns);
+	double workerOverhead = std::max(0.0, requestTotalMs - timedBackendTotal);
+	std::ostringstream json;
+	json << std::fixed << std::setprecision(6);
+	json << "{\n"
+		 << "  \"schema\": \"cuflye-overlap-worker-response-v0\",\n"
+		 << "  \"request_id\": \"" << jsonEscape(request.requestId) << "\",\n"
+		 << "  \"status\": \"ok\",\n"
+		 << "  \"request_ordinal\": " << requestOrdinal << ",\n"
+		 << "  \"worker_cuda_context_warm\": "
+		 << (workerContextWarm ? "true" : "false") << ",\n"
+		 << "  \"worker_context_setup_ms\": " << workerContextSetupMs << ",\n"
+		 << "  \"worker_device_arena_enabled\": true,\n"
+		 << "  \"worker_device_arena_allocations\": " << result.arenaAllocations << ",\n"
+		 << "  \"worker_device_arena_reuses\": " << result.arenaReuses << ",\n"
+		 << "  \"worker_device_arena_capacity_bytes\": "
+		 << result.arenaCapacityBytes << ",\n"
+		 << "  \"adapter_mode\": \"overlap-replay-batch-v0\",\n"
+		 << "  \"overlap_abi\": \"overlap-range-v1\",\n"
+		 << "  \"batch_execution\": \"" << jsonEscape(request.options.batchExecution) << "\",\n"
+		 << "  \"cuda_kernel_mode\": \"" << jsonEscape(request.options.cudaKernelMode) << "\",\n"
+		 << "  \"fixture_count\": " << result.fixtureCount << ",\n"
+		 << "  \"output_records\": " << result.outputRecords << ",\n"
+		 << "  \"kernel_launches_per_timed_run\": "
+		 << result.provenance.kernelLaunchesPerTimedRun << ",\n"
+		 << "  \"batch_json_output\": \""
+		 << jsonEscape(request.options.batchJsonOutput) << "\",\n"
+		 << "  \"batch_output_dir\": \""
+		 << jsonEscape(request.options.batchOutputDir) << "\",\n"
+		 << "  \"timing_ms\": {\n"
+		 << "    \"worker_uptime\": " << workerUptimeMs << ",\n"
+		 << "    \"request_total\": " << requestTotalMs << ",\n"
+		 << "    \"backend_mean_total_before_write\": " << result.meanTotalMs << ",\n"
+		 << "    \"backend_timed_total_before_write\": " << timedBackendTotal << ",\n"
+		 << "    \"worker_overhead\": " << workerOverhead << ",\n"
+		 << "    \"parse\": " << result.parseMs << ",\n"
+		 << "    \"write_output\": " << result.writeMs << ",\n"
+		 << "    \"kernel\": " << result.meanCoreMs << "\n"
+		 << "  }\n"
+		 << "}\n";
+	return json.str();
+}
+
+std::string buildOverlapWorkerErrorJson(const OverlapWorkerRequest& request,
+										size_t requestOrdinal,
+										const std::string& message)
+{
+	std::ostringstream json;
+	json << "{\n"
+		 << "  \"schema\": \"cuflye-overlap-worker-response-v0\",\n"
+		 << "  \"request_id\": \"" << jsonEscape(request.requestId) << "\",\n"
+		 << "  \"status\": \"error\",\n"
+		 << "  \"request_ordinal\": " << requestOrdinal << ",\n"
+		 << "  \"error_code\": \"request-failed\",\n"
+		 << "  \"error_message\": \"" << jsonEscape(message) << "\",\n"
+		 << "  \"cuda_error_code\": null,\n"
+		 << "  \"cuda_error_name\": null,\n"
+		 << "  \"cuda_error_text\": null\n"
+		 << "}\n";
+	return json.str();
+}
+
+void emitOverlapWorkerResponse(const std::string& path, const std::string& response)
+{
+	writeTextFile(path, response);
+	std::cout << response;
+}
+
+int runOverlapWorkerMain(const Options& cliOptions)
+{
+	std::vector<OverlapWorkerRequest> requests = loadOverlapWorkerRequests(cliOptions);
+	validateOverlapWorkerRequestSet(requests);
+
+	CudaOverlapArena arena;
+	auto workerStart = Clock::now();
+	auto contextStart = Clock::now();
+	initializeArena(requests.front().options, arena);
+	auto contextEnd = Clock::now();
+	double workerContextSetupMs = elapsedMs(contextStart, contextEnd);
+
+	for (size_t index = 0; index < requests.size(); ++index)
+	{
+		const auto& request = requests[index];
+		size_t requestOrdinal = index + 1;
+		bool workerContextWarm = requestOrdinal > 1;
+		auto requestStart = Clock::now();
+		try
+		{
+			validateOverlapWorkerRequest(request);
+			double parseMs = 0.0;
+			std::vector<LoadedFixture> fixtures = loadWorkerFixtures(request, parseMs);
+			PackedBatchRunResult result =
+				runPackedBatchWithArena(request.options, fixtures, parseMs, arena);
+			double requestTotalMs = elapsedMs(requestStart, Clock::now());
+			double workerUptimeMs = elapsedMs(workerStart, Clock::now());
+			std::string response = buildOverlapWorkerResponseJson(request, result,
+																  requestOrdinal,
+																  workerContextWarm,
+																  workerContextSetupMs,
+																  workerUptimeMs,
+																  requestTotalMs);
+			emitOverlapWorkerResponse(request.responseJson, response);
+		}
+		catch (const std::exception& exc)
+		{
+			std::string response = buildOverlapWorkerErrorJson(request, requestOrdinal,
+															  exc.what());
+			emitOverlapWorkerResponse(request.responseJson, response);
+			return 1;
+		}
+	}
+	return 0;
+}
 }
 
 int main(int argc, char** argv)
@@ -2656,6 +3196,10 @@ int main(int argc, char** argv)
 	try
 	{
 		Options options = parseArgs(argc, argv);
+		if (!options.workerRequestJson.empty() || !options.workerRequestsJsonl.empty())
+		{
+			return runOverlapWorkerMain(options);
+		}
 		if (!options.batchFixturesFile.empty())
 		{
 			return runBatchMain(options);
