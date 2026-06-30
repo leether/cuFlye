@@ -1,6 +1,6 @@
 # Flye Overlap Worker Seam v0
 
-Status: accepted in M4j
+Status: accepted in M4j; M4k batch allowlist extension active
 
 Introduced: M4j
 
@@ -39,6 +39,8 @@ Optional environment:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
+| `CUFLYE_OVERLAP_REPLAY_QUERY_ID` | unset | Capture only one signed Flye query id. Mutually exclusive with `CUFLYE_OVERLAP_REPLAY_QUERY_IDS`. |
+| `CUFLYE_OVERLAP_REPLAY_QUERY_IDS` | unset | Comma-separated signed Flye query-id allowlist for batch seam proof. When worker mode is enabled, `CUFLYE_OVERLAP_REPLAY_MAX_FIXTURES` must equal the number of allowlisted ids. |
 | `CUFLYE_OVERLAP_WORKER_DEVICE` | `CUFLYE_CUDA_DEVICE` or `0` | CUDA device id passed to the worker request. |
 | `CUFLYE_OVERLAP_WORKER_KERNEL_MODE` | `serial` | Worker `cuda_kernel_mode`. |
 | `CUFLYE_OVERLAP_WORKER_WARMUP_RUNS` | `0` | Worker warmup runs. |
@@ -52,6 +54,7 @@ Given `CUFLYE_OVERLAP_WORKER_OUTPUT_DIR=/path/to/seam`, Flye writes:
 | File | Meaning |
 | --- | --- |
 | `worker-fixtures.txt` | Absolute or run-relative replay fixture directories. |
+| `worker-query-ids.txt` | Captured signed query ids, one per replay fixture. |
 | `worker-request.json` | `cuflye-overlap-worker-request-v0` request. |
 | `worker-response.json` | `cuflye-overlap-worker-response-v0` response. |
 | `worker-batch.json` | Underlying packed batch runner JSON. |
@@ -68,9 +71,15 @@ The generated request uses:
   "adapter_mode": "overlap-replay-batch-v0",
   "overlap_abi": "overlap-range-v1",
   "backend": "cuda",
-  "batch_execution": "packed"
+  "batch_execution": "packed",
+  "captured_query_ids_file": "/path/to/seam/worker-query-ids.txt",
+  "replay_query_ids": "381,-71,649"
 }
 ```
+
+`replay_query_ids` is an optional audit string. It is emitted only when
+`CUFLYE_OVERLAP_REPLAY_QUERY_IDS` is set; the worker ignores it and uses the
+fixture list as the execution source of truth.
 
 ## Stop Boundary
 
@@ -90,6 +99,11 @@ The seam fails closed when:
 
 - the mode is unknown;
 - required environment variables are missing;
+- both `CUFLYE_OVERLAP_REPLAY_QUERY_ID` and
+  `CUFLYE_OVERLAP_REPLAY_QUERY_IDS` are set;
+- an allowlist contains an empty, duplicate, or non-integer query id;
+- worker allowlist mode sets `CUFLYE_OVERLAP_REPLAY_MAX_FIXTURES` to a value
+  different from the allowlist length;
 - fixture count has not reached `CUFLYE_OVERLAP_REPLAY_MAX_FIXTURES`;
 - the worker binary exits non-zero;
 - the worker response file is missing or unreadable.

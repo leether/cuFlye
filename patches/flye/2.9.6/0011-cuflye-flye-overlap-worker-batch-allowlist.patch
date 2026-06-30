@@ -1,0 +1,267 @@
+--- a/src/sequence/overlap.cpp
++++ b/src/sequence/overlap.cpp
+@@ -13,6 +13,7 @@
+ #include <cmath>
+ #include <chrono>
+ #include <ctime>
++#include <cctype>
+ #include <cstring>
+ #include <cstdlib>
+ #include <cstdio>
+@@ -174,6 +175,12 @@
+ 		return fixtures;
+ 	}
+ 
++	std::vector<int64_t>& overlapReplayCapturedQueryIds()
++	{
++		static std::vector<int64_t> queryIds;
++		return queryIds;
++	}
++
+ 	const char* overlapWorkerMode()
+ 	{
+ 		static const char* mode = std::getenv("CUFLYE_OVERLAP_WORKER_MODE");
+@@ -201,6 +208,110 @@
+ 		return value;
+ 	}
+ 
++	std::string stripWhitespace(const std::string& text)
++	{
++		std::string stripped;
++		for (char ch : text)
++		{
++			if (!std::isspace(static_cast<unsigned char>(ch))) stripped += ch;
++		}
++		return stripped;
++	}
++
++	std::vector<int64_t> parseOverlapReplayQueryIds(const char* raw)
++	{
++		std::vector<int64_t> ids;
++		if (!raw || !raw[0]) return ids;
++
++		std::stringstream input(raw);
++		std::string token;
++		while (std::getline(input, token, ','))
++		{
++			token = stripWhitespace(token);
++			if (token.empty())
++			{
++				throw std::runtime_error(
++					"CUFLYE_OVERLAP_REPLAY_QUERY_IDS contains an empty query id");
++			}
++			size_t parsedChars = 0;
++			int64_t parsed = std::stoll(token, &parsedChars);
++			if (parsedChars != token.size())
++			{
++				throw std::runtime_error(
++					"CUFLYE_OVERLAP_REPLAY_QUERY_IDS contains a non-integer query id: " +
++					token);
++			}
++			if (std::find(ids.begin(), ids.end(), parsed) != ids.end())
++			{
++				throw std::runtime_error(
++					"CUFLYE_OVERLAP_REPLAY_QUERY_IDS contains a duplicate query id: " +
++					token);
++			}
++			ids.push_back(parsed);
++		}
++		if (ids.empty())
++		{
++			throw std::runtime_error("CUFLYE_OVERLAP_REPLAY_QUERY_IDS is empty");
++		}
++		return ids;
++	}
++
++	const std::vector<int64_t>& overlapReplayQueryIds()
++	{
++		static std::vector<int64_t> ids =
++			parseOverlapReplayQueryIds(std::getenv("CUFLYE_OVERLAP_REPLAY_QUERY_IDS"));
++		return ids;
++	}
++
++	std::string overlapReplayQueryIdsRaw()
++	{
++		static std::string raw = []()
++		{
++			const char* value = std::getenv("CUFLYE_OVERLAP_REPLAY_QUERY_IDS");
++			return value && value[0] ? std::string(value) : std::string();
++		}();
++		return raw;
++	}
++
++	bool overlapReplayQuerySelected(int64_t queryId)
++	{
++		const char* requestedQuery = std::getenv("CUFLYE_OVERLAP_REPLAY_QUERY_ID");
++		const auto& queryIds = overlapReplayQueryIds();
++		if (requestedQuery && requestedQuery[0] && !queryIds.empty())
++		{
++			throw std::runtime_error(
++				"Set only one of CUFLYE_OVERLAP_REPLAY_QUERY_ID or "
++				"CUFLYE_OVERLAP_REPLAY_QUERY_IDS");
++		}
++		if (requestedQuery && requestedQuery[0])
++		{
++			return std::stoll(requestedQuery) == queryId;
++		}
++		if (queryIds.empty()) return true;
++		return std::find(queryIds.begin(), queryIds.end(), queryId) != queryIds.end();
++	}
++
++	void validateOverlapWorkerReplayConfig()
++	{
++		if (!overlapWorkerEnabled()) return;
++		static bool validated = []()
++		{
++			overlapEnvRequired("CUFLYE_OVERLAP_REPLAY_DUMP_DIR");
++			overlapEnvRequired("CUFLYE_OVERLAP_REPLAY_MAX_FIXTURES");
++			overlapEnvRequired("CUFLYE_OVERLAP_WORKER_OUTPUT_DIR");
++			const auto& queryIds = overlapReplayQueryIds();
++			if (!queryIds.empty() && overlapReplayMaxFixtures() != queryIds.size())
++			{
++				throw std::runtime_error(
++					"CUFLYE_OVERLAP_REPLAY_MAX_FIXTURES must equal the number of "
++					"CUFLYE_OVERLAP_REPLAY_QUERY_IDS entries in overlap worker "
++					"allowlist mode");
++			}
++			return true;
++		}();
++		(void)validated;
++	}
++
+ 	std::string jsonEscape(const std::string& text)
+ 	{
+ 		std::ostringstream escaped;
+@@ -359,9 +470,18 @@
+ 		writeTextFile(path, text.str());
+ 	}
+ 
++	void writeOverlapWorkerQueryIdList(const std::string& path,
++									   const std::vector<int64_t>& queryIds)
++	{
++		std::ostringstream text;
++		for (auto queryId : queryIds) text << queryId << "\n";
++		writeTextFile(path, text.str());
++	}
++
+ 	void writeOverlapWorkerRequestJson(const std::string& path,
+ 									   const std::string& requestId,
+ 									   const std::string& fixtureList,
++									   const std::string& queryIdsFile,
+ 									   const std::string& batchOutputDir,
+ 									   const std::string& batchJson,
+ 									   const std::string& responseJson,
+@@ -395,7 +515,13 @@
+ 		{
+ 			json << "  \"memory_budget_bytes\": " << memoryBudget << ",\n";
+ 		}
+-		json << "  \"batch_fixtures_file\": \"" << jsonEscape(fixtureList) << "\",\n"
++		if (!overlapReplayQueryIdsRaw().empty())
++		{
++			json << "  \"replay_query_ids\": \""
++				 << jsonEscape(overlapReplayQueryIdsRaw()) << "\",\n";
++		}
++		json << "  \"captured_query_ids_file\": \"" << jsonEscape(queryIdsFile) << "\",\n"
++			 << "  \"batch_fixtures_file\": \"" << jsonEscape(fixtureList) << "\",\n"
+ 			 << "  \"batch_output_dir\": \"" << jsonEscape(batchOutputDir) << "\",\n"
+ 			 << "  \"batch_json_output\": \"" << jsonEscape(batchJson) << "\",\n"
+ 			 << "  \"response_json\": \"" << jsonEscape(responseJson) << "\"\n"
+@@ -407,6 +533,7 @@
+ 									   const std::string& requestJson,
+ 									   const std::string& responseJson,
+ 									   const std::string& fixtureList,
++									   const std::string& queryIdsFile,
+ 									   const std::string& batchJson,
+ 									   const std::string& batchOutputDir,
+ 									   size_t fixtureCount)
+@@ -419,6 +546,13 @@
+ 			 << "  \"request_json\": \"" << jsonEscape(requestJson) << "\",\n"
+ 			 << "  \"response_json\": \"" << jsonEscape(responseJson) << "\",\n"
+ 			 << "  \"fixture_list\": \"" << jsonEscape(fixtureList) << "\",\n"
++			 << "  \"captured_query_ids_file\": \"" << jsonEscape(queryIdsFile) << "\",\n";
++		if (!overlapReplayQueryIdsRaw().empty())
++		{
++			json << "  \"replay_query_ids\": \""
++				 << jsonEscape(overlapReplayQueryIdsRaw()) << "\",\n";
++		}
++		json
+ 			 << "  \"batch_json_output\": \"" << jsonEscape(batchJson) << "\",\n"
+ 			 << "  \"batch_output_dir\": \"" << jsonEscape(batchOutputDir) << "\",\n"
+ 			 << "  \"graph_mutation_consumed_worker_output\": false\n"
+@@ -426,12 +560,12 @@
+ 		writeTextFile(path, json.str());
+ 	}
+ 
+-	void maybeInvokeOverlapWorker(const std::string& dumpRoot, size_t dumpIndex)
++	void maybeInvokeOverlapWorker(const std::string& dumpRoot)
+ 	{
+ 		if (!overlapWorkerEnabled()) return;
+-		if (dumpIndex + 1 < overlapReplayMaxFixtures()) return;
+ 
+ 		auto& fixtures = overlapReplayCapturedFixtures();
++		if (fixtures.size() < overlapReplayMaxFixtures()) return;
+ 		if (fixtures.empty())
+ 		{
+ 			throw std::runtime_error("cuFlye overlap worker seam has no fixtures");
+@@ -442,6 +576,7 @@
+ 		ensureDirectory(outputRoot);
+ 
+ 		std::string fixtureList = joinPath(outputRoot, "worker-fixtures.txt");
++		std::string queryIdsFile = joinPath(outputRoot, "worker-query-ids.txt");
+ 		std::string requestJson = joinPath(outputRoot, "worker-request.json");
+ 		std::string responseJson = joinPath(outputRoot, "worker-response.json");
+ 		std::string batchJson = joinPath(outputRoot, "worker-batch.json");
+@@ -452,7 +587,8 @@
+ 		std::string requestId = "flye-overlap-worker-" + std::to_string(fixtures.size());
+ 
+ 		writeOverlapWorkerFixtureList(fixtureList, fixtures);
+-		writeOverlapWorkerRequestJson(requestJson, requestId, fixtureList,
++		writeOverlapWorkerQueryIdList(queryIdsFile, overlapReplayCapturedQueryIds());
++		writeOverlapWorkerRequestJson(requestJson, requestId, fixtureList, queryIdsFile,
+ 									  batchOutputDir, batchJson, responseJson,
+ 									  fixtures.size());
+ 
+@@ -468,7 +604,7 @@
+ 		}
+ 		ensureReadableFile(responseJson, "overlap worker response JSON");
+ 		writeOverlapWorkerSeamSummary(seamSummary, requestJson, responseJson,
+-									  fixtureList, batchJson, batchOutputDir,
++									  fixtureList, queryIdsFile, batchJson, batchOutputDir,
+ 									  fixtures.size());
+ 		throw std::runtime_error(
+ 			"cuFlye overlap worker seam stopped before graph mutation; "
+@@ -877,12 +1013,7 @@
+ 								  float maxDivergence,
+ 								  float sampleRate)
+ 	{
+-		if (overlapWorkerEnabled())
+-		{
+-			overlapEnvRequired("CUFLYE_OVERLAP_REPLAY_DUMP_DIR");
+-			overlapEnvRequired("CUFLYE_OVERLAP_REPLAY_MAX_FIXTURES");
+-			overlapEnvRequired("CUFLYE_OVERLAP_WORKER_OUTPUT_DIR");
+-		}
++		validateOverlapWorkerReplayConfig();
+ 		const char* dumpRoot = overlapReplayDumpDir();
+ 		if (!dumpRoot || !dumpRoot[0]) return;
+ 		if (overlaps.empty()) return;
+@@ -892,9 +1023,8 @@
+ 				"cuFlye overlap replay fixture dump requires --threads 1");
+ 		}
+ 
+-		const char* requestedQuery = std::getenv("CUFLYE_OVERLAP_REPLAY_QUERY_ID");
+ 		int64_t queryId = fastaRec.id.signedId();
+-		if (requestedQuery && requestedQuery[0] && std::stoll(requestedQuery) != queryId)
++		if (!overlapReplayQuerySelected(queryId))
+ 		{
+ 			return;
+ 		}
+@@ -995,7 +1125,8 @@
+ 		}
+ 
+ 		overlapReplayCapturedFixtures().push_back(queryDir);
+-		maybeInvokeOverlapWorker(dumpRoot, dumpIndex);
++		overlapReplayCapturedQueryIds().push_back(queryId);
++		maybeInvokeOverlapWorker(dumpRoot);
+ 
+ 		if (cudaEnvFlag("CUFLYE_OVERLAP_REPLAY_STOP_AFTER_DUMP"))
+ 		{

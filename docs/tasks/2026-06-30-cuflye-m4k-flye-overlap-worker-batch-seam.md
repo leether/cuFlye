@@ -1,6 +1,6 @@
 # Task Card: cuFlye M4k Flye Overlap Worker Batch Seam
 
-Status: proposed
+Status: active
 
 Created: 2026-06-30
 
@@ -79,3 +79,15 @@ before graph mutation.
 - Fixture runner controls and metadata for the allowlist.
 - DGX proof showing Flye-generated packed batch request correctness and timing.
 - This Task Card completed after proof.
+
+## Execution Checklist
+
+- [ ] Define the batch allowlist environment selector.
+- [ ] Add Flye patch for allowlist capture and batch worker request metadata.
+- [ ] Extend fixture runner options and metadata.
+- [ ] Build patched Flye on DGX.
+- [ ] Prove default CPU fixture behavior remains unchanged.
+- [ ] Prove explicit batch worker mode captures only allowlisted query ids.
+- [ ] Validate and diff every worker output.
+- [ ] Compare packed worker timing with M4h baselines.
+- [ ] Record compact DGX proof and close this card.

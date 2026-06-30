@@ -7,13 +7,13 @@ change is considered complete.
 
 Active cards:
 
-- None. M4j completed the Flye-side overlap worker seam proof.
-
-Proposed cards:
-
 - `2026-06-30-cuflye-m4k-flye-overlap-worker-batch-seam.md`: make the Flye
   seam collect an explicit replay-match query allowlist and invoke the packed
   overlap worker as a batch before graph mutation.
+
+Proposed cards:
+
+- None. M4k is active.
 
 Completed cards:
 
