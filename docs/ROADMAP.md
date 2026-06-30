@@ -73,12 +73,26 @@ Completed:
   read-base storage and reproduce the Flye CPU candidate list: 15,571 records,
   canonical SHA-256
   `5b50c458d82458516662e59daf3638e3534896a3ab1e77791f46dc54b663a1ae`.
+- M2d-M2f: Flye can invoke the external packed CUDA backend at one real query
+  boundary, stop before downstream graph mutation, and record sparse-output
+  timing against the CPU oracle.
+- M3a: the integration path is the long-lived external CUDA worker, not
+  in-process CUDA inside Flye.
+- M3b: the long-lived worker keeps CUDA context warm across repeated requests:
+  warm backend total before JSON `132.110 ms`.
+- M3c: device-side prefix compaction removes full host prefix/offset
+  materialization: warm backend total before JSON `28.330 ms`, candidate diff
+  `match`.
+- M3d: worker-side reusable device buffers remove stable-shape allocation
+  churn: warm backend total before JSON `18.643 ms`, warm device allocation
+  `0.001 ms`, arena allocations `0`, arena reuses `7`, candidate diff `match`.
 
 Current allowed performance claim:
 
 ```text
-The bounded candidate equality-scan core is faster on CUDA than the CPU oracle
-for the measured synthetic lookup-key pair space.
+cuFlye's CUDA candidate-generation worker is faster than the CPU oracle for the
+measured warm real-pack query fixture while preserving candidate-list
+equivalence.
 ```
 
 Current forbidden claim:
@@ -250,12 +264,12 @@ Use precise milestone labels:
 Next highest-ROI task:
 
 ```text
-M3d: add a worker-side reusable device-buffer arena/capacity planner so repeated
-warm requests do not pay large per-request CUDA allocation overhead. Preserve the
-M3c device-prefix worker proof mode and candidate-record-v1 equivalence gates.
+M3e: add a multi-query sampled-pack fixture set and batch-planner proof so the
+worker arena/device-prefix path is measured across distinct real read queries,
+not just repeated identical requests.
 ```
 
 Acceptance should remain candidate-list equivalence plus honest timing
-breakdown. The immediate target is reducing the M3c warm backend total while
-preserving the worker advantage; do not claim full assembly speed until
+breakdown. The immediate target is proving that the M3d worker advantage holds
+across multiple sampled query shapes; do not claim full assembly speed until
 downstream graph equivalence is proven.

@@ -58,3 +58,5 @@ M3 long-lived CUDA worker proof:
   `cuflye-m3b-long-lived-cuda-worker-dgx-aarch64.json`
 - Device prefix compaction manifest:
   `cuflye-m3c-device-prefix-compaction-dgx-aarch64.json`
+- Worker device-buffer arena manifest:
+  `cuflye-m3d-worker-device-buffer-arena-dgx-aarch64.json`
