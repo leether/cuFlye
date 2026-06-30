@@ -49,6 +49,7 @@ M5e adds real multi-fixture batch mode:
 --batch-output-dir DIR
 --batch-json-output PATH
 --allow-heterogeneous-batch
+--cuda-persistent-arena
 ```
 
 The fixture list is a newline-delimited file of
@@ -69,6 +70,13 @@ parameters differ. `--allow-heterogeneous-batch` explicitly enables grouped
 execution: fixtures are partitioned by the same shape key, each group is run as
 one packed CPU/CUDA batch, and outputs are written back per original fixture.
 
+`--cuda-persistent-arena` is an explicit CUDA-only batch mode. It allocates one
+device buffer arena per shape group, copies static overlap/divergence fixture
+inputs once, then reuses those buffers across warmup and timed runs. It is
+invalid outside batch mode and invalid with `--backend cpu`. It does not change
+the default same-shape fail-closed behavior; mixed-shape input still requires
+`--allow-heterogeneous-batch`.
+
 ## Supported Shape
 
 - Fixture schema must be `cuflye-read-alignment-replay-fixture-v0`.
@@ -85,6 +93,9 @@ one packed CPU/CUDA batch, and outputs are written back per original fixture.
 - In M5f grouped mode, a heterogeneous fixture list is supported only when
   `--allow-heterogeneous-batch` is set. Every group must still satisfy the
   same-shape CUDA kernel contract internally.
+- In M5g persistent-arena mode, all selected groups are allocated up front and
+  the aggregate CUDA arena memory must fit `--memory-budget-bytes` before any
+  device allocation starts.
 
 Unsupported shapes must fail closed before writing a successful JSON summary.
 
@@ -97,9 +108,12 @@ The JSON summary uses schema
 
 - backend, fixture path, query id, input records, candidate chains, accepted
   chains, and output records;
+- `cuda_execution_mode`, which is `null` for CPU, `per-run-allocation` for the
+  cold CUDA path, and `persistent-arena` for the M5g persistent batch path;
 - CUDA device and memory fields when backend is CUDA;
-- setup, allocation, host-to-device, kernel, CPU-chain, device-to-host,
-  finalize, write, and benchmark timing fields;
+- setup, allocation, host-to-device, one-time setup/allocation/host-to-device,
+  kernel, CPU-chain, device-to-host, finalize, write, and benchmark timing
+  fields;
 - warmup and timed run counts.
 - representative-output-only batch metadata when `--replicate-fixture` is
   greater than one.
@@ -116,6 +130,11 @@ Batch JSON uses schema
   fixture, and a `shape_groups` array with query ids and replay parameters for
   every group;
 - CUDA device, memory, timing, and benchmark fields when backend is CUDA;
+- `cuda_execution_mode`, which has the same meaning as single-fixture JSON;
+- for `persistent-arena`, steady-state timing excludes arena setup,
+  allocation, and static host-to-device copies; those costs are reported in
+  `timing_ms.one_time_setup`, `timing_ms.one_time_device_allocation`,
+  `timing_ms.one_time_host_to_device`, and `timing_ms.one_time_total`;
 - supported-shape flags documenting same-shape requirements and that the output
   is not representative-only.
 

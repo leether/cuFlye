@@ -117,11 +117,13 @@ struct Options
 	bool hasMemoryBudget = false;
 	unsigned long long memoryBudgetBytes = 0;
 	bool allowHeterogeneousBatch = false;
+	bool cudaPersistentArena = false;
 };
 
 struct RunSummary
 {
 	std::string backend;
+	std::string cudaExecutionMode;
 	double setupMs = 0.0;
 	double deviceAllocationMs = 0.0;
 	double hostToDeviceMs = 0.0;
@@ -129,6 +131,10 @@ struct RunSummary
 	double cpuChainMs = 0.0;
 	double deviceToHostMs = 0.0;
 	double finalizeMs = 0.0;
+	double oneTimeSetupMs = 0.0;
+	double oneTimeDeviceAllocationMs = 0.0;
+	double oneTimeHostToDeviceMs = 0.0;
+	double oneTimeTotalMs = 0.0;
 	double writeMs = 0.0;
 	double totalBeforeJsonMs = 0.0;
 	double benchmarkMeanTotalMs = 0.0;
@@ -176,11 +182,52 @@ struct BatchShapeOutputSummary
 	std::vector<int64_t> queryIds;
 };
 
+struct CudaGroupArena
+{
+	std::vector<size_t> originalIndices;
+	ReplayParams params{};
+	size_t overlapCount = 0;
+	size_t divergenceCount = 0;
+	size_t outputCapacity = 0;
+	size_t batchSize = 0;
+	size_t requiredBytes = 0;
+	cuflye::cuda_raii::DeviceBuffer<EdgeOverlap> dOverlaps;
+	cuflye::cuda_raii::DeviceBuffer<uint8_t> dDivergence;
+	cuflye::cuda_raii::DeviceBuffer<ChainRecord> dChains;
+	cuflye::cuda_raii::DeviceBuffer<int32_t> dActive;
+	cuflye::cuda_raii::DeviceBuffer<int32_t> dFrozen;
+	cuflye::cuda_raii::DeviceBuffer<int32_t> dOrdered;
+	cuflye::cuda_raii::DeviceBuffer<int32_t> dAccepted;
+	cuflye::cuda_raii::DeviceBuffer<int32_t> dScratch;
+	cuflye::cuda_raii::DeviceBuffer<OutputSegment> dOutput;
+	cuflye::cuda_raii::DeviceBuffer<DeviceSummary> dSummary;
+};
+
+struct CudaPersistentArena
+{
+	std::vector<CudaGroupArena> groups;
+	double setupMs = 0.0;
+	double deviceAllocationMs = 0.0;
+	double hostToDeviceMs = 0.0;
+	size_t requiredBytes = 0;
+	size_t totalInputRecords = 0;
+	size_t minInputRecords = 0;
+	size_t maxInputRecords = 0;
+	size_t fixtureCount = 0;
+	size_t freeBytes = 0;
+	size_t totalBytes = 0;
+	std::string deviceName;
+	int device = 0;
+};
+
 struct CpuChain
 {
 	std::vector<int32_t> indices;
 	int32_t score = 0;
 };
+
+void attachBenchmarkStats(RunSummary& summary, const std::vector<RunSummary>& timedRuns,
+                          uint32_t warmupRuns);
 
 double elapsedMs(Clock::time_point start, Clock::time_point end)
 {
@@ -1027,6 +1074,7 @@ RunSummary runCpu(const Options& options, const LoadedFixture& fixture,
 {
 	RunSummary summary;
 	summary.backend = "cpu";
+	summary.cudaExecutionMode = "none";
 	summary.batchSize = options.replicateFixture;
 	summary.inputRecords = fixture.overlaps.size();
 	summary.minInputRecords = summary.inputRecords;
@@ -1074,6 +1122,7 @@ RunSummary runCpuBatch(const Options& options, const std::vector<LoadedFixture>&
 
 	RunSummary summary;
 	summary.backend = "cpu";
+	summary.cudaExecutionMode = "none";
 	summary.batchSize = fixtures.size();
 	summary.inputRecords = fixtures.front().overlaps.size();
 	summary.minInputRecords = summary.inputRecords;
@@ -1135,6 +1184,7 @@ RunSummary runCuda(const Options& options, const LoadedFixture& fixture,
 {
 	RunSummary summary;
 	summary.backend = "cuda";
+	summary.cudaExecutionMode = "per-run-allocation";
 	summary.device = options.device;
 	summary.batchSize = options.replicateFixture;
 	summary.inputRecords = fixture.overlaps.size();
@@ -1290,6 +1340,7 @@ RunSummary runCudaBatch(const Options& options, const std::vector<LoadedFixture>
 
 	RunSummary summary;
 	summary.backend = "cuda";
+	summary.cudaExecutionMode = "per-run-allocation";
 	summary.device = options.device;
 	summary.batchSize = fixtures.size();
 	summary.inputRecords = fixtures.front().overlaps.size();
@@ -1476,6 +1527,7 @@ RunSummary runGroupedBatch(const Options& options, const std::vector<LoadedFixtu
 	std::vector<std::vector<size_t>> groups = groupFixtureIndicesByShape(fixtures);
 	RunSummary summary;
 	summary.backend = options.backend;
+	summary.cudaExecutionMode = options.backend == "cuda" ? "per-run-allocation" : "none";
 	summary.device = options.device;
 	summary.batchSize = fixtures.size();
 	summary.shapeGroups = groups.size();
@@ -1537,6 +1589,287 @@ RunSummary runGroupedBatch(const Options& options, const std::vector<LoadedFixtu
 	return summary;
 }
 
+CudaPersistentArena buildCudaPersistentArena(const Options& options,
+                                             const std::vector<LoadedFixture>& fixtures)
+{
+	if (fixtures.empty())
+	{
+		throw std::runtime_error("batch fixture set is empty");
+	}
+	std::vector<std::vector<size_t>> groups = groupFixtureIndicesByShape(fixtures);
+	size_t totalRequiredBytes = 0;
+	for (const std::vector<size_t>& group : groups)
+	{
+		const LoadedFixture& firstFixture = fixtures[group.front()];
+		size_t overlapCount = firstFixture.overlaps.size();
+		size_t divergenceCount = firstFixture.divergenceAccepted.size();
+		size_t outputCapacity = checkedOutputCapacity(overlapCount);
+		size_t batchSize = group.size();
+		if (batchSize > static_cast<size_t>(std::numeric_limits<unsigned int>::max()) ||
+		    overlapCount > static_cast<size_t>(std::numeric_limits<int32_t>::max()) ||
+		    divergenceCount > static_cast<size_t>(std::numeric_limits<int32_t>::max()) ||
+		    outputCapacity > static_cast<size_t>(std::numeric_limits<int32_t>::max()))
+		{
+			throw std::runtime_error("unsupported CUDA arena shape exceeds kernel ABI limits");
+		}
+		totalRequiredBytes =
+		    checkedAdd(totalRequiredBytes,
+		               cudaRequiredBytes(overlapCount, divergenceCount, outputCapacity, batchSize),
+		               "persistent CUDA arena byte count");
+	}
+	if (options.hasMemoryBudget &&
+	    totalRequiredBytes > static_cast<size_t>(options.memoryBudgetBytes))
+	{
+		throw std::runtime_error("CUDA memory budget exceeded for persistent read-alignment arena");
+	}
+
+	CudaPersistentArena arenaContext;
+	arenaContext.device = options.device;
+	arenaContext.requiredBytes = totalRequiredBytes;
+	arenaContext.fixtureCount = fixtures.size();
+	arenaContext.minInputRecords = fixtures.front().overlaps.size();
+	arenaContext.maxInputRecords = fixtures.front().overlaps.size();
+	for (const LoadedFixture& fixture : fixtures)
+	{
+		arenaContext.totalInputRecords =
+		    checkedAdd(arenaContext.totalInputRecords, fixture.overlaps.size(),
+		               "persistent arena total input records");
+		arenaContext.minInputRecords =
+		    std::min(arenaContext.minInputRecords, fixture.overlaps.size());
+		arenaContext.maxInputRecords =
+		    std::max(arenaContext.maxInputRecords, fixture.overlaps.size());
+	}
+
+	auto setupStart = Clock::now();
+	cuflye::cuda_raii::checkCuda(cudaSetDevice(options.device), "set CUDA device");
+	cudaDeviceProp props{};
+	cuflye::cuda_raii::checkCuda(cudaGetDeviceProperties(&props, options.device),
+	                             "get CUDA device properties");
+	arenaContext.deviceName = props.name;
+	cuflye::cuda_raii::checkCuda(cudaMemGetInfo(&arenaContext.freeBytes, &arenaContext.totalBytes),
+	                             "query CUDA memory");
+	auto setupEnd = Clock::now();
+	arenaContext.setupMs = elapsedMs(setupStart, setupEnd);
+
+	arenaContext.groups.reserve(groups.size());
+	for (const std::vector<size_t>& group : groups)
+	{
+		const LoadedFixture& firstFixture = fixtures[group.front()];
+		CudaGroupArena arena;
+		arena.originalIndices = group;
+		arena.params = firstFixture.manifest.params;
+		arena.overlapCount = firstFixture.overlaps.size();
+		arena.divergenceCount = firstFixture.divergenceAccepted.size();
+		arena.outputCapacity = checkedOutputCapacity(arena.overlapCount);
+		arena.batchSize = group.size();
+		arena.requiredBytes = cudaRequiredBytes(arena.overlapCount, arena.divergenceCount,
+		                                        arena.outputCapacity, arena.batchSize);
+		size_t overlapItems =
+		    checkedMul(arena.overlapCount, arena.batchSize, "persistent arena overlap items");
+		size_t divergenceItems =
+		    checkedMul(arena.divergenceCount, arena.batchSize, "persistent arena divergence items");
+		size_t outputItems =
+		    checkedMul(arena.outputCapacity, arena.batchSize, "persistent arena output items");
+
+		std::vector<EdgeOverlap> packedOverlaps;
+		packedOverlaps.reserve(overlapItems);
+		std::vector<uint8_t> packedDivergence;
+		packedDivergence.reserve(divergenceItems);
+		for (size_t fixtureIndex : group)
+		{
+			const LoadedFixture& fixture = fixtures[fixtureIndex];
+			packedOverlaps.insert(packedOverlaps.end(), fixture.overlaps.begin(),
+			                      fixture.overlaps.end());
+			packedDivergence.insert(packedDivergence.end(), fixture.divergenceAccepted.begin(),
+			                        fixture.divergenceAccepted.end());
+		}
+
+		auto allocStart = Clock::now();
+		arena.dOverlaps.allocate(checkedMul(packedOverlaps.size(), sizeof(EdgeOverlap),
+		                                    "persistent arena overlap bytes"),
+		                         "persistent read alignment overlaps");
+		arena.dDivergence.allocate(checkedMul(packedDivergence.size(), sizeof(uint8_t),
+		                                      "persistent arena divergence bytes"),
+		                           "persistent read alignment divergence");
+		arena.dChains.allocate(
+		    checkedMul(overlapItems, sizeof(ChainRecord), "persistent arena chain bytes"),
+		    "persistent read alignment chains");
+		arena.dActive.allocate(
+		    checkedMul(overlapItems, sizeof(int32_t), "persistent arena active id bytes"),
+		    "persistent active chain ids");
+		arena.dFrozen.allocate(
+		    checkedMul(overlapItems, sizeof(int32_t), "persistent arena frozen id bytes"),
+		    "persistent frozen chain ids");
+		arena.dOrdered.allocate(
+		    checkedMul(overlapItems, sizeof(int32_t), "persistent arena ordered id bytes"),
+		    "persistent ordered chain ids");
+		arena.dAccepted.allocate(
+		    checkedMul(overlapItems, sizeof(int32_t), "persistent arena accepted id bytes"),
+		    "persistent accepted chain ids");
+		arena.dScratch.allocate(
+		    checkedMul(overlapItems, sizeof(int32_t), "persistent arena scratch bytes"),
+		    "persistent chain reconstruction scratch");
+		arena.dOutput.allocate(
+		    checkedMul(outputItems, sizeof(OutputSegment), "persistent arena output bytes"),
+		    "persistent read alignment output segments");
+		arena.dSummary.allocate(
+		    checkedMul(arena.batchSize, sizeof(DeviceSummary), "persistent arena summary bytes"),
+		    "persistent read alignment summary");
+		auto allocEnd = Clock::now();
+		arenaContext.deviceAllocationMs += elapsedMs(allocStart, allocEnd);
+
+		auto h2dStart = Clock::now();
+		cuflye::cuda_raii::checkCuda(
+		    cudaMemcpy(arena.dOverlaps.get(), packedOverlaps.data(),
+		               checkedMul(packedOverlaps.size(), sizeof(EdgeOverlap),
+		                          "copy persistent arena overlap bytes"),
+		               cudaMemcpyHostToDevice),
+		    "copy persistent read alignment overlaps to device");
+		cuflye::cuda_raii::checkCuda(
+		    cudaMemcpy(arena.dDivergence.get(), packedDivergence.data(),
+		               checkedMul(packedDivergence.size(), sizeof(uint8_t),
+		                          "copy persistent arena divergence bytes"),
+		               cudaMemcpyHostToDevice),
+		    "copy persistent read alignment divergence to device");
+		auto h2dEnd = Clock::now();
+		arenaContext.hostToDeviceMs += elapsedMs(h2dStart, h2dEnd);
+
+		arenaContext.groups.push_back(std::move(arena));
+	}
+	return arenaContext;
+}
+
+RunSummary runCudaPersistentArenaOnce(const CudaPersistentArena& arenaContext,
+                                      std::vector<std::vector<OutputSegment>>& segmentsByFixture)
+{
+	RunSummary summary;
+	summary.backend = "cuda";
+	summary.cudaExecutionMode = "persistent-arena";
+	summary.device = arenaContext.device;
+	summary.deviceName = arenaContext.deviceName;
+	summary.freeBytes = arenaContext.freeBytes;
+	summary.totalBytes = arenaContext.totalBytes;
+	summary.requiredBytes = arenaContext.requiredBytes;
+	summary.batchSize = arenaContext.fixtureCount;
+	summary.shapeGroups = arenaContext.groups.size();
+	summary.totalInputRecords = arenaContext.totalInputRecords;
+	summary.minInputRecords = arenaContext.minInputRecords;
+	summary.maxInputRecords = arenaContext.maxInputRecords;
+	if (arenaContext.groups.size() == 1)
+	{
+		summary.inputRecords = arenaContext.groups.front().overlapCount;
+	}
+	segmentsByFixture.clear();
+	segmentsByFixture.resize(arenaContext.fixtureCount);
+
+	auto kernelStart = Clock::now();
+	for (const CudaGroupArena& arena : arenaContext.groups)
+	{
+		readAlignmentChainKernel<<<static_cast<unsigned int>(arena.batchSize), 1>>>(
+		    arena.dOverlaps.get(), static_cast<int32_t>(arena.overlapCount),
+		    arena.dDivergence.get(), static_cast<int32_t>(arena.divergenceCount), arena.params,
+		    arena.dChains.get(), arena.dActive.get(), arena.dFrozen.get(), arena.dOrdered.get(),
+		    arena.dAccepted.get(), arena.dScratch.get(), arena.dOutput.get(),
+		    static_cast<int32_t>(arena.outputCapacity), arena.dSummary.get());
+		cuflye::cuda_raii::checkCuda(cudaGetLastError(),
+		                             "launch persistent read alignment batch kernel");
+	}
+	cuflye::cuda_raii::checkCuda(cudaDeviceSynchronize(),
+	                             "synchronize persistent read alignment batch kernels");
+	auto kernelEnd = Clock::now();
+	summary.kernelMs = elapsedMs(kernelStart, kernelEnd);
+
+	auto d2hStart = Clock::now();
+	std::vector<std::vector<DeviceSummary>> summariesByGroup;
+	summariesByGroup.reserve(arenaContext.groups.size());
+	for (const CudaGroupArena& arena : arenaContext.groups)
+	{
+		std::vector<DeviceSummary> deviceSummaries(arena.batchSize);
+		cuflye::cuda_raii::checkCuda(cudaMemcpy(deviceSummaries.data(), arena.dSummary.get(),
+		                                        checkedMul(arena.batchSize, sizeof(DeviceSummary),
+		                                                   "copy persistent arena summary bytes"),
+		                                        cudaMemcpyDeviceToHost),
+		                             "copy persistent read alignment summary to host");
+		for (size_t index = 0; index < arena.batchSize; ++index)
+		{
+			if (!deviceSummaries[index].valid) continue;
+			if (deviceSummaries[index].outputRecords < 0 ||
+			    static_cast<size_t>(deviceSummaries[index].outputRecords) > arena.outputCapacity)
+			{
+				throw std::runtime_error("persistent CUDA output count exceeds fixture capacity");
+			}
+			size_t recordCount = static_cast<size_t>(deviceSummaries[index].outputRecords);
+			if (recordCount == 0) continue;
+			size_t originalIndex = arena.originalIndices[index];
+			segmentsByFixture[originalIndex].resize(recordCount);
+			const OutputSegment* deviceOutput =
+			    arena.dOutput.get() +
+			    checkedMul(index, arena.outputCapacity, "persistent CUDA output offset");
+			cuflye::cuda_raii::checkCuda(
+			    cudaMemcpy(segmentsByFixture[originalIndex].data(), deviceOutput,
+			               checkedMul(recordCount, sizeof(OutputSegment),
+			                          "copy persistent arena output bytes"),
+			               cudaMemcpyDeviceToHost),
+			    "copy persistent read alignment output to host");
+		}
+		summariesByGroup.push_back(std::move(deviceSummaries));
+	}
+	auto d2hEnd = Clock::now();
+	summary.deviceToHostMs = elapsedMs(d2hStart, d2hEnd);
+
+	auto finalizeStart = Clock::now();
+	for (size_t groupIndex = 0; groupIndex < arenaContext.groups.size(); ++groupIndex)
+	{
+		const std::vector<DeviceSummary>& deviceSummaries = summariesByGroup[groupIndex];
+		for (size_t index = 0; index < deviceSummaries.size(); ++index)
+		{
+			if (!deviceSummaries[index].valid)
+			{
+				throw std::runtime_error(
+				    "persistent read alignment CUDA batch kernel failed at group " +
+				    std::to_string(groupIndex) + " batch " + std::to_string(index) + " with code " +
+				    std::to_string(deviceSummaries[index].errorCode));
+			}
+			summary.candidateChains += static_cast<size_t>(deviceSummaries[index].candidateChains);
+			summary.preDivergenceAcceptedChains +=
+			    static_cast<size_t>(deviceSummaries[index].preDivergenceAcceptedChains);
+			summary.acceptedChains += static_cast<size_t>(deviceSummaries[index].acceptedChains);
+			summary.outputRecords += static_cast<size_t>(deviceSummaries[index].outputRecords);
+		}
+	}
+	auto finalizeEnd = Clock::now();
+	summary.finalizeMs = elapsedMs(finalizeStart, finalizeEnd);
+	summary.totalBeforeJsonMs = summary.kernelMs + summary.deviceToHostMs + summary.finalizeMs;
+	return summary;
+}
+
+RunSummary
+runCudaPersistentArenaBenchmark(const Options& options, const std::vector<LoadedFixture>& fixtures,
+                                std::vector<std::vector<OutputSegment>>& segmentsByFixture)
+{
+	CudaPersistentArena arenaContext = buildCudaPersistentArena(options, fixtures);
+	std::vector<std::vector<OutputSegment>> scratch;
+	for (uint32_t index = 0; index < options.warmupRuns; ++index)
+	{
+		(void)runCudaPersistentArenaOnce(arenaContext, scratch);
+	}
+
+	std::vector<RunSummary> timedRuns;
+	for (uint32_t index = 0; index < options.benchmarkRuns; ++index)
+	{
+		RunSummary summary = runCudaPersistentArenaOnce(arenaContext, segmentsByFixture);
+		timedRuns.push_back(summary);
+	}
+	RunSummary summary = timedRuns.back();
+	attachBenchmarkStats(summary, timedRuns, options.warmupRuns);
+	summary.oneTimeSetupMs = arenaContext.setupMs;
+	summary.oneTimeDeviceAllocationMs = arenaContext.deviceAllocationMs;
+	summary.oneTimeHostToDeviceMs = arenaContext.hostToDeviceMs;
+	summary.oneTimeTotalMs =
+	    summary.oneTimeSetupMs + summary.oneTimeDeviceAllocationMs + summary.oneTimeHostToDeviceMs;
+	return summary;
+}
+
 void attachBenchmarkStats(RunSummary& summary, const std::vector<RunSummary>& timedRuns,
                           uint32_t warmupRuns)
 {
@@ -1592,6 +1925,11 @@ RunSummary runBenchmark(const Options& options, const LoadedFixture& fixture,
 RunSummary runBatchBenchmark(const Options& options, const std::vector<LoadedFixture>& fixtures,
                              std::vector<std::vector<OutputSegment>>& segmentsByFixture)
 {
+	if (options.cudaPersistentArena)
+	{
+		return runCudaPersistentArenaBenchmark(options, fixtures, segmentsByFixture);
+	}
+
 	std::vector<std::vector<OutputSegment>> scratch;
 	for (uint32_t index = 0; index < options.warmupRuns; ++index)
 	{
@@ -1638,7 +1976,16 @@ void writeJsonSummary(const std::string& path, const Options& options,
 	       << "  \"schema\": \"cuflye-cuda-read-alignment-chain-replay-v0\",\n"
 	       << "  \"status\": \"ok\",\n"
 	       << "  \"backend\": \"" << jsonEscape(summary.backend) << "\",\n"
-	       << "  \"fixture_dir\": \"" << jsonEscape(options.fixtureDir) << "\",\n"
+	       << "  \"cuda_execution_mode\": ";
+	if (summary.backend == "cuda")
+	{
+		output << "\"" << jsonEscape(summary.cudaExecutionMode) << "\",\n";
+	}
+	else
+	{
+		output << "null,\n";
+	}
+	output << "  \"fixture_dir\": \"" << jsonEscape(options.fixtureDir) << "\",\n"
 	       << "  \"output_tsv\": \"" << jsonEscape(options.outputTsv) << "\",\n"
 	       << "  \"query_id\": " << manifest.queryId << ",\n"
 	       << "  \"batch_size\": " << summary.batchSize << ",\n"
@@ -1677,6 +2024,10 @@ void writeJsonSummary(const std::string& path, const Options& options,
 	       << "    \"setup\": " << summary.setupMs << ",\n"
 	       << "    \"device_allocation\": " << summary.deviceAllocationMs << ",\n"
 	       << "    \"host_to_device\": " << summary.hostToDeviceMs << ",\n"
+	       << "    \"one_time_setup\": " << summary.oneTimeSetupMs << ",\n"
+	       << "    \"one_time_device_allocation\": " << summary.oneTimeDeviceAllocationMs << ",\n"
+	       << "    \"one_time_host_to_device\": " << summary.oneTimeHostToDeviceMs << ",\n"
+	       << "    \"one_time_total\": " << summary.oneTimeTotalMs << ",\n"
 	       << "    \"kernel\": " << summary.kernelMs << ",\n"
 	       << "    \"cpu_chain\": " << summary.cpuChainMs << ",\n"
 	       << "    \"device_to_host\": " << summary.deviceToHostMs << ",\n"
@@ -1783,7 +2134,16 @@ void writeBatchJsonSummary(const std::string& path, const Options& options,
 	       << "  \"schema\": \"cuflye-cuda-read-alignment-chain-replay-batch-v0\",\n"
 	       << "  \"status\": \"ok\",\n"
 	       << "  \"backend\": \"" << jsonEscape(summary.backend) << "\",\n"
-	       << "  \"batch_fixtures_file\": \"" << jsonEscape(options.batchFixturesFile) << "\",\n"
+	       << "  \"cuda_execution_mode\": ";
+	if (summary.backend == "cuda")
+	{
+		output << "\"" << jsonEscape(summary.cudaExecutionMode) << "\",\n";
+	}
+	else
+	{
+		output << "null,\n";
+	}
+	output << "  \"batch_fixtures_file\": \"" << jsonEscape(options.batchFixturesFile) << "\",\n"
 	       << "  \"batch_output_dir\": \"" << jsonEscape(options.batchOutputDir) << "\",\n"
 	       << "  \"fixture_count\": " << fixtureOutputs.size() << ",\n"
 	       << "  \"batch_size\": " << summary.batchSize << ",\n"
@@ -1834,6 +2194,10 @@ void writeBatchJsonSummary(const std::string& path, const Options& options,
 	       << "    \"setup\": " << summary.setupMs << ",\n"
 	       << "    \"device_allocation\": " << summary.deviceAllocationMs << ",\n"
 	       << "    \"host_to_device\": " << summary.hostToDeviceMs << ",\n"
+	       << "    \"one_time_setup\": " << summary.oneTimeSetupMs << ",\n"
+	       << "    \"one_time_device_allocation\": " << summary.oneTimeDeviceAllocationMs << ",\n"
+	       << "    \"one_time_host_to_device\": " << summary.oneTimeHostToDeviceMs << ",\n"
+	       << "    \"one_time_total\": " << summary.oneTimeTotalMs << ",\n"
 	       << "    \"kernel\": " << summary.kernelMs << ",\n"
 	       << "    \"cpu_chain\": " << summary.cpuChainMs << ",\n"
 	       << "    \"device_to_host\": " << summary.deviceToHostMs << ",\n"
@@ -1938,6 +2302,8 @@ void parseArgs(int argc, char** argv, Options& options)
 			options.batchJsonOutput = nextValue();
 		else if (arg == "--allow-heterogeneous-batch")
 			options.allowHeterogeneousBatch = true;
+		else if (arg == "--cuda-persistent-arena")
+			options.cudaPersistentArena = true;
 		else if (arg == "--backend")
 			options.backend = nextValue();
 		else if (arg == "--device")
@@ -1971,7 +2337,7 @@ void parseArgs(int argc, char** argv, Options& options)
 			          << "--batch-fixtures-file FILE --batch-output-dir DIR "
 			          << "--batch-json-output PATH [--backend cpu|cuda] "
 			          << "[--device ID] [--warmup-runs N] [--benchmark-runs N] "
-			          << "[--allow-heterogeneous-batch] "
+			          << "[--allow-heterogeneous-batch] [--cuda-persistent-arena] "
 			          << "[--memory-budget-bytes BYTES]\n";
 			std::exit(0);
 		}
@@ -2007,12 +2373,20 @@ void parseArgs(int argc, char** argv, Options& options)
 		{
 			throw std::runtime_error("--replicate-fixture is not supported in batch mode");
 		}
+		if (options.cudaPersistentArena && options.backend != "cuda")
+		{
+			throw std::runtime_error("--cuda-persistent-arena requires --backend cuda");
+		}
 	}
 	else
 	{
 		if (options.allowHeterogeneousBatch)
 		{
 			throw std::runtime_error("--allow-heterogeneous-batch is only supported in batch mode");
+		}
+		if (options.cudaPersistentArena)
+		{
+			throw std::runtime_error("--cuda-persistent-arena is only supported in batch mode");
 		}
 		if (options.fixtureDir.empty()) throw std::runtime_error("--fixture-dir is required");
 		if (options.outputTsv.empty()) throw std::runtime_error("--output-tsv is required");
@@ -2059,6 +2433,7 @@ int main(int argc, char** argv)
 
 			std::cout << "cuFlye read-alignment chain replay batch: ok\n"
 			          << "  backend: " << summary.backend << "\n"
+			          << "  cuda execution mode: " << summary.cudaExecutionMode << "\n"
 			          << "  fixture count: " << outputs.size() << "\n"
 			          << "  shape groups: " << summary.shapeGroups << "\n";
 			if (summary.inputRecords == 0)
@@ -2072,6 +2447,10 @@ int main(int argc, char** argv)
 			std::cout << "  total input records: " << summary.totalInputRecords << "\n"
 			          << "  output records: " << summary.outputRecords << "\n"
 			          << "  mean total before JSON: " << summary.benchmarkMeanTotalMs << " ms\n";
+			if (summary.cudaExecutionMode == "persistent-arena")
+			{
+				std::cout << "  one-time arena setup: " << summary.oneTimeTotalMs << " ms\n";
+			}
 			return 0;
 		}
 

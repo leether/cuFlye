@@ -1,0 +1,202 @@
+{
+  "acceptance": {
+    "cpu_and_cuda_persistent_outputs_match_oracle": true,
+    "cuda_ownership_scan_clean": true,
+    "cuda_replay_binary_builds_on_dgx": true,
+    "default_mixed_shape_batch_still_fails_closed": true,
+    "json_records_one_time_and_steady_state_timing": true,
+    "local_syntax_style_gates_pass": true,
+    "memory_budget_negative_uses_aggregate_persistent_arena": true,
+    "persistent_arena_mode_explicit_and_cuda_only": true,
+    "persistent_compared_against_cold_cuda": true,
+    "persistent_cuda_outputs_match_cold_cuda": true,
+    "persistent_heterogeneous_mode_runs_all_selected_real_fixtures": true
+  },
+  "benefit_assessment_plain_language": "M5g reduces CUDA read-alignment overhead by reusing per-shape device arenas: persistent CUDA is 2.310763x faster than the M5f-style cold grouped CUDA path on the 68-read heterogeneous toy-hifi replay fixture set, while preserving every per-read oracle diff. It is still 35.489368x slower than the CPU path for this tiny batch, so the proven advantage is CUDA overhead reduction, not end-to-end or CPU-beating Flye speed.",
+  "build": {
+    "cuda_manifest": "/tmp/cuflye-m5g-proof-20260630T233335Z/out/m5g/cuda_read_alignment_chain_replay_build_manifest.json",
+    "output_binary": "/tmp/cuflye-m5g-proof-20260630T233335Z/out/m5g/bin/cuflye-cuda-read-alignment-chain-replay"
+  },
+  "claims": {
+    "allowed": "cuFlye can explicitly reuse per-shape CUDA read-alignment arenas across benchmark iterations for the 68-read heterogeneous M5e replay fixture set while preserving every per-read oracle diff.",
+    "forbidden": "M5g does not prove end-to-end Flye acceleration, default GPU mode, graph mutation consumption, edlib/base realignment replay, or CUDA read-alignment speedup over CPU for this small fixture set unless the recorded timings show it."
+  },
+  "cpu": {
+    "benchmark": {
+      "max_total_before_json_ms": 0.014496,
+      "mean_core_ms": 0.010628,
+      "mean_total_before_json_ms": 0.010628,
+      "min_total_before_json_ms": 0.010256,
+      "timed_runs": 200,
+      "warmup_runs": 5
+    },
+    "run_json": "/tmp/cuflye-m5g-proof-20260630T233335Z/out/m5g/heterogeneous/cpu/run.json",
+    "timing_ms": {
+      "cpu_chain": 0.0104,
+      "device_allocation": 0.0,
+      "device_to_host": 0.0,
+      "finalize": 0.0,
+      "host_to_device": 0.0,
+      "kernel": 0.0,
+      "one_time_device_allocation": 0.0,
+      "one_time_host_to_device": 0.0,
+      "one_time_setup": 0.0,
+      "one_time_total": 0.0,
+      "setup": 0.0,
+      "total_before_json": 0.0104,
+      "write_output": 1.822055
+    }
+  },
+  "created_at_utc": "2026-06-30T23:35:32.317192+00:00",
+  "cuda_cold": {
+    "benchmark": {
+      "max_total_before_json_ms": 1.114853,
+      "mean_core_ms": 0.043325,
+      "mean_total_before_json_ms": 0.871576,
+      "min_total_before_json_ms": 0.799153,
+      "timed_runs": 200,
+      "warmup_runs": 5
+    },
+    "cuda_execution_mode": "per-run-allocation",
+    "memory": {
+      "required_bytes": 9595
+    },
+    "run_json": "/tmp/cuflye-m5g-proof-20260630T233335Z/out/m5g/heterogeneous/cuda-cold/run.json",
+    "timing_ms": {
+      "cpu_chain": 0.0,
+      "device_allocation": 0.345553,
+      "device_to_host": 0.394818,
+      "finalize": 0.000256,
+      "host_to_device": 0.05568,
+      "kernel": 0.042465,
+      "one_time_device_allocation": 0.0,
+      "one_time_host_to_device": 0.0,
+      "one_time_setup": 0.0,
+      "one_time_total": 0.0,
+      "setup": 0.02424,
+      "total_before_json": 0.863012,
+      "write_output": 1.691607
+    }
+  },
+  "cuda_persistent": {
+    "benchmark": {
+      "max_total_before_json_ms": 1.105556,
+      "mean_core_ms": 0.020074,
+      "mean_total_before_json_ms": 0.377181,
+      "min_total_before_json_ms": 0.358914,
+      "timed_runs": 200,
+      "warmup_runs": 5
+    },
+    "cuda_execution_mode": "persistent-arena",
+    "memory": {
+      "required_bytes": 23660
+    },
+    "run_json": "/tmp/cuflye-m5g-proof-20260630T233335Z/out/m5g/heterogeneous/cuda-persistent/run.json",
+    "timing_ms": {
+      "cpu_chain": 0.0,
+      "device_allocation": 0.0,
+      "device_to_host": 0.35485,
+      "finalize": 0.000304,
+      "host_to_device": 0.0,
+      "kernel": 0.019712,
+      "one_time_device_allocation": 0.207601,
+      "one_time_host_to_device": 0.048048,
+      "one_time_setup": 243.614408,
+      "one_time_total": 243.870057,
+      "setup": 0.0,
+      "total_before_json": 0.374866,
+      "write_output": 1.773927
+    }
+  },
+  "diffs": {
+    "all_match": true,
+    "comparisons": [
+      "cpu_vs_oracle",
+      "cuda_cold_vs_oracle",
+      "cuda_persistent_vs_oracle",
+      "cuda_persistent_vs_cold_cuda",
+      "cpu_vs_cuda_persistent"
+    ],
+    "fixture_count": 68,
+    "per_fixture_summary": "/tmp/cuflye-m5g-proof-20260630T233335Z/out/m5g/heterogeneous/per-fixture-diff-summary.json"
+  },
+  "host": {
+    "gpu_query": "NVIDIA GB10, 12.1",
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39"
+  },
+  "milestone": "M5g",
+  "negative": {
+    "cpu_backend_rejected": {
+      "matched_expected": true,
+      "returncode": 1,
+      "stdout": "error: --cuda-persistent-arena requires --backend cuda\n"
+    },
+    "default_mixed_shape_rejected": {
+      "matched_expected": true,
+      "returncode": 1,
+      "stdout": "error: unsupported read-alignment batch: alignment_input_records differ\n"
+    },
+    "memory_budget_rejected": {
+      "matched_expected": true,
+      "returncode": 1,
+      "stdout": "error: CUDA memory budget exceeded for persistent read-alignment arena\n"
+    }
+  },
+  "next_optimization_target": "M5h should increase real read-alignment work per persistent CUDA invocation, either by harvesting larger non-toy fixture batches or moving this arena pattern into a long-lived read-alignment worker before any graph-consumption integration.",
+  "repo": {
+    "local_state_note": "DGX proof ran from rsynced working tree without .git metadata; final commit must include the same code changes plus proof docs.",
+    "proof_dir": "/tmp/cuflye-m5g-proof-20260630T233335Z"
+  },
+  "schema": "cuflye-milestone-proof-v1",
+  "selected_batch": {
+    "fixture_count": 68,
+    "output_records": 114,
+    "shape_group_count": 4,
+    "shape_groups": [
+      {
+        "chain_divergence_rows": 1,
+        "fixture_count": 30,
+        "input_records_per_fixture": 1,
+        "output_records": 30,
+        "total_input_records": 30
+      },
+      {
+        "chain_divergence_rows": 1,
+        "fixture_count": 11,
+        "input_records_per_fixture": 2,
+        "output_records": 22,
+        "total_input_records": 22
+      },
+      {
+        "chain_divergence_rows": 1,
+        "fixture_count": 19,
+        "input_records_per_fixture": 3,
+        "output_records": 38,
+        "total_input_records": 57
+      },
+      {
+        "chain_divergence_rows": 1,
+        "fixture_count": 8,
+        "input_records_per_fixture": 4,
+        "output_records": 24,
+        "total_input_records": 32
+      }
+    ],
+    "total_input_records": 141
+  },
+  "source_fixtures": {
+    "fixture_count": 68,
+    "fixture_list": "/tmp/cuflye-m5g-proof-20260630T233335Z/out/m5g/heterogeneous/all-real-fixtures.list",
+    "fixture_root": "/tmp/cuflye-m5e-proof-20260630T230250Z/out/m5e/runs/toy-hifi-multiread/read-alignment-replay-fixtures",
+    "m5e_proof_dir": "/tmp/cuflye-m5e-proof-20260630T230250Z"
+  },
+  "speed": {
+    "persistent_cuda_core_speedup_vs_cold_cuda": 2.1582644216399323,
+    "persistent_cuda_core_speedup_vs_cpu": 0.5294410680482216,
+    "persistent_cuda_total_slowdown_vs_cpu": 35.489367707941284,
+    "persistent_cuda_total_speedup_vs_cold_cuda": 2.31076326750287,
+    "persistent_cuda_total_speedup_vs_cpu": 0.028177453265143263
+  }
+}

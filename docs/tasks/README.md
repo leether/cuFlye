@@ -15,6 +15,9 @@ Proposed cards:
 
 Completed cards:
 
+- `2026-07-01-cuflye-m5g-persistent-read-alignment-arena.md`: reduce grouped
+  read-alignment CUDA overhead with reusable per-shape device buffers while
+  preserving per-read oracle diffs.
 - `2026-07-01-cuflye-m5f-heterogeneous-read-alignment-batch.md`: allow a
   heterogeneous real read-alignment fixture list to be grouped by supported
   CUDA shape while preserving per-read oracle diffs.
