@@ -1,6 +1,6 @@
 # Task Card: cuFlye M6c CUDA Raw-Overlap Filter/Sort Replay
 
-Status: proposed
+Status: accepted
 
 Created: 2026-07-01
 
@@ -52,15 +52,50 @@ filter/sort replay, not full `quickSeqOverlaps` or minimizer discovery.
 
 ## Acceptance Gates
 
-- [ ] M6b pack manifest validates before CUDA consumption.
-- [ ] CUDA output canonical-diffs `match` against `oracle.chain-input.tsv`.
-- [ ] CPU replay and CUDA replay produce the same record count and SHA-256.
-- [ ] Timing report separates parse/pack, host-to-device, kernel, device-to-host,
+- [x] M6b pack manifest validates before CUDA consumption.
+- [x] CUDA output canonical-diffs `match` against `oracle.chain-input.tsv`.
+- [x] CPU replay and CUDA replay produce the same record count and SHA-256.
+- [x] Timing report separates parse/pack, host-to-device, kernel, device-to-host,
       output write, and total wall time.
-- [ ] C++/CUDA ownership scan shows no direct raw allocation/resource calls
+- [x] C++/CUDA ownership scan shows no direct raw allocation/resource calls
       outside approved wrappers.
-- [ ] Local and DGX syntax/style gates pass.
+- [x] Local and DGX syntax/style gates pass.
 
 ## Completion Notes
 
-Pending implementation.
+Implemented with:
+
+- `cuda/cuflye_cuda_input_boundary_replay.cu`
+- `scripts/build_cuda_input_boundary_replay.sh`
+- `tools/diff_read_to_graph_chain_inputs.py`
+
+DGX proof root:
+
+```text
+/tmp/cuflye-m6c-proof-20260701T060817Z
+```
+
+Proof summary:
+
+- Built with `/usr/local/cuda/bin/nvcc`, arch `sm_121`.
+- Input pack:
+  `/tmp/cuflye-m6b-proof-20260701T055901Z/out/m6b-rerun/pack-a`.
+- CUDA consumed 36 raw-overlap records and emitted 8 `chain_input` rows.
+- `oracle.chain-input.tsv` vs CUDA output canonical diff: `match`.
+- CPU replay vs CUDA output canonical diff: `match`.
+- Shared output SHA-256:
+  `5ab7b7fe51af9e90807e2d9be4824bd9216c732877cebc5eca58cb606b1c9f20`.
+- CUDA timing:
+  parse `0.156897 ms`, host pack `0.000224 ms`,
+  host-to-device `0.069104 ms`, kernel `0.107616 ms`,
+  device-to-host `0.019329 ms`, write output `0.091072 ms`,
+  total `300.936895 ms`.
+
+Plain-language benefit:
+
+M6c is the first CUDA execution at this boundary, but it is not a speed win.
+The useful result is correctness: CUDA can consume the new pack and emit exactly
+the same `chain_input` rows as CPU replay. The pack is tiny, so process/CUDA
+context startup dominates total time. Next ROI is not optimizing this toy
+kernel; it is building a richer minimizer-source pack so CUDA can replace more
+of `quickSeqOverlaps`.

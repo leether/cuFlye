@@ -297,6 +297,15 @@ Completed:
   does not yet contain query sequences, graph edge sequences, VertexIndex
   minimizer buckets, k-mer parameters, or enough internals to claim full
   `quickSeqOverlaps`/minimizer generation.
+- M6c: a standalone CUDA raw-overlap filter/sort replay prototype now consumes
+  the M6b pack and emits `chain_input` rows that canonical-diff `match` against
+  both `oracle.chain-input.tsv` and CPU replay. The DGX proof used `36`
+  raw-overlap records and produced `8` output rows with shared SHA-256
+  `5ab7b7fe51af9e90807e2d9be4824bd9216c732877cebc5eca58cb606b1c9f20`.
+  CUDA kernel time was `0.107616 ms`, but total process time was
+  `300.936895 ms`, so this is a correctness/integration claim, not a speed
+  claim. The next useful step is a richer minimizer-source pack, not optimizing
+  this tiny replay kernel.
 
 Current allowed performance claim:
 
@@ -2713,7 +2722,8 @@ end-to-end GPU Flye speedup.
 Next highest-ROI task:
 
 ```text
-M6c: consume the M6b replay pack with a CUDA raw-overlap filter/sort prototype
-and prove CUDA-produced chain_input rows canonical-diff match against
-oracle.chain-input.tsv before building a richer minimizer-source pack.
+M6d: define and capture a richer read-to-graph minimizer-source pack with query
+sequence, graph edge sequences, VertexIndex buckets, and k-mer/minimizer
+parameters so CUDA can move from raw-overlap replay toward true
+quickSeqOverlaps candidate discovery.
 ```

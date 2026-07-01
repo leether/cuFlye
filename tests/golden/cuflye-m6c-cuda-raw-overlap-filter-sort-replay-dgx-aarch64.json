@@ -1,0 +1,47 @@
+{
+  "allowed_claim": "cuFlye can consume the M6b replay pack with a standalone CUDA raw-overlap filter/sort prototype and reproduce the selected chain_input oracle exactly.",
+  "architecture": "aarch64",
+  "build": {
+    "cuda_arch": "sm_121",
+    "nvcc": "/usr/local/cuda/bin/nvcc"
+  },
+  "fixture": "toy-hifi",
+  "forbidden_claim": "M6c does not implement quickSeqOverlaps, minimizer bucket generation, Flye graph consumption, default GPU mode, or whole-Flye acceleration.",
+  "host": "dgx",
+  "milestone": "M6c-cuda-raw-overlap-filter-sort-replay",
+  "next_recommended_step": "M6d: define a richer read-to-graph minimizer-source pack with query sequence, graph edge sequences, VertexIndex buckets, and k-mer/minimizer parameters so CUDA can move from raw-overlap replay toward true candidate/minimizer generation.",
+  "pack": {
+    "pack_dir": "/tmp/cuflye-m6b-proof-20260701T055901Z/out/m6b-rerun/pack-a",
+    "raw_overlap_records": 36,
+    "selected_query_count": 8
+  },
+  "plain_language_benefit": "M6c is the first CUDA step at the M6 input-boundary, but it still does not make Flye faster. It proves a CUDA kernel can consume the new M6b pack and emit exactly the same 8 chain_input rows as CPU replay. On this tiny pack the total CUDA process path is slower because startup/context overhead dominates; the useful gain is correctness and a governed CUDA output format.",
+  "proof_root": "/tmp/cuflye-m6c-proof-20260701T060817Z",
+  "results": {
+    "cpu_replay_elapsed_wall_ms": 33.56213902588934,
+    "cpu_vs_cuda_diff": "match",
+    "cuda_output_records": 8,
+    "cuda_required_bytes": 4264,
+    "device_name": "NVIDIA GB10",
+    "oracle_vs_cuda_diff": "match",
+    "output_sha256": "5ab7b7fe51af9e90807e2d9be4824bd9216c732877cebc5eca58cb606b1c9f20"
+  },
+  "timing_ms": {
+    "device_allocation": 0.159952,
+    "device_to_host": 0.019329,
+    "host_pack": 0.000224,
+    "host_to_device": 0.069104,
+    "kernel": 0.107616,
+    "parse": 0.156897,
+    "total": 300.936895,
+    "write_output": 0.091072
+  },
+  "verification": {
+    "cuda_build": "passed",
+    "cuda_run_status": "ok",
+    "local_chain_input_diff_tool_smoke": "match",
+    "local_python_py_compile": "passed",
+    "local_whitespace_check": "passed",
+    "ownership_scan": "passed"
+  }
+}

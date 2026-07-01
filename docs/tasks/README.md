@@ -11,13 +11,17 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m6c-cuda-raw-overlap-filter-sort-replay.md`:
-  consume the M6b replay pack with a bounded CUDA raw-overlap filter/sort
-  prototype and prove CUDA-produced `chain_input` rows match the oracle before
-  any richer minimizer-source pack work.
+- `2026-07-01-cuflye-m6d-read-to-graph-minimizer-source-pack.md`:
+  extend the M6 boundary with query sequence, graph edge sequences,
+  VertexIndex buckets, and k-mer/minimizer parameters so CUDA can move from
+  raw-overlap replay toward true `quickSeqOverlaps` candidate discovery.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m6c-cuda-raw-overlap-filter-sort-replay.md`:
+  consume the M6b replay pack with a bounded CUDA raw-overlap filter/sort
+  prototype, prove CUDA output matches both oracle and CPU replay, and identify
+  CUDA startup overhead as dominant on the tiny pack.
 - `2026-07-01-cuflye-m6b-read-to-graph-input-boundary-replay-pack.md`:
   turn the M6a input-boundary oracle into an external replay/packing harness,
   prove deterministic pack export and CPU replay match, record unsupported
