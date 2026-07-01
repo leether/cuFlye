@@ -225,7 +225,7 @@ Completed:
   `98.134393%` versus the M4u cold batch-run worker process, but the full
   toy-raw run was still slower than CPU (`88s` vs `82s`) because the proof still
   pays for one synthetic warmup request inside the same Flye run.
-- M5a-M5v: cuFlye now has a deterministic read-to-graph alignment oracle,
+- M5a-M5w: cuFlye now has a deterministic read-to-graph alignment oracle,
   bounded replay fixtures, a CUDA chain replay prototype, real multi-read
   batching, heterogeneous shape grouping, and a persistent per-shape CUDA arena.
   The M5h proof expands the toy-hifi replay harvest to `3546` valid fixtures
@@ -258,7 +258,11 @@ Completed:
   exact canonical artifacts, and fail closed on checksum/truncation corruption
   before graph mutation. M5v then consumes that verified output for the selected
   `_readAlignments` slice, preserving exact artifacts while proving mismatch
-  and corrupted payloads remain fail-closed.
+  and corrupted payloads remain fail-closed. M5w scales that guarded
+  substitution from batch64 to the full3546 selected fixture set: all selected
+  chains are replaced by verified CUDA-derived `goodChains`, canonical Flye
+  artifacts still match CPU, and corrupted compact binary payloads still stop
+  before graph mutation.
 
 Current allowed performance claim:
 
@@ -385,6 +389,12 @@ Flye's selected `_readAlignments` slice while preserving exact artifacts and
 failing closed on mismatch or corrupted payloads. This is a selected-slice
 graph-facing consumption claim, not an unbounded replacement or whole-Flye
 speed claim.
+
+cuFlye can now scale that guarded compact-binary substitution path to the
+full3546 selected read-alignment fixture set inside Flye. This proves the
+payload, validation, and selected-slice consumption path holds at the full
+selected toy-hifi scale, but it is still not a whole-Flye speed claim because
+the seam intentionally keeps CPU `goodChains` as the live verifier.
 ```
 
 Current forbidden claim:
@@ -2505,4 +2515,79 @@ M5w: scale the compact-binary vector-substitution seam from the selected
 batch64 proof to the full3546 selected read-alignment fixture set, preserve
 exact artifacts, and measure whether the broader Flye-side substitution path
 keeps the CUDA integration advantage.
+```
+
+M5w accepted result:
+
+```text
+cuFlye can scale guarded compact-binary-v0 CUDA-derived read-alignment
+goodChains substitution from selected batch64 to the full3546 selected fixture
+set inside Flye, preserve exact canonical artifacts, and fail closed before
+graph mutation on corrupted compact binary payloads.
+```
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m5w-proof-20260701T043703Z
+golden=tests/golden/cuflye-m5w-read-alignment-compact-binary-substitution-scaleup-dgx-aarch64.json
+fixture_count=3546
+compact_binary_mode=rehydrate-v0
+compact_binary_vector_substitution_mode=verified-goodchains-v0
+positive_status=passed
+positive_canonical_diff=match
+positive_matched_fixture_count=3546
+positive_total_worker_records=3616
+positive_total_substituted_chains=3546
+positive_graph_mutation_consumed_worker_output=true
+positive_worker_actual_wall_ms=4.162895
+positive_worker_request_total_ms=2.263903
+positive_worker_kernel_ms=0.041136
+positive_compact_binary_bytes=332736
+positive_compact_binary_sha256=daaaf20276447d1e3656b36beb9f8ca21b9673cb99372b66521e7ccf2af8d4df
+positive_full_flye_elapsed_seconds=20.765673444
+negative_truncate_status=failed
+negative_truncate_flye_exit_status=1
+negative_truncate_worker_request_total_ms=1.519952
+negative_truncate_graph_mutation_consumed_worker_output=false
+negative_truncate_total_substituted_chains=0
+negative_truncate_full_flye_elapsed_seconds=14.521368179
+```
+
+Allowed M5w claim:
+
+```text
+cuFlye can scale selected-slice compact-binary CUDA goodChains substitution to
+the full3546 selected toy-hifi fixture set, preserve exact artifacts, and block
+corrupted compact binary payloads before graph mutation.
+```
+
+Forbidden M5w claim:
+
+```text
+M5w does not prove default GPU mode, whole-Flye acceleration, unbounded
+_readAlignments replacement, CUDA minimizer overlap discovery, or CPU
+read-alignment bypass.
+```
+
+Plain-language benefit:
+
+```text
+M5w proves the compact-binary GPU path scales from a 64-read smoke to the
+full3546 selected fixture set inside Flye. All selected chains are replaced by
+verified CUDA-derived goodChains, the final assembly artifacts still match CPU
+exactly, and corrupted payloads stop before graph mutation. The direct speed
+benefit is still limited because this seam intentionally keeps CPU goodChains
+as the live verifier; the value is that the GPU payload and substitution path
+now work at the full selected scale, which makes CPU-bypass the next meaningful
+performance step.
+```
+
+Next highest-ROI task:
+
+```text
+M5x: run an audited selected-read CPU-bypass experiment for compact-binary-v0
+CUDA goodChains. The point is to stop paying CPU chain DP for the explicit
+selected allowlist, preserve exact canonical artifacts, and keep the same
+fail-closed behavior before making any default GPU-mode claim.
 ```

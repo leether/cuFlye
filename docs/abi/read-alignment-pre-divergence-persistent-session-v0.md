@@ -270,3 +270,20 @@ Positive M5v runs must report `vector_substitution_status=consumed`,
 `graph_mutation_consumed_worker_output=true`, while canonical Flye artifacts
 still match CPU. Negative mismatch or corruption runs must keep
 `graph_mutation_consumed_worker_output=false`.
+
+## M5w Scale Proof Shape
+
+M5w uses the same compact-binary vector-substitution ABI as M5v, but raises the
+selected proof set from batch64 to the full3546 selected read-alignment fixture
+set harvested in M5h/M5t. Positive scale-up proofs must additionally record:
+
+- `fixture_count=3546`;
+- `matched_fixture_count=3546`;
+- `total_worker_records=3616`;
+- `total_substituted_chains=3546`;
+- `graph_mutation_consumed_worker_output=true`;
+- canonical Flye artifact diff `status=match`.
+
+Corrupted full3546 payload proofs must still report
+`decision=failed-closed-before-graph-mutation`,
+`graph_mutation_consumed_worker_output=false`, and zero substituted chains.

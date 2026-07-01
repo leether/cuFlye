@@ -1,6 +1,6 @@
 # Task Card: cuFlye M5w Read Alignment Compact Binary Substitution Scale-Up
 
-Status: proposed
+Status: accepted
 
 Created: 2026-07-01
 
@@ -59,17 +59,73 @@ integration path competitive when the fixed session overhead is amortized?
 
 ## Acceptance Gates
 
-- [ ] Patch series applies and patched Flye builds on DGX.
-- [ ] CUDA worker builds on DGX.
-- [ ] Positive full3546 selected substitution validates compact binary and
+- [x] Patch series applies and patched Flye builds on DGX.
+- [x] CUDA worker builds on DGX.
+- [x] Positive full3546 selected substitution validates compact binary and
       reports substitution consumption for all selected chains present in
       `_readAlignments`.
-- [ ] Canonical Flye artifacts match CPU.
-- [ ] Negative mismatch/corruption case fails closed before graph mutation.
-- [ ] Timing summary separates CUDA request time, Flye session wall time, and
+- [x] Canonical Flye artifacts match CPU.
+- [x] Negative mismatch/corruption case fails closed before graph mutation.
+- [x] Timing summary separates CUDA request time, Flye session wall time, and
       full Flye elapsed time.
-- [ ] Local and DGX syntax/style gates pass.
+- [x] Local and DGX syntax/style gates pass.
 
 ## Completion Notes
 
-Pending implementation.
+Accepted on DGX with proof root:
+
+```text
+/tmp/cuflye-m5w-proof-20260701T043703Z
+```
+
+Positive full3546 substitution proof:
+
+```text
+fixture_count=3546
+matched_fixture_count=3546
+mismatched_fixture_count=0
+total_worker_records=3616
+total_substituted_chains=3546
+graph_mutation_consumed_worker_output=true
+canonical_diff=match
+compact_binary_bytes=332736
+compact_binary_sha256=daaaf20276447d1e3656b36beb9f8ca21b9673cb99372b66521e7ccf2af8d4df
+worker_actual_wall_ms=4.162895
+worker_request_total_ms=2.263903
+worker_kernel_ms=0.041136
+full_flye_elapsed_seconds=20.765673444
+```
+
+Negative truncation proof:
+
+```text
+proof_fault=truncate-compact-binary-payload
+status=failed
+decision=failed-closed-before-graph-mutation
+flye_exit_status=1
+graph_mutation_consumed_worker_output=false
+total_worker_records=0
+total_substituted_chains=0
+worker_actual_wall_ms=4.150512
+worker_request_total_ms=1.519952
+full_flye_elapsed_seconds=14.521368179
+```
+
+Golden manifest:
+
+```text
+tests/golden/cuflye-m5w-read-alignment-compact-binary-substitution-scaleup-dgx-aarch64.json
+```
+
+Plain-language benefit:
+
+```text
+M5w proves the compact-binary GPU path scales from a 64-read smoke to the
+full3546 selected fixture set inside Flye. All selected chains are replaced by
+verified CUDA-derived goodChains, the final assembly artifacts still match CPU
+exactly, and corrupted payloads stop before graph mutation. The direct speed
+benefit is still limited because this seam intentionally keeps CPU goodChains
+as the live verifier; the value is that the GPU payload and substitution path
+now work at the full selected scale, which makes CPU-bypass the next meaningful
+performance step.
+```

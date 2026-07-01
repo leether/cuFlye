@@ -11,13 +11,18 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m5w-read-alignment-compact-binary-substitution-scaleup.md`:
-  scale the M5v compact-binary vector-substitution proof from selected batch64
-  to the full3546 selected read-alignment fixture set, preserve exact artifacts,
-  and measure whether broader substitution keeps the CUDA integration advantage.
+- `2026-07-01-cuflye-m5x-read-alignment-selected-cpu-bypass.md`:
+  turn the M5w full3546 guarded substitution proof into an audited selected-read
+  CPU-bypass experiment, preserving exact artifacts while measuring whether CPU
+  chain DP work is actually avoided.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m5w-read-alignment-compact-binary-substitution-scaleup.md`:
+  scale the M5v compact-binary vector-substitution proof from selected batch64
+  to the full3546 selected read-alignment fixture set, preserve exact artifacts,
+  and prove corrupted compact binary payloads still fail closed before graph
+  mutation.
 - `2026-07-01-cuflye-m5v-read-alignment-compact-binary-vector-substitution-smoke.md`:
   feed verified compact-binary CUDA-derived goodChains into Flye's selected
   `_readAlignments` slice, preserve exact artifacts, and prove mismatch or
