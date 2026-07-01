@@ -179,3 +179,5 @@ M6 read-to-graph input-boundary proof:
   `cuflye-m6b-read-to-graph-input-boundary-replay-pack-dgx-aarch64.json`
 - CUDA raw-overlap filter/sort replay manifest:
   `cuflye-m6c-cuda-raw-overlap-filter-sort-replay-dgx-aarch64.json`
+- Read-to-graph minimizer source-pack manifest:
+  `cuflye-m6d-read-to-graph-minimizer-source-pack-dgx-aarch64.json`

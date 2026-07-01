@@ -1,0 +1,217 @@
+{
+  "allowed_claim": "cuFlye can capture a deterministic read-to-graph minimizer source pack for selected Flye queries, including query sequence, VertexIndex bucket records, edge sequences, raw overlaps, and chain_input oracle rows, without changing canonical Flye artifacts.",
+  "architecture": "aarch64",
+  "build": {
+    "compiler": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+    "flye_commit": "886b8c17412c",
+    "flye_version": "2.9.6-b1802",
+    "last_patch": "0040-cuflye-read-to-graph-minimizer-source-pack.patch",
+    "make_args": [
+      "THREADS=32",
+      "aarch64=1",
+      "arm_neon=1"
+    ],
+    "patches_applied": 40
+  },
+  "fixture": "toy-hifi",
+  "flye_artifact_diff": {
+    "artifact_count": 9,
+    "artifacts": [
+      {
+        "path": "00-assembly/draft_assembly.fasta",
+        "sha256": "f24373e93e70d4e2dc26fd4e035f6f319b5c4957eb79233d74c49e63d1099af6",
+        "status": "match"
+      },
+      {
+        "path": "20-repeat/repeat_graph_dump",
+        "sha256": "62952fa5ecbf84b4f5a5470da16d95f85a962e8cb722aa532610ba87431a56ef",
+        "status": "match"
+      },
+      {
+        "path": "20-repeat/read_alignment_dump",
+        "sha256": "26740f1d782591fdcd5c5aef11f591d4559df353b7b31409b6f579caa17bffc5",
+        "status": "match"
+      },
+      {
+        "path": "20-repeat/repeat_graph_edges.fasta",
+        "sha256": "ed90d197289573e3f83c2ebd038115d9371b74d465f903ec4649caa013b4b6d3",
+        "status": "match"
+      },
+      {
+        "path": "30-contigger/graph_final.gfa",
+        "sha256": "faa40610465dc27b5a52d9ea892f61d4ad6ab5cb35ea83ab9430e63ca2084ff1",
+        "status": "match"
+      },
+      {
+        "path": "30-contigger/graph_final.fasta",
+        "sha256": "cc51357bbf92798b7c29574b809fb0926e7a4fba078183a8d40b3f919b5066b3",
+        "status": "match"
+      },
+      {
+        "path": "assembly.fasta",
+        "sha256": "59e1db047711152e2c70c03a8b7cfbdd3f2595a2dee81cd958b4ec6485158db7",
+        "status": "match"
+      },
+      {
+        "path": "assembly_info.txt",
+        "sha256": "5daa37903ecde55d19951c4f2f0f205dc1992abd59b59744e369998d07ee971f",
+        "status": "match"
+      },
+      {
+        "path": "assembly_graph.gfa",
+        "sha256": "e0c4c0d4e0d6b65936eb911a7267bbba5c68f15b2ab28ff0e66f043de3b9e40c",
+        "status": "match"
+      }
+    ],
+    "baseline_vs_source_a_status": "match",
+    "baseline_vs_source_b_status": "match"
+  },
+  "forbidden_claim": "M6d does not implement CUDA minimizer discovery, replace quickSeqOverlaps, feed replayed records into Flye graph logic, prove default GPU mode, or prove whole-Flye acceleration.",
+  "host": "dgx",
+  "hostname": "edgexpert-45d2",
+  "milestone": "M6d-read-to-graph-minimizer-source-pack",
+  "next_recommended_step": "M6e: implement a CPU minimizer-source replay gap-closure harness that consumes the M6d source pack and reconstructs Flye quickSeqOverlaps semantics as far as possible before adding a CUDA minimizer-source consumer.",
+  "remote_proof_dir": "/tmp/cuflye-m6d-proof-20260701T062142Z",
+  "source_pack": {
+    "canonical_sha256": "4b38ac5dfc40e6e4ac7308b24c1286494241954a872eac8de33a25f5ccff5e87",
+    "deterministic_diff_status": "match",
+    "missing_semantics": [
+      "KmerMatch grouping and chain DP inside OverlapDetector::getSeqOverlaps",
+      "OverlapDetector::overlapTest filtering semantics",
+      "optional nucleotide/base alignment refinement",
+      "maxOverlaps and onlyMaxExt final selection behavior"
+    ],
+    "queries": [
+      {
+        "canonical_sha256": "200a3deabdd06dd95840ef94235a759035bb7bbc21d8f3d37d6ed645df71d320",
+        "counts": {
+          "chain_input_records": 1,
+          "edge_sequence_records": 2,
+          "index_bucket_records": 1311,
+          "query_minimizers": 1544,
+          "raw_overlap_records": 1
+        },
+        "query_id": 5,
+        "query_sequence_length": 4697
+      },
+      {
+        "canonical_sha256": "fc73e4c5bd7551daa055827ffa0ee24f2717786b43150ead2a47666ce70abe2d",
+        "counts": {
+          "chain_input_records": 1,
+          "edge_sequence_records": 8,
+          "index_bucket_records": 1493,
+          "query_minimizers": 1408,
+          "raw_overlap_records": 4
+        },
+        "query_id": 6,
+        "query_sequence_length": 4297
+      },
+      {
+        "canonical_sha256": "b2fc36c85b0d8dc113d1d2bcad6574e0f3347c8b98d4ec20abe01a47d146ed95",
+        "counts": {
+          "chain_input_records": 1,
+          "edge_sequence_records": 1,
+          "index_bucket_records": 585,
+          "query_minimizers": 706,
+          "raw_overlap_records": 1
+        },
+        "query_id": 7,
+        "query_sequence_length": 2080
+      },
+      {
+        "canonical_sha256": "13bb8a8c2303c2f4f2486e9642c010ff66d9595a85c567c4b4cc4bb9b5af4b86",
+        "counts": {
+          "chain_input_records": 1,
+          "edge_sequence_records": 2,
+          "index_bucket_records": 782,
+          "query_minimizers": 925,
+          "raw_overlap_records": 1
+        },
+        "query_id": 8,
+        "query_sequence_length": 2799
+      },
+      {
+        "canonical_sha256": "afc035321389747fba79017601db91e8abbb1ef1478f23d4501cb85cb3ad80a0",
+        "counts": {
+          "chain_input_records": 1,
+          "edge_sequence_records": 2,
+          "index_bucket_records": 425,
+          "query_minimizers": 353,
+          "raw_overlap_records": 3
+        },
+        "query_id": 9,
+        "query_sequence_length": 1069
+      },
+      {
+        "canonical_sha256": "1b189ae82828603fbe81474439f762c143f4177ba5b97f8a93fa16c8320ba726",
+        "counts": {
+          "chain_input_records": 1,
+          "edge_sequence_records": 1,
+          "index_bucket_records": 506,
+          "query_minimizers": 541,
+          "raw_overlap_records": 1
+        },
+        "query_id": 10,
+        "query_sequence_length": 1612
+      },
+      {
+        "canonical_sha256": "5bed6f71d51373d4b4b0225b2162bbf7eee7cd8019f46bbc5ea85bab3bd3e2df",
+        "counts": {
+          "chain_input_records": 1,
+          "edge_sequence_records": 9,
+          "index_bucket_records": 1246,
+          "query_minimizers": 807,
+          "raw_overlap_records": 24
+        },
+        "query_id": 11,
+        "query_sequence_length": 2479
+      },
+      {
+        "canonical_sha256": "196f61a6748e2533929a2f39b19d76f99383e7f89683c458d405c97044157e91",
+        "counts": {
+          "chain_input_records": 1,
+          "edge_sequence_records": 8,
+          "index_bucket_records": 1292,
+          "query_minimizers": 1441,
+          "raw_overlap_records": 1
+        },
+        "query_id": 12,
+        "query_sequence_length": 4391
+      }
+    ],
+    "query_count": 8,
+    "query_ids": [
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "replay_status": "missing-semantics-ledger",
+    "schema": "cuflye-read-to-graph-minimizer-source-pack-validation-v0",
+    "second_export_canonical_sha256": "4b38ac5dfc40e6e4ac7308b24c1286494241954a872eac8de33a25f5ccff5e87",
+    "status": "ok",
+    "total_counts": {
+      "chain_input_records": 8,
+      "edge_sequence_records": 33,
+      "index_bucket_records": 7640,
+      "query_minimizers": 7725,
+      "raw_overlap_records": 36
+    }
+  },
+  "validation": {
+    "dgx_commands": [
+      "scripts/build_flye_cpu.sh --apply-patches --jobs 32",
+      "scripts/run_flye_fixture.sh --threads 1 baseline/source-a/source-b",
+      "tools/validate_read_to_graph_source_pack.py source-pack-a/source-pack-b",
+      "tools/diff_read_to_graph_source_packs.py source-pack-a source-pack-b",
+      "tools/diff_flye_runs.py baseline source-a/source-b"
+    ],
+    "local_syntax": "python3 -m py_compile tools/validate_read_to_graph_source_pack.py tools/diff_read_to_graph_source_packs.py",
+    "ownership_scan": "no direct new/delete/malloc/free or CUDA resource APIs in M6d files",
+    "patch_series_apply_check": "patches 0001..0040 apply cleanly from Flye 2.9.6"
+  }
+}

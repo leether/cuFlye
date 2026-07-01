@@ -306,6 +306,16 @@ Completed:
   `300.936895 ms`, so this is a correctness/integration claim, not a speed
   claim. The next useful step is a richer minimizer-source pack, not optimizing
   this tiny replay kernel.
+- M6d: Flye now has an opt-in read-to-graph minimizer source-pack capture for
+  selected queries. The DGX toy-hifi proof selected queries `5..12`, captured
+  `7725` query minimizers, `7640` VertexIndex bucket records, `33` edge
+  sequences, `36` raw-overlap oracle rows, and `8` chain-input oracle rows.
+  Two source-pack exports canonical-diffed `match` with SHA-256
+  `4b38ac5dfc40e6e4ac7308b24c1286494241954a872eac8de33a25f5ccff5e87`.
+  Baseline versus capture full Flye canonical artifact diffs both returned
+  `match`. M6d still records `missing-semantics-ledger`, so it is not a CUDA or
+  speed claim; it moves the next work from raw-overlap replay toward external
+  reconstruction of Flye `quickSeqOverlaps` semantics.
 
 Current allowed performance claim:
 
@@ -2722,8 +2732,7 @@ end-to-end GPU Flye speedup.
 Next highest-ROI task:
 
 ```text
-M6d: define and capture a richer read-to-graph minimizer-source pack with query
-sequence, graph edge sequences, VertexIndex buckets, and k-mer/minimizer
-parameters so CUDA can move from raw-overlap replay toward true
-quickSeqOverlaps candidate discovery.
+M6e: consume the M6d minimizer-source pack with an external CPU replay harness,
+close or narrow the remaining `quickSeqOverlaps` missing-semantics ledger, and
+only then promote the replayed minimizer-source path to a CUDA consumer.
 ```

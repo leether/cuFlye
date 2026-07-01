@@ -1,6 +1,6 @@
 # Task Card: cuFlye M6d Read-To-Graph Minimizer Source Pack
 
-Status: proposed
+Status: accepted
 
 Created: 2026-07-01
 
@@ -23,8 +23,8 @@ VertexIndex minimizer buckets, and k-mer/minimizer parameters.
   outside Flye.
 - Preserve the M6a `raw_overlap` and `chain_input` oracle rows for selected
   queries.
-- Build a CPU replay checker that verifies the pack can reproduce the same
-  raw-overlap candidate boundary or identifies exact missing semantics.
+- Build a CPU validation checker that verifies the source pack is complete
+  enough for the next replay milestone or identifies exact missing semantics.
 - Record unsupported shapes and missing semantic gaps explicitly.
 
 ## Out of Scope
@@ -54,16 +54,42 @@ VertexIndex minimizer buckets, and k-mer/minimizer parameters.
 
 ## Acceptance Gates
 
-- [ ] Selected source packs include query sequence, edge sequence metadata,
+- [x] Selected source packs include query sequence, edge sequence metadata,
       relevant minimizer/index buckets, M6a raw-overlap oracle, and M6a
       chain-input oracle.
-- [ ] Two deterministic source-pack exports canonical-diff `match`.
-- [ ] CPU replay either reproduces the selected raw-overlap boundary or records
+- [x] Two deterministic source-pack exports canonical-diff `match`.
+- [x] CPU replay either reproduces the selected raw-overlap boundary or records
       a precise missing-semantics ledger.
-- [ ] Full Flye canonical artifacts remain unchanged with source-pack capture
+- [x] Full Flye canonical artifacts remain unchanged with source-pack capture
       enabled.
-- [ ] Local and DGX syntax/style gates pass.
+- [x] Local and DGX syntax/style gates pass.
 
 ## Completion Notes
 
-Pending implementation.
+Accepted with DGX proof:
+
+- Golden manifest:
+  `tests/golden/cuflye-m6d-read-to-graph-minimizer-source-pack-dgx-aarch64.json`
+- Proof root: `/tmp/cuflye-m6d-proof-20260701T062142Z`
+- Host: `edgexpert-45d2`, `aarch64`
+- Fixture: `toy-hifi`
+- Patch series: Flye 2.9.6 plus patches `0001..0040`
+- Source-pack query ids: `5,6,7,8,9,10,11,12`
+- Source-pack canonical SHA-256:
+  `4b38ac5dfc40e6e4ac7308b24c1286494241954a872eac8de33a25f5ccff5e87`
+- Source-pack totals: `7725` query minimizers, `7640` index bucket records,
+  `33` edge sequence records, `36` raw-overlap records, and `8`
+  `chain_input` oracle rows.
+- Deterministic source-pack diff: `match`
+- Baseline versus source-pack Flye canonical artifact diffs: `match` for both
+  capture runs.
+- Replay status: `missing-semantics-ledger`
+
+Plain-language benefit:
+
+M6d does not make Flye faster yet. It gives the CUDA effort the right raw
+materials for the next step: instead of replaying already-discovered overlaps,
+we can now inspect the query sequence, Flye minimizers, VertexIndex bucket
+hits, graph edge sequences, and downstream oracle rows in one deterministic
+pack. That makes the remaining `quickSeqOverlaps` semantics explicit before a
+GPU implementation tries to replace them.

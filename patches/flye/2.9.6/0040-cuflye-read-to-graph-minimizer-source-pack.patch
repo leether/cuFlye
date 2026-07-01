@@ -1,0 +1,334 @@
+diff --git a/src/repeat_graph/read_aligner.cpp b/src/repeat_graph/read_aligner.cpp
+index 1a3f039..64f338d 100644
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -827,6 +827,296 @@ namespace
+ 		return buffer.str();
+ 	}
+ 
++	const char* readToGraphSourcePackDir()
++	{
++		static const char* dumpDir =
++			std::getenv("CUFLYE_READ_TO_GRAPH_SOURCE_PACK_DIR");
++		return dumpDir;
++	}
++
++	bool readToGraphSourcePackEnabled()
++	{
++		const char* dumpDir = readToGraphSourcePackDir();
++		return dumpDir && dumpDir[0];
++	}
++
++	std::unordered_set<int64_t> parseReadToGraphSourcePackQueryIds()
++	{
++		std::unordered_set<int64_t> queryIds;
++		const char* rawList =
++			std::getenv("CUFLYE_READ_TO_GRAPH_SOURCE_PACK_QUERY_IDS");
++		if (!rawList || !rawList[0])
++		{
++			throw std::runtime_error(
++				"CUFLYE_READ_TO_GRAPH_SOURCE_PACK_QUERY_IDS is required when "
++				"CUFLYE_READ_TO_GRAPH_SOURCE_PACK_DIR is set");
++		}
++		std::stringstream stream(rawList);
++		std::string token;
++		while (std::getline(stream, token, ','))
++		{
++			if (token.empty())
++			{
++				throw std::runtime_error(
++					"CUFLYE_READ_TO_GRAPH_SOURCE_PACK_QUERY_IDS contains an empty id");
++			}
++			size_t parsedChars = 0;
++			int64_t queryId = std::stoll(token, &parsedChars);
++			if (parsedChars != token.size() || queryId <= 0)
++			{
++				throw std::runtime_error(
++					"CUFLYE_READ_TO_GRAPH_SOURCE_PACK_QUERY_IDS must contain "
++					"positive decimal integers");
++			}
++			queryIds.insert(queryId);
++		}
++		if (queryIds.empty())
++		{
++			throw std::runtime_error(
++				"CUFLYE_READ_TO_GRAPH_SOURCE_PACK_QUERY_IDS must not be empty");
++		}
++		return queryIds;
++	}
++
++	const std::unordered_set<int64_t>& readToGraphSourcePackQueryIds()
++	{
++		static std::unordered_set<int64_t> queryIds =
++			parseReadToGraphSourcePackQueryIds();
++		return queryIds;
++	}
++
++	bool readToGraphSourcePackSelected(const FastaRecord::Id& seqId)
++	{
++		return readToGraphSourcePackEnabled() &&
++			   readToGraphSourcePackQueryIds().count(seqId.signedId()) > 0;
++	}
++
++	void validateReadToGraphSourcePackConfig()
++	{
++		if (!readToGraphSourcePackEnabled()) return;
++		if (Parameters::get().numThreads != 1)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph source pack dump requires --threads 1");
++		}
++		(void)readToGraphSourcePackQueryIds();
++	}
++
++	void initializeReadToGraphSourcePack()
++	{
++		if (!readToGraphSourcePackEnabled()) return;
++		ensureReplayDirectory(std::string(readToGraphSourcePackDir()));
++	}
++
++	std::string readToGraphSourcePackQueryDir(int64_t queryId)
++	{
++		return joinReplayPath(std::string(readToGraphSourcePackDir()),
++							  replayQueryDirName(queryId));
++	}
++
++	void writeReadToGraphSourcePackStableOverlap(
++		std::ofstream& output, int64_t queryId, size_t order,
++		size_t rawOverlapCount, size_t chainInputCount,
++		const OverlapRange& overlap, int64_t edgeId, bool passesFilter)
++	{
++		output << queryId << "\t"
++			   << order << "\t"
++			   << rawOverlapCount << "\t"
++			   << chainInputCount << "\t"
++			   << overlap.curId.signedId() << "\t"
++			   << overlap.curBegin << "\t"
++			   << overlap.curEnd << "\t"
++			   << overlap.curLen << "\t"
++			   << overlap.extId.signedId() << "\t"
++			   << overlap.extBegin << "\t"
++			   << overlap.extEnd << "\t"
++			   << overlap.extLen << "\t"
++			   << edgeId << "\t"
++			   << overlap.score << "\t"
++			   << overlap.seqDivergence << "\t"
++			   << (passesFilter ? 1 : 0) << "\n";
++	}
++
++	void dumpReadToGraphSourcePack(
++		const FastaRecord::Id& seqId, const SequenceContainer& readSeqs,
++		const SequenceContainer& edgeSeqs, const VertexIndex& pathsIndex,
++		const std::vector<OverlapRange>& overlaps,
++		const std::vector<EdgeAlignment>& alignments,
++		const ReadAlignmentSegmentIndex& idToSegment, int minWnd, bool useMinimizers,
++		int smallAln, int bigAln, int longEdge)
++	{
++		if (!readToGraphSourcePackSelected(seqId)) return;
++
++		std::string queryDir = readToGraphSourcePackQueryDir(seqId.signedId());
++		ensureReplayDirectory(queryDir);
++
++		const DnaSequence& querySeq = readSeqs.getSeq(seqId);
++		std::vector<KmerPosition> minimizers = yieldMinimizers(querySeq, minWnd);
++		std::vector<FastaRecord::Id> edgeSeqIds;
++		size_t repetitiveMinimizers = 0;
++		size_t indexBucketRecords = 0;
++
++		{
++			std::ofstream queryOut(joinReplayPath(queryDir, "query.tsv"));
++			queryOut << "# schema=cuflye-read-to-graph-source-query-v0\n";
++			queryOut << "query_id\tsequence\n";
++			queryOut << seqId.signedId() << "\t" << querySeq.str() << "\n";
++		}
++
++		{
++			std::ofstream minimizerOut(
++				joinReplayPath(queryDir, "query-minimizers.tsv"));
++			std::ofstream bucketOut(joinReplayPath(queryDir, "index-buckets.tsv"));
++			minimizerOut << "# schema=cuflye-read-to-graph-source-minimizer-v0\n";
++			minimizerOut << "query_id\tquery_pos\tquery_kmer_repr\t"
++							"standard_kmer_repr\tstandard_revcomp\tis_repetitive\t"
++							"kmer_freq\n";
++			bucketOut << "# schema=cuflye-read-to-graph-source-index-bucket-v0\n";
++			bucketOut << "query_id\tquery_pos\tstandard_kmer_repr\t"
++						 "target_edge_seq_id\ttarget_pos\n";
++
++			for (auto kmerPos : minimizers)
++			{
++				Kmer standardKmer = kmerPos.kmer;
++				bool standardRevComp = standardKmer.standardForm();
++				bool isRepetitive = pathsIndex.isRepetitive(kmerPos.kmer);
++				size_t kmerFreq = pathsIndex.kmerFreq(kmerPos.kmer);
++				if (isRepetitive) ++repetitiveMinimizers;
++				minimizerOut << seqId.signedId() << "\t"
++							 << kmerPos.position << "\t"
++							 << kmerPos.kmer.numRepr() << "\t"
++							 << standardKmer.numRepr() << "\t"
++							 << (standardRevComp ? 1 : 0) << "\t"
++							 << (isRepetitive ? 1 : 0) << "\t"
++							 << kmerFreq << "\n";
++				if (isRepetitive || !kmerFreq) continue;
++				for (const auto& targetPos : pathsIndex.iterKmerPos(kmerPos.kmer))
++				{
++					bucketOut << seqId.signedId() << "\t"
++							  << kmerPos.position << "\t"
++							  << standardKmer.numRepr() << "\t"
++							  << targetPos.readId.signedId() << "\t"
++							  << targetPos.position << "\n";
++					edgeSeqIds.push_back(targetPos.readId);
++					++indexBucketRecords;
++				}
++			}
++		}
++
++		{
++			std::ofstream rawOut(joinReplayPath(queryDir, "raw-overlaps.tsv"));
++			rawOut << "# schema=cuflye-read-to-graph-raw-overlap-v0\n";
++			rawOut << "query_id\tsource_order\traw_overlap_count\t"
++					  "chain_input_count\tread_id\tread_begin\tread_end\t"
++					  "read_len\tedge_seq_id\tedge_begin\tedge_end\tedge_len\t"
++					  "edge_id\tscore\tseq_divergence\tpasses_chain_input_filter\n";
++			rawOut << std::setprecision(9);
++			for (size_t recordId = 0; recordId < overlaps.size(); ++recordId)
++			{
++				const auto& overlap = overlaps[recordId];
++				bool passesFilter = readAlignmentInputBoundaryPassesFilter(
++					overlap, longEdge, bigAln);
++				int64_t edgeId =
++					readAlignmentInputBoundaryEdgeId(overlap, idToSegment);
++				writeReadToGraphSourcePackStableOverlap(
++					rawOut, seqId.signedId(), recordId, overlaps.size(),
++					alignments.size(), overlap, edgeId, passesFilter);
++				edgeSeqIds.push_back(overlap.extId);
++			}
++		}
++
++		{
++			std::ofstream chainOut(
++				joinReplayPath(queryDir, "oracle.chain-input.tsv"));
++			chainOut << "# schema=cuflye-read-to-graph-chain-input-v0\n";
++			chainOut << "query_id\torder\traw_overlap_count\tchain_input_count\t"
++						"read_id\tread_begin\tread_end\tread_len\tedge_seq_id\t"
++						"edge_begin\tedge_end\tedge_len\tedge_id\tscore\t"
++						"seq_divergence\tpasses_chain_input_filter\n";
++			chainOut << std::setprecision(9);
++			for (size_t recordId = 0; recordId < alignments.size(); ++recordId)
++			{
++				const auto& alignment = alignments[recordId];
++				writeReadToGraphSourcePackStableOverlap(
++					chainOut, seqId.signedId(), recordId, overlaps.size(),
++					alignments.size(), alignment.overlap,
++					alignment.edge->edgeId.signedId(), true);
++				edgeSeqIds.push_back(alignment.overlap.extId);
++			}
++		}
++
++		std::sort(edgeSeqIds.begin(), edgeSeqIds.end());
++		edgeSeqIds.erase(std::unique(edgeSeqIds.begin(), edgeSeqIds.end()),
++						 edgeSeqIds.end());
++		{
++			std::ofstream edgeOut(joinReplayPath(queryDir, "edge-sequences.tsv"));
++			edgeOut << "# schema=cuflye-read-to-graph-source-edge-sequence-v0\n";
++			edgeOut << "edge_seq_id\tedge_seq_len\tsequence\n";
++			for (const auto& edgeSeqId : edgeSeqIds)
++			{
++				const DnaSequence& edgeSeq = edgeSeqs.getSeq(edgeSeqId);
++				edgeOut << edgeSeqId.signedId() << "\t"
++						<< edgeSeq.length() << "\t"
++						<< edgeSeq.str() << "\n";
++			}
++		}
++
++		std::ostringstream missing;
++		missing << "{\n"
++				<< "  \"schema\": \"cuflye-read-to-graph-missing-semantics-v0\",\n"
++				<< "  \"status\": \"missing-semantics-ledger\",\n"
++				<< "  \"missing\": [\n"
++				<< "    \"KmerMatch grouping and chain DP inside "
++				   "OverlapDetector::getSeqOverlaps\",\n"
++				<< "    \"OverlapDetector::overlapTest filtering semantics\",\n"
++				<< "    \"optional nucleotide/base alignment refinement\",\n"
++				<< "    \"maxOverlaps and onlyMaxExt final selection behavior\"\n"
++				<< "  ]\n"
++				<< "}\n";
++		writeReadAlignmentTextFile(joinReplayPath(queryDir, "missing-semantics.json"),
++								   missing.str());
++
++		std::ostringstream manifest;
++		manifest << "{\n"
++				 << "  \"schema\": \"cuflye-read-to-graph-minimizer-source-pack-v0\",\n"
++				 << "  \"query_id\": " << seqId.signedId() << ",\n"
++				 << "  \"parameters\": {\n"
++				 << "    \"kmer_size\": " << Parameters::get().kmerSize << ",\n"
++				 << "    \"use_minimizers\": " << readAlignmentBoolJson(useMinimizers)
++				 << ",\n"
++				 << "    \"minimizer_window\": " << minWnd << ",\n"
++				 << "    \"maximum_jump\": " << static_cast<int>(Config::get("maximum_jump")) << ",\n"
++				 << "    \"minimum_overlap\": " << Parameters::get().minimumOverlap << ",\n"
++				 << "    \"small_alignment_threshold\": " << smallAln << ",\n"
++				 << "    \"big_alignment_threshold\": " << bigAln << ",\n"
++				 << "    \"long_edge_threshold\": " << longEdge << ",\n"
++				 << "    \"hpc_scoring_on\": "
++				 << readAlignmentBoolJson((bool)Config::get("hpc_scoring_on"))
++				 << "\n"
++				 << "  },\n"
++				 << "  \"counts\": {\n"
++				 << "    \"query_minimizers\": " << minimizers.size() << ",\n"
++				 << "    \"repetitive_minimizers\": " << repetitiveMinimizers << ",\n"
++				 << "    \"index_bucket_records\": " << indexBucketRecords << ",\n"
++				 << "    \"edge_sequence_records\": " << edgeSeqIds.size() << ",\n"
++				 << "    \"raw_overlap_records\": " << overlaps.size() << ",\n"
++				 << "    \"chain_input_records\": " << alignments.size() << "\n"
++				 << "  },\n"
++				 << "  \"files\": {\n"
++				 << "    \"query\": \"query.tsv\",\n"
++				 << "    \"query_minimizers\": \"query-minimizers.tsv\",\n"
++				 << "    \"index_buckets\": \"index-buckets.tsv\",\n"
++				 << "    \"edge_sequences\": \"edge-sequences.tsv\",\n"
++				 << "    \"raw_overlaps\": \"raw-overlaps.tsv\",\n"
++				 << "    \"oracle_chain_input\": \"oracle.chain-input.tsv\",\n"
++				 << "    \"missing_semantics\": \"missing-semantics.json\"\n"
++				 << "  },\n"
++				 << "  \"replay_status\": \"missing-semantics-ledger\"\n"
++				 << "}\n";
++		writeReadAlignmentTextFile(joinReplayPath(queryDir, "manifest.json"),
++								   manifest.str());
++	}
++
+ 	void renameReadAlignmentPath(const std::string& from,
+ 								 const std::string& to)
+ 	{
+@@ -4573,10 +4863,12 @@ void ReadAligner::alignReads()
+ {
+ 	validateReadAlignmentDumpConfig();
+ 	validateReadAlignmentInputBoundaryDumpConfig();
++	validateReadToGraphSourcePackConfig();
+ 	validateReadAlignmentReplayDumpConfig();
+ 	validateReadAlignmentWorkerConfig();
+ 	validateReadAlignmentPreDivergenceChainConfig();
+ 	initializeReadAlignmentInputBoundaryDump();
++	initializeReadToGraphSourcePack();
+ 
+ 	static const int SMALL_ALN = 100;
+ 	static const int BIG_ALN = 500;
+@@ -4635,7 +4927,7 @@ void ReadAligner::alignReads()
+ 	std::function<void(const FastaRecord::Id&)> alignRead = 
+ 	[this, &indexMutex, &numAligned, &readsOverlaps,
+ 		&idToSegment, &alignedLength, &alignedInFull, &divergenceStats,
+-		&preDivergenceBatchFixtures]
++		&preDivergenceBatchFixtures, &pathsIndex, minWnd, useMinimizers]
+ 	(const FastaRecord::Id& seqId)
+ 	{
+ 		auto quickOverlapStart = std::chrono::steady_clock::now();
+@@ -4701,6 +4993,10 @@ void ReadAligner::alignReads()
+ 			seqId, overlaps, alignments, idToSegment, quickOverlapWallMs,
+ 			inputFilterSortWallMs, cpuChainDpWallMs,
+ 			cpuDivergenceFilterWallMs, LONG_EDGE, BIG_ALN);
++		dumpReadToGraphSourcePack(
++			seqId, _readSeqs, _graph.edgeSequences(), pathsIndex, overlaps,
++			alignments, idToSegment, minWnd, useMinimizers, SMALL_ALN, BIG_ALN,
++			LONG_EDGE);
+ 		auto replayDumpStart = std::chrono::steady_clock::now();
+ 		dumpReadAlignmentReplayFixture(seqId, alignments, readChains,
+ 									   chainDivergences, goodChains, _readSeqs,
