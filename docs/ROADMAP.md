@@ -338,6 +338,19 @@ Completed:
   artifact diffs still returned `match`. The remaining gap is a single query
   `11` / edge sequence `-3587` ordering/tie/primary-selection mismatch, not
   source completeness.
+- M6g: the external full-query-hit replay now models libstdc++
+  `std::sort` equal-key behavior at the KmerMatch, score-order, and
+  primary-overlap ordering points used by Flye. The DGX proof reused the M6f
+  source pack, validated deterministic source-pack A/B SHA-256
+  `16f4ced6054e7e4491071a1a7512760424a1e4fbc157e532ddb7c9e2aac53e5f`,
+  replayed A/B to deterministic raw-overlap SHA-256
+  `2e1201a2e768ed682afc6b0feb90d50aeeea8ad66597861c6c61ba062a34e420`, and
+  reached row-key `36/36` equality for read/edge coordinates and score.
+  Geometry also matched `36/36`, while all `36` rows still report non-key field
+  differences for fields such as `seq_divergence` and `edge_id`. Baseline
+  versus capture full Flye artifact diffs remained `match`. M6g is not a CUDA
+  or speed claim; it removes the last ordering blocker before a CUDA
+  full-query-hit replay consumer.
 
 Current allowed performance claim:
 
@@ -483,6 +496,11 @@ compact-binary CUDA-derived `goodChains`, and preserve exact canonical Flye
 artifacts for the full3546 toy-hifi set. M5y does not prove whole-Flye
 acceleration; it proves the next high-ROI CUDA boundary should move earlier to
 read-to-graph overlap/minimizer candidate generation.
+
+cuFlye can now replay the selected read-to-graph full-query-hit source pack to
+row-key equality after modeling Flye's libstdc++ equal-key sort behavior. This
+is a CPU replay correctness claim for raw-overlap coordinates and scores, not a
+CUDA speed claim and not full non-key field reproduction.
 ```
 
 Current forbidden claim:
@@ -2751,10 +2769,62 @@ claim is local correctness plus a small scoped speed win, not a meaningful
 end-to-end GPU Flye speedup.
 ```
 
+M6g accepted result:
+
+```text
+cuFlye's external full-query-hit replay now models Flye's libstdc++
+std::sort equal-key ordering and reaches row-key equality for the selected
+read-to-graph raw-overlap source pack.
+```
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m6g-proof-20260701T065424Z
+golden=tests/golden/cuflye-m6g-query-hit-replay-tie-closure-dgx-aarch64.json
+source_pack_canonical_sha256=16f4ced6054e7e4491071a1a7512760424a1e4fbc157e532ddb7c9e2aac53e5f
+source_pack_ab_canonical_match=true
+replay_raw_overlaps_sha256=2e1201a2e768ed682afc6b0feb90d50aeeea8ad66597861c6c61ba062a34e420
+replay_ab_raw_overlap_match=true
+replay_status=match
+row_key_exact_match=true
+geometry_match=true
+matched_rows=36
+missing_rows=0
+extra_rows=0
+non_key_field_mismatch_rows=36
+baseline_vs_source_a=match
+baseline_vs_source_b=match
+```
+
+Allowed M6g claim:
+
+```text
+cuFlye can replay the selected M6f full-query-hit source pack to row-key
+equality for read/edge coordinates and scores while preserving deterministic
+source-pack and replay hashes.
+```
+
+Forbidden M6g claim:
+
+```text
+M6g does not prove CUDA replay, full non-key field reproduction, graph
+consumption, default GPU mode, or whole-Flye speedup.
+```
+
+Plain-language benefit:
+
+```text
+M6g does not make Flye faster yet. It removes the last "why does the replay not
+match Flye?" blocker by modeling the C++ sorting detail that changed one query
+and edge. The next CUDA step now has a clean target: reproduce the same
+coordinates and scores from full query-hit input.
+```
+
 Next highest-ROI task:
 
 ```text
-M6g: close or precisely bound the final full-query-hit replay mismatch around
-query `11` / edge sequence `-3587`, then move the exact replay boundary toward
-a CUDA full-query-hit consumer.
+M6h: build the first CUDA full-query-hit replay consumer that emits M6g
+row-key-compatible raw-overlap records for the selected source pack, with
+unsupported shapes failing closed and no speed claim until parity is proven.
 ```

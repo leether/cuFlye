@@ -1,0 +1,62 @@
+{
+  "arch": "aarch64",
+  "artifact_diffs": {
+    "baseline_vs_source_a": "match",
+    "baseline_vs_source_b": "match"
+  },
+  "determinism": {
+    "replay_ab_raw_overlap_match": true,
+    "source_pack_ab_canonical_match": true
+  },
+  "geometry_match": true,
+  "host": "edgexpert-45d2",
+  "notes": [
+    "M6g reuses M6f source-pack and Flye artifact proof outputs; no Flye rebuild is required because only the external replay tool changed.",
+    "Row-key equality covers read/edge coordinates and score; non-key fields are reported separately."
+  ],
+  "proof_root": "/tmp/cuflye-m6g-proof-20260701T065424Z",
+  "remaining_semantics": [
+    "row-key equality covers read and edge coordinates plus score; seq_divergence, edge_id mapping, and downstream chain-input filtering remain oracle-only fields in this replay",
+    "C++ libstdc++ std::sort equal-key ordering is modeled for replay-only diagnostics and must stay diff-gated"
+  ],
+  "replay_raw_overlaps_sha256": "2e1201a2e768ed682afc6b0feb90d50aeeea8ad66597861c6c61ba062a34e420",
+  "replay_source_match_modes": [
+    "full-query-hits"
+  ],
+  "replay_status": "match",
+  "replay_totals": {
+    "extra_rows": 0,
+    "geometry_extra_rows": 0,
+    "geometry_matched_rows": 36,
+    "geometry_missing_rows": 0,
+    "matched_rows": 36,
+    "missing_rows": 0,
+    "non_key_field_mismatch_rows": 36,
+    "oracle_raw_overlap_records": 36,
+    "replay_raw_overlap_records": 36,
+    "source_ext_groups": 33,
+    "source_match_records": 7747
+  },
+  "row_key_exact_match": true,
+  "schema": "cuflye-m6g-query-hit-replay-tie-closure-proof-v0",
+  "source_pack_canonical_sha256": "16f4ced6054e7e4491071a1a7512760424a1e4fbc157e532ddb7c9e2aac53e5f",
+  "source_pack_query_ids": [
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+  ],
+  "source_pack_total_counts": {
+    "chain_input_records": 8,
+    "edge_sequence_records": 33,
+    "full_query_hit_records": 7747,
+    "index_bucket_records": 7640,
+    "query_minimizers": 7725,
+    "raw_overlap_records": 36
+  },
+  "status": "passed"
+}

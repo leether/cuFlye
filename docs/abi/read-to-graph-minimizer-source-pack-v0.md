@@ -141,9 +141,13 @@ for the read-to-graph detector shape:
 - apply primary-overlap containment filtering for `onlyMaxExt=false`;
 - apply the read-to-graph detector divergence gate with `maxDivergence=1.0`.
 
-The M6e status is `match` only when replayed raw-overlap rows match the oracle
-exactly. Otherwise it is `gap-ledger`: the replay is deterministic and records
-the exact row-level differences plus the narrowed missing-semantics ledger.
+The replay `match` status is a row-key match: read id, read coordinates, read
+length, edge-sequence id, edge coordinates, edge length, and score must match
+the oracle in order. Non-key fields such as `seq_divergence`, `edge_id`,
+`source_order`, and downstream chain-input flags are compared separately in the
+summary ledger. Otherwise the status is `gap-ledger`: the replay is
+deterministic and records the exact row-key differences plus the narrowed
+missing-semantics ledger.
 
 For the accepted M6e proof, the main remaining gap is source completeness:
 M6d captures minimizer bucket hits, while Flye's CPU path iterates all query
@@ -155,3 +159,28 @@ minimizer-only stream is sufficient for a narrower supported shape.
 
 M6f adds `full-query-hits.tsv` to remove that source-completeness gap while
 preserving the older M6d files for compatibility.
+
+## M6g Replay Tie-Closure Contract
+
+M6g keeps the M6f pack layout unchanged and updates the external replay model.
+Flye uses libstdc++ `std::sort` with comparators that do not fully order equal
+keys at several points:
+
+- `KmerMatch` records by target `FastaRecord::Id` and query position;
+- long target groups by target position;
+- DP backtrack starts by descending score;
+- primary-overlap candidates by descending score.
+
+The Python replay intentionally models libstdc++ `std::sort` equal-key behavior
+for this diagnostic boundary so selected rows are compared against the same
+implementation behavior as the DGX Flye build. This is a replay oracle detail,
+not a promise that future CUDA kernels may use nondeterministic ordering. CUDA
+outputs must either pre-normalize to this row order or prove a deterministic
+ordering that preserves the same row-key output under the diff gate.
+
+The accepted M6g DGX proof reaches row-key `36/36` equality and geometry
+`36/36` equality for selected queries `5..12`. It still reports
+`non_key_field_mismatch_rows=36`, because `seq_divergence`, `edge_id`, and
+chain-input filter fields are not recomputed by this replay harness. A future
+milestone must explicitly extend the source/replay contract before claiming
+full raw-overlap field equality.

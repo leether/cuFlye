@@ -11,12 +11,16 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m6g-query-hit-replay-tie-closure.md`:
-  close or precisely bound the final M6f full-query-hit replay mismatch around
-  query `11` / edge sequence `-3587` before CUDA consumer work resumes.
+- `2026-07-01-cuflye-m6h-cuda-full-query-hit-replay-consumer.md`:
+  build the first CUDA consumer for the M6g full-query-hit replay boundary,
+  emitting row-key-compatible raw-overlap records for the selected source pack.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m6g-query-hit-replay-tie-closure.md`:
+  model libstdc++ `std::sort` equal-key ordering in the external replay
+  harness, close the final M6f query `11` / edge sequence `-3587` mismatch, and
+  reach row-key `36/36` equality while keeping non-key fields in a ledger.
 - `2026-07-01-cuflye-m6f-full-query-hit-source-pack.md`:
   extend read-to-graph capture from query minimizer hits to the full Flye
   `IterKmers` query-hit stream, preserve exact Flye artifacts, and improve

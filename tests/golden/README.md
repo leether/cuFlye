@@ -185,3 +185,5 @@ M6 read-to-graph input-boundary proof:
   `cuflye-m6e-minimizer-source-replay-gap-closure-dgx-aarch64.json`
 - Full query-hit source-pack manifest:
   `cuflye-m6f-full-query-hit-source-pack-dgx-aarch64.json`
+- Query-hit replay tie-closure manifest:
+  `cuflye-m6g-query-hit-replay-tie-closure-dgx-aarch64.json`

@@ -10,7 +10,7 @@ import json
 import math
 from pathlib import Path
 import sys
-from typing import Any
+from typing import Any, Callable
 
 from validate_read_to_graph_source_pack import validate_pack
 
@@ -29,6 +29,17 @@ MAX_JUMP_GAP = 500
 MIN_KMER_SURVIVAL_RATE = 0.01
 SAMPLE_RATE = 1.0
 MAX_DIVERGENCE = 1.0
+CPP_SORT_THRESHOLD = 16
+EXT_SORT_MODE = "libstdcxx-std-sort-ext-pos-asc"
+CUR_SORT_MODE = "libstdcxx-std-sort-ext-id-asc-cur-pos-asc"
+NON_KEY_FIELDS = (
+    "source_order",
+    "raw_overlap_count",
+    "chain_input_count",
+    "edge_id",
+    "seq_divergence",
+    "passes_chain_input_filter",
+)
 
 
 @dataclass(frozen=True)
@@ -79,6 +90,117 @@ def signed_to_internal_id(signed_id: int) -> int:
 
 def rc_signed_id(signed_id: int) -> int:
     return -signed_id
+
+
+def cpp_sort_in_place(items: list[Any], less: Callable[[Any, Any], bool]) -> None:
+    """Mirror libstdc++ std::sort ordering for equal-key replay diagnostics."""
+
+    def iter_swap(left: int, right: int) -> None:
+        items[left], items[right] = items[right], items[left]
+
+    def move_median_to_first(result: int, left: int, mid: int, right: int) -> None:
+        if less(items[left], items[mid]):
+            if less(items[mid], items[right]):
+                iter_swap(result, mid)
+            elif less(items[left], items[right]):
+                iter_swap(result, right)
+            else:
+                iter_swap(result, left)
+        elif less(items[left], items[right]):
+            iter_swap(result, left)
+        elif less(items[mid], items[right]):
+            iter_swap(result, right)
+        else:
+            iter_swap(result, mid)
+
+    def unguarded_partition(first: int, last: int, pivot: int) -> int:
+        while True:
+            while less(items[first], items[pivot]):
+                first += 1
+            last -= 1
+            while less(items[pivot], items[last]):
+                last -= 1
+            if not first < last:
+                return first
+            iter_swap(first, last)
+            first += 1
+
+    def unguarded_partition_pivot(first: int, last: int) -> int:
+        mid = first + (last - first) // 2
+        move_median_to_first(first, first + 1, mid, last - 1)
+        return unguarded_partition(first + 1, last, first)
+
+    def unguarded_linear_insert(last: int) -> None:
+        value = items[last]
+        next_pos = last - 1
+        while less(value, items[next_pos]):
+            items[last] = items[next_pos]
+            last = next_pos
+            next_pos -= 1
+        items[last] = value
+
+    def insertion_sort(first: int, last: int) -> None:
+        if first == last:
+            return
+        for index in range(first + 1, last):
+            if less(items[index], items[first]):
+                value = items[index]
+                move_pos = index
+                while move_pos > first:
+                    items[move_pos] = items[move_pos - 1]
+                    move_pos -= 1
+                items[first] = value
+            else:
+                unguarded_linear_insert(index)
+
+    def unguarded_insertion_sort(first: int, last: int) -> None:
+        for index in range(first, last):
+            unguarded_linear_insert(index)
+
+    def final_insertion_sort(first: int, last: int) -> None:
+        if last - first > CPP_SORT_THRESHOLD:
+            insertion_sort(first, first + CPP_SORT_THRESHOLD)
+            unguarded_insertion_sort(first + CPP_SORT_THRESHOLD, last)
+        else:
+            insertion_sort(first, last)
+
+    def introsort_loop(first: int, last: int, depth_limit: int) -> None:
+        while last - first > CPP_SORT_THRESHOLD:
+            if depth_limit == 0:
+                items[first:last] = sorted(items[first:last], key=CmpToKey(less))
+                return
+            depth_limit -= 1
+            cut = unguarded_partition_pivot(first, last)
+            introsort_loop(cut, last, depth_limit)
+            last = cut
+
+    if len(items) < 2:
+        return
+    depth = 2 * (len(items).bit_length() - 1)
+    introsort_loop(0, len(items), depth)
+    final_insertion_sort(0, len(items))
+
+
+class CmpToKey:
+    def __init__(self, less: Callable[[Any, Any], bool]) -> None:
+        self.less = less
+        self.obj: Any | None = None
+
+    def __call__(self, obj: Any) -> "CmpToKey":
+        key = CmpToKey(self.less)
+        key.obj = obj
+        return key
+
+    def __lt__(self, other: "CmpToKey") -> bool:
+        return self.less(self.obj, other.obj)
+
+
+def less_match_by_ext_id_cur_pos(left: Match, right: Match) -> bool:
+    left_id = signed_to_internal_id(left.ext_id)
+    right_id = signed_to_internal_id(right.ext_id)
+    if left_id != right_id:
+        return left_id < right_id
+    return left.cur_pos < right.cur_pos
 
 
 def sha256_text(text: str) -> str:
@@ -140,9 +262,7 @@ def read_full_hit_matches(query_dir: Path, query_id: int) -> list[Match]:
         if ext_id == query_id and ext_pos == cur_pos:
             continue
         matches.append(Match(cur_pos, ext_pos, ext_id, kmer_repr, source_order))
-    matches.sort(
-        key=lambda item: (signed_to_internal_id(item.ext_id), item.cur_pos, item.source_order)
-    )
+    cpp_sort_in_place(matches, less_match_by_ext_id_cur_pos)
     return matches
 
 
@@ -162,7 +282,7 @@ def read_bucket_matches(query_dir: Path, query_id: int) -> list[Match]:
         if ext_id == query_id and ext_pos == cur_pos:
             continue
         matches.append(Match(cur_pos, ext_pos, ext_id, kmer_repr, order))
-    matches.sort(key=lambda item: (signed_to_internal_id(item.ext_id), item.cur_pos))
+    cpp_sort_in_place(matches, less_match_by_ext_id_cur_pos)
     return matches
 
 
@@ -241,6 +361,7 @@ def replay_group(
     min_overlap: int,
     force_local: bool,
 ) -> tuple[list[Overlap], dict[str, Any]]:
+    ext_sorted = ext_len > query_len
     unique_matches = 0
     prev_pos = 0
     for match in group:
@@ -256,6 +377,7 @@ def replay_group(
         "dp_proposals": 0,
         "primary_overlaps": 0,
         "detected_overlaps": 0,
+        "match_sort_mode": EXT_SORT_MODE if ext_sorted else CUR_SORT_MODE,
     }
     if unique_matches < MIN_KMER_SURVIVAL_RATE * min_overlap:
         group_summary["prefilter_status"] = "too-few-unique-matches"
@@ -271,9 +393,8 @@ def replay_group(
     group_summary["prefilter_status"] = "passed"
 
     matches = list(group)
-    ext_sorted = ext_len > query_len
     if ext_sorted:
-        matches.sort(key=lambda item: item.ext_pos)
+        cpp_sort_in_place(matches, lambda left, right: left.ext_pos < right.ext_pos)
 
     score_table = [0] * len(matches)
     backtrack_table = [-1] * len(matches)
@@ -315,7 +436,10 @@ def replay_group(
             backtrack_table[i] = max_id
 
     ext_overlaps: list[Overlap] = []
-    ordered_scores = sorted(range(len(backtrack_table)), key=lambda idx: (-score_table[idx], idx))
+    ordered_scores = list(range(len(backtrack_table)))
+    cpp_sort_in_place(
+        ordered_scores, lambda left, right: score_table[left] > score_table[right]
+    )
     for chain_start in ordered_scores:
         if backtrack_table[chain_start] == -1:
             continue
@@ -354,7 +478,7 @@ def replay_group(
             ext_overlaps.append(overlap)
 
     group_summary["dp_proposals"] = len(ext_overlaps)
-    ext_overlaps.sort(key=lambda row: row.score, reverse=True)
+    cpp_sort_in_place(ext_overlaps, lambda left, right: left.score > right.score)
     primary: list[Overlap] = []
     for overlap in ext_overlaps:
         contained = any(overlap.contained_by(prim) and prim.score > overlap.score for prim in primary)
@@ -496,6 +620,29 @@ def compare_rows(oracle_rows: list[dict[str, Any]], replay_rows: list[dict[str, 
         row for row in replay_rows if geometry_key(row) not in oracle_geometry_set
     ]
     geometry_ordered_match = oracle_geometry == replay_geometry
+    replay_by_key = {row_key(row): row for row in replay_rows}
+    non_key_field_mismatches = []
+    for row in oracle_rows:
+        key = row_key(row)
+        replay_row = replay_by_key.get(key)
+        if replay_row is None:
+            continue
+        diff_fields = []
+        for field in NON_KEY_FIELDS:
+            if field == "seq_divergence":
+                if abs(row[field] - replay_row[field]) > 1e-6:
+                    diff_fields.append(field)
+            elif row[field] != replay_row[field]:
+                diff_fields.append(field)
+        if diff_fields:
+            non_key_field_mismatches.append(
+                {
+                    "row_key": list(key),
+                    "fields": diff_fields,
+                    "oracle": {field: row[field] for field in diff_fields},
+                    "replay": {field: replay_row[field] for field in diff_fields},
+                }
+            )
     return {
         "status": "match" if ordered_match else "mismatch",
         "ordered_match": ordered_match,
@@ -511,6 +658,9 @@ def compare_rows(oracle_rows: list[dict[str, Any]], replay_rows: list[dict[str, 
         "geometry_extra_rows": len(geometry_extra),
         "geometry_missing_examples": geometry_missing[:5],
         "geometry_extra_examples": geometry_extra[:5],
+        "non_key_fields_compared": list(NON_KEY_FIELDS),
+        "non_key_field_mismatch_rows": len(non_key_field_mismatches),
+        "non_key_field_mismatch_examples": non_key_field_mismatches[:5],
     }
 
 
@@ -555,8 +705,8 @@ def build_missing_semantics(query_summaries: list[dict[str, Any]]) -> list[str]:
     uses_full_hits = source_modes == {"full-query-hits"}
     if all(item["comparison"]["status"] == "match" for item in query_summaries):
         return [
-            "edge_id mapping and downstream chain-input filtering are validated by existing oracle rows, not recomputed in this replay",
-            "C++ std::sort tie ordering is modeled deterministically by replay source order and must stay diff-gated",
+            "row-key equality covers read and edge coordinates plus score; seq_divergence, edge_id mapping, and downstream chain-input filtering remain oracle-only fields in this replay",
+            "C++ libstdc++ std::sort equal-key ordering is modeled for replay-only diagnostics and must stay diff-gated",
         ]
     if all(
         item["comparison"]["geometry_status"] == "match" for item in query_summaries
@@ -605,6 +755,9 @@ def replay_pack(pack_root: Path, output_dir: Path | None) -> dict[str, Any]:
         "geometry_extra_rows": sum(
             item["comparison"]["geometry_extra_rows"] for item in queries
         ),
+        "non_key_field_mismatch_rows": sum(
+            item["comparison"]["non_key_field_mismatch_rows"] for item in queries
+        ),
     }
     exact_match = all(item["comparison"]["status"] == "match" for item in queries)
     geometry_match = all(
@@ -616,6 +769,7 @@ def replay_pack(pack_root: Path, output_dir: Path | None) -> dict[str, Any]:
         "schema": REPLAY_SCHEMA,
         "status": status,
         "exact_match": exact_match,
+        "row_key_exact_match": exact_match,
         "geometry_match": geometry_match,
         "pack_root": str(pack_root.resolve()),
         "pack_validation_sha256": validation["canonical_sha256"],
