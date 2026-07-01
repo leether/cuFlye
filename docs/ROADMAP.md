@@ -1788,10 +1788,67 @@ M5l does not prove default GPU mode, replacement of Flye _readAlignments, graph
 mutation consumption, or end-to-end Flye acceleration.
 ```
 
+M5m accepted result:
+
+```text
+cuFlye can substitute a verified CUDA-derived GraphAlignment object vector for a
+small selected _readAlignments slice, preserve exact Flye artifacts, and fail
+closed on mismatch before graph mutation.
+```
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m5m-proof-20260701T013646Z
+positive_query_ids=5,47,200,204
+worker_validation_status=passed
+graph_guard_status=passed
+read_alignment_rehydration_status=passed
+read_alignment_object_rehydration_status=passed
+read_alignment_vector_substitution_status=passed
+read_alignment_vector_substitution_state=consumed
+total_cpu_records=7
+total_object_records=7
+total_substituted_chains=4
+graph_facing_returned_worker_output=true
+graph_mutation_consumed_worker_output=true
+positive_vs_cpu_canonical_diff=match
+```
+
+The DGX negative proof enabled
+`CUFLYE_READ_ALIGNMENT_VECTOR_SUBSTITUTION_PROOF_FAULT=drop-first-substitution-chain`
+for query ids `5,47`. Worker validation, graph guard, typed rehydration, and
+object-vector rehydration passed first. Vector substitution then failed closed
+with:
+
+```text
+read_alignment_vector_substitution_status=failed
+read_alignment_vector_substitution_state=failed-closed
+read_alignment_vector_substitution_decision=failed-closed-before-graph-mutation
+graph_facing_returned_worker_output=false
+graph_mutation_consumed_worker_output=false
+```
+
+Allowed M5m claim:
+
+```text
+cuFlye can let verified CUDA-derived read-alignment output cross the first real
+Flye _readAlignments consumption boundary for a selected tiny slice, while
+preserving exact canonical Flye artifacts and fail-closing before graph mutation
+on mismatch.
+```
+
+Forbidden M5m claim:
+
+```text
+M5m does not prove default GPU mode, broad _readAlignments replacement, removal
+of CPU read alignment, or end-to-end Flye acceleration.
+```
+
 Next highest-ROI task:
 
 ```text
-M5m: define a guarded read-alignment object-vector substitution smoke for an
-allowlisted tiny slice, preserving exact artifacts and still failing closed on
-any mismatch before repeat-graph mutation.
+M5n: reduce duplicate CPU work around the read-alignment substitution path by
+introducing a guarded GPU-first read-alignment planner for selected safe slices,
+with artifact parity and fail-closed gates preserved.
 ```

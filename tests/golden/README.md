@@ -144,3 +144,5 @@ M5 read-to-graph alignment proof:
   `cuflye-m5k-read-alignment-typed-rehydration-dry-run-dgx-aarch64.json`
 - Read alignment GraphAlignment object-vector dry-run manifest:
   `cuflye-m5l-read-alignment-graph-alignment-object-vector-dry-run-dgx-aarch64.json`
+- Read alignment vector substitution smoke manifest:
+  `cuflye-m5m-read-alignment-vector-substitution-smoke-dgx-aarch64.json`

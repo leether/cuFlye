@@ -1,0 +1,230 @@
+{
+  "schema": "cuflye-golden-proof-v1",
+  "status": "accepted",
+  "title": "cuFlye M5m read-alignment vector substitution smoke proof",
+  "milestone": "M5m-read-alignment-vector-substitution-smoke",
+  "proof_dir": "/tmp/cuflye-m5m-proof-20260701T013646Z",
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+    "architecture": "aarch64",
+    "nvidia_smi": "GPU 0: NVIDIA GB10 (UUID: GPU-36e1e91e-fa5c-6e0d-d076-203391a7bb03)",
+    "nvcc": "/usr/local/cuda/bin/nvcc",
+    "cuda_arch": "sm_121"
+  },
+  "source": {
+    "base_commit_before_m5m": "8fb4c78",
+    "local_branch": "main",
+    "proof_checkout": "/tmp/cuflye-m5m-proof-20260701T013646Z/repo",
+    "repo_commit_at_sync": "8fb4c78496d945fad7220ccdde98567d50ff8f4e"
+  },
+  "artifacts": {
+    "cuda_worker_build_manifest": "/tmp/cuflye-m5m-proof-20260701T013646Z/out/m5m/cuda_read_alignment_chain_replay_build_manifest.json",
+    "flye_build_manifest": "/tmp/cuflye-m5m-proof-20260701T013646Z/out/m5m/flye_build_manifest.json",
+    "cpu_baseline_run": "/tmp/cuflye-m5m-proof-20260701T013646Z/out/m5m/cpu-baseline",
+    "positive_run": "/tmp/cuflye-m5m-proof-20260701T013646Z/out/m5m/positive-substitution",
+    "positive_validation_json": "/tmp/cuflye-m5m-proof-20260701T013646Z/out/m5m/positive-substitution/read-alignment-worker/read-alignment-worker-validation.json",
+    "positive_graph_guard_json": "/tmp/cuflye-m5m-proof-20260701T013646Z/out/m5m/positive-substitution/read-alignment-worker/read-alignment-graph-consumption-guard.json",
+    "positive_rehydration_json": "/tmp/cuflye-m5m-proof-20260701T013646Z/out/m5m/positive-substitution/read-alignment-worker/read-alignment-worker-rehydration.json",
+    "positive_object_rehydration_json": "/tmp/cuflye-m5m-proof-20260701T013646Z/out/m5m/positive-substitution/read-alignment-worker/read-alignment-worker-object-rehydration.json",
+    "positive_vector_substitution_json": "/tmp/cuflye-m5m-proof-20260701T013646Z/out/m5m/positive-substitution/read-alignment-worker/read-alignment-vector-substitution.json",
+    "positive_seam_summary_json": "/tmp/cuflye-m5m-proof-20260701T013646Z/out/m5m/positive-substitution/read-alignment-worker/read-alignment-seam-summary.json",
+    "positive_vs_cpu_diff_json": "/tmp/cuflye-m5m-proof-20260701T013646Z/out/m5m/positive-vs-cpu-diff.json",
+    "negative_run": "/tmp/cuflye-m5m-proof-20260701T013646Z/out/m5m/negative-substitution-fault",
+    "negative_vector_substitution_json": "/tmp/cuflye-m5m-proof-20260701T013646Z/out/m5m/negative-substitution-fault/read-alignment-worker/read-alignment-vector-substitution.json",
+    "negative_seam_summary_json": "/tmp/cuflye-m5m-proof-20260701T013646Z/out/m5m/negative-substitution-fault/read-alignment-worker/read-alignment-seam-summary.json"
+  },
+  "positive_vector_substitution": {
+    "elapsed_seconds": 20,
+    "exit_status": 0,
+    "expected_failure": false,
+    "query_ids": [
+      5,
+      47,
+      200,
+      204
+    ],
+    "validation_status": "passed",
+    "validated_fixture_count": 4,
+    "graph_guard_status": "passed",
+    "graph_consumption_state": "not-consumed",
+    "typed_rehydration_status": "passed",
+    "typed_rehydration_state": "not-consumed",
+    "typed_rehydration_total_records": 7,
+    "typed_rehydration_total_chains": 4,
+    "object_rehydration_status": "passed",
+    "object_rehydration_state": "not-consumed",
+    "object_rehydration_total_records": 7,
+    "object_rehydration_total_chains": 4,
+    "vector_substitution_status": "passed",
+    "vector_substitution_state": "consumed",
+    "vector_substitution_decision": "verified-graph-alignment-object-vector-substituted",
+    "accepted": true,
+    "consumed": true,
+    "total_cpu_records": 7,
+    "total_object_records": 7,
+    "total_substituted_chains": 4,
+    "graph_facing_returned_worker_output": true,
+    "graph_mutation_consumed_worker_output": true,
+    "summary_status": "substitution-consumed",
+    "canonical_diff_status": "match",
+    "canonical_artifacts": [
+      {
+        "path": "00-assembly/draft_assembly.fasta",
+        "status": "match",
+        "sha256": "f24373e93e70d4e2dc26fd4e035f6f319b5c4957eb79233d74c49e63d1099af6"
+      },
+      {
+        "path": "20-repeat/repeat_graph_dump",
+        "status": "match",
+        "sha256": "62952fa5ecbf84b4f5a5470da16d95f85a962e8cb722aa532610ba87431a56ef"
+      },
+      {
+        "path": "20-repeat/read_alignment_dump",
+        "status": "match",
+        "sha256": "26740f1d782591fdcd5c5aef11f591d4559df353b7b31409b6f579caa17bffc5"
+      },
+      {
+        "path": "20-repeat/repeat_graph_edges.fasta",
+        "status": "match",
+        "sha256": "ed90d197289573e3f83c2ebd038115d9371b74d465f903ec4649caa013b4b6d3"
+      },
+      {
+        "path": "30-contigger/graph_final.gfa",
+        "status": "match",
+        "sha256": "faa40610465dc27b5a52d9ea892f61d4ad6ab5cb35ea83ab9430e63ca2084ff1"
+      },
+      {
+        "path": "30-contigger/graph_final.fasta",
+        "status": "match",
+        "sha256": "cc51357bbf92798b7c29574b809fb0926e7a4fba078183a8d40b3f919b5066b3"
+      },
+      {
+        "path": "assembly.fasta",
+        "status": "match",
+        "sha256": "59e1db047711152e2c70c03a8b7cfbdd3f2595a2dee81cd958b4ec6485158db7"
+      },
+      {
+        "path": "assembly_info.txt",
+        "status": "match",
+        "sha256": "5daa37903ecde55d19951c4f2f0f205dc1992abd59b59744e369998d07ee971f"
+      },
+      {
+        "path": "assembly_graph.gfa",
+        "status": "match",
+        "sha256": "e0c4c0d4e0d6b65936eb911a7267bbba5c68f15b2ab28ff0e66f043de3b9e40c"
+      }
+    ],
+    "fixtures": [
+      {
+        "query_id": 5,
+        "status": "passed",
+        "object_vector_status": "match",
+        "cpu_records": 1,
+        "object_records": 1,
+        "cpu_chains": 1,
+        "object_chains": 1,
+        "substituted_chains": 1,
+        "proof_fault_applied": false
+      },
+      {
+        "query_id": 47,
+        "status": "passed",
+        "object_vector_status": "match",
+        "cpu_records": 1,
+        "object_records": 1,
+        "cpu_chains": 1,
+        "object_chains": 1,
+        "substituted_chains": 1,
+        "proof_fault_applied": false
+      },
+      {
+        "query_id": 200,
+        "status": "passed",
+        "object_vector_status": "match",
+        "cpu_records": 3,
+        "object_records": 3,
+        "cpu_chains": 1,
+        "object_chains": 1,
+        "substituted_chains": 1,
+        "proof_fault_applied": false
+      },
+      {
+        "query_id": 204,
+        "status": "passed",
+        "object_vector_status": "match",
+        "cpu_records": 2,
+        "object_records": 2,
+        "cpu_chains": 1,
+        "object_chains": 1,
+        "substituted_chains": 1,
+        "proof_fault_applied": false
+      }
+    ]
+  },
+  "negative_substitution_fault": {
+    "elapsed_seconds": 14,
+    "exit_status": 1,
+    "expected_failure": true,
+    "query_ids": [
+      5,
+      47
+    ],
+    "validation_status": "passed",
+    "validated_fixture_count": 2,
+    "graph_guard_status": "passed",
+    "graph_consumption_state": "not-consumed",
+    "typed_rehydration_status": "passed",
+    "typed_rehydration_state": "not-consumed",
+    "object_rehydration_status": "passed",
+    "object_rehydration_state": "not-consumed",
+    "vector_substitution_status": "failed",
+    "vector_substitution_state": "failed-closed",
+    "vector_substitution_decision": "failed-closed-before-graph-mutation",
+    "proof_fault": "drop-first-substitution-chain",
+    "proof_fault_applied_all": true,
+    "accepted": false,
+    "consumed": false,
+    "graph_facing_returned_worker_output": false,
+    "graph_mutation_consumed_worker_output": false,
+    "summary_status": "substitution-failed-before-graph-mutation",
+    "fixtures": [
+      {
+        "query_id": 5,
+        "status": "failed",
+        "object_vector_status": "mismatch",
+        "cpu_records": 1,
+        "object_records": 0,
+        "cpu_chains": 1,
+        "object_chains": 0,
+        "substituted_chains": 0,
+        "proof_fault_applied": true
+      },
+      {
+        "query_id": 47,
+        "status": "failed",
+        "object_vector_status": "mismatch",
+        "cpu_records": 1,
+        "object_records": 0,
+        "cpu_chains": 1,
+        "object_chains": 0,
+        "substituted_chains": 0,
+        "proof_fault_applied": true
+      }
+    ]
+  },
+  "acceptance": {
+    "patch_series_applies_through_0031": true,
+    "patched_flye_builds_on_dgx": true,
+    "cuda_read_alignment_worker_builds_on_dgx": true,
+    "positive_full_flye_run_completes": true,
+    "positive_vector_substitution_passed": true,
+    "positive_graph_mutation_consumed_worker_output": true,
+    "positive_canonical_artifacts_match_cpu": true,
+    "negative_fault_after_upstream_gates_pass": true,
+    "negative_fault_fails_closed_before_graph_mutation": true,
+    "local_and_dgx_syntax_patch_ownership_gates_pass": true
+  },
+  "plain_language_assessment": "M5m still does not prove whole-Flye acceleration. Its CUDA-side benefit is integration proof: a verified GPU-derived GraphAlignment object vector replaced a tiny selected _readAlignments slice, Flye consumed that substituted vector, and the final canonical assembly artifacts stayed identical to the CPU baseline. The run is not faster because CPU read alignment is still computed first for oracle gating.",
+  "next_recommended_step": "M5n: reduce duplicate CPU work around the read-alignment substitution path by introducing a guarded GPU-first read-alignment planner for selected safe slices, with artifact parity and fail-closed gates preserved."
+}

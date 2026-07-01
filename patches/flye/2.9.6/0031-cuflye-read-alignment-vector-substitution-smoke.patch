@@ -1,0 +1,586 @@
+diff --git a/src/repeat_graph/read_aligner.cpp b/src/repeat_graph/read_aligner.cpp
+index 233ece9..132dd3e 100644
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -180,6 +180,57 @@ namespace
+ 		std::vector<ReadAlignmentFixtureObjectRehydration> fixtures;
+ 	};
+ 
++	struct ReadAlignmentVectorSubstitutionCheck
++	{
++		std::string name;
++		bool required = true;
++		bool passed = false;
++		std::string detail;
++	};
++
++	struct ReadAlignmentFixtureVectorSubstitution
++	{
++		int64_t queryId = 0;
++		std::string workerTsv;
++		std::string status = "failed";
++		std::string objectVectorStatus = "not-run";
++		bool proofFaultApplied = false;
++		size_t cpuRecords = 0;
++		size_t cpuChains = 0;
++		size_t objectRecords = 0;
++		size_t objectChains = 0;
++		size_t substitutedChains = 0;
++		std::string error;
++	};
++
++	struct ReadAlignmentQueryReplacement
++	{
++		int64_t queryId = 0;
++		std::vector<GraphAlignment> chains;
++	};
++
++	struct ReadAlignmentVectorSubstitutionResult
++	{
++		std::string mode;
++		std::string proofFault;
++		std::string status = "not-requested";
++		std::string state = "not-consumed";
++		std::string decision = "disabled";
++		bool eligible = false;
++		bool attempted = false;
++		bool accepted = false;
++		bool consumed = false;
++		bool notConsumed = true;
++		bool failedClosed = false;
++		bool graphFacingReturnedWorkerOutput = false;
++		bool graphMutationConsumedWorkerOutput = false;
++		size_t totalCpuRecords = 0;
++		size_t totalObjectRecords = 0;
++		size_t totalSubstitutedChains = 0;
++		std::vector<ReadAlignmentVectorSubstitutionCheck> checks;
++		std::vector<ReadAlignmentFixtureVectorSubstitution> fixtures;
++	};
++
+ 	std::mutex& readAlignmentDumpMutex()
+ 	{
+ 		static std::mutex dumpMutex;
+@@ -916,6 +967,50 @@ namespace
+ 		return fault;
+ 	}
+ 
++	std::string readAlignmentVectorSubstitutionMode()
++	{
++		static std::string mode = []()
++		{
++			const char* raw =
++				std::getenv("CUFLYE_READ_ALIGNMENT_VECTOR_SUBSTITUTION_MODE");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "verified-graph-alignment-v0")
++			{
++				throw std::runtime_error(
++					"Unsupported CUFLYE_READ_ALIGNMENT_VECTOR_SUBSTITUTION_MODE: " +
++					selected);
++			}
++			return selected;
++		}();
++		return mode;
++	}
++
++	bool readAlignmentVectorSubstitutionEnabled()
++	{
++		return !readAlignmentVectorSubstitutionMode().empty();
++	}
++
++	std::string readAlignmentVectorSubstitutionProofFault()
++	{
++		static std::string fault = []()
++		{
++			const char* raw =
++				std::getenv("CUFLYE_READ_ALIGNMENT_VECTOR_SUBSTITUTION_PROOF_FAULT");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "drop-first-substitution-chain")
++			{
++				throw std::runtime_error(
++					"Unsupported "
++					"CUFLYE_READ_ALIGNMENT_VECTOR_SUBSTITUTION_PROOF_FAULT: " +
++					selected);
++			}
++			return selected;
++		}();
++		return fault;
++	}
++
+ 	std::string readAlignmentOptionalEnv(const char* name,
+ 										 const std::string& defaultValue)
+ 	{
+@@ -962,6 +1057,8 @@ namespace
+ 		(void)readAlignmentRehydrationProofFault();
+ 		(void)readAlignmentObjectRehydrationMode();
+ 		(void)readAlignmentObjectRehydrationProofFault();
++		(void)readAlignmentVectorSubstitutionMode();
++		(void)readAlignmentVectorSubstitutionProofFault();
+ 		(void)readAlignmentRequiredEnv("CUFLYE_READ_ALIGNMENT_WORKER_OUTPUT_DIR");
+ 		(void)readAlignmentReplayQueryIds();
+ 	}
+@@ -1653,6 +1750,313 @@ namespace
+ 		writeReadAlignmentTextFile(path, json.str());
+ 	}
+ 
++	void addReadAlignmentVectorSubstitutionCheck(
++		ReadAlignmentVectorSubstitutionResult& substitution,
++		const std::string& name,
++		bool passed,
++		const std::string& detail)
++	{
++		ReadAlignmentVectorSubstitutionCheck check;
++		check.name = name;
++		check.required = true;
++		check.passed = passed;
++		check.detail = detail;
++		substitution.checks.push_back(check);
++	}
++
++	bool allReadAlignmentVectorSubstitutionChecksPassed(
++		const ReadAlignmentVectorSubstitutionResult& substitution)
++	{
++		for (const auto& check : substitution.checks)
++		{
++			if (check.required && !check.passed) return false;
++		}
++		return !substitution.checks.empty();
++	}
++
++	void markReadAlignmentVectorSubstitutionFailed(
++		ReadAlignmentVectorSubstitutionResult& substitution)
++	{
++		substitution.status = "failed";
++		substitution.state = "failed-closed";
++		substitution.decision = "failed-closed-before-graph-mutation";
++		substitution.eligible = false;
++		substitution.accepted = false;
++		substitution.consumed = false;
++		substitution.notConsumed = false;
++		substitution.failedClosed = true;
++		substitution.graphFacingReturnedWorkerOutput = false;
++		substitution.graphMutationConsumedWorkerOutput = false;
++	}
++
++	void markReadAlignmentVectorSubstitutionConsumed(
++		ReadAlignmentVectorSubstitutionResult& substitution)
++	{
++		substitution.status = "passed";
++		substitution.state = "consumed";
++		substitution.decision =
++			"verified-graph-alignment-object-vector-substituted";
++		substitution.eligible = true;
++		substitution.accepted = true;
++		substitution.consumed = true;
++		substitution.notConsumed = false;
++		substitution.failedClosed = false;
++		substitution.graphFacingReturnedWorkerOutput = true;
++		substitution.graphMutationConsumedWorkerOutput = true;
++	}
++
++	ReadAlignmentVectorSubstitutionResult
++	evaluateReadAlignmentVectorSubstitution(
++		const std::vector<int64_t>& queryIds,
++		const std::string& batchOutputDir,
++		const ReadAlignmentObjectRehydrationResult& objectRehydration,
++		const std::string& substitutionJson,
++		RepeatGraph& graph,
++		std::vector<GraphAlignment>& alignments)
++	{
++		ReadAlignmentVectorSubstitutionResult result;
++		result.mode = readAlignmentVectorSubstitutionMode();
++		result.proofFault = readAlignmentVectorSubstitutionProofFault();
++		if (!readAlignmentVectorSubstitutionEnabled()) return result;
++
++		result.attempted = true;
++		markReadAlignmentVectorSubstitutionFailed(result);
++		addReadAlignmentVectorSubstitutionCheck(
++			result, "explicit_vector_substitution_mode",
++			result.mode == "verified-graph-alignment-v0",
++			"CUFLYE_READ_ALIGNMENT_VECTOR_SUBSTITUTION_MODE="
++			"verified-graph-alignment-v0");
++		addReadAlignmentVectorSubstitutionCheck(
++			result, "object_rehydration_passed",
++			objectRehydration.status == "passed" && objectRehydration.eligible,
++			"M5l GraphAlignment object-vector rehydration must pass");
++		addReadAlignmentVectorSubstitutionCheck(
++			result, "fixture_count_nonzero", !queryIds.empty(),
++			"at least one replay fixture must be selected");
++		addReadAlignmentVectorSubstitutionCheck(
++			result, "audit_metadata_available", !substitutionJson.empty(),
++			"vector substitution audit JSON path must be available");
++
++		if (!allReadAlignmentVectorSubstitutionChecksPassed(result))
++		{
++			return result;
++		}
++
++		result.status = "passed";
++		result.state = "pending-substitution";
++		result.decision = "verified-object-vector-match-pending-substitution";
++		result.eligible = true;
++		result.notConsumed = true;
++		result.failedClosed = false;
++		result.accepted = false;
++		result.consumed = false;
++		result.graphFacingReturnedWorkerOutput = false;
++		result.graphMutationConsumedWorkerOutput = false;
++
++		std::vector<ReadAlignmentQueryReplacement> replacements;
++		for (int64_t queryId : queryIds)
++		{
++			ReadAlignmentFixtureVectorSubstitution fixture;
++			fixture.queryId = queryId;
++			fixture.workerTsv = joinReplayPath(
++				joinReplayPath(batchOutputDir, replayQueryDirName(queryId)),
++				"read-alignment.tsv");
++			try
++			{
++				auto workerRecords = readAlignmentDumpRecords(fixture.workerTsv);
++				auto typedRecords =
++					rehydrateTypedReadAlignmentRecords(workerRecords, graph,
++													   fixture.workerTsv);
++				auto objectVector =
++					rehydrateGraphAlignmentObjectVector(typedRecords,
++														fixture.workerTsv);
++				if (result.proofFault == "drop-first-substitution-chain" &&
++					!objectVector.empty())
++				{
++					objectVector.erase(objectVector.begin());
++					fixture.proofFaultApplied = true;
++				}
++				fixture.objectChains = objectVector.size();
++				auto objectRecords =
++					canonicalReadAlignmentRecordsFromGraphAlignments(objectVector);
++				fixture.objectRecords = objectRecords.size();
++
++				auto cpuSlice = readAlignmentCpuSliceForQuery(alignments, queryId);
++				fixture.cpuChains = cpuSlice.size();
++				auto cpuRecords =
++					canonicalReadAlignmentRecordsFromGraphAlignments(cpuSlice);
++				fixture.cpuRecords = cpuRecords.size();
++				result.totalCpuRecords += fixture.cpuRecords;
++				result.totalObjectRecords += fixture.objectRecords;
++
++				if (cpuRecords != objectRecords)
++				{
++					fixture.status = "failed";
++					fixture.objectVectorStatus = "mismatch";
++					fixture.error =
++						"verified substitution object vector differs from CPU "
++						"_readAlignments slice";
++					markReadAlignmentVectorSubstitutionFailed(result);
++				}
++				else
++				{
++					fixture.status = "passed";
++					fixture.objectVectorStatus = "match";
++					ReadAlignmentQueryReplacement replacement;
++					replacement.queryId = queryId;
++					replacement.chains = objectVector;
++					replacements.push_back(replacement);
++				}
++			}
++			catch (const std::exception& exc)
++			{
++				fixture.status = "failed";
++				fixture.error = exc.what();
++				markReadAlignmentVectorSubstitutionFailed(result);
++			}
++			result.fixtures.push_back(fixture);
++		}
++
++		if (result.failedClosed || result.fixtures.empty()) return result;
++
++		std::vector<GraphAlignment> substitutedAlignments(alignments);
++		std::vector<size_t> replacementOffsets(replacements.size(), 0);
++		for (auto& chain : substitutedAlignments)
++		{
++			if (chain.empty()) continue;
++			int64_t queryId = chain.front().overlap.curId.signedId();
++			for (size_t index = 0; index < replacements.size(); ++index)
++			{
++				if (replacements[index].queryId != queryId) continue;
++				size_t& offset = replacementOffsets[index];
++				if (offset >= replacements[index].chains.size())
++				{
++					markReadAlignmentVectorSubstitutionFailed(result);
++					return result;
++				}
++				chain = replacements[index].chains[offset];
++				++offset;
++				++result.totalSubstitutedChains;
++				break;
++			}
++		}
++		for (size_t index = 0; index < replacements.size(); ++index)
++		{
++			if (replacementOffsets[index] != replacements[index].chains.size())
++			{
++				markReadAlignmentVectorSubstitutionFailed(result);
++				return result;
++			}
++		}
++		for (auto& fixture : result.fixtures)
++		{
++			for (const auto& replacement : replacements)
++			{
++				if (replacement.queryId == fixture.queryId)
++				{
++					fixture.substitutedChains = replacement.chains.size();
++				}
++			}
++		}
++
++		alignments.swap(substitutedAlignments);
++		markReadAlignmentVectorSubstitutionConsumed(result);
++		return result;
++	}
++
++	void writeReadAlignmentVectorSubstitutionJson(
++		const std::string& path,
++		const ReadAlignmentVectorSubstitutionResult& substitution)
++	{
++		std::ostringstream json;
++		json << "{\n"
++			 << "  \"schema\": \"cuflye-read-alignment-vector-substitution-smoke-v0\",\n"
++			 << "  \"status\": \""
++			 << readAlignmentJsonEscape(substitution.status) << "\",\n"
++			 << "  \"mode\": \"" << readAlignmentJsonEscape(substitution.mode)
++			 << "\",\n"
++			 << "  \"proof_fault\": \""
++			 << readAlignmentJsonEscape(substitution.proofFault) << "\",\n"
++			 << "  \"state\": \"" << readAlignmentJsonEscape(substitution.state)
++			 << "\",\n"
++			 << "  \"decision\": \""
++			 << readAlignmentJsonEscape(substitution.decision) << "\",\n"
++			 << "  \"eligible\": " << readAlignmentBoolJson(substitution.eligible)
++			 << ",\n"
++			 << "  \"attempted\": " << readAlignmentBoolJson(substitution.attempted)
++			 << ",\n"
++			 << "  \"accepted\": " << readAlignmentBoolJson(substitution.accepted)
++			 << ",\n"
++			 << "  \"consumed\": " << readAlignmentBoolJson(substitution.consumed)
++			 << ",\n"
++			 << "  \"not_consumed\": "
++			 << readAlignmentBoolJson(substitution.notConsumed) << ",\n"
++			 << "  \"failed_closed\": "
++			 << readAlignmentBoolJson(substitution.failedClosed) << ",\n"
++			 << "  \"graph_facing_returned_worker_output\": "
++			 << readAlignmentBoolJson(
++					substitution.graphFacingReturnedWorkerOutput) << ",\n"
++			 << "  \"graph_mutation_consumed_worker_output\": "
++			 << readAlignmentBoolJson(
++					substitution.graphMutationConsumedWorkerOutput) << ",\n"
++			 << "  \"total_cpu_records\": " << substitution.totalCpuRecords
++			 << ",\n"
++			 << "  \"total_object_records\": "
++			 << substitution.totalObjectRecords << ",\n"
++			 << "  \"total_substituted_chains\": "
++			 << substitution.totalSubstitutedChains << ",\n"
++			 << "  \"checks\": [\n";
++		for (size_t index = 0; index < substitution.checks.size(); ++index)
++		{
++			const auto& check = substitution.checks[index];
++			json << "    {\n"
++				 << "      \"name\": \"" << readAlignmentJsonEscape(check.name)
++				 << "\",\n"
++				 << "      \"required\": " << readAlignmentBoolJson(check.required)
++				 << ",\n"
++				 << "      \"passed\": " << readAlignmentBoolJson(check.passed)
++				 << ",\n"
++				 << "      \"detail\": \"" << readAlignmentJsonEscape(check.detail)
++				 << "\"\n"
++				 << "    }" << (index + 1 == substitution.checks.size() ? "\n" : ",\n");
++		}
++		json << "  ],\n"
++			 << "  \"fixtures\": [\n";
++		for (size_t index = 0; index < substitution.fixtures.size(); ++index)
++		{
++			const auto& fixture = substitution.fixtures[index];
++			json << "    {\n"
++				 << "      \"query_id\": " << fixture.queryId << ",\n"
++				 << "      \"worker_tsv\": \""
++				 << readAlignmentJsonEscape(fixture.workerTsv) << "\",\n"
++				 << "      \"status\": \""
++				 << readAlignmentJsonEscape(fixture.status) << "\",\n"
++				 << "      \"object_vector_status\": \""
++				 << readAlignmentJsonEscape(fixture.objectVectorStatus) << "\",\n"
++				 << "      \"proof_fault_applied\": "
++				 << readAlignmentBoolJson(fixture.proofFaultApplied) << ",\n"
++				 << "      \"cpu_records\": " << fixture.cpuRecords << ",\n"
++				 << "      \"cpu_chains\": " << fixture.cpuChains << ",\n"
++				 << "      \"object_records\": " << fixture.objectRecords << ",\n"
++				 << "      \"object_chains\": " << fixture.objectChains << ",\n"
++				 << "      \"substituted_chains\": "
++				 << fixture.substitutedChains;
++			if (!fixture.error.empty())
++			{
++				json << ",\n      \"error\": \""
++					 << readAlignmentJsonEscape(fixture.error) << "\"\n";
++			}
++			else
++			{
++				json << "\n";
++			}
++			json << "    }" << (index + 1 == substitution.fixtures.size() ? "\n" : ",\n");
++		}
++		json << "  ]\n"
++			 << "}\n";
++		writeReadAlignmentTextFile(path, json.str());
++	}
++
+ 	void writeReadAlignmentSeamSummaryJson(
+ 		const std::string& path,
+ 		const std::string& fixtureList,
+@@ -1666,6 +2070,8 @@ namespace
+ 		const ReadAlignmentRehydrationResult& rehydration,
+ 		const std::string& objectRehydrationJson,
+ 		const ReadAlignmentObjectRehydrationResult& objectRehydration,
++		const std::string& vectorSubstitutionJson,
++		const ReadAlignmentVectorSubstitutionResult& substitution,
+ 		const std::string& status,
+ 		int workerStatus,
+ 		size_t fixtureCount)
+@@ -1737,18 +2143,48 @@ namespace
+ 			 << objectRehydration.totalObjectRecords << ",\n"
+ 			 << "  \"read_alignment_object_rehydration_total_chains\": "
+ 			 << objectRehydration.totalObjectChains << ",\n"
++			 << "  \"read_alignment_vector_substitution_mode\": \""
++			 << readAlignmentJsonEscape(readAlignmentVectorSubstitutionMode())
++			 << "\",\n"
++			 << "  \"read_alignment_vector_substitution_json\": \""
++			 << readAlignmentJsonEscape(vectorSubstitutionJson) << "\",\n"
++			 << "  \"read_alignment_vector_substitution_status\": \""
++			 << readAlignmentJsonEscape(substitution.status) << "\",\n"
++			 << "  \"read_alignment_vector_substitution_state\": \""
++			 << readAlignmentJsonEscape(substitution.state) << "\",\n"
++			 << "  \"read_alignment_vector_substitution_decision\": \""
++			 << readAlignmentJsonEscape(substitution.decision) << "\",\n"
++			 << "  \"read_alignment_vector_substitution_eligible\": "
++			 << readAlignmentBoolJson(substitution.eligible) << ",\n"
++			 << "  \"read_alignment_vector_substitution_attempted\": "
++			 << readAlignmentBoolJson(substitution.attempted) << ",\n"
++			 << "  \"read_alignment_vector_substitution_accepted\": "
++			 << readAlignmentBoolJson(substitution.accepted) << ",\n"
++			 << "  \"read_alignment_vector_substitution_consumed\": "
++			 << readAlignmentBoolJson(substitution.consumed) << ",\n"
++			 << "  \"read_alignment_vector_substitution_total_cpu_records\": "
++			 << substitution.totalCpuRecords << ",\n"
++			 << "  \"read_alignment_vector_substitution_total_object_records\": "
++			 << substitution.totalObjectRecords << ",\n"
++			 << "  \"read_alignment_vector_substitution_total_substituted_chains\": "
++			 << substitution.totalSubstitutedChains << ",\n"
++			 << "  \"graph_facing_returned_worker_output\": "
++			 << readAlignmentBoolJson(
++					substitution.graphFacingReturnedWorkerOutput) << ",\n"
+ 			 << "  \"fixture_count\": " << fixtureCount << ",\n"
+ 			 << "  \"validated_fixture_count\": "
+ 			 << validation.validatedFixtureCount << ",\n"
+ 			 << "  \"worker_exit_status\": " << workerStatus << ",\n"
+-			 << "  \"graph_mutation_consumed_worker_output\": false\n"
++			 << "  \"graph_mutation_consumed_worker_output\": "
++			 << readAlignmentBoolJson(
++					substitution.graphMutationConsumedWorkerOutput) << "\n"
+ 			 << "}\n";
+ 		writeReadAlignmentTextFile(path, json.str());
+ 	}
+ 
+ 	void runReadAlignmentWorkerDryRunSeam(
+ 		RepeatGraph& graph,
+-		const std::vector<GraphAlignment>& cpuAlignments)
++		std::vector<GraphAlignment>& cpuAlignments)
+ 	{
+ 		if (!readAlignmentWorkerEnabled()) return;
+ 
+@@ -1771,6 +2207,9 @@ namespace
+ 		std::string objectRehydrationJson =
+ 			joinReplayPath(outputRoot,
+ 						   "read-alignment-worker-object-rehydration.json");
++		std::string vectorSubstitutionJson =
++			joinReplayPath(outputRoot,
++						   "read-alignment-vector-substitution.json");
+ 		std::string seamSummary =
+ 			joinReplayPath(outputRoot, "read-alignment-seam-summary.json");
+ 		std::string stdoutLog =
+@@ -1832,13 +2271,15 @@ namespace
+ 		writeReadAlignmentGraphGuardJson(guardJson, guard);
+ 		ReadAlignmentRehydrationResult rehydration;
+ 		ReadAlignmentObjectRehydrationResult objectRehydration;
++		ReadAlignmentVectorSubstitutionResult substitution;
+ 
+ 		if (guard.failedClosed)
+ 		{
+ 			writeReadAlignmentSeamSummaryJson(
+ 				seamSummary, fixtureList, batchOutputDir, batchJson, validationJson,
+ 				validation, guardJson, guard, rehydrationJson, rehydration,
+-				objectRehydrationJson, objectRehydration,
++				objectRehydrationJson, objectRehydration, vectorSubstitutionJson,
++				substitution,
+ 				"guard-failed-before-graph-mutation", workerStatus, queryIds.size());
+ 			throw std::runtime_error(
+ 				"cuFlye read alignment worker dry-run fail-closed before graph "
+@@ -1857,6 +2298,7 @@ namespace
+ 					seamSummary, fixtureList, batchOutputDir, batchJson,
+ 					validationJson, validation, guardJson, guard, rehydrationJson,
+ 					rehydration, objectRehydrationJson, objectRehydration,
++					vectorSubstitutionJson, substitution,
+ 					"rehydration-failed-before-graph-mutation",
+ 					workerStatus, queryIds.size());
+ 				throw std::runtime_error(
+@@ -1878,6 +2320,7 @@ namespace
+ 					seamSummary, fixtureList, batchOutputDir, batchJson,
+ 					validationJson, validation, guardJson, guard, rehydrationJson,
+ 					rehydration, objectRehydrationJson, objectRehydration,
++					vectorSubstitutionJson, substitution,
+ 					"object-rehydration-failed-before-graph-mutation",
+ 					workerStatus, queryIds.size());
+ 				throw std::runtime_error(
+@@ -1887,11 +2330,45 @@ namespace
+ 					objectRehydrationJson + "; seam_summary=" + seamSummary);
+ 			}
+ 		}
++		if (readAlignmentVectorSubstitutionEnabled())
++		{
++			substitution = evaluateReadAlignmentVectorSubstitution(
++				queryIds, batchOutputDir, objectRehydration, vectorSubstitutionJson,
++				graph, cpuAlignments);
++			writeReadAlignmentVectorSubstitutionJson(vectorSubstitutionJson,
++													 substitution);
++			if (substitution.failedClosed)
++			{
++				writeReadAlignmentSeamSummaryJson(
++					seamSummary, fixtureList, batchOutputDir, batchJson,
++					validationJson, validation, guardJson, guard, rehydrationJson,
++					rehydration, objectRehydrationJson, objectRehydration,
++					vectorSubstitutionJson, substitution,
++					"substitution-failed-before-graph-mutation",
++					workerStatus, queryIds.size());
++				throw std::runtime_error(
++					"cuFlye read alignment worker fail-closed; "
++					"GraphAlignment vector substitution failed; "
++					"vector_substitution_json=" +
++					vectorSubstitutionJson + "; seam_summary=" + seamSummary);
++			}
++			if (substitution.consumed)
++			{
++				writeReadAlignmentSeamSummaryJson(
++					seamSummary, fixtureList, batchOutputDir, batchJson,
++					validationJson, validation, guardJson, guard, rehydrationJson,
++					rehydration, objectRehydrationJson, objectRehydration,
++					vectorSubstitutionJson, substitution,
++					"substitution-consumed", workerStatus, queryIds.size());
++				return;
++			}
++		}
+ 
+ 		writeReadAlignmentSeamSummaryJson(
+ 			seamSummary, fixtureList, batchOutputDir, batchJson, validationJson,
+ 			validation, guardJson, guard, rehydrationJson, rehydration,
+-			objectRehydrationJson, objectRehydration,
++			objectRehydrationJson, objectRehydration, vectorSubstitutionJson,
++			substitution,
+ 			"stopped-before-graph-mutation", workerStatus, queryIds.size());
+ 		throw std::runtime_error(
+ 			"cuFlye read alignment worker dry-run stopped before graph mutation; "

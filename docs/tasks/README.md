@@ -15,6 +15,9 @@ Proposed cards:
 
 Completed cards:
 
+- `2026-07-01-cuflye-m5m-read-alignment-vector-substitution-smoke.md`:
+  substitute a verified CUDA-derived `std::vector<GraphAlignment>` slice into
+  `_readAlignments`, preserve exact artifacts, and fail closed on mismatch.
 - `2026-07-01-cuflye-m5l-read-alignment-graph-alignment-object-vector-dry-run.md`:
   group typed CUDA read-alignment rows into a shadow `std::vector<GraphAlignment>`
   object vector, compare it with the CPU `_readAlignments` slice, and still
