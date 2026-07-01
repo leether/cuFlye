@@ -1,6 +1,6 @@
 # Task Card: cuFlye M7a Full Query-Hit Selected Graph-Consumption Parity
 
-Status: proposed
+Status: completed
 
 Created: 2026-07-01
 
@@ -61,18 +61,89 @@ consumption point, and prove canonical Flye artifacts remain identical.
 
 ## Acceptance Gates
 
-- [ ] M6z correctness and timing gates pass before graph-consumption parity is
+- [x] M6z correctness and timing gates pass before graph-consumption parity is
       trusted.
-- [ ] Positive DGX proof records selected CUDA-supplied rows and CPU-owned
+- [x] Positive DGX proof records selected CUDA-supplied rows and CPU-owned
       residual rows reaching the graph-facing handoff.
-- [ ] Positive DGX proof preserves exact default CPU canonical artifacts on
+- [x] Positive DGX proof preserves exact default CPU canonical artifacts on
       `toy-hifi`.
-- [ ] Positive DGX proof records the graph-consumption parity status and row
+- [x] Positive DGX proof records the graph-consumption parity status and row
       counts in machine-readable JSON.
-- [ ] Negative proof fails closed when a selected CUDA-supplied row is missing,
+- [x] Negative proof fails closed when a selected CUDA-supplied row is missing,
       corrupted, duplicated, or leaked back into CPU-owned handling.
-- [ ] Local and DGX syntax/style/ownership gates pass.
+- [x] Local and DGX syntax/style/ownership gates pass.
 
 ## Completion Notes
 
-Pending implementation.
+Implemented in Flye patch `0055` as an opt-in graph-facing parity gate after
+M6z:
+
+- `CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_PARITY_MODE=selected-graph-consumption-parity-v0`
+- `CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_PARITY_PROOF_FAULT=drop-first-graph-facing-row`
+
+ABI/design notes:
+
+- `docs/abi/read-to-graph-full-query-hit-selected-graph-consumption-parity-v0.md`
+
+Golden proof:
+
+- `tests/golden/cuflye-m7a-full-query-hit-selected-graph-consumption-parity-dgx-aarch64.json`
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m7a-proof-20260701T150000Z
+fixture=toy-hifi
+query_ids=5,6,7,8,9,10,11,12
+baseline_artifact_hashes_match_golden=true
+positive_status=passed
+positive_graph_consumption_parity_checks=13/13
+positive_graph_facing_rows=36
+positive_final_merged_ledger_rows=36
+positive_graph_facing_cuda_supplied_rows=8
+positive_graph_facing_cpu_owned_rows=28
+positive_missing_graph_edge_rows=0
+positive_dropped_graph_facing_rows=0
+positive_consumed=false
+positive_graph_mutation_consumed_worker_output=false
+negative_status=selected-graph-consumption-parity-failed-before-graph-mutation
+negative_proof_fault=drop-first-graph-facing-row
+negative_proof_fault_applied=true
+negative_graph_facing_rows=35
+negative_failed_checks=dropped_graph_facing_rows_zero,graph_facing_cuda_rows_match_smoke,graph_facing_rows_match_final_merged_ledger
+summary_checks=12/12
+```
+
+Allowed M7a claim:
+
+```text
+cuFlye can take the M6y/M6z final merged handoff and prove all 36 rows are
+graph-facing live-edge rows on DGX: 8 CUDA-supplied selected rows and 28
+CPU-owned residual rows, with zero missing graph edges and fail-closed behavior
+when a graph-facing row is dropped.
+```
+
+Forbidden M7a claim:
+
+```text
+M7a does not prove whole-Flye speedup, default GPU mode, or real graph mutation.
+It is still a not-consumed graph-facing parity gate.
+```
+
+Plain-language benefit:
+
+```text
+M7a proves the selected CUDA rows are no longer just TSV/ledger data: combined
+with CPU-owned residual rows, they can all be mapped to live graph-facing rows.
+This removes the edge-identity blocker that appeared during the first attempt,
+but it still does not make Flye faster because the graph is not mutated yet.
+```
+
+Next highest-ROI task:
+
+```text
+M7b: attempt a guarded selected graph-consumption mutation canary on toy-hifi.
+Only after M7a parity passes should a tiny opt-in path let the selected handoff
+reach the actual graph mutation path and compare canonical artifacts against
+the CPU golden.
+```

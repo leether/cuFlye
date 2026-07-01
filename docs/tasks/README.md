@@ -11,13 +11,16 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m7a-full-query-hit-selected-graph-consumption-parity.md`:
-  move from no-mutation selected CPU-bypass smoke to a selected graph-facing
-  consumption parity gate while preserving exact canonical artifacts and
-  fail-closed behavior.
+- `2026-07-01-cuflye-m7b-full-query-hit-selected-graph-consumption-mutation-canary.md`:
+  attempt a tiny opt-in selected graph-consumption mutation canary after M7a
+  live-edge parity, preserving canonical artifacts and fail-closed behavior.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m7a-full-query-hit-selected-graph-consumption-parity.md`:
+  prove the M6y/M6z final merged selected handoff reaches graph-facing live
+  rows with 8 CUDA-supplied selected rows, 28 CPU-owned residual rows, and zero
+  missing graph edges while still stopping before graph mutation.
 - `2026-07-01-cuflye-m6z-full-query-hit-selected-cpu-bypass-timing-attribution.md`:
   attribute the M6y selected CPU-bypass seam timing for skipped CPU handoff
   accounting, CUDA supplier handoff, final merge accounting, and total smoke

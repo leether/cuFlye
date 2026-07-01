@@ -1,0 +1,118 @@
+{
+  "baseline": {
+    "artifact_count": 9,
+    "baseline": "/tmp/cuflye-m7a-proof-20260701T150000Z/baseline/flye/artifact_hashes.json",
+    "extra": [],
+    "golden": "/tmp/cuflye-m6s-work-from-m6r-20260701T120000Z/tests/golden/toy-hifi-dgx-aarch64.json",
+    "golden_count": 9,
+    "matched_count": 9,
+    "mismatch": [],
+    "missing": [],
+    "schema": "cuflye-baseline-vs-golden-v0",
+    "status": "match"
+  },
+  "checks": {
+    "baseline_matches_golden": true,
+    "negative_expected_failures": true,
+    "negative_failed_closed_before_graph_mutation": true,
+    "negative_fault_applied": true,
+    "negative_m6y_still_passed": true,
+    "positive_graph_facing_counts_match": true,
+    "positive_graph_parity_passed": true,
+    "positive_live_edges_present": true,
+    "positive_m6y_smoke_passed": true,
+    "positive_not_consumed_by_graph_mutation": true,
+    "positive_timing_nonzero": true,
+    "source_selection_is_expected_fixture": true
+  },
+  "created_at_utc": "2026-07-01T13:03:54.427792+00:00",
+  "cuda_worker_build": {
+    "cuda_arch": "sm_121",
+    "cuda_home": "/usr/local/cuda-13.0",
+    "host": "edgexpert-45d2",
+    "machine": "aarch64",
+    "nvcc": "/usr/local/cuda-13.0/bin/nvcc",
+    "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:57:39_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+    "output_binary": "/tmp/cuflye-m6s-work-from-m6r-20260701T120000Z/out/m7a/bin/cuflye-cuda-full-query-hit-replay",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+    "repo_commit": "18e886e51b14e1ef5216cc4cc820da088e707958"
+  },
+  "flye_build": {
+    "actual_commit": "886b8c17412c",
+    "actual_tags": [
+      "2.9.6"
+    ],
+    "applied_patches": [],
+    "flye_version": "2.9.6-b1802",
+    "gxx": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+    "host": "edgexpert-45d2",
+    "machine": "aarch64",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39"
+  },
+  "negative": {
+    "dropped_graph_facing_rows": 1,
+    "dry_run_status": "selected-graph-consumption-parity-failed-before-graph-mutation",
+    "failed_checks": [
+      "dropped_graph_facing_rows_zero",
+      "graph_facing_cuda_rows_match_smoke",
+      "graph_facing_rows_match_final_merged_ledger"
+    ],
+    "final_merged_ledger_rows": 36,
+    "graph_facing_cpu_owned_rows": 28,
+    "graph_facing_cuda_supplied_rows": 7,
+    "graph_facing_rows": 35,
+    "m7a_status": "failed",
+    "missing_graph_edge_rows": 0,
+    "passed_checks": 10,
+    "proof_fault": "drop-first-graph-facing-row",
+    "proof_fault_applied": true,
+    "required_checks": 13,
+    "timing_ms": {
+      "graph_consumption_parity_total": 0.005168,
+      "graph_facing_build": 0.002848
+    }
+  },
+  "positive": {
+    "consumed": false,
+    "decision": "selected-graph-consumption-parity-written-not-consumed",
+    "dropped_graph_facing_rows": 0,
+    "dry_run_status": "passed",
+    "final_merged_ledger_rows": 36,
+    "graph_facing_cpu_owned_rows": 28,
+    "graph_facing_cuda_supplied_rows": 8,
+    "graph_facing_rows": 36,
+    "graph_mutation_consumed_worker_output": false,
+    "m6y_status": "passed",
+    "m7a_status": "passed",
+    "missing_graph_edge_rows": 0,
+    "not_consumed": true,
+    "passed_checks": 13,
+    "required_checks": 13,
+    "state": "not-consumed",
+    "timing_ms": {
+      "graph_consumption_parity_total": 0.004736,
+      "graph_facing_build": 0.002576
+    }
+  },
+  "proof_root": "/tmp/cuflye-m7a-proof-20260701T150000Z",
+  "schema": "cuflye-m7a-full-query-hit-selected-graph-consumption-parity-proof-v0",
+  "source_selection": {
+    "schema": "cuflye-read-to-graph-chain-input-positive-selection-v0",
+    "selected_query_count": 8,
+    "selected_query_ids": [
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "selected_query_ids_csv": "5,6,7,8,9,10,11,12",
+    "selected_total_chain_input_rows": 8,
+    "selected_total_raw_rows": 36,
+    "source_pack_dir": "/tmp/cuflye-m7a-proof-20260701T150000Z/positive-retry/source-pack"
+  },
+  "work_root": "/tmp/cuflye-m6s-work-from-m6r-20260701T120000Z"
+}

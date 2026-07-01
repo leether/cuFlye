@@ -1,0 +1,637 @@
+diff --git a/src/repeat_graph/read_aligner.cpp b/src/repeat_graph/read_aligner.cpp
+index 5c7c042..c1327ef 100644
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -856,6 +856,38 @@ namespace
+ 		ReadToGraphRawOverlapRowKeyDiff finalMergedRowKeyDiff;
+ 	};
+ 
++	struct ReadToGraphFullQueryHitSelectedGraphConsumptionParityResult
++	{
++		std::string mode;
++		std::string proofFault;
++		std::string status = "not-requested";
++		std::string state = "not-consumed";
++		std::string decision = "disabled";
++		std::string selectedCpuBypassSmokeStatus = "not-requested";
++		std::string error;
++		bool eligible = false;
++		bool consumed = false;
++		bool notConsumed = true;
++		bool failedClosed = false;
++		bool proofFaultApplied = false;
++		bool graphMutationConsumedWorkerOutput = false;
++		bool finalMergedRowKeyMatched = false;
++		bool finalMergedOrderedRowKeyMatched = false;
++		size_t totalCpuRawOverlapRows = 0;
++		size_t finalMergedLedgerRows = 0;
++		size_t graphFacingRows = 0;
++		size_t graphFacingCudaSuppliedRows = 0;
++		size_t graphFacingCpuOwnedRows = 0;
++		size_t missingGraphEdgeRows = 0;
++		size_t droppedGraphFacingRows = 0;
++		double graphFacingBuildMs = 0.0;
++		double graphConsumptionParityTotalMs = 0.0;
++		std::vector<ReadToGraphFullQueryHitSelectedBypassPlanCheck>
++			checks;
++		std::vector<ReadToGraphFullQueryHitSelectedBypassPlanRow>
++			graphFacingLedger;
++	};
++
+ 	struct ReadToGraphFullQueryHitWorkerDryRunResult
+ 	{
+ 		std::string mode;
+@@ -932,6 +964,12 @@ namespace
+ 		std::string rawOverlapSelectedCpuBypassSmokeStatus = "not-requested";
+ 		std::string rawOverlapSelectedCpuBypassSmokeState = "not-consumed";
+ 		std::string rawOverlapSelectedCpuBypassSmokeDecision = "disabled";
++		std::string rawOverlapSelectedGraphConsumptionParityJson;
++		std::string rawOverlapSelectedGraphConsumptionParityMode;
++		std::string rawOverlapSelectedGraphConsumptionParityProofFault;
++		std::string rawOverlapSelectedGraphConsumptionParityStatus = "not-requested";
++		std::string rawOverlapSelectedGraphConsumptionParityState = "not-consumed";
++		std::string rawOverlapSelectedGraphConsumptionParityDecision = "disabled";
+ 		std::string workerCommand;
+ 		std::string error;
+ 		std::vector<int64_t> queryIds;
+@@ -965,6 +1003,8 @@ namespace
+ 		bool rawOverlapSelectedBypassDryRunFailedClosed = false;
+ 		bool rawOverlapSelectedCpuBypassSmokeEligible = false;
+ 		bool rawOverlapSelectedCpuBypassSmokeFailedClosed = false;
++		bool rawOverlapSelectedGraphConsumptionParityEligible = false;
++		bool rawOverlapSelectedGraphConsumptionParityFailedClosed = false;
+ 		size_t expectedOutputRecords = 0;
+ 		size_t rawOverlapRehydratedRecords = 0;
+ 		size_t rawOverlapShadowLedgerRows = 0;
+@@ -997,6 +1037,10 @@ namespace
+ 		size_t rawOverlapSelectedCpuBypassSmokeSkippedRows = 0;
+ 		size_t rawOverlapSelectedCpuBypassSmokeSuppliedRows = 0;
+ 		size_t rawOverlapSelectedCpuBypassSmokeMergedRows = 0;
++		size_t rawOverlapSelectedGraphConsumptionParityGraphFacingRows = 0;
++		size_t rawOverlapSelectedGraphConsumptionParityCudaSuppliedRows = 0;
++		size_t rawOverlapSelectedGraphConsumptionParityCpuOwnedRows = 0;
++		size_t rawOverlapSelectedGraphConsumptionParityMissingGraphEdgeRows = 0;
+ 		double rawOverlapSelectedCpuBypassSmokeSelectedCpuSkipAccountingMs = 0.0;
+ 		double rawOverlapSelectedCpuBypassSmokeCudaSupplierHandoffMs = 0.0;
+ 		double rawOverlapSelectedCpuBypassSmokeCpuOwnedResidualAccountingMs = 0.0;
+@@ -3354,6 +3398,51 @@ namespace
+ 		return proofFault;
+ 	}
+ 
++	std::string readToGraphFullQueryHitSelectedGraphConsumptionParityMode()
++	{
++		static std::string mode = []()
++		{
++			const char* raw = std::getenv(
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_PARITY_MODE");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "selected-graph-consumption-parity-v0")
++			{
++				throw std::runtime_error(
++					"Unsupported "
++					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_PARITY_MODE: " +
++					selected);
++			}
++			return selected;
++		}();
++		return mode;
++	}
++
++	bool readToGraphFullQueryHitSelectedGraphConsumptionParityEnabled()
++	{
++		return !readToGraphFullQueryHitSelectedGraphConsumptionParityMode().empty();
++	}
++
++	std::string readToGraphFullQueryHitSelectedGraphConsumptionParityProofFault()
++	{
++		static std::string proofFault = []()
++		{
++			const char* raw = std::getenv(
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_PARITY_PROOF_FAULT");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "drop-first-graph-facing-row")
++			{
++				throw std::runtime_error(
++					"Unsupported "
++					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_PARITY_PROOF_FAULT: " +
++					selected);
++			}
++			return selected;
++		}();
++		return proofFault;
++	}
++
+ 	std::string readToGraphFullQueryHitWorkerLifecycleMode()
+ 	{
+ 		static std::string mode = []()
+@@ -3509,6 +3598,10 @@ namespace
+ 			readToGraphFullQueryHitSelectedCpuBypassSmokeEnabled();
+ 		std::string selectedCpuBypassSmokeProofFault =
+ 			readToGraphFullQueryHitSelectedCpuBypassSmokeProofFault();
++		bool selectedGraphConsumptionParityEnabled =
++			readToGraphFullQueryHitSelectedGraphConsumptionParityEnabled();
++		std::string selectedGraphConsumptionParityProofFault =
++			readToGraphFullQueryHitSelectedGraphConsumptionParityProofFault();
+ 		if (rehydrationEnabled && !readToGraphFullQueryHitWorkerDryRunEnabled())
+ 		{
+ 			throw std::runtime_error(
+@@ -3792,6 +3885,29 @@ namespace
+ 				"proof fault requires "
+ 				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_CPU_BYPASS_SMOKE_MODE");
+ 		}
++		if (selectedGraphConsumptionParityEnabled &&
++			!readToGraphFullQueryHitWorkerDryRunEnabled())
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit selected graph-consumption "
++				"parity requires CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_MODE");
++		}
++		if (selectedGraphConsumptionParityEnabled &&
++			!selectedCpuBypassSmokeEnabled)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit selected graph-consumption "
++				"parity requires "
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_CPU_BYPASS_SMOKE_MODE");
++		}
++		if (!selectedGraphConsumptionParityProofFault.empty() &&
++			!selectedGraphConsumptionParityEnabled)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit selected graph-consumption "
++				"parity proof fault requires "
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_PARITY_MODE");
++		}
+ 		if (!readToGraphFullQueryHitWorkerDryRunEnabled()) return;
+ 		if (!readToGraphSourcePackEnabled())
+ 		{
+@@ -7738,6 +7854,324 @@ namespace
+ 			smoke.selectedCpuBypassSmokeTotalMs;
+ 	}
+ 
++	void markReadToGraphFullQueryHitSelectedGraphConsumptionParityFailed(
++		ReadToGraphFullQueryHitSelectedGraphConsumptionParityResult& parity)
++	{
++		parity.status = "failed";
++		parity.state = "failed-closed";
++		parity.decision = "failed-closed-before-graph-mutation";
++		parity.eligible = false;
++		parity.consumed = false;
++		parity.notConsumed = false;
++		parity.failedClosed = true;
++		parity.graphMutationConsumedWorkerOutput = false;
++	}
++
++	bool allReadToGraphFullQueryHitSelectedGraphConsumptionParityChecksPassed(
++		const ReadToGraphFullQueryHitSelectedGraphConsumptionParityResult& parity)
++	{
++		for (const auto& check : parity.checks)
++		{
++			if (check.required && !check.passed) return false;
++		}
++		return !parity.checks.empty();
++	}
++
++	void addReadToGraphFullQueryHitSelectedGraphConsumptionParityCheck(
++		ReadToGraphFullQueryHitSelectedGraphConsumptionParityResult& parity,
++		const std::string& name,
++		bool passed,
++		const std::string& detail)
++	{
++		ReadToGraphFullQueryHitSelectedBypassPlanCheck check;
++		check.name = name;
++		check.required = true;
++		check.passed = passed;
++		check.detail = detail;
++		parity.checks.push_back(check);
++	}
++
++	ReadToGraphFullQueryHitSelectedGraphConsumptionParityResult
++	evaluateReadToGraphFullQueryHitSelectedGraphConsumptionParity(
++		const ReadToGraphFullQueryHitWorkerDryRunResult& dryRun,
++		const ReadToGraphFullQueryHitSelectedCpuBypassSmokeResult& smoke,
++		RepeatGraph& graph)
++	{
++		ReadToGraphFullQueryHitSelectedGraphConsumptionParityResult result;
++		result.mode =
++			readToGraphFullQueryHitSelectedGraphConsumptionParityMode();
++		result.proofFault =
++			readToGraphFullQueryHitSelectedGraphConsumptionParityProofFault();
++		result.selectedCpuBypassSmokeStatus = smoke.status;
++		result.graphMutationConsumedWorkerOutput =
++			dryRun.graphMutationConsumedWorkerOutput;
++		if (!readToGraphFullQueryHitSelectedGraphConsumptionParityEnabled())
++		{
++			return result;
++		}
++
++		auto parityStart = std::chrono::steady_clock::now();
++		markReadToGraphFullQueryHitSelectedGraphConsumptionParityFailed(result);
++		addReadToGraphFullQueryHitSelectedGraphConsumptionParityCheck(
++			result, "explicit_selected_graph_consumption_parity_mode",
++			result.mode == "selected-graph-consumption-parity-v0",
++			"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_PARITY_MODE="
++			"selected-graph-consumption-parity-v0");
++		addReadToGraphFullQueryHitSelectedGraphConsumptionParityCheck(
++			result, "selected_cpu_bypass_smoke_passed",
++			smoke.status == "passed" && smoke.eligible &&
++				!smoke.failedClosed,
++			"M6y selected CPU-bypass smoke must pass before graph-consumption parity");
++		addReadToGraphFullQueryHitSelectedGraphConsumptionParityCheck(
++			result, "selected_cpu_bypass_smoke_timed",
++			smoke.selectedCpuBypassSmokeTotalMs > 0.0 &&
++				smoke.selectedCpuSkipAccountingMs > 0.0 &&
++				smoke.cudaSupplierHandoffMs > 0.0,
++			"M6z selected CPU-bypass timing attribution must be recorded");
++		addReadToGraphFullQueryHitSelectedGraphConsumptionParityCheck(
++			result, "selected_cpu_bypass_smoke_row_keys_matched",
++			smoke.finalMergedRowKeyMatched &&
++				smoke.finalMergedOrderedRowKeyMatched,
++			"M6y final merged ledger must match CPU oracle row keys");
++		addReadToGraphFullQueryHitSelectedGraphConsumptionParityCheck(
++			result, "graph_not_mutated",
++			!dryRun.graphMutationConsumedWorkerOutput,
++			"worker output must not have reached graph mutation");
++
++		if (!allReadToGraphFullQueryHitSelectedGraphConsumptionParityChecksPassed(
++				result))
++		{
++			result.error =
++				"selected graph-consumption parity preconditions failed";
++			result.graphConsumptionParityTotalMs = readAlignmentElapsedMs(
++				parityStart, std::chrono::steady_clock::now());
++			return result;
++		}
++
++		try
++		{
++			auto graphFacingStart = std::chrono::steady_clock::now();
++			result.totalCpuRawOverlapRows = smoke.totalCpuRawOverlapRows;
++			result.finalMergedLedgerRows = smoke.finalMergedLedgerRows;
++			result.finalMergedRowKeyMatched = smoke.finalMergedRowKeyMatched;
++			result.finalMergedOrderedRowKeyMatched =
++				smoke.finalMergedOrderedRowKeyMatched;
++			result.graphFacingLedger = smoke.finalMergedLedger;
++			if (result.proofFault == "drop-first-graph-facing-row" &&
++				!result.graphFacingLedger.empty())
++			{
++				result.graphFacingLedger.erase(result.graphFacingLedger.begin());
++				result.droppedGraphFacingRows = 1;
++				result.proofFaultApplied = true;
++			}
++			for (const auto& row : result.graphFacingLedger)
++			{
++				if (row.decision == "cuda-supplied-selected-bypass")
++				{
++					++result.graphFacingCudaSuppliedRows;
++				}
++				else if (row.decision == "cpu-owned")
++				{
++					++result.graphFacingCpuOwnedRows;
++				}
++				if (row.edgeId == 0 ||
++					graph.getEdge(checkedReadAlignmentFastaIdFromSigned(
++						row.edgeId, "edge_id", dryRun.workerOutputTsv)) == nullptr)
++				{
++					++result.missingGraphEdgeRows;
++				}
++			}
++			result.graphFacingRows = result.graphFacingLedger.size();
++			result.graphFacingBuildMs = readAlignmentElapsedMs(
++				graphFacingStart, std::chrono::steady_clock::now());
++
++			addReadToGraphFullQueryHitSelectedGraphConsumptionParityCheck(
++				result, "final_merged_ledger_rows_present",
++				result.finalMergedLedgerRows > 0,
++				"final merged ledger rows must be nonzero");
++			addReadToGraphFullQueryHitSelectedGraphConsumptionParityCheck(
++				result, "graph_facing_rows_match_final_merged_ledger",
++				result.graphFacingRows == result.finalMergedLedgerRows,
++				"graph-facing handoff must account for every final merged row");
++			addReadToGraphFullQueryHitSelectedGraphConsumptionParityCheck(
++				result, "graph_facing_cuda_rows_match_smoke",
++				result.graphFacingCudaSuppliedRows ==
++					smoke.finalCudaSuppliedRows,
++				"graph-facing handoff must preserve CUDA-supplied selected rows");
++			addReadToGraphFullQueryHitSelectedGraphConsumptionParityCheck(
++				result, "graph_facing_cpu_owned_rows_match_smoke",
++				result.graphFacingCpuOwnedRows == smoke.cpuOwnedResidualRows,
++				"graph-facing handoff must preserve CPU-owned residual rows");
++			addReadToGraphFullQueryHitSelectedGraphConsumptionParityCheck(
++				result, "graph_facing_rows_have_live_edges",
++				result.missingGraphEdgeRows == 0,
++				"every graph-facing row must bind to a live GraphEdge");
++			addReadToGraphFullQueryHitSelectedGraphConsumptionParityCheck(
++				result, "dropped_graph_facing_rows_zero",
++				result.droppedGraphFacingRows == 0,
++				"graph-facing handoff must not drop selected or CPU-owned rows");
++			addReadToGraphFullQueryHitSelectedGraphConsumptionParityCheck(
++				result, "graph_facing_build_timed",
++				result.graphFacingBuildMs > 0.0,
++				"graph-facing parity build timing must be recorded");
++			result.graphConsumptionParityTotalMs = readAlignmentElapsedMs(
++				parityStart, std::chrono::steady_clock::now());
++			addReadToGraphFullQueryHitSelectedGraphConsumptionParityCheck(
++				result, "graph_consumption_parity_total_timed",
++				result.graphConsumptionParityTotalMs > 0.0,
++				"graph-consumption parity total timing must be recorded");
++
++			if (allReadToGraphFullQueryHitSelectedGraphConsumptionParityChecksPassed(
++					result))
++			{
++				result.status = "passed";
++				result.state = "not-consumed";
++				result.decision =
++					"selected-graph-consumption-parity-written-not-consumed";
++				result.eligible = true;
++				result.consumed = false;
++				result.notConsumed = true;
++				result.failedClosed = false;
++				result.error.clear();
++			}
++			else
++			{
++				result.error =
++					"selected graph-consumption parity differs from M6y smoke";
++			}
++		}
++		catch (const std::exception& exc)
++		{
++			result.error = exc.what();
++			result.graphConsumptionParityTotalMs = readAlignmentElapsedMs(
++				parityStart, std::chrono::steady_clock::now());
++			markReadToGraphFullQueryHitSelectedGraphConsumptionParityFailed(
++				result);
++		}
++		return result;
++	}
++
++	void captureReadToGraphFullQueryHitSelectedGraphConsumptionParityResult(
++		ReadToGraphFullQueryHitWorkerDryRunResult& dryRun,
++		const ReadToGraphFullQueryHitSelectedGraphConsumptionParityResult& parity)
++	{
++		dryRun.rawOverlapSelectedGraphConsumptionParityMode =
++			parity.mode;
++		dryRun.rawOverlapSelectedGraphConsumptionParityProofFault =
++			parity.proofFault;
++		dryRun.rawOverlapSelectedGraphConsumptionParityStatus =
++			parity.status;
++		dryRun.rawOverlapSelectedGraphConsumptionParityState =
++			parity.state;
++		dryRun.rawOverlapSelectedGraphConsumptionParityDecision =
++			parity.decision;
++		dryRun.rawOverlapSelectedGraphConsumptionParityEligible =
++			parity.eligible;
++		dryRun.rawOverlapSelectedGraphConsumptionParityFailedClosed =
++			parity.failedClosed;
++		dryRun.rawOverlapSelectedGraphConsumptionParityGraphFacingRows =
++			parity.graphFacingRows;
++		dryRun.rawOverlapSelectedGraphConsumptionParityCudaSuppliedRows =
++			parity.graphFacingCudaSuppliedRows;
++		dryRun.rawOverlapSelectedGraphConsumptionParityCpuOwnedRows =
++			parity.graphFacingCpuOwnedRows;
++		dryRun.rawOverlapSelectedGraphConsumptionParityMissingGraphEdgeRows =
++			parity.missingGraphEdgeRows;
++	}
++
++	void writeReadToGraphFullQueryHitSelectedGraphConsumptionParityJson(
++		const std::string& path,
++		const ReadToGraphFullQueryHitSelectedGraphConsumptionParityResult& parity)
++	{
++		std::ostringstream json;
++		json << "{\n"
++			 << "  \"schema\": "
++				"\"cuflye-read-to-graph-full-query-hit-selected-graph-consumption-parity-v0\",\n"
++			 << "  \"status\": \"" << readAlignmentJsonEscape(parity.status)
++			 << "\",\n"
++			 << "  \"mode\": \"" << readAlignmentJsonEscape(parity.mode)
++			 << "\",\n"
++			 << "  \"proof_fault\": \""
++			 << readAlignmentJsonEscape(parity.proofFault) << "\",\n"
++			 << "  \"proof_fault_applied\": "
++			 << readAlignmentBoolJson(parity.proofFaultApplied) << ",\n"
++			 << "  \"state\": \"" << readAlignmentJsonEscape(parity.state)
++			 << "\",\n"
++			 << "  \"decision\": \"" << readAlignmentJsonEscape(parity.decision)
++			 << "\",\n"
++			 << "  \"selected_cpu_bypass_smoke_status\": \""
++			 << readAlignmentJsonEscape(parity.selectedCpuBypassSmokeStatus)
++			 << "\",\n"
++			 << "  \"eligible\": " << readAlignmentBoolJson(parity.eligible)
++			 << ",\n"
++			 << "  \"consumed\": " << readAlignmentBoolJson(parity.consumed)
++			 << ",\n"
++			 << "  \"not_consumed\": "
++			 << readAlignmentBoolJson(parity.notConsumed) << ",\n"
++			 << "  \"failed_closed\": "
++			 << readAlignmentBoolJson(parity.failedClosed) << ",\n"
++			 << "  \"graph_mutation_consumed_worker_output\": "
++			 << readAlignmentBoolJson(
++					parity.graphMutationConsumedWorkerOutput) << ",\n"
++			 << "  \"final_merged_row_key_matched\": "
++			 << readAlignmentBoolJson(parity.finalMergedRowKeyMatched) << ",\n"
++			 << "  \"final_merged_ordered_row_key_matched\": "
++			 << readAlignmentBoolJson(
++					parity.finalMergedOrderedRowKeyMatched) << ",\n"
++			 << "  \"total_cpu_raw_overlap_rows\": "
++			 << parity.totalCpuRawOverlapRows << ",\n"
++			 << "  \"final_merged_ledger_rows\": "
++			 << parity.finalMergedLedgerRows << ",\n"
++			 << "  \"graph_facing_rows\": " << parity.graphFacingRows
++			 << ",\n"
++			 << "  \"graph_facing_cuda_supplied_rows\": "
++			 << parity.graphFacingCudaSuppliedRows << ",\n"
++			 << "  \"graph_facing_cpu_owned_rows\": "
++			 << parity.graphFacingCpuOwnedRows << ",\n"
++			 << "  \"missing_graph_edge_rows\": "
++			 << parity.missingGraphEdgeRows << ",\n"
++			 << "  \"dropped_graph_facing_rows\": "
++			 << parity.droppedGraphFacingRows << ",\n"
++			 << "  \"timing_ms\": {\n"
++			 << "    \"graph_facing_build\": "
++			 << parity.graphFacingBuildMs << ",\n"
++			 << "    \"graph_consumption_parity_total\": "
++			 << parity.graphConsumptionParityTotalMs << "\n"
++			 << "  },\n"
++			 << "  \"checks\": [\n";
++		for (size_t index = 0; index < parity.checks.size(); ++index)
++		{
++			const auto& check = parity.checks[index];
++			json << "    {\n"
++				 << "      \"name\": \"" << readAlignmentJsonEscape(check.name)
++				 << "\",\n"
++				 << "      \"required\": " << readAlignmentBoolJson(check.required)
++				 << ",\n"
++				 << "      \"passed\": " << readAlignmentBoolJson(check.passed)
++				 << ",\n"
++				 << "      \"detail\": \"" << readAlignmentJsonEscape(check.detail)
++				 << "\"\n"
++				 << "    }" << (index + 1 == parity.checks.size() ? "\n" : ",\n");
++		}
++		json << "  ],\n"
++			 << "  \"graph_facing_ledger\": [\n";
++		writeReadToGraphFullQueryHitSelectedBypassPlanRowsJson(
++			json, parity.graphFacingLedger);
++		json << "  ]";
++		if (!parity.error.empty())
++		{
++			json << ",\n"
++				 << "  \"error\": \""
++				 << readAlignmentJsonEscape(parity.error) << "\"\n";
++		}
++		else
++		{
++			json << "\n";
++		}
++		json << "}\n";
++		writeReadAlignmentTextFile(path, json.str());
++	}
++
+ 	void writeReadToGraphFullQueryHitRawOverlapKeyDiffJson(
+ 		std::ostringstream& json,
+ 		const ReadToGraphRawOverlapRowKeyDiff& diff,
+@@ -8112,6 +8546,24 @@ namespace
+ 				 << "  \"raw_overlap_selected_cpu_bypass_smoke_decision\": \""
+ 				 << readAlignmentJsonEscape(
+ 					 result.rawOverlapSelectedCpuBypassSmokeDecision) << "\",\n"
++				 << "  \"raw_overlap_selected_graph_consumption_parity_json\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSelectedGraphConsumptionParityJson) << "\",\n"
++				 << "  \"raw_overlap_selected_graph_consumption_parity_mode\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSelectedGraphConsumptionParityMode) << "\",\n"
++				 << "  \"raw_overlap_selected_graph_consumption_parity_proof_fault\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSelectedGraphConsumptionParityProofFault) << "\",\n"
++				 << "  \"raw_overlap_selected_graph_consumption_parity_status\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSelectedGraphConsumptionParityStatus) << "\",\n"
++				 << "  \"raw_overlap_selected_graph_consumption_parity_state\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSelectedGraphConsumptionParityState) << "\",\n"
++				 << "  \"raw_overlap_selected_graph_consumption_parity_decision\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSelectedGraphConsumptionParityDecision) << "\",\n"
+ 				 << "  \"stdout_log\": \"" << readAlignmentJsonEscape(result.stdoutLog)
+ 				  << "\",\n"
+ 			 << "  \"stderr_log\": \"" << readAlignmentJsonEscape(result.stderrLog)
+@@ -8192,6 +8644,12 @@ namespace
+ 				 << "  \"raw_overlap_selected_cpu_bypass_smoke_failed_closed\": "
+ 				 << readAlignmentBoolJson(
+ 					 result.rawOverlapSelectedCpuBypassSmokeFailedClosed) << ",\n"
++				 << "  \"raw_overlap_selected_graph_consumption_parity_eligible\": "
++				 << readAlignmentBoolJson(
++					 result.rawOverlapSelectedGraphConsumptionParityEligible) << ",\n"
++				 << "  \"raw_overlap_selected_graph_consumption_parity_failed_closed\": "
++				 << readAlignmentBoolJson(
++					 result.rawOverlapSelectedGraphConsumptionParityFailedClosed) << ",\n"
+ 				 << "  \"graph_mutation_consumed_worker_output\": "
+ 				 << readAlignmentBoolJson(result.graphMutationConsumedWorkerOutput)
+ 				 << ",\n"
+@@ -8296,6 +8754,18 @@ namespace
+ 				 << "    \"selected_cpu_bypass_smoke_total\": "
+ 				 << result.rawOverlapSelectedCpuBypassSmokeTotalMs << "\n"
+ 				 << "  },\n"
++				 << "  \"raw_overlap_selected_graph_consumption_parity_graph_facing_rows\": "
++				 << result.rawOverlapSelectedGraphConsumptionParityGraphFacingRows
++				 << ",\n"
++				 << "  \"raw_overlap_selected_graph_consumption_parity_cuda_supplied_rows\": "
++				 << result.rawOverlapSelectedGraphConsumptionParityCudaSuppliedRows
++				 << ",\n"
++				 << "  \"raw_overlap_selected_graph_consumption_parity_cpu_owned_rows\": "
++				 << result.rawOverlapSelectedGraphConsumptionParityCpuOwnedRows
++				 << ",\n"
++				 << "  \"raw_overlap_selected_graph_consumption_parity_missing_graph_edge_rows\": "
++				 << result.rawOverlapSelectedGraphConsumptionParityMissingGraphEdgeRows
++				 << ",\n"
+ 				 << "  \"query_ids\": [";
+ 		for (size_t idx = 0; idx < result.queryIds.size(); ++idx)
+ 		{
+@@ -8407,6 +8877,10 @@ namespace
+ 					readToGraphFullQueryHitSelectedCpuBypassSmokeMode();
+ 				result.rawOverlapSelectedCpuBypassSmokeProofFault =
+ 					readToGraphFullQueryHitSelectedCpuBypassSmokeProofFault();
++				result.rawOverlapSelectedGraphConsumptionParityMode =
++					readToGraphFullQueryHitSelectedGraphConsumptionParityMode();
++				result.rawOverlapSelectedGraphConsumptionParityProofFault =
++					readToGraphFullQueryHitSelectedGraphConsumptionParityProofFault();
+ 				result.sourcePackDir = std::string(readToGraphSourcePackDir());
+ 				result.workerOutputRoot = readAlignmentRequiredEnv(
+ 					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_OUTPUT_DIR");
+@@ -8468,6 +8942,10 @@ namespace
+ 				result.rawOverlapSelectedCpuBypassSmokeJson = joinReplayPath(
+ 					result.workerOutputRoot,
+ 					"full-query-hit-worker-selected-cpu-bypass-smoke.json");
++				result.rawOverlapSelectedGraphConsumptionParityJson =
++					joinReplayPath(
++						result.workerOutputRoot,
++						"full-query-hit-worker-selected-graph-consumption-parity.json");
+ 				result.workerSessionSubmitPath = joinReplayPath(
+ 					result.workerOutputRoot, "full-query-hit-worker-session-submit.txt");
+ 			result.queryIds = sortedReadToGraphSourcePackQueryIds();
+@@ -8776,6 +9254,36 @@ namespace
+ 													writeReadToGraphFullQueryHitSelectedCpuBypassSmokeJson(
+ 														result.rawOverlapSelectedCpuBypassSmokeJson,
+ 														cpuBypassSmoke);
++													if (readToGraphFullQueryHitSelectedGraphConsumptionParityEnabled() &&
++														!cpuBypassSmoke.failedClosed)
++													{
++														auto graphParity =
++															evaluateReadToGraphFullQueryHitSelectedGraphConsumptionParity(
++																result, cpuBypassSmoke, graph);
++														captureReadToGraphFullQueryHitSelectedGraphConsumptionParityResult(
++															result, graphParity);
++														writeReadToGraphFullQueryHitSelectedGraphConsumptionParityJson(
++															result.rawOverlapSelectedGraphConsumptionParityJson,
++															graphParity);
++														if (graphParity.failedClosed &&
++															!smoke.failedClosed &&
++															!binding.failedClosed &&
++															!ledger.failedClosed &&
++															!rehydration.failedClosed)
++														{
++															result.status =
++																"selected-graph-consumption-parity-failed-before-graph-mutation";
++															result.decision =
++																"fail-closed-before-graph-mutation";
++															result.failedClosed = true;
++															result.workerOutputConsumptionEligible =
++																false;
++															result.graphMutationConsumedWorkerOutput =
++																false;
++															result.error =
++																"CUDA full-query-hit selected graph-consumption parity failed";
++														}
++													}
+ 													if (cpuBypassSmoke.failedClosed &&
+ 														!smoke.failedClosed &&
+ 														!binding.failedClosed &&
+@@ -8941,7 +9449,9 @@ namespace
+ 							 result.status !=
+ 							 "selected-bypass-dry-run-failed-before-graph-mutation" &&
+ 							 result.status !=
+-							 "selected-cpu-bypass-smoke-failed-before-graph-mutation")
++							 "selected-cpu-bypass-smoke-failed-before-graph-mutation" &&
++							 result.status !=
++							 "selected-graph-consumption-parity-failed-before-graph-mutation")
+ 					{
+ 						result.status = "passed";
+ 						result.decision = "stopped-before-graph-mutation";
+@@ -9042,6 +9552,15 @@ namespace
+ 					result.rawOverlapSelectedCpuBypassSmokeJson + "; audit_json=" +
+ 					result.auditJson);
+ 			}
++			if (result.status ==
++				"selected-graph-consumption-parity-failed-before-graph-mutation")
++			{
++				throw std::runtime_error(
++					"cuFlye read-to-graph full-query-hit selected graph-consumption "
++					"parity fail-closed before graph mutation; graph_parity_json=" +
++					result.rawOverlapSelectedGraphConsumptionParityJson +
++					"; audit_json=" + result.auditJson);
++			}
+ 			throw std::runtime_error(
+ 				"cuFlye read-to-graph full-query-hit worker dry-run "
+ 				"fail-closed before graph mutation; audit_json=" +
