@@ -15,6 +15,10 @@ Proposed cards:
 
 Completed cards:
 
+- `2026-07-01-cuflye-m5l-read-alignment-graph-alignment-object-vector-dry-run.md`:
+  group typed CUDA read-alignment rows into a shadow `std::vector<GraphAlignment>`
+  object vector, compare it with the CPU `_readAlignments` slice, and still
+  stop before graph mutation.
 - `2026-07-01-cuflye-m5k-read-alignment-typed-rehydration-dry-run.md`:
   convert validated CUDA read-alignment rows into GraphAlignment-shaped typed
   records in a no-consumption dry-run.

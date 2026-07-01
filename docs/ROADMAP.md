@@ -225,7 +225,7 @@ Completed:
   `98.134393%` versus the M4u cold batch-run worker process, but the full
   toy-raw run was still slower than CPU (`88s` vs `82s`) because the proof still
   pays for one synthetic warmup request inside the same Flye run.
-- M5a-M5j: cuFlye now has a deterministic read-to-graph alignment oracle,
+- M5a-M5l: cuFlye now has a deterministic read-to-graph alignment oracle,
   bounded replay fixtures, a CUDA chain replay prototype, real multi-read
   batching, heterogeneous shape grouping, and a persistent per-shape CUDA arena.
   The M5h proof expands the toy-hifi replay harvest to `3546` valid fixtures
@@ -235,9 +235,10 @@ Completed:
   same M5h harvest, explicit persistent bulk-output CUDA averages
   `0.302834 ms` versus CPU `0.333798 ms` before TSV/JSON emission, a bounded
   replay hot-path speedup of `1.102247x`, while preserving every oracle diff.
-  M5j moves that worker into a Flye-side dry-run seam: Flye can invoke the CUDA
-  read-alignment backend, validate output against CPU oracle rows, write graph
-  guard metadata, and still stop before graph mutation.
+  M5j-M5l move that worker into a Flye-side dry-run seam: Flye can invoke the
+  CUDA read-alignment backend, validate output against CPU oracle rows, rehydrate
+  typed rows into a shadow `std::vector<GraphAlignment>` object-vector, prove it
+  matches the CPU `_readAlignments` slice, and still stop before graph mutation.
 
 Current allowed performance claim:
 
@@ -1735,10 +1736,62 @@ M5k does not prove default GPU mode, replacement of Flye _readAlignments, graph
 mutation consumption, or end-to-end Flye acceleration.
 ```
 
+M5l accepted result:
+
+```text
+cuFlye can group validated CUDA read-alignment typed segments into a shadow
+std::vector<GraphAlignment> object-vector, compare the object vector against
+the CPU _readAlignments slice for selected reads, and still stop before graph
+mutation.
+```
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m5l-proof-20260701T010956Z
+positive_query_ids=5,47,200,204
+worker_validation_status=passed
+graph_guard_status=passed
+read_alignment_rehydration_status=passed
+read_alignment_object_rehydration_status=passed
+read_alignment_object_rehydration_state=not-consumed
+object_representation=graph-alignment-object-vector-v0
+total_object_records=7
+total_object_chains=4
+graph_mutation_consumed_worker_output=false
+```
+
+The DGX negative proof enabled
+`CUFLYE_READ_ALIGNMENT_OBJECT_REHYDRATION_PROOF_FAULT=drop-first-graph-alignment-chain`
+for query ids `5,47`. Worker validation, graph guard, and M5k typed
+rehydration passed first. Object-vector comparison then failed closed with:
+
+```text
+read_alignment_object_rehydration_status=failed
+read_alignment_object_rehydration_state=failed-closed
+read_alignment_object_rehydration_decision=failed-closed-before-graph-mutation
+graph_mutation_consumed_worker_output=false
+```
+
+Allowed M5l claim:
+
+```text
+cuFlye can convert validated CUDA read-alignment output into a shadow
+std::vector<GraphAlignment>, prove that it matches the CPU _readAlignments
+slice, and still stop before graph mutation.
+```
+
+Forbidden M5l claim:
+
+```text
+M5l does not prove default GPU mode, replacement of Flye _readAlignments, graph
+mutation consumption, or end-to-end Flye acceleration.
+```
+
 Next highest-ROI task:
 
 ```text
-M5l: group M5k typed segments into a shadow std::vector<GraphAlignment>
-object-vector, compare it against the CPU _readAlignments slice, and still
-avoid replacing _readAlignments.
+M5m: define a guarded read-alignment object-vector substitution smoke for an
+allowlisted tiny slice, preserving exact artifacts and still failing closed on
+any mismatch before repeat-graph mutation.
 ```
