@@ -11,13 +11,17 @@ Active cards:
 
 Proposed cards:
 
+- `2026-07-01-cuflye-m6w-full-query-hit-selected-substitution-bypass-plan.md`:
+  convert the M6v verified would-substitute ledger into a selected CPU-bypass
+  decision ledger while keeping non-selected rows CPU-owned and graph mutation
+  blocked.
+
+Completed cards:
+
 - `2026-07-01-cuflye-m6v-full-query-hit-verified-substitution-smoke.md`:
   compare the guarded M6u handoff against the selected CPU-derived handoff
   shape, record a rollback-safe would-substitute ledger, and fail closed before
   graph mutation.
-
-Completed cards:
-
 - `2026-07-01-cuflye-m6u-full-query-hit-object-vector-substitution-guard.md`:
   receive the M6t object vector at a guarded no-mutation substitution handoff,
   prove the handoff count matches, and fail closed before graph mutation.

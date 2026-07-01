@@ -3971,3 +3971,95 @@ CUDA object vector against the selected CPU-derived handoff shape, record a
 rollback-safe would-substitute ledger, and still fail closed before graph
 mutation on a deliberately corrupted substitution ledger.
 ```
+
+## 2026-07-01 Update: M6v Full Query-Hit Verified Substitution Smoke
+
+Status: completed.
+
+Task Card:
+
+- `docs/tasks/2026-07-01-cuflye-m6v-full-query-hit-verified-substitution-smoke.md`
+
+Golden proof:
+
+- `tests/golden/cuflye-m6v-full-query-hit-verified-substitution-smoke-dgx-aarch64.json`
+
+What changed:
+
+- Added Flye patch `0050` with an opt-in no-mutation verified-substitution
+  smoke after the M6u substitution guard.
+- Added ABI notes for
+  `cuflye-read-to-graph-full-query-hit-verified-substitution-smoke-v0`.
+- Extended `scripts/run_flye_fixture.sh` so proof runs can enable verified
+  substitution mode and inject a substitution-ledger proof fault.
+- Kept graph mutation disabled and audited as not consumed.
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m6v-proof-20260701T113000Z
+fixture=toy-hifi
+query_ids=5,6,7,8,9,10,11,12
+positive_status=passed
+positive_rehydration_status=passed
+positive_shadow_ledger_status=passed
+positive_graph_edge_binding_status=passed
+positive_object_vector_smoke_status=passed
+positive_substitution_guard_status=passed
+positive_verified_substitution_status=passed
+positive_guard_handoff_rows=8
+positive_selected_cpu_handoff_rows=8
+positive_would_substitute_rows=8
+positive_substitution_ledger_rows=8
+positive_substitution_row_key_diff_status=match
+positive_substitution_ordered_row_key_matched=true
+positive_graph_mutation_consumed_worker_output=false
+negative_status=verified-substitution-smoke-failed-before-graph-mutation
+negative_rehydration_status=passed
+negative_shadow_ledger_status=passed
+negative_graph_edge_binding_status=passed
+negative_object_vector_smoke_status=passed
+negative_substitution_guard_status=passed
+negative_verified_substitution_status=failed
+negative_proof_fault=drop-first-substitution-ledger-row
+negative_proof_fault_applied=true
+negative_guard_handoff_rows=8
+negative_would_substitute_rows=7
+negative_substitution_ledger_rows=7
+negative_substitution_row_key_diff_status=mismatch
+negative_graph_mutation_consumed_worker_output=false
+default_cpu_artifact_hashes_match_m0=true
+```
+
+Allowed M6v claim:
+
+```text
+cuFlye can compare the selected CUDA-derived would-substitute ledger against
+the selected CPU handoff row keys and order, prove `8/8` rows match, and fail
+closed on a corrupted `7/8` substitution ledger before graph mutation.
+```
+
+Forbidden M6v claim:
+
+```text
+M6v does not prove whole-Flye speedup, real graph mutation, default GPU mode,
+or GPU-computed chain-input filtering/edge identity.
+```
+
+Plain-language benefit:
+
+```text
+M6v still does not make full Flye faster. It proves the CUDA-derived selected
+handoff is not only the right size: it matches the CPU-selected handoff row
+keys and order, so the next step can reason about a guarded selected CPU-bypass
+plan instead of another object identity check.
+```
+
+Next highest-ROI task:
+
+```text
+M6w: add a selected substitution bypass-plan audit after M6v. It should record
+which selected CPU handoff rows could be bypassed by the verified CUDA ledger,
+which rows remain CPU-owned, and fail closed on a corrupted bypass ledger
+before graph mutation.
+```

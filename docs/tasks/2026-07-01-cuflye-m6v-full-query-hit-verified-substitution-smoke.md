@@ -1,6 +1,6 @@
 # Task Card: cuFlye M6v Full Query-Hit Verified Substitution Smoke
 
-Status: proposed
+Status: completed
 
 Created: 2026-07-01
 
@@ -60,18 +60,69 @@ real graph mutation.
 
 ## Acceptance Gates
 
-- [ ] M6p, M6q, M6s, M6t, and M6u gates must pass before verified
+- [x] M6p, M6q, M6s, M6t, and M6u gates must pass before verified
       substitution smoke runs.
-- [ ] Positive DGX proof records nonzero would-substitute rows.
-- [ ] Positive DGX proof substitution ledger count equals guarded handoff
+- [x] Positive DGX proof records nonzero would-substitute rows.
+- [x] Positive DGX proof substitution ledger count equals guarded handoff
       object count.
-- [ ] Positive DGX proof proves the substitution decision is not consumed by
+- [x] Positive DGX proof proves the substitution decision is not consumed by
       graph mutation.
-- [ ] Negative proof fails closed before graph mutation when the substitution
+- [x] Negative proof fails closed before graph mutation when the substitution
       ledger is intentionally corrupted.
-- [ ] Default CPU Flye canonical artifacts remain unchanged.
-- [ ] Local and DGX syntax/style/ownership gates pass.
+- [x] Default CPU Flye canonical artifacts remain unchanged.
+- [x] Local and DGX syntax/style/ownership gates pass.
 
 ## Completion Notes
 
-Pending implementation.
+Implemented in patch
+`patches/flye/2.9.6/0050-cuflye-read-to-graph-full-query-hit-verified-substitution-smoke.patch`.
+
+ABI:
+
+- `docs/abi/read-to-graph-full-query-hit-verified-substitution-smoke-v0.md`
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m6v-proof-20260701T113000Z
+fixture=toy-hifi
+query_ids=5,6,7,8,9,10,11,12
+positive_status=passed
+positive_rehydration_status=passed
+positive_shadow_ledger_status=passed
+positive_graph_edge_binding_status=passed
+positive_object_vector_smoke_status=passed
+positive_substitution_guard_status=passed
+positive_verified_substitution_status=passed
+positive_guard_handoff_rows=8
+positive_selected_cpu_handoff_rows=8
+positive_would_substitute_rows=8
+positive_substitution_ledger_rows=8
+positive_substitution_row_key_diff_status=match
+positive_substitution_ordered_row_key_matched=true
+positive_graph_mutation_consumed_worker_output=false
+negative_status=verified-substitution-smoke-failed-before-graph-mutation
+negative_verified_substitution_status=failed
+negative_proof_fault=drop-first-substitution-ledger-row
+negative_proof_fault_applied=true
+negative_guard_handoff_rows=8
+negative_would_substitute_rows=7
+negative_substitution_ledger_rows=7
+negative_substitution_row_key_diff_status=mismatch
+negative_substitution_guard_status=passed
+negative_graph_mutation_consumed_worker_output=false
+default_cpu_artifact_hashes_match_m0=true
+```
+
+Golden manifest:
+
+- `tests/golden/cuflye-m6v-full-query-hit-verified-substitution-smoke-dgx-aarch64.json`
+
+Plain-language benefit:
+
+```text
+M6v still does not make full Flye faster. It proves the selected CUDA-derived
+object vector is not just count-compatible with Flye: its would-substitute
+ledger matches the selected CPU handoff row keys and order, and a corrupted
+ledger is rejected before graph mutation.
+```
