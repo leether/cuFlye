@@ -138,3 +138,5 @@ M5 read-to-graph alignment proof:
   `cuflye-m5h-larger-read-alignment-fixture-harvest-dgx-aarch64.json`
 - Persistent read alignment bulk-output manifest:
   `cuflye-m5i-persistent-bulk-output-copy-dgx-aarch64.json`
+- Read alignment graph dry-run seam manifest:
+  `cuflye-m5j-read-alignment-graph-dry-run-seam-dgx-aarch64.json`

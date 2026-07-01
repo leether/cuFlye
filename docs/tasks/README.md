@@ -15,6 +15,9 @@ Proposed cards:
 
 Completed cards:
 
+- `2026-07-01-cuflye-m5j-read-alignment-graph-dry-run-seam.md`: invoke and
+  validate the M5i CUDA read-alignment backend from Flye in a no-mutation
+  graph-facing dry-run seam.
 - `2026-07-01-cuflye-m5i-persistent-bulk-output-copy.md`: reduce persistent
   read-alignment device-to-host overhead with explicit per-shape bulk output
   copies while preserving per-read oracle diffs and beating the bounded CPU

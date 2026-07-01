@@ -1,0 +1,152 @@
+{
+  "acceptance": {
+    "cuda_read_alignment_worker_builds_on_dgx": true,
+    "independent_python_oracle_diffs_match": true,
+    "local_and_dgx_syntax_patch_ownership_gates_pass": true,
+    "negative_missing_worker_bin_fails_closed": true,
+    "negative_records_no_graph_mutation_consumption": true,
+    "patch_series_applies_through_0028": true,
+    "patched_flye_builds_on_dgx": true,
+    "positive_dry_run_invokes_cuda_worker_from_flye": true,
+    "positive_dry_run_stops_before_graph_mutation": true,
+    "positive_graph_guard_not_consumed": true,
+    "positive_records_no_graph_mutation_consumption": true,
+    "positive_worker_outputs_validate_against_oracle": true
+  },
+  "artifacts": {
+    "cuda_worker_build_manifest": "/tmp/cuflye-m5j-proof-20260701T002918Z/out/m5j/cuda_read_alignment_chain_replay_build_manifest.json",
+    "flye_build_manifest": "/tmp/cuflye-m5j-proof-20260701T002918Z/out/m5j/flye_build_manifest.json",
+    "negative_graph_guard_json": "/tmp/cuflye-m5j-proof-20260701T002918Z/out/m5j/negative-missing-worker-bin/read-alignment-worker/read-alignment-graph-consumption-guard.json",
+    "negative_seam_summary_json": "/tmp/cuflye-m5j-proof-20260701T002918Z/out/m5j/negative-missing-worker-bin/read-alignment-worker/read-alignment-seam-summary.json",
+    "negative_validation_json": "/tmp/cuflye-m5j-proof-20260701T002918Z/out/m5j/negative-missing-worker-bin/read-alignment-worker/read-alignment-worker-validation.json",
+    "positive_graph_guard_json": "/tmp/cuflye-m5j-proof-20260701T002918Z/out/m5j/positive-run/read-alignment-worker/read-alignment-graph-consumption-guard.json",
+    "positive_seam_summary_json": "/tmp/cuflye-m5j-proof-20260701T002918Z/out/m5j/positive-run/read-alignment-worker/read-alignment-seam-summary.json",
+    "positive_validation_json": "/tmp/cuflye-m5j-proof-20260701T002918Z/out/m5j/positive-run/read-alignment-worker/read-alignment-worker-validation.json"
+  },
+  "host": {
+    "architecture": "aarch64",
+    "cuda_arch": "sm_121",
+    "hostname": "edgexpert-45d2",
+    "nvcc": "/usr/local/cuda/bin/nvcc",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39"
+  },
+  "milestone": "M5j",
+  "negative_missing_worker_bin": {
+    "elapsed_seconds": 13,
+    "exit_status": 1,
+    "expected_failure": true,
+    "graph_consumption_state": "failed-closed",
+    "graph_guard_status": "failed",
+    "graph_mutation_consumed_worker_output": false,
+    "guard_checks": {
+      "audit_metadata_available": true,
+      "explicit_guard_mode": true,
+      "explicit_worker_mode": true,
+      "fixture_count_nonzero": true,
+      "fixture_dump_enabled": true,
+      "validation_passed": false,
+      "worker_exit_success": false
+    },
+    "query_ids": [
+      5,
+      47
+    ],
+    "run_dir": "/tmp/cuflye-m5j-proof-20260701T002918Z/out/m5j/negative-missing-worker-bin",
+    "validation_status": "worker-failed",
+    "worker_output_consumption_eligible": false
+  },
+  "next_recommended_step": "M5k: add a typed read-alignment rehydration dry-run that converts validated worker TSV rows back toward Flye GraphAlignment-shaped records without replacing _readAlignments.",
+  "plain_language_assessment": {
+    "measured_cuda_benefit": "M5j does not add a new speed claim; it preserves the M5i bulk-output worker path and proves the integration boundary can call it safely.",
+    "what_improved": "CUDA read-alignment replay is now invoked and checked from inside a real Flye run, behind an explicit dry-run graph guard.",
+    "what_it_does_not_claim": "This is not default GPU mode and not end-to-end Flye acceleration; the positive proof intentionally exits before graph mutation.",
+    "why_it_matters": "This reduces the risk of future graph consumption: Flye can now produce CUDA read-alignment output, prove it matches CPU oracle output, and still refuse to mutate graph state."
+  },
+  "positive_dry_run": {
+    "cuda_execution_mode": "persistent-arena-bulk-output",
+    "elapsed_seconds": 14,
+    "exit_status": 1,
+    "expected_failure": true,
+    "fixture_count": 4,
+    "graph_consumption_state": "not-consumed",
+    "graph_guard_status": "passed",
+    "graph_mutation_consumed_worker_output": false,
+    "guard_checks": {
+      "audit_metadata_available": true,
+      "explicit_guard_mode": true,
+      "explicit_worker_mode": true,
+      "fixture_count_nonzero": true,
+      "fixture_dump_enabled": true,
+      "validation_passed": true,
+      "worker_exit_success": true
+    },
+    "independent_validation": [
+      {
+        "canonical_sha256": "d0b566298ac82ded20a89345589d78ba6e383a8dd7556c57235adcda6b3acf25",
+        "diff_status": "match",
+        "query_id": 5,
+        "records": 1
+      },
+      {
+        "canonical_sha256": "b284e52b9560bf3e0cb7b8de0cb0da72a9be9094c9c663aad793088de74d9fdc",
+        "diff_status": "match",
+        "query_id": 47,
+        "records": 1
+      },
+      {
+        "canonical_sha256": "c8aa478626cad18a598140a00a39effba464c187109a2b71a2509806ff7aa802",
+        "diff_status": "match",
+        "query_id": 200,
+        "records": 3
+      },
+      {
+        "canonical_sha256": "b4d437190c033d199b1cd1592c786e8bbe35b679af2d3a41c0ac84610bc613fb",
+        "diff_status": "match",
+        "query_id": 204,
+        "records": 2
+      }
+    ],
+    "query_ids": [
+      5,
+      47,
+      200,
+      204
+    ],
+    "run_dir": "/tmp/cuflye-m5j-proof-20260701T002918Z/out/m5j/positive-run",
+    "validated_fixture_count": 4,
+    "worker_benchmark": {
+      "max_total_before_json_ms": 0.062944,
+      "mean_core_ms": 0.020432,
+      "mean_total_before_json_ms": 0.061291,
+      "min_total_before_json_ms": 0.060336,
+      "timed_runs": 3,
+      "warmup_runs": 1
+    },
+    "worker_mode": "cuda-bulk-persistent-v0",
+    "worker_output_consumption_eligible": true,
+    "worker_timing_ms": {
+      "cpu_chain": 0.0,
+      "device_allocation": 0.0,
+      "device_to_host": 0.040368,
+      "finalize": 3.2e-05,
+      "host_to_device": 0.0,
+      "kernel": 0.019936,
+      "one_time_device_allocation": 0.20608,
+      "one_time_host_to_device": 0.456738,
+      "one_time_setup": 318.819537,
+      "one_time_total": 319.482355,
+      "setup": 0.0,
+      "total_before_json": 0.060336,
+      "write_output": 0.333681
+    }
+  },
+  "proof_dir": "/tmp/cuflye-m5j-proof-20260701T002918Z",
+  "schema": "cuflye-dgx-proof-v1",
+  "source": {
+    "base_commit_before_m5j": "f6c7d04",
+    "local_branch": "main",
+    "proof_checkout": "/tmp/cuflye-m5j-proof-20260701T002918Z/repo"
+  },
+  "status": "accepted",
+  "title": "Read-alignment graph dry-run seam"
+}

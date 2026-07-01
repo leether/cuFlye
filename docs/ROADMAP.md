@@ -225,7 +225,7 @@ Completed:
   `98.134393%` versus the M4u cold batch-run worker process, but the full
   toy-raw run was still slower than CPU (`88s` vs `82s`) because the proof still
   pays for one synthetic warmup request inside the same Flye run.
-- M5a-M5i: cuFlye now has a deterministic read-to-graph alignment oracle,
+- M5a-M5j: cuFlye now has a deterministic read-to-graph alignment oracle,
   bounded replay fixtures, a CUDA chain replay prototype, real multi-read
   batching, heterogeneous shape grouping, and a persistent per-shape CUDA arena.
   The M5h proof expands the toy-hifi replay harvest to `3546` valid fixtures
@@ -235,6 +235,9 @@ Completed:
   same M5h harvest, explicit persistent bulk-output CUDA averages
   `0.302834 ms` versus CPU `0.333798 ms` before TSV/JSON emission, a bounded
   replay hot-path speedup of `1.102247x`, while preserving every oracle diff.
+  M5j moves that worker into a Flye-side dry-run seam: Flye can invoke the CUDA
+  read-alignment backend, validate output against CPU oracle rows, write graph
+  guard metadata, and still stop before graph mutation.
 
 Current allowed performance claim:
 
@@ -326,6 +329,12 @@ an explicit persistent CUDA bulk-output mode faster than the CPU replay
 baseline before TSV/JSON emission while preserving every per-read oracle diff.
 This is a bounded read-alignment replay hot-path claim, not a full Flye GPU-mode
 claim.
+
+cuFlye can now invoke that M5i read-alignment CUDA backend from inside a real
+Flye run behind a graph-facing dry-run seam. The seam validates worker TSVs
+against CPU oracle TSVs, writes graph guard metadata, records
+`graph_mutation_consumed_worker_output=false`, and stops before graph mutation.
+This is an integration-safety claim, not a graph-consumption or speed claim.
 ```
 
 Current forbidden claim:
@@ -1621,10 +1630,64 @@ M5i does not prove default GPU mode, Flye graph mutation consumption,
 edlib/base realignment replay, or end-to-end Flye acceleration.
 ```
 
+M5j adds `0028-cuflye-read-alignment-graph-dry-run-seam.patch`, an explicit
+Flye-side read-alignment worker dry-run seam selected by:
+
+```text
+CUFLYE_READ_ALIGNMENT_WORKER_MODE=cuda-bulk-persistent-v0
+CUFLYE_READ_ALIGNMENT_GRAPH_CONSUMPTION_MODE=dry-run-v0
+```
+
+The seam reuses the M5b/M5e replay fixture dump boundary, invokes
+`cuflye-cuda-read-alignment-chain-replay` with
+`--cuda-persistent-arena --cuda-persistent-bulk-output`, validates every worker
+output against the fixture oracle, writes graph guard metadata, and then stops
+before graph mutation.
+
+The DGX positive proof used toy-hifi query ids `5,47,200,204`:
+
+```text
+worker_mode=cuda-bulk-persistent-v0
+cuda_execution_mode=persistent-arena-bulk-output
+worker_validation_status=passed
+fixture_count=4
+validated_fixture_count=4
+independent_python_oracle_diffs=4/4 match
+graph_guard_status=passed
+graph_consumption_state=not-consumed
+graph_mutation_consumed_worker_output=false
+run_status=stopped-before-graph-mutation
+```
+
+The DGX negative proof enabled the same seam for query ids `5,47` without
+`CUFLYE_READ_ALIGNMENT_WORKER_BIN`. It failed closed with:
+
+```text
+worker_validation_status=worker-failed
+graph_guard_status=failed
+graph_consumption_state=failed-closed
+graph_mutation_consumed_worker_output=false
+```
+
+Allowed M5j claim:
+
+```text
+cuFlye can invoke the M5i CUDA read-alignment replay backend from inside a real
+Flye run, validate CUDA output against CPU oracle output, and write graph guard
+metadata while still stopping before graph mutation.
+```
+
+Forbidden M5j claim:
+
+```text
+M5j does not prove default GPU mode, replacement of Flye _readAlignments, graph
+mutation consumption, or end-to-end Flye acceleration.
+```
+
 Next highest-ROI task:
 
 ```text
-M5j: wire the validated bulk persistent read-alignment backend behind a
-graph-facing dry-run consumption seam, preserving oracle diff gates before any
-graph mutation.
+M5k: add a typed read-alignment rehydration dry-run that converts validated
+worker TSV rows back toward Flye GraphAlignment-shaped records without
+replacing _readAlignments.
 ```

@@ -1,0 +1,665 @@
+diff --git a/src/repeat_graph/read_aligner.cpp b/src/repeat_graph/read_aligner.cpp
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -5,6 +5,7 @@
+ #include "read_aligner.h"
+ #include "../sequence/alignment.h"
+ #include "../common/parallel.h"
++#include <algorithm>
+ #include <cerrno>
+ #include <cmath>
+ #include <cstring>
+@@ -24,6 +25,51 @@
+ 	{
+ 		std::vector<const EdgeAlignment*> aln;
+ 		int32_t score;
++	};
++
++	struct ReadAlignmentWorkerFixtureValidation
++	{
++		int64_t queryId = 0;
++		std::string fixtureDir;
++		std::string oracleTsv;
++		std::string workerTsv;
++		bool oracleReadable = false;
++		bool workerReadable = false;
++		bool matched = false;
++		size_t oracleRecords = 0;
++		size_t workerRecords = 0;
++	};
++
++	struct ReadAlignmentWorkerValidationResult
++	{
++		std::string status = "not-run";
++		bool consumptionEligible = false;
++		size_t fixtureCount = 0;
++		size_t validatedFixtureCount = 0;
++		size_t mismatchedFixtureCount = 0;
++		std::vector<ReadAlignmentWorkerFixtureValidation> fixtures;
++	};
++
++	struct ReadAlignmentGraphGuardCheck
++	{
++		std::string name;
++		bool required = true;
++		bool passed = false;
++		std::string detail;
++	};
++
++	struct ReadAlignmentGraphGuardResult
++	{
++		std::string mode;
++		std::string status = "disabled";
++		std::string eligibility = "ineligible";
++		std::string graphConsumptionState = "not-consumed";
++		std::string decision = "disabled";
++		bool eligible = false;
++		bool consumed = false;
++		bool notConsumed = true;
++		bool failedClosed = false;
++		std::vector<ReadAlignmentGraphGuardCheck> checks;
+ 	};
+ 
+ 	std::mutex& readAlignmentDumpMutex()
+@@ -203,6 +249,585 @@
+ 			throw std::runtime_error("Can't create read alignment replay directory " +
+ 									 path + ": " + std::strerror(errno));
+ 		}
++	}
++
++	bool readableFile(const std::string& path)
++	{
++		std::ifstream input(path);
++		return input.good();
++	}
++
++	std::string readAlignmentJsonEscape(const std::string& value)
++	{
++		std::ostringstream escaped;
++		for (char ch : value)
++		{
++			switch (ch)
++			{
++			case '\\':
++				escaped << "\\\\";
++				break;
++			case '"':
++				escaped << "\\\"";
++				break;
++			case '\n':
++				escaped << "\\n";
++				break;
++			case '\r':
++				escaped << "\\r";
++				break;
++			case '\t':
++				escaped << "\\t";
++				break;
++			default:
++				escaped << ch;
++				break;
++			}
++		}
++		return escaped.str();
++	}
++
++	const char* readAlignmentBoolJson(bool value)
++	{
++		return value ? "true" : "false";
++	}
++
++	std::string readAlignmentShellQuote(const std::string& value)
++	{
++		std::string quoted = "'";
++		for (char ch : value)
++		{
++			if (ch == '\'') quoted += "'\\''";
++			else quoted += ch;
++		}
++		quoted += "'";
++		return quoted;
++	}
++
++	void writeReadAlignmentTextFile(const std::string& path,
++									const std::string& text)
++	{
++		std::ofstream output(path);
++		if (!output)
++		{
++			throw std::runtime_error("Can't open cuFlye read alignment output file: " +
++									 path);
++		}
++		output << text;
++	}
++
++	std::vector<std::string> readCanonicalAlignmentRows(const std::string& path)
++	{
++		std::ifstream input(path);
++		if (!input)
++		{
++			throw std::runtime_error("Can't open read alignment TSV: " + path);
++		}
++		std::vector<std::string> rows;
++		std::string line;
++		while (std::getline(input, line))
++		{
++			if (!line.empty() && line.back() == '\r') line.pop_back();
++			if (line.empty()) continue;
++			rows.push_back(line);
++		}
++		std::sort(rows.begin(), rows.end());
++		return rows;
++	}
++
++	std::string readAlignmentWorkerMode()
++	{
++		static std::string mode = []()
++		{
++			const char* raw = std::getenv("CUFLYE_READ_ALIGNMENT_WORKER_MODE");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "cuda-bulk-persistent-v0")
++			{
++				throw std::runtime_error(
++					"Unsupported CUFLYE_READ_ALIGNMENT_WORKER_MODE: " + selected);
++			}
++			return selected;
++		}();
++		return mode;
++	}
++
++	bool readAlignmentWorkerEnabled()
++	{
++		return !readAlignmentWorkerMode().empty();
++	}
++
++	std::string readAlignmentGraphConsumptionMode()
++	{
++		static std::string mode = []()
++		{
++			const char* raw =
++				std::getenv("CUFLYE_READ_ALIGNMENT_GRAPH_CONSUMPTION_MODE");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "dry-run-v0")
++			{
++				throw std::runtime_error(
++					"Unsupported CUFLYE_READ_ALIGNMENT_GRAPH_CONSUMPTION_MODE: " +
++					selected);
++			}
++			return selected;
++		}();
++		return mode;
++	}
++
++	std::string readAlignmentWorkerValidationMode()
++	{
++		static std::string mode = []()
++		{
++			const char* raw =
++				std::getenv("CUFLYE_READ_ALIGNMENT_WORKER_VALIDATION_MODE");
++			if (!raw || !raw[0]) return std::string("oracle-diff-v0");
++			std::string selected(raw);
++			if (selected != "oracle-diff-v0")
++			{
++				throw std::runtime_error(
++					"Unsupported CUFLYE_READ_ALIGNMENT_WORKER_VALIDATION_MODE: " +
++					selected);
++			}
++			return selected;
++		}();
++		return mode;
++	}
++
++	std::string readAlignmentOptionalEnv(const char* name,
++										 const std::string& defaultValue)
++	{
++		const char* raw = std::getenv(name);
++		if (!raw || !raw[0]) return defaultValue;
++		return std::string(raw);
++	}
++
++	std::string readAlignmentRequiredEnv(const char* name)
++	{
++		const char* raw = std::getenv(name);
++		if (!raw || !raw[0])
++		{
++			throw std::runtime_error(std::string("Missing required environment: ") +
++									 name);
++		}
++		return std::string(raw);
++	}
++
++	void validateReadAlignmentWorkerConfig()
++	{
++		if (!readAlignmentWorkerEnabled()) return;
++		if (Parameters::get().numThreads != 1)
++		{
++			throw std::runtime_error(
++				"cuFlye read alignment worker dry-run requires --threads 1");
++		}
++		if (!readAlignmentReplayDumpEnabled() ||
++			!readAlignmentReplayMultiDumpEnabled())
++		{
++			throw std::runtime_error(
++				"cuFlye read alignment worker dry-run requires "
++				"CUFLYE_READ_ALIGNMENT_REPLAY_DUMP_DIR and "
++				"CUFLYE_READ_ALIGNMENT_REPLAY_QUERY_IDS");
++		}
++		if (readAlignmentGraphConsumptionMode() != "dry-run-v0")
++		{
++			throw std::runtime_error(
++				"cuFlye read alignment worker dry-run requires "
++				"CUFLYE_READ_ALIGNMENT_GRAPH_CONSUMPTION_MODE=dry-run-v0");
++		}
++		(void)readAlignmentWorkerValidationMode();
++		(void)readAlignmentRequiredEnv("CUFLYE_READ_ALIGNMENT_WORKER_OUTPUT_DIR");
++		(void)readAlignmentReplayQueryIds();
++	}
++
++	std::vector<int64_t> sortedReadAlignmentReplayQueryIds()
++	{
++		std::vector<int64_t> queryIds(readAlignmentReplayQueryIds().begin(),
++									  readAlignmentReplayQueryIds().end());
++		std::sort(queryIds.begin(), queryIds.end());
++		return queryIds;
++	}
++
++	std::string readAlignmentFixtureDirForQuery(int64_t queryId)
++	{
++		return joinReplayPath(std::string(readAlignmentReplayDumpDir()),
++							  replayQueryDirName(queryId));
++	}
++
++	void writeReadAlignmentFixtureList(const std::string& path,
++									   const std::vector<int64_t>& queryIds)
++	{
++		std::ostringstream text;
++		for (int64_t queryId : queryIds)
++		{
++			std::string fixtureDir = readAlignmentFixtureDirForQuery(queryId);
++			std::string manifestPath = joinReplayPath(fixtureDir, "manifest.json");
++			if (!readableFile(manifestPath))
++			{
++				throw std::runtime_error(
++					"cuFlye read alignment worker missing replay fixture manifest: " +
++					manifestPath);
++			}
++			text << fixtureDir << "\n";
++		}
++		writeReadAlignmentTextFile(path, text.str());
++	}
++
++	void writeReadAlignmentWorkerValidationJson(
++		const std::string& path,
++		const ReadAlignmentWorkerValidationResult& validation)
++	{
++		std::ostringstream json;
++		json << "{\n"
++			 << "  \"schema\": \"cuflye-read-alignment-worker-validation-v0\",\n"
++			 << "  \"status\": \"" << readAlignmentJsonEscape(validation.status) << "\",\n"
++			 << "  \"validation_mode\": \""
++			 << readAlignmentJsonEscape(readAlignmentWorkerValidationMode()) << "\",\n"
++			 << "  \"worker_output_consumption_eligible\": "
++			 << readAlignmentBoolJson(validation.consumptionEligible) << ",\n"
++			 << "  \"fixture_count\": " << validation.fixtureCount << ",\n"
++			 << "  \"validated_fixture_count\": "
++			 << validation.validatedFixtureCount << ",\n"
++			 << "  \"mismatched_fixture_count\": "
++			 << validation.mismatchedFixtureCount << ",\n"
++			 << "  \"fixtures\": [\n";
++		for (size_t index = 0; index < validation.fixtures.size(); ++index)
++		{
++			const auto& fixture = validation.fixtures[index];
++			json << "    {\n"
++				 << "      \"query_id\": " << fixture.queryId << ",\n"
++				 << "      \"fixture_dir\": \""
++				 << readAlignmentJsonEscape(fixture.fixtureDir) << "\",\n"
++				 << "      \"oracle_tsv\": \""
++				 << readAlignmentJsonEscape(fixture.oracleTsv) << "\",\n"
++				 << "      \"worker_tsv\": \""
++				 << readAlignmentJsonEscape(fixture.workerTsv) << "\",\n"
++				 << "      \"oracle_readable\": "
++				 << readAlignmentBoolJson(fixture.oracleReadable) << ",\n"
++				 << "      \"worker_readable\": "
++				 << readAlignmentBoolJson(fixture.workerReadable) << ",\n"
++				 << "      \"matched\": " << readAlignmentBoolJson(fixture.matched)
++				 << ",\n"
++				 << "      \"oracle_records\": " << fixture.oracleRecords << ",\n"
++				 << "      \"worker_records\": " << fixture.workerRecords << "\n"
++				 << "    }" << (index + 1 == validation.fixtures.size() ? "\n" : ",\n");
++		}
++		json << "  ]\n"
++			 << "}\n";
++		writeReadAlignmentTextFile(path, json.str());
++	}
++
++	ReadAlignmentWorkerValidationResult validateReadAlignmentWorkerOutputs(
++		const std::vector<int64_t>& queryIds,
++		const std::string& batchOutputDir)
++	{
++		ReadAlignmentWorkerValidationResult validation;
++		validation.status = "failed";
++		validation.fixtureCount = queryIds.size();
++		for (int64_t queryId : queryIds)
++		{
++			ReadAlignmentWorkerFixtureValidation fixture;
++			fixture.queryId = queryId;
++			fixture.fixtureDir = readAlignmentFixtureDirForQuery(queryId);
++			fixture.oracleTsv = joinReplayPath(fixture.fixtureDir,
++											   "oracle.read-alignment.tsv");
++			fixture.workerTsv = joinReplayPath(
++				joinReplayPath(batchOutputDir, replayQueryDirName(queryId)),
++				"read-alignment.tsv");
++			fixture.oracleReadable = readableFile(fixture.oracleTsv);
++			fixture.workerReadable = readableFile(fixture.workerTsv);
++			if (fixture.oracleReadable && fixture.workerReadable)
++			{
++				auto oracleRows = readCanonicalAlignmentRows(fixture.oracleTsv);
++				auto workerRows = readCanonicalAlignmentRows(fixture.workerTsv);
++				fixture.oracleRecords = oracleRows.size();
++				fixture.workerRecords = workerRows.size();
++				fixture.matched = !oracleRows.empty() && oracleRows == workerRows;
++			}
++			if (fixture.matched) ++validation.validatedFixtureCount;
++			else ++validation.mismatchedFixtureCount;
++			validation.fixtures.push_back(fixture);
++		}
++		validation.consumptionEligible =
++			validation.fixtureCount > 0 &&
++			validation.validatedFixtureCount == validation.fixtureCount &&
++			validation.mismatchedFixtureCount == 0;
++		validation.status = validation.consumptionEligible ? "passed" : "failed";
++		return validation;
++	}
++
++	void addReadAlignmentGraphGuardCheck(ReadAlignmentGraphGuardResult& guard,
++										 const std::string& name,
++										 bool passed,
++										 const std::string& detail)
++	{
++		ReadAlignmentGraphGuardCheck check;
++		check.name = name;
++		check.required = true;
++		check.passed = passed;
++		check.detail = detail;
++		guard.checks.push_back(check);
++	}
++
++	bool allReadAlignmentGraphGuardChecksPassed(
++		const ReadAlignmentGraphGuardResult& guard)
++	{
++		for (const auto& check : guard.checks)
++		{
++			if (check.required && !check.passed) return false;
++		}
++		return !guard.checks.empty();
++	}
++
++	ReadAlignmentGraphGuardResult evaluateReadAlignmentGraphGuard(
++		const ReadAlignmentWorkerValidationResult& validation,
++		int workerStatus,
++		size_t fixtureCount,
++		const std::string& guardJson)
++	{
++		ReadAlignmentGraphGuardResult guard;
++		guard.mode = readAlignmentGraphConsumptionMode();
++		guard.status = "failed";
++		guard.decision = "failed-closed-before-graph-mutation";
++		guard.graphConsumptionState = "failed-closed";
++		guard.failedClosed = true;
++		guard.notConsumed = false;
++
++		addReadAlignmentGraphGuardCheck(
++			guard, "explicit_worker_mode",
++			readAlignmentWorkerMode() == "cuda-bulk-persistent-v0",
++			"CUFLYE_READ_ALIGNMENT_WORKER_MODE=cuda-bulk-persistent-v0");
++		addReadAlignmentGraphGuardCheck(
++			guard, "explicit_guard_mode", guard.mode == "dry-run-v0",
++			"CUFLYE_READ_ALIGNMENT_GRAPH_CONSUMPTION_MODE=dry-run-v0");
++		addReadAlignmentGraphGuardCheck(
++			guard, "fixture_dump_enabled",
++			readAlignmentReplayDumpEnabled() && readAlignmentReplayMultiDumpEnabled(),
++			"replay fixture dump must be enabled with query ids");
++		addReadAlignmentGraphGuardCheck(
++			guard, "fixture_count_nonzero", fixtureCount > 0,
++			"at least one replay fixture must be selected");
++		addReadAlignmentGraphGuardCheck(
++			guard, "worker_exit_success", workerStatus == 0,
++			"CUDA read-alignment worker must exit successfully");
++		addReadAlignmentGraphGuardCheck(
++			guard, "validation_passed",
++			validation.status == "passed" && validation.consumptionEligible,
++			"worker output must match every CPU oracle");
++		addReadAlignmentGraphGuardCheck(
++			guard, "audit_metadata_available", !guardJson.empty(),
++			"guard audit JSON path must be available");
++
++		if (allReadAlignmentGraphGuardChecksPassed(guard))
++		{
++			guard.status = "passed";
++			guard.eligibility = "eligible";
++			guard.graphConsumptionState = "not-consumed";
++			guard.decision = "dry-run-not-consumed";
++			guard.eligible = true;
++			guard.notConsumed = true;
++			guard.failedClosed = false;
++		}
++		return guard;
++	}
++
++	void writeReadAlignmentGraphGuardJson(
++		const std::string& path,
++		const ReadAlignmentGraphGuardResult& guard)
++	{
++		std::ostringstream json;
++		json << "{\n"
++			 << "  \"schema\": \"cuflye-read-alignment-graph-consumption-guard-v0\",\n"
++			 << "  \"status\": \"" << readAlignmentJsonEscape(guard.status) << "\",\n"
++			 << "  \"mode\": \"" << readAlignmentJsonEscape(guard.mode) << "\",\n"
++			 << "  \"guard_eligibility\": \""
++			 << readAlignmentJsonEscape(guard.eligibility) << "\",\n"
++			 << "  \"graph_consumption_state\": \""
++			 << readAlignmentJsonEscape(guard.graphConsumptionState) << "\",\n"
++			 << "  \"decision\": \"" << readAlignmentJsonEscape(guard.decision)
++			 << "\",\n"
++			 << "  \"eligible\": " << readAlignmentBoolJson(guard.eligible) << ",\n"
++			 << "  \"consumed\": " << readAlignmentBoolJson(guard.consumed) << ",\n"
++			 << "  \"not_consumed\": " << readAlignmentBoolJson(guard.notConsumed)
++			 << ",\n"
++			 << "  \"failed_closed\": " << readAlignmentBoolJson(guard.failedClosed)
++			 << ",\n"
++			 << "  \"graph_mutation_consumed_worker_output\": false,\n"
++			 << "  \"checks\": [\n";
++		for (size_t index = 0; index < guard.checks.size(); ++index)
++		{
++			const auto& check = guard.checks[index];
++			json << "    {\n"
++				 << "      \"name\": \"" << readAlignmentJsonEscape(check.name)
++				 << "\",\n"
++				 << "      \"required\": " << readAlignmentBoolJson(check.required)
++				 << ",\n"
++				 << "      \"passed\": " << readAlignmentBoolJson(check.passed)
++				 << ",\n"
++				 << "      \"detail\": \"" << readAlignmentJsonEscape(check.detail)
++				 << "\"\n"
++				 << "    }" << (index + 1 == guard.checks.size() ? "\n" : ",\n");
++		}
++		json << "  ]\n"
++			 << "}\n";
++		writeReadAlignmentTextFile(path, json.str());
++	}
++
++	void writeReadAlignmentSeamSummaryJson(
++		const std::string& path,
++		const std::string& fixtureList,
++		const std::string& batchOutputDir,
++		const std::string& batchJson,
++		const std::string& validationJson,
++		const ReadAlignmentWorkerValidationResult& validation,
++		const std::string& guardJson,
++		const ReadAlignmentGraphGuardResult& guard,
++		const std::string& status,
++		int workerStatus,
++		size_t fixtureCount)
++	{
++		std::ostringstream json;
++		json << "{\n"
++			 << "  \"schema\": \"cuflye-read-alignment-graph-dry-run-seam-v0\",\n"
++			 << "  \"status\": \"" << readAlignmentJsonEscape(status) << "\",\n"
++			 << "  \"worker_mode\": \""
++			 << readAlignmentJsonEscape(readAlignmentWorkerMode()) << "\",\n"
++			 << "  \"validation_mode\": \""
++			 << readAlignmentJsonEscape(readAlignmentWorkerValidationMode()) << "\",\n"
++			 << "  \"graph_consumption_mode\": \""
++			 << readAlignmentJsonEscape(readAlignmentGraphConsumptionMode()) << "\",\n"
++			 << "  \"fixture_list\": \"" << readAlignmentJsonEscape(fixtureList)
++			 << "\",\n"
++			 << "  \"batch_output_dir\": \""
++			 << readAlignmentJsonEscape(batchOutputDir) << "\",\n"
++			 << "  \"batch_json_output\": \"" << readAlignmentJsonEscape(batchJson)
++			 << "\",\n"
++			 << "  \"validation_json\": \""
++			 << readAlignmentJsonEscape(validationJson) << "\",\n"
++			 << "  \"validation_status\": \""
++			 << readAlignmentJsonEscape(validation.status) << "\",\n"
++			 << "  \"worker_output_consumption_eligible\": "
++			 << readAlignmentBoolJson(validation.consumptionEligible) << ",\n"
++			 << "  \"graph_guard_json\": \"" << readAlignmentJsonEscape(guardJson)
++			 << "\",\n"
++			 << "  \"graph_guard_status\": \""
++			 << readAlignmentJsonEscape(guard.status) << "\",\n"
++			 << "  \"graph_guard_eligibility\": \""
++			 << readAlignmentJsonEscape(guard.eligibility) << "\",\n"
++			 << "  \"graph_consumption_state\": \""
++			 << readAlignmentJsonEscape(guard.graphConsumptionState) << "\",\n"
++			 << "  \"graph_consumption_decision\": \""
++			 << readAlignmentJsonEscape(guard.decision) << "\",\n"
++			 << "  \"graph_consumption_eligible\": "
++			 << readAlignmentBoolJson(guard.eligible) << ",\n"
++			 << "  \"fixture_count\": " << fixtureCount << ",\n"
++			 << "  \"validated_fixture_count\": "
++			 << validation.validatedFixtureCount << ",\n"
++			 << "  \"worker_exit_status\": " << workerStatus << ",\n"
++			 << "  \"graph_mutation_consumed_worker_output\": false\n"
++			 << "}\n";
++		writeReadAlignmentTextFile(path, json.str());
++	}
++
++	void runReadAlignmentWorkerDryRunSeam()
++	{
++		if (!readAlignmentWorkerEnabled()) return;
++
++		std::string outputRoot =
++			readAlignmentRequiredEnv("CUFLYE_READ_ALIGNMENT_WORKER_OUTPUT_DIR");
++		ensureReplayDirectory(outputRoot);
++		std::string batchOutputDir =
++			joinReplayPath(outputRoot, "read-alignment-output");
++		ensureReplayDirectory(batchOutputDir);
++		std::string fixtureList =
++			joinReplayPath(outputRoot, "read-alignment-fixtures.list");
++		std::string batchJson =
++			joinReplayPath(outputRoot, "read-alignment-worker-batch.json");
++		std::string validationJson =
++			joinReplayPath(outputRoot, "read-alignment-worker-validation.json");
++		std::string guardJson =
++			joinReplayPath(outputRoot, "read-alignment-graph-consumption-guard.json");
++		std::string seamSummary =
++			joinReplayPath(outputRoot, "read-alignment-seam-summary.json");
++		std::string stdoutLog =
++			joinReplayPath(outputRoot, "read-alignment-worker-stdout.log");
++		std::string stderrLog =
++			joinReplayPath(outputRoot, "read-alignment-worker-stderr.log");
++
++		auto queryIds = sortedReadAlignmentReplayQueryIds();
++		writeReadAlignmentFixtureList(fixtureList, queryIds);
++
++		std::string workerBin =
++			readAlignmentOptionalEnv("CUFLYE_READ_ALIGNMENT_WORKER_BIN", "");
++		std::string command;
++		int workerStatus = 1;
++		if (!workerBin.empty())
++		{
++			command = readAlignmentShellQuote(workerBin) +
++				" --backend cuda --device " +
++				readAlignmentShellQuote(
++					readAlignmentOptionalEnv("CUFLYE_READ_ALIGNMENT_WORKER_DEVICE",
++											 "0")) +
++				" --batch-fixtures-file " + readAlignmentShellQuote(fixtureList) +
++				" --batch-output-dir " + readAlignmentShellQuote(batchOutputDir) +
++				" --batch-json-output " + readAlignmentShellQuote(batchJson) +
++				" --allow-heterogeneous-batch --cuda-persistent-arena "
++				"--cuda-persistent-bulk-output --warmup-runs " +
++				readAlignmentShellQuote(readAlignmentOptionalEnv(
++					"CUFLYE_READ_ALIGNMENT_WORKER_WARMUP_RUNS", "0")) +
++				" --benchmark-runs " +
++				readAlignmentShellQuote(readAlignmentOptionalEnv(
++					"CUFLYE_READ_ALIGNMENT_WORKER_BENCHMARK_RUNS", "1"));
++			std::string memoryBudget = readAlignmentOptionalEnv(
++				"CUFLYE_READ_ALIGNMENT_WORKER_MEMORY_BUDGET_BYTES", "");
++			if (!memoryBudget.empty())
++			{
++				command += " --memory-budget-bytes " +
++						   readAlignmentShellQuote(memoryBudget);
++			}
++			command += " > " + readAlignmentShellQuote(stdoutLog) +
++					   " 2> " + readAlignmentShellQuote(stderrLog);
++			workerStatus = std::system(command.c_str());
++		}
++
++		ReadAlignmentWorkerValidationResult validation;
++		if (workerStatus == 0)
++		{
++			validation = validateReadAlignmentWorkerOutputs(queryIds, batchOutputDir);
++		}
++		else
++		{
++			validation.status = "worker-failed";
++			validation.consumptionEligible = false;
++			validation.fixtureCount = queryIds.size();
++		}
++		writeReadAlignmentWorkerValidationJson(validationJson, validation);
++
++		auto guard = evaluateReadAlignmentGraphGuard(
++			validation, workerStatus, queryIds.size(), guardJson);
++		writeReadAlignmentGraphGuardJson(guardJson, guard);
++
++		if (guard.failedClosed)
++		{
++			writeReadAlignmentSeamSummaryJson(
++				seamSummary, fixtureList, batchOutputDir, batchJson, validationJson,
++				validation, guardJson, guard, "guard-failed-before-graph-mutation",
++				workerStatus, queryIds.size());
++			throw std::runtime_error(
++				"cuFlye read alignment worker dry-run fail-closed before graph "
++				"mutation; guard_json=" +
++				guardJson + "; seam_summary=" + seamSummary);
++		}
++
++		writeReadAlignmentSeamSummaryJson(
++			seamSummary, fixtureList, batchOutputDir, batchJson, validationJson,
++			validation, guardJson, guard, "stopped-before-graph-mutation",
++			workerStatus, queryIds.size());
++		throw std::runtime_error(
++			"cuFlye read alignment worker dry-run stopped before graph mutation; "
++			"seam_summary=" +
++			seamSummary);
+ 	}
+ 
+ 	void writeAlignmentRows(const std::string& path,
+@@ -477,6 +1102,7 @@
+ {
+ 	validateReadAlignmentDumpConfig();
+ 	validateReadAlignmentReplayDumpConfig();
++	validateReadAlignmentWorkerConfig();
+ 
+ 	static const int SMALL_ALN = 100;
+ 	static const int BIG_ALN = 500;
+@@ -619,6 +1245,7 @@
+ 		<< totalLength << " (" << (float)alignedLength / totalLength << ")";
+ 	readsOverlaps.overlapDivergenceStats(divergenceStats, MAX_DIVERGENCE);
+ 	dumpReadAlignmentRecords(_readAlignments);
++	runReadAlignmentWorkerDryRunSeam();
+ }
+ 
+ //updates alignments with respect to the new graph
