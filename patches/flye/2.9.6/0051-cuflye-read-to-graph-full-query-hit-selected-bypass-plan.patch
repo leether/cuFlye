@@ -1,0 +1,836 @@
+diff --git a/src/repeat_graph/read_aligner.cpp b/src/repeat_graph/read_aligner.cpp
+index 28b6c4c..5c877d3 100644
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -22,6 +22,7 @@
+ #include <memory>
+ #include <mutex>
+ #include <queue>
++#include <set>
+ #include <sstream>
+ #include <thread>
+ #include <unordered_set>
+@@ -705,6 +706,66 @@ namespace
+ 		ReadToGraphRawOverlapRowKeyDiff rowKeyDiff;
+ 	};
+ 
++	struct ReadToGraphFullQueryHitSelectedBypassPlanCheck
++	{
++		std::string name;
++		bool required = true;
++		bool passed = false;
++		std::string detail;
++	};
++
++	struct ReadToGraphFullQueryHitSelectedBypassPlanRow
++	{
++		size_t orderIndex = 0;
++		int64_t queryId = 0;
++		int64_t sourceOrder = 0;
++		int64_t edgeId = 0;
++		int64_t readId = 0;
++		int64_t edgeSeqId = 0;
++		std::string decision;
++		std::string reason;
++	};
++
++	struct ReadToGraphFullQueryHitSelectedBypassPlanResult
++	{
++		std::string mode;
++		std::string proofFault;
++		std::string status = "not-requested";
++		std::string state = "not-consumed";
++		std::string decision = "disabled";
++		std::string workerTsv;
++		std::string verifiedSubstitutionStatus = "not-requested";
++		std::string error;
++		bool eligible = false;
++		bool consumed = false;
++		bool notConsumed = true;
++		bool failedClosed = false;
++		bool proofFaultApplied = false;
++		bool graphMutationConsumedWorkerOutput = false;
++		bool bypassRowKeyMatched = false;
++		bool bypassOrderedRowKeyMatched = false;
++		size_t totalCpuRawOverlapRows = 0;
++		size_t verifiedSubstitutionLedgerRows = 0;
++		size_t selectedCpuHandoffRows = 0;
++		size_t selectedBypassEligibleRows = 0;
++		size_t selectedBypassLedgerRows = 0;
++		size_t cpuOwnedResidualRows = 0;
++		size_t cpuOwnedUnsupportedRows = 0;
++		size_t cpuOwnedNonSelectedRows = 0;
++		size_t cpuOwnedMissingBypassRows = 0;
++		size_t bypassQueryAccountedRows = 0;
++		size_t bypassEdgeAccountedRows = 0;
++		size_t bypassQueryEdgeAccountedRows = 0;
++		size_t missingGraphEdgeRows = 0;
++		std::vector<ReadToGraphFullQueryHitSelectedBypassPlanCheck>
++			checks;
++		std::vector<ReadToGraphFullQueryHitSelectedBypassPlanRow>
++			bypassLedger;
++		std::vector<ReadToGraphFullQueryHitSelectedBypassPlanRow>
++			cpuOwnedRows;
++		ReadToGraphRawOverlapRowKeyDiff bypassRowKeyDiff;
++	};
++
+ 	struct ReadToGraphFullQueryHitWorkerDryRunResult
+ 	{
+ 		std::string mode;
+@@ -763,6 +824,12 @@ namespace
+ 		std::string rawOverlapVerifiedSubstitutionStatus = "not-requested";
+ 		std::string rawOverlapVerifiedSubstitutionState = "not-consumed";
+ 		std::string rawOverlapVerifiedSubstitutionDecision = "disabled";
++		std::string rawOverlapSelectedBypassPlanJson;
++		std::string rawOverlapSelectedBypassPlanMode;
++		std::string rawOverlapSelectedBypassPlanProofFault;
++		std::string rawOverlapSelectedBypassPlanStatus = "not-requested";
++		std::string rawOverlapSelectedBypassPlanState = "not-consumed";
++		std::string rawOverlapSelectedBypassPlanDecision = "disabled";
+ 		std::string workerCommand;
+ 		std::string error;
+ 		std::vector<int64_t> queryIds;
+@@ -790,6 +857,8 @@ namespace
+ 		bool rawOverlapSubstitutionGuardFailedClosed = false;
+ 		bool rawOverlapVerifiedSubstitutionEligible = false;
+ 		bool rawOverlapVerifiedSubstitutionFailedClosed = false;
++		bool rawOverlapSelectedBypassPlanEligible = false;
++		bool rawOverlapSelectedBypassPlanFailedClosed = false;
+ 		size_t expectedOutputRecords = 0;
+ 		size_t rawOverlapRehydratedRecords = 0;
+ 		size_t rawOverlapShadowLedgerRows = 0;
+@@ -813,6 +882,9 @@ namespace
+ 		size_t rawOverlapVerifiedSubstitutionCpuHandoffRows = 0;
+ 		size_t rawOverlapVerifiedSubstitutionWouldSubstituteRows = 0;
+ 		size_t rawOverlapVerifiedSubstitutionLedgerRows = 0;
++		size_t rawOverlapSelectedBypassPlanEligibleRows = 0;
++		size_t rawOverlapSelectedBypassPlanLedgerRows = 0;
++		size_t rawOverlapSelectedBypassPlanCpuOwnedRows = 0;
+ 		double workerContextSetupMs = 0.0;
+ 		double actualRequestTotalMs = 0.0;
+ 		double actualKernelMs = 0.0;
+@@ -3029,6 +3101,51 @@ namespace
+ 		return proofFault;
+ 	}
+ 
++	std::string readToGraphFullQueryHitSelectedBypassPlanMode()
++	{
++		static std::string mode = []()
++		{
++			const char* raw = std::getenv(
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_BYPASS_PLAN_MODE");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "selected-bypass-plan-v0")
++			{
++				throw std::runtime_error(
++					"Unsupported "
++					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_BYPASS_PLAN_MODE: " +
++					selected);
++			}
++			return selected;
++		}();
++		return mode;
++	}
++
++	bool readToGraphFullQueryHitSelectedBypassPlanEnabled()
++	{
++		return !readToGraphFullQueryHitSelectedBypassPlanMode().empty();
++	}
++
++	std::string readToGraphFullQueryHitSelectedBypassPlanProofFault()
++	{
++		static std::string proofFault = []()
++		{
++			const char* raw = std::getenv(
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_BYPASS_PLAN_PROOF_FAULT");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "drop-first-bypass-ledger-row")
++			{
++				throw std::runtime_error(
++					"Unsupported "
++					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_BYPASS_PLAN_PROOF_FAULT: " +
++					selected);
++			}
++			return selected;
++		}();
++		return proofFault;
++	}
++
+ 	std::string readToGraphFullQueryHitWorkerLifecycleMode()
+ 	{
+ 		static std::string mode = []()
+@@ -3172,6 +3289,10 @@ namespace
+ 			readToGraphFullQueryHitVerifiedSubstitutionEnabled();
+ 		std::string verifiedSubstitutionProofFault =
+ 			readToGraphFullQueryHitVerifiedSubstitutionProofFault();
++		bool selectedBypassPlanEnabled =
++			readToGraphFullQueryHitSelectedBypassPlanEnabled();
++		std::string selectedBypassPlanProofFault =
++			readToGraphFullQueryHitSelectedBypassPlanProofFault();
+ 		if (rehydrationEnabled && !readToGraphFullQueryHitWorkerDryRunEnabled())
+ 		{
+ 			throw std::runtime_error(
+@@ -3355,6 +3476,62 @@ namespace
+ 				"proof fault requires "
+ 				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_VERIFIED_SUBSTITUTION_MODE");
+ 		}
++		if (selectedBypassPlanEnabled &&
++			!readToGraphFullQueryHitWorkerDryRunEnabled())
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit selected bypass plan "
++				"requires CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_MODE");
++		}
++		if (selectedBypassPlanEnabled && !rehydrationEnabled)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit selected bypass plan "
++				"requires CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_REHYDRATION_MODE");
++		}
++		if (selectedBypassPlanEnabled && !shadowLedgerEnabled)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit selected bypass plan "
++				"requires "
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SHADOW_LEDGER_MODE");
++		}
++		if (selectedBypassPlanEnabled && !graphEdgeBindingEnabled)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit selected bypass plan "
++				"requires "
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_GRAPH_EDGE_BINDING_MODE");
++		}
++		if (selectedBypassPlanEnabled && !objectVectorSmokeEnabled)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit selected bypass plan "
++				"requires "
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_OBJECT_VECTOR_SMOKE_MODE");
++		}
++		if (selectedBypassPlanEnabled && !substitutionGuardEnabled)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit selected bypass plan "
++				"requires "
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SUBSTITUTION_GUARD_MODE");
++		}
++		if (selectedBypassPlanEnabled && !verifiedSubstitutionEnabled)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit selected bypass plan "
++				"requires "
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_VERIFIED_SUBSTITUTION_MODE");
++		}
++		if (!selectedBypassPlanProofFault.empty() &&
++			!selectedBypassPlanEnabled)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit selected bypass plan "
++				"proof fault requires "
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_BYPASS_PLAN_MODE");
++		}
+ 		if (!readToGraphFullQueryHitWorkerDryRunEnabled()) return;
+ 		if (!readToGraphSourcePackEnabled())
+ 		{
+@@ -6030,6 +6207,462 @@ namespace
+ 		writeReadAlignmentTextFile(path, json.str());
+ 	}
+ 
++	ReadToGraphFullQueryHitSelectedBypassPlanRow
++	readToGraphFullQueryHitSelectedBypassPlanRow(
++		size_t orderIndex,
++		const ReadToGraphRawOverlapRecord& record,
++		const std::string& decision,
++		const std::string& reason)
++	{
++		ReadToGraphFullQueryHitSelectedBypassPlanRow row;
++		row.orderIndex = orderIndex;
++		row.queryId = record.queryId;
++		row.sourceOrder = record.sourceOrder;
++		row.edgeId = record.edgeId;
++		row.readId = record.overlap.curId.signedId();
++		row.edgeSeqId = record.overlap.extId.signedId();
++		row.decision = decision;
++		row.reason = reason;
++		return row;
++	}
++
++	void addReadToGraphFullQueryHitSelectedBypassPlanCheck(
++		ReadToGraphFullQueryHitSelectedBypassPlanResult& plan,
++		const std::string& name,
++		bool passed,
++		const std::string& detail)
++	{
++		ReadToGraphFullQueryHitSelectedBypassPlanCheck check;
++		check.name = name;
++		check.required = true;
++		check.passed = passed;
++		check.detail = detail;
++		plan.checks.push_back(check);
++	}
++
++	bool allReadToGraphFullQueryHitSelectedBypassPlanChecksPassed(
++		const ReadToGraphFullQueryHitSelectedBypassPlanResult& plan)
++	{
++		for (const auto& check : plan.checks)
++		{
++			if (check.required && !check.passed) return false;
++		}
++		return !plan.checks.empty();
++	}
++
++	void markReadToGraphFullQueryHitSelectedBypassPlanFailed(
++		ReadToGraphFullQueryHitSelectedBypassPlanResult& plan)
++	{
++		plan.status = "failed";
++		plan.state = "failed-closed";
++		plan.decision = "failed-closed-before-graph-mutation";
++		plan.eligible = false;
++		plan.consumed = false;
++		plan.notConsumed = false;
++		plan.failedClosed = true;
++		plan.graphMutationConsumedWorkerOutput = false;
++	}
++
++	ReadToGraphFullQueryHitSelectedBypassPlanResult
++	evaluateReadToGraphFullQueryHitSelectedBypassPlan(
++		const ReadToGraphFullQueryHitWorkerDryRunResult& dryRun,
++		const ReadToGraphFullQueryHitVerifiedSubstitutionResult& substitution,
++		RepeatGraph& graph)
++	{
++		ReadToGraphFullQueryHitSelectedBypassPlanResult result;
++		result.mode = readToGraphFullQueryHitSelectedBypassPlanMode();
++		result.proofFault =
++			readToGraphFullQueryHitSelectedBypassPlanProofFault();
++		result.workerTsv = dryRun.workerOutputTsv;
++		result.verifiedSubstitutionStatus = substitution.status;
++		result.verifiedSubstitutionLedgerRows =
++			substitution.substitutionLedgerRows;
++		result.selectedCpuHandoffRows = substitution.selectedCpuHandoffRows;
++		result.graphMutationConsumedWorkerOutput =
++			dryRun.graphMutationConsumedWorkerOutput;
++		if (!readToGraphFullQueryHitSelectedBypassPlanEnabled())
++		{
++			return result;
++		}
++
++		markReadToGraphFullQueryHitSelectedBypassPlanFailed(result);
++		addReadToGraphFullQueryHitSelectedBypassPlanCheck(
++			result, "explicit_selected_bypass_plan_mode",
++			result.mode == "selected-bypass-plan-v0",
++			"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_BYPASS_PLAN_MODE="
++			"selected-bypass-plan-v0");
++		addReadToGraphFullQueryHitSelectedBypassPlanCheck(
++			result, "verified_substitution_passed",
++			substitution.status == "passed" && substitution.eligible &&
++				!substitution.failedClosed,
++			"M6v verified substitution must pass before selected bypass plan");
++		addReadToGraphFullQueryHitSelectedBypassPlanCheck(
++			result, "verified_substitution_row_keys_matched",
++			substitution.rowKeyMatched && substitution.orderedRowKeyMatched,
++			"M6v ledger must match selected CPU handoff row keys and order");
++		addReadToGraphFullQueryHitSelectedBypassPlanCheck(
++			result, "worker_output_readable",
++			dryRun.workerOutputReadable,
++			"validated worker raw-overlap TSV must be readable");
++		addReadToGraphFullQueryHitSelectedBypassPlanCheck(
++			result, "audit_metadata_available",
++			!dryRun.rawOverlapSelectedBypassPlanJson.empty(),
++			"selected bypass-plan audit JSON path must be available");
++		addReadToGraphFullQueryHitSelectedBypassPlanCheck(
++			result, "graph_not_mutated",
++			!dryRun.graphMutationConsumedWorkerOutput,
++			"worker output must not have reached graph mutation");
++
++		if (!allReadToGraphFullQueryHitSelectedBypassPlanChecksPassed(result))
++		{
++			result.error = "selected bypass-plan preconditions failed";
++			return result;
++		}
++
++		try
++		{
++			auto allCpuRecords =
++				readToGraphOracleRawOverlapRecords(dryRun.queryIds);
++			auto selectedCpuRecords =
++				readToGraphSelectedCpuHandoffRecords(dryRun.queryIds);
++			result.totalCpuRawOverlapRows = allCpuRecords.size();
++			result.selectedCpuHandoffRows = selectedCpuRecords.size();
++			auto selectedCpuKeys =
++				readToGraphRawOverlapRecordRowKeys(selectedCpuRecords);
++
++			std::vector<ReadToGraphFullQueryHitObjectVectorSmokeObject>
++				bypassObjects =
++					buildReadToGraphFullQueryHitLiveObjectVector(
++						result.workerTsv, graph, result.missingGraphEdgeRows);
++			if (result.proofFault == "drop-first-bypass-ledger-row" &&
++				!bypassObjects.empty())
++			{
++				bypassObjects.erase(bypassObjects.begin());
++				result.proofFaultApplied = true;
++			}
++			result.selectedBypassEligibleRows = bypassObjects.size();
++			result.selectedBypassLedgerRows = bypassObjects.size();
++
++			std::vector<ReadToGraphRawOverlapRecord> bypassRecords;
++			std::set<ReadToGraphRawOverlapRowKey> bypassKeys;
++			for (size_t index = 0; index < bypassObjects.size(); ++index)
++			{
++				const auto& object = bypassObjects[index];
++				const auto key =
++					readToGraphRawOverlapRecordToRowKey(object.record);
++				bypassKeys.insert(key);
++				bypassRecords.push_back(object.record);
++				++result.bypassQueryAccountedRows;
++				++result.bypassEdgeAccountedRows;
++				++result.bypassQueryEdgeAccountedRows;
++				result.bypassLedger.push_back(
++					readToGraphFullQueryHitSelectedBypassPlanRow(
++						index, object.record, "selected-bypass-eligible",
++						"verified-ledger-row"));
++			}
++			auto bypassRecordKeys =
++				readToGraphRawOverlapRecordRowKeys(bypassRecords);
++			result.bypassRowKeyDiff = compareReadToGraphRawOverlapRowKeys(
++				selectedCpuKeys, bypassRecordKeys);
++			result.bypassRowKeyMatched = result.bypassRowKeyDiff.matched;
++			result.bypassOrderedRowKeyMatched =
++				result.bypassRowKeyDiff.orderedMatched;
++
++			for (const auto& record : allCpuRecords)
++			{
++				const auto key = readToGraphRawOverlapRecordToRowKey(record);
++				if (bypassKeys.count(key) != 0) continue;
++
++				std::string reason = "not-selected-for-bypass";
++				if (record.edgeId == 0)
++				{
++					reason = "unsupported-unresolved-edge-id";
++					++result.cpuOwnedUnsupportedRows;
++				}
++				else if (record.passesChainInputFilter)
++				{
++					reason = "selected-bypass-ledger-missing";
++					++result.cpuOwnedMissingBypassRows;
++				}
++				else
++				{
++					++result.cpuOwnedNonSelectedRows;
++				}
++				result.cpuOwnedRows.push_back(
++					readToGraphFullQueryHitSelectedBypassPlanRow(
++						result.cpuOwnedRows.size(), record, "cpu-owned",
++						reason));
++			}
++			result.cpuOwnedResidualRows = result.cpuOwnedRows.size();
++
++			addReadToGraphFullQueryHitSelectedBypassPlanCheck(
++				result, "selected_bypass_rows_present",
++				result.selectedBypassEligibleRows > 0,
++				"selected bypass plan requires nonzero bypass-eligible rows");
++			addReadToGraphFullQueryHitSelectedBypassPlanCheck(
++				result, "selected_bypass_count_matches_verified_substitution",
++				result.selectedBypassEligibleRows ==
++					substitution.substitutionLedgerRows,
++				"selected bypass count must match M6v substitution ledger rows");
++			addReadToGraphFullQueryHitSelectedBypassPlanCheck(
++				result, "selected_bypass_ledger_matches_verified_substitution",
++				result.selectedBypassLedgerRows ==
++					substitution.substitutionLedgerRows,
++				"selected bypass ledger must match M6v ledger rows");
++			addReadToGraphFullQueryHitSelectedBypassPlanCheck(
++				result, "selected_bypass_row_keys_match_cpu_handoff",
++				result.bypassRowKeyMatched,
++				"selected bypass row keys must match selected CPU handoff");
++			addReadToGraphFullQueryHitSelectedBypassPlanCheck(
++				result, "selected_bypass_order_matches_cpu_handoff",
++				result.bypassOrderedRowKeyMatched,
++				"selected bypass row order must match selected CPU handoff");
++			addReadToGraphFullQueryHitSelectedBypassPlanCheck(
++				result, "cpu_owned_residual_rows_recorded",
++				result.cpuOwnedResidualRows > 0 &&
++					result.cpuOwnedResidualRows == result.cpuOwnedRows.size(),
++				"CPU-owned residual rows must be explicitly recorded");
++			addReadToGraphFullQueryHitSelectedBypassPlanCheck(
++				result, "bypass_and_cpu_owned_rows_account_for_input",
++				result.selectedBypassEligibleRows +
++					result.cpuOwnedResidualRows == result.totalCpuRawOverlapRows,
++				"bypass plus CPU-owned rows must account for all CPU raw-overlap rows");
++			addReadToGraphFullQueryHitSelectedBypassPlanCheck(
++				result, "bypass_query_accounting_matches_ledger",
++				result.bypassQueryAccountedRows ==
++					result.selectedBypassLedgerRows,
++				"bypass query accounting must match bypass ledger rows");
++			addReadToGraphFullQueryHitSelectedBypassPlanCheck(
++				result, "bypass_edge_accounting_matches_ledger",
++				result.bypassEdgeAccountedRows ==
++					result.selectedBypassLedgerRows,
++				"bypass edge accounting must match bypass ledger rows");
++			addReadToGraphFullQueryHitSelectedBypassPlanCheck(
++				result, "bypass_query_edge_accounting_matches_ledger",
++				result.bypassQueryEdgeAccountedRows ==
++					result.selectedBypassLedgerRows,
++				"bypass query-edge accounting must match bypass ledger rows");
++			addReadToGraphFullQueryHitSelectedBypassPlanCheck(
++				result, "bypass_objects_have_live_graph_edges",
++				result.missingGraphEdgeRows == 0,
++				"every selected bypass object must have a live GraphEdge");
++			addReadToGraphFullQueryHitSelectedBypassPlanCheck(
++				result, "graph_not_mutated_after_selected_bypass_plan",
++				!result.graphMutationConsumedWorkerOutput,
++				"selected bypass plan must not mutate graph state");
++
++			if (allReadToGraphFullQueryHitSelectedBypassPlanChecksPassed(
++					result))
++			{
++				result.status = "passed";
++				result.state = "not-consumed";
++				result.decision =
++					"selected-bypass-plan-written-not-consumed";
++				result.eligible = true;
++				result.consumed = false;
++				result.notConsumed = true;
++				result.failedClosed = false;
++				result.error.clear();
++			}
++			else
++			{
++				result.error =
++					"selected bypass plan differs from verified substitution ledger";
++			}
++		}
++		catch (const std::exception& exc)
++		{
++			result.error = exc.what();
++			markReadToGraphFullQueryHitSelectedBypassPlanFailed(result);
++		}
++		return result;
++	}
++
++	void captureReadToGraphFullQueryHitSelectedBypassPlanResult(
++		ReadToGraphFullQueryHitWorkerDryRunResult& dryRun,
++		const ReadToGraphFullQueryHitSelectedBypassPlanResult& plan)
++	{
++		dryRun.rawOverlapSelectedBypassPlanMode = plan.mode;
++		dryRun.rawOverlapSelectedBypassPlanProofFault = plan.proofFault;
++		dryRun.rawOverlapSelectedBypassPlanStatus = plan.status;
++		dryRun.rawOverlapSelectedBypassPlanState = plan.state;
++		dryRun.rawOverlapSelectedBypassPlanDecision = plan.decision;
++		dryRun.rawOverlapSelectedBypassPlanEligible = plan.eligible;
++		dryRun.rawOverlapSelectedBypassPlanFailedClosed =
++			plan.failedClosed;
++		dryRun.rawOverlapSelectedBypassPlanEligibleRows =
++			plan.selectedBypassEligibleRows;
++		dryRun.rawOverlapSelectedBypassPlanLedgerRows =
++			plan.selectedBypassLedgerRows;
++		dryRun.rawOverlapSelectedBypassPlanCpuOwnedRows =
++			plan.cpuOwnedResidualRows;
++	}
++
++	void writeReadToGraphFullQueryHitSelectedBypassPlanRowsJson(
++		std::ostringstream& json,
++		const std::vector<ReadToGraphFullQueryHitSelectedBypassPlanRow>& rows)
++	{
++		for (size_t index = 0; index < rows.size(); ++index)
++		{
++			const auto& row = rows[index];
++			json << "    {\n"
++				 << "      \"order_index\": " << row.orderIndex << ",\n"
++				 << "      \"query_id\": " << row.queryId << ",\n"
++				 << "      \"source_order\": " << row.sourceOrder << ",\n"
++				 << "      \"edge_id\": " << row.edgeId << ",\n"
++				 << "      \"read_id\": " << row.readId << ",\n"
++				 << "      \"edge_seq_id\": " << row.edgeSeqId << ",\n"
++				 << "      \"decision\": \""
++				 << readAlignmentJsonEscape(row.decision) << "\",\n"
++				 << "      \"reason\": \""
++				 << readAlignmentJsonEscape(row.reason) << "\"\n"
++				 << "    }" << (index + 1 == rows.size() ? "\n" : ",\n");
++		}
++	}
++
++	void writeReadToGraphFullQueryHitSelectedBypassPlanJson(
++		const std::string& path,
++		const ReadToGraphFullQueryHitSelectedBypassPlanResult& plan)
++	{
++		std::ostringstream json;
++		json << "{\n"
++			 << "  \"schema\": "
++				"\"cuflye-read-to-graph-full-query-hit-selected-bypass-plan-v0\",\n"
++			 << "  \"status\": \"" << readAlignmentJsonEscape(plan.status)
++			 << "\",\n"
++			 << "  \"mode\": \"" << readAlignmentJsonEscape(plan.mode)
++			 << "\",\n"
++			 << "  \"proof_fault\": \""
++			 << readAlignmentJsonEscape(plan.proofFault) << "\",\n"
++			 << "  \"proof_fault_applied\": "
++			 << readAlignmentBoolJson(plan.proofFaultApplied) << ",\n"
++			 << "  \"state\": \"" << readAlignmentJsonEscape(plan.state)
++			 << "\",\n"
++			 << "  \"decision\": \"" << readAlignmentJsonEscape(plan.decision)
++			 << "\",\n"
++			 << "  \"worker_tsv\": \""
++			 << readAlignmentJsonEscape(plan.workerTsv) << "\",\n"
++			 << "  \"verified_substitution_status\": \""
++			 << readAlignmentJsonEscape(plan.verifiedSubstitutionStatus)
++			 << "\",\n"
++			 << "  \"eligible\": " << readAlignmentBoolJson(plan.eligible)
++			 << ",\n"
++			 << "  \"consumed\": " << readAlignmentBoolJson(plan.consumed)
++			 << ",\n"
++			 << "  \"not_consumed\": "
++			 << readAlignmentBoolJson(plan.notConsumed) << ",\n"
++			 << "  \"failed_closed\": "
++			 << readAlignmentBoolJson(plan.failedClosed) << ",\n"
++			 << "  \"graph_mutation_consumed_worker_output\": "
++			 << readAlignmentBoolJson(
++					plan.graphMutationConsumedWorkerOutput) << ",\n"
++			 << "  \"bypass_row_key_matched\": "
++			 << readAlignmentBoolJson(plan.bypassRowKeyMatched) << ",\n"
++			 << "  \"bypass_ordered_row_key_matched\": "
++			 << readAlignmentBoolJson(plan.bypassOrderedRowKeyMatched)
++			 << ",\n"
++			 << "  \"total_cpu_raw_overlap_rows\": "
++			 << plan.totalCpuRawOverlapRows << ",\n"
++			 << "  \"verified_substitution_ledger_rows\": "
++			 << plan.verifiedSubstitutionLedgerRows << ",\n"
++			 << "  \"selected_cpu_handoff_rows\": "
++			 << plan.selectedCpuHandoffRows << ",\n"
++			 << "  \"selected_bypass_eligible_rows\": "
++			 << plan.selectedBypassEligibleRows << ",\n"
++			 << "  \"selected_bypass_ledger_rows\": "
++			 << plan.selectedBypassLedgerRows << ",\n"
++			 << "  \"cpu_owned_residual_rows\": "
++			 << plan.cpuOwnedResidualRows << ",\n"
++			 << "  \"cpu_owned_unsupported_rows\": "
++			 << plan.cpuOwnedUnsupportedRows << ",\n"
++			 << "  \"cpu_owned_non_selected_rows\": "
++			 << plan.cpuOwnedNonSelectedRows << ",\n"
++			 << "  \"cpu_owned_missing_bypass_rows\": "
++			 << plan.cpuOwnedMissingBypassRows << ",\n"
++			 << "  \"bypass_query_accounted_rows\": "
++			 << plan.bypassQueryAccountedRows << ",\n"
++			 << "  \"bypass_edge_accounted_rows\": "
++			 << plan.bypassEdgeAccountedRows << ",\n"
++			 << "  \"bypass_query_edge_accounted_rows\": "
++			 << plan.bypassQueryEdgeAccountedRows << ",\n"
++			 << "  \"missing_graph_edge_rows\": "
++			 << plan.missingGraphEdgeRows << ",\n"
++			 << "  \"checks\": [\n";
++		for (size_t index = 0; index < plan.checks.size(); ++index)
++		{
++			const auto& check = plan.checks[index];
++			json << "    {\n"
++				 << "      \"name\": \"" << readAlignmentJsonEscape(check.name)
++				 << "\",\n"
++				 << "      \"required\": " << readAlignmentBoolJson(check.required)
++				 << ",\n"
++				 << "      \"passed\": " << readAlignmentBoolJson(check.passed)
++				 << ",\n"
++				 << "      \"detail\": \"" << readAlignmentJsonEscape(check.detail)
++				 << "\"\n"
++				 << "    }" << (index + 1 == plan.checks.size() ? "\n" : ",\n");
++		}
++		json << "  ],\n"
++			 << "  \"bypass_ledger\": [\n";
++		writeReadToGraphFullQueryHitSelectedBypassPlanRowsJson(
++			json, plan.bypassLedger);
++		json << "  ],\n"
++			 << "  \"cpu_owned_rows\": [\n";
++		writeReadToGraphFullQueryHitSelectedBypassPlanRowsJson(
++			json, plan.cpuOwnedRows);
++		json << "  ],\n"
++			 << "  \"bypass_row_key_diff\": {\n"
++			 << "    \"schema\": "
++				"\"cuflye-read-to-graph-raw-overlap-row-key-diff-v0\",\n"
++			 << "    \"status\": \""
++			 << (plan.bypassRowKeyDiff.matched ? "match" : "mismatch")
++			 << "\",\n"
++			 << "    \"left_records\": "
++			 << plan.bypassRowKeyDiff.leftRecords << ",\n"
++			 << "    \"right_records\": "
++			 << plan.bypassRowKeyDiff.rightRecords << ",\n"
++			 << "    \"ordered_match\": "
++			 << readAlignmentBoolJson(
++					plan.bypassRowKeyDiff.orderedMatched) << ",\n"
++			 << "    \"matched_rows\": "
++			 << plan.bypassRowKeyDiff.matchedRows << ",\n"
++			 << "    \"missing_rows\": "
++			 << plan.bypassRowKeyDiff.missingRows << ",\n"
++			 << "    \"extra_rows\": "
++			 << plan.bypassRowKeyDiff.extraRows << ",\n"
++			 << "    \"missing_examples\": [";
++		for (size_t index = 0;
++			 index < plan.bypassRowKeyDiff.missingExamples.size(); ++index)
++		{
++			if (index) json << ", ";
++			json << "\"" << readAlignmentJsonEscape(
++				plan.bypassRowKeyDiff.missingExamples[index]) << "\"";
++		}
++		json << "],\n"
++			 << "    \"extra_examples\": [";
++		for (size_t index = 0;
++			 index < plan.bypassRowKeyDiff.extraExamples.size(); ++index)
++		{
++			if (index) json << ", ";
++			json << "\"" << readAlignmentJsonEscape(
++				plan.bypassRowKeyDiff.extraExamples[index]) << "\"";
++		}
++		json << "]\n"
++			 << "  }";
++		if (!plan.error.empty())
++		{
++			json << ",\n"
++				 << "  \"error\": \""
++				 << readAlignmentJsonEscape(plan.error) << "\"\n";
++		}
++		else
++		{
++			json << "\n";
++		}
++		json << "}\n";
++		writeReadAlignmentTextFile(path, json.str());
++	}
++
+ 	void writeReadToGraphFullQueryHitWorkerDryRunJson(
+ 		const std::string& path,
+ 		const ReadToGraphFullQueryHitWorkerDryRunResult& result)
+@@ -6180,6 +6813,24 @@ namespace
+ 				 << "  \"raw_overlap_verified_substitution_decision\": \""
+ 				 << readAlignmentJsonEscape(
+ 					 result.rawOverlapVerifiedSubstitutionDecision) << "\",\n"
++				 << "  \"raw_overlap_selected_bypass_plan_json\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSelectedBypassPlanJson) << "\",\n"
++				 << "  \"raw_overlap_selected_bypass_plan_mode\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSelectedBypassPlanMode) << "\",\n"
++				 << "  \"raw_overlap_selected_bypass_plan_proof_fault\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSelectedBypassPlanProofFault) << "\",\n"
++				 << "  \"raw_overlap_selected_bypass_plan_status\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSelectedBypassPlanStatus) << "\",\n"
++				 << "  \"raw_overlap_selected_bypass_plan_state\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSelectedBypassPlanState) << "\",\n"
++				 << "  \"raw_overlap_selected_bypass_plan_decision\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSelectedBypassPlanDecision) << "\",\n"
+ 				 << "  \"stdout_log\": \"" << readAlignmentJsonEscape(result.stdoutLog)
+ 				  << "\",\n"
+ 			 << "  \"stderr_log\": \"" << readAlignmentJsonEscape(result.stderrLog)
+@@ -6242,6 +6893,12 @@ namespace
+ 				 << "  \"raw_overlap_verified_substitution_failed_closed\": "
+ 				 << readAlignmentBoolJson(
+ 					 result.rawOverlapVerifiedSubstitutionFailedClosed) << ",\n"
++				 << "  \"raw_overlap_selected_bypass_plan_eligible\": "
++				 << readAlignmentBoolJson(
++					 result.rawOverlapSelectedBypassPlanEligible) << ",\n"
++				 << "  \"raw_overlap_selected_bypass_plan_failed_closed\": "
++				 << readAlignmentBoolJson(
++					 result.rawOverlapSelectedBypassPlanFailedClosed) << ",\n"
+ 				 << "  \"graph_mutation_consumed_worker_output\": "
+ 				 << readAlignmentBoolJson(result.graphMutationConsumedWorkerOutput)
+ 				 << ",\n"
+@@ -6309,6 +6966,12 @@ namespace
+ 				 << "  \"raw_overlap_verified_substitution_ledger_rows\": "
+ 				 << result.rawOverlapVerifiedSubstitutionLedgerRows
+ 				 << ",\n"
++				 << "  \"raw_overlap_selected_bypass_plan_eligible_rows\": "
++				 << result.rawOverlapSelectedBypassPlanEligibleRows << ",\n"
++				 << "  \"raw_overlap_selected_bypass_plan_ledger_rows\": "
++				 << result.rawOverlapSelectedBypassPlanLedgerRows << ",\n"
++				 << "  \"raw_overlap_selected_bypass_plan_cpu_owned_rows\": "
++				 << result.rawOverlapSelectedBypassPlanCpuOwnedRows << ",\n"
+ 				 << "  \"query_ids\": [";
+ 		for (size_t idx = 0; idx < result.queryIds.size(); ++idx)
+ 		{
+@@ -6408,6 +7071,10 @@ namespace
+ 					readToGraphFullQueryHitVerifiedSubstitutionMode();
+ 				result.rawOverlapVerifiedSubstitutionProofFault =
+ 					readToGraphFullQueryHitVerifiedSubstitutionProofFault();
++				result.rawOverlapSelectedBypassPlanMode =
++					readToGraphFullQueryHitSelectedBypassPlanMode();
++				result.rawOverlapSelectedBypassPlanProofFault =
++					readToGraphFullQueryHitSelectedBypassPlanProofFault();
+ 				result.sourcePackDir = std::string(readToGraphSourcePackDir());
+ 				result.workerOutputRoot = readAlignmentRequiredEnv(
+ 					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_OUTPUT_DIR");
+@@ -6460,6 +7127,9 @@ namespace
+ 				result.rawOverlapVerifiedSubstitutionJson = joinReplayPath(
+ 					result.workerOutputRoot,
+ 					"full-query-hit-worker-verified-substitution-smoke.json");
++				result.rawOverlapSelectedBypassPlanJson = joinReplayPath(
++					result.workerOutputRoot,
++					"full-query-hit-worker-selected-bypass-plan.json");
+ 				result.workerSessionSubmitPath = joinReplayPath(
+ 					result.workerOutputRoot, "full-query-hit-worker-session-submit.txt");
+ 			result.queryIds = sortedReadToGraphSourcePackQueryIds();
+@@ -6735,6 +7405,36 @@ namespace
+ 										writeReadToGraphFullQueryHitVerifiedSubstitutionJson(
+ 											result.rawOverlapVerifiedSubstitutionJson,
+ 											substitution);
++										if (readToGraphFullQueryHitSelectedBypassPlanEnabled() &&
++											!substitution.failedClosed)
++										{
++											auto plan =
++												evaluateReadToGraphFullQueryHitSelectedBypassPlan(
++													result, substitution, graph);
++											captureReadToGraphFullQueryHitSelectedBypassPlanResult(
++												result, plan);
++											writeReadToGraphFullQueryHitSelectedBypassPlanJson(
++												result.rawOverlapSelectedBypassPlanJson,
++												plan);
++											if (plan.failedClosed &&
++												!smoke.failedClosed &&
++												!binding.failedClosed &&
++												!ledger.failedClosed &&
++												!rehydration.failedClosed)
++											{
++												result.status =
++													"selected-bypass-plan-failed-before-graph-mutation";
++												result.decision =
++													"fail-closed-before-graph-mutation";
++												result.failedClosed = true;
++												result.workerOutputConsumptionEligible =
++													false;
++												result.graphMutationConsumedWorkerOutput =
++													false;
++												result.error =
++													"CUDA full-query-hit selected bypass plan failed";
++											}
++										}
+ 										if (substitution.failedClosed &&
+ 											!smoke.failedClosed &&
+ 											!binding.failedClosed &&
+@@ -6837,7 +7537,9 @@ namespace
+ 							 result.status !=
+ 							 "substitution-guard-failed-before-graph-mutation" &&
+ 							 result.status !=
+-							 "verified-substitution-smoke-failed-before-graph-mutation")
++							 "verified-substitution-smoke-failed-before-graph-mutation" &&
++							 result.status !=
++							 "selected-bypass-plan-failed-before-graph-mutation")
+ 					{
+ 						result.status = "passed";
+ 						result.decision = "stopped-before-graph-mutation";
+@@ -6911,6 +7613,15 @@ namespace
+ 					result.rawOverlapVerifiedSubstitutionJson + "; audit_json=" +
+ 					result.auditJson);
+ 			}
++			if (result.status ==
++				"selected-bypass-plan-failed-before-graph-mutation")
++			{
++				throw std::runtime_error(
++					"cuFlye read-to-graph full-query-hit selected bypass plan "
++					"fail-closed before graph mutation; bypass_plan_json=" +
++					result.rawOverlapSelectedBypassPlanJson + "; audit_json=" +
++					result.auditJson);
++			}
+ 			throw std::runtime_error(
+ 				"cuFlye read-to-graph full-query-hit worker dry-run "
+ 				"fail-closed before graph mutation; audit_json=" +

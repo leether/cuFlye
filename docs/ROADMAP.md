@@ -4063,3 +4063,91 @@ which selected CPU handoff rows could be bypassed by the verified CUDA ledger,
 which rows remain CPU-owned, and fail closed on a corrupted bypass ledger
 before graph mutation.
 ```
+
+## 2026-07-01 Update: M6w Full Query-Hit Selected Substitution Bypass Plan
+
+Status: completed.
+
+Task Card:
+
+- `docs/tasks/2026-07-01-cuflye-m6w-full-query-hit-selected-substitution-bypass-plan.md`
+
+Golden proof:
+
+- `tests/golden/cuflye-m6w-full-query-hit-selected-bypass-plan-dgx-aarch64.json`
+
+What changed:
+
+- Added Flye patch `0051` with an opt-in selected bypass-plan audit after the
+  M6v verified-substitution smoke.
+- Added ABI notes for
+  `cuflye-read-to-graph-full-query-hit-selected-bypass-plan-v0`.
+- Extended `scripts/run_flye_fixture.sh` so proof runs can enable selected
+  bypass-plan mode and inject a bypass-ledger proof fault.
+- Kept graph mutation disabled and audited as not consumed.
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m6w-proof-20260701T114500Z
+fixture=toy-hifi
+query_ids=5,6,7,8,9,10,11,12
+baseline_artifact_hashes_match_golden=true
+positive_status=passed
+positive_verified_substitution_status=passed
+positive_selected_bypass_plan_status=passed
+positive_selected_bypass_eligible_rows=8
+positive_selected_bypass_ledger_rows=8
+positive_verified_substitution_ledger_rows=8
+positive_cpu_owned_residual_rows=28
+positive_cpu_owned_non_selected_rows=28
+positive_cpu_owned_missing_bypass_rows=0
+positive_total_cpu_raw_overlap_rows=36
+positive_bypass_row_key_diff_status=match
+positive_bypass_ordered_row_key_matched=true
+positive_plan_checks=18/18
+negative_status=selected-bypass-plan-failed-before-graph-mutation
+negative_verified_substitution_status=passed
+negative_selected_bypass_plan_status=failed
+negative_proof_fault=drop-first-bypass-ledger-row
+negative_proof_fault_applied=true
+negative_selected_bypass_ledger_rows=7
+negative_cpu_owned_residual_rows=29
+negative_cpu_owned_missing_bypass_rows=1
+negative_bypass_row_key_diff_status=mismatch
+negative_graph_mutation_consumed_worker_output=false
+summary_checks=24/24
+```
+
+Allowed M6w claim:
+
+```text
+cuFlye can turn the M6v verified selected substitution ledger into an explicit
+selected CPU-bypass plan: 8 selected rows are bypass-eligible, 28 residual rows
+remain CPU-owned, all 36 CPU raw-overlap rows are accounted for, and a corrupt
+bypass ledger fails closed before graph mutation.
+```
+
+Forbidden M6w claim:
+
+```text
+M6w does not prove whole-Flye speedup, real graph mutation, default GPU mode,
+or GPU-computed chain-input filtering/edge identity.
+```
+
+Plain-language benefit:
+
+```text
+M6w still does not make full Flye faster. It tells us exactly which rows are
+safe candidates to skip on the CPU side and which rows must stay CPU-owned, so
+the next milestone can try a real selected bypass without guessing.
+```
+
+Next highest-ROI task:
+
+```text
+M6x: add an opt-in selected bypass dry-run after M6w. It should mark selected
+rows as actually bypassed in dry-run state, keep residual rows CPU-owned,
+account for all CPU raw-overlap rows in a merged ledger, and fail closed before
+graph mutation on a corrupted selected bypass payload.
+```
