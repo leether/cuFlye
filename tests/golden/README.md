@@ -233,3 +233,5 @@ M6 read-to-graph input-boundary proof:
   `cuflye-m7c-read-to-graph-selected-cpu-skip-canary-dgx-aarch64.json`
 - Read-to-graph selected CPU-skip timing manifest:
   `cuflye-m7d-read-to-graph-selected-cpu-skip-timing-dgx-aarch64.json`
+- Read-to-graph quick-overlap/minimizer target manifest:
+  `cuflye-m8a-read-to-graph-quick-overlap-minimizer-target-dgx-aarch64.json`

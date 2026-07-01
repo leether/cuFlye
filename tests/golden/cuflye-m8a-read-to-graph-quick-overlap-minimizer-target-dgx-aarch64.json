@@ -1,0 +1,153 @@
+{
+  "allowed_claim": "M8a identifies a bounded, replayable read-to-graph quick-overlap/minimizer target whose CPU-control quick-overlap time is materially larger than the M7d selected chain/divergence boundary.",
+  "checks": {
+    "control_matches_golden": true,
+    "m6j_reference_hot_request_below_selected_quick_overlap": true,
+    "no_m8a_cuda_speed_claim": true,
+    "oracle_pack_replay_match": true,
+    "selected_quick_overlap_materially_exceeds_m7d_boundary": true,
+    "summary_checks_passed": true
+  },
+  "created_at_utc": "2026-07-01T14:31:35.553835Z",
+  "cuda_target_contract": {
+    "correctness_gate": [
+      "CPU source-pack replay row-key match",
+      "CUDA row-key diff match against CPU replay",
+      "M6b chain_input replay pack remains match",
+      "Flye canonical artifacts remain unchanged in capture mode",
+      "unsupported source-pack shapes fail closed"
+    ],
+    "existing_m6j_hot_request_below_m8a_selected_quick_overlap": true,
+    "input": "cuflye-read-to-graph-minimizer-source-pack-v0 with full-query-hits.tsv",
+    "next_cuda_boundary": "full-query-hit candidate discovery before raw-overlap filtering",
+    "output": "cuflye-read-to-graph-raw-overlap-v0 row-key parity before graph consumption",
+    "reference_existing_m6j_hot_request_ms": 52.199131,
+    "speed_gate": {
+      "baseline": "same selected queries' Flye quick_overlap_wall_ms",
+      "preferred_speedup_gt": 1.25,
+      "required_hot_worker_ms_lt": 79.294112,
+      "required_speedup_gt": 1.0
+    }
+  },
+  "fixture": "toy-hifi",
+  "forbidden_claim": "M8a does not prove default GPU mode, graph consumption, whole-Flye speedup, or CUDA speedup for the newly selected query set.",
+  "next_recommended_step": "M8b: capture a full-query-hit source pack for the M8a selected queries and run the warm CUDA full-query-hit replay session against the same selected quick-overlap CPU baseline.",
+  "oracle_pack": {
+    "oracle_chain_input_sha256": "29c55787d424486c60036a892390d6d403724d44a5878ce4091976d8c324c992",
+    "path": "/tmp/cuflye-m8a-proof-20260701T203000Z/oracle-pack",
+    "queries_sha256": "b7e92609dd3a4b368515dd1b00e0a631e4397326ac97590dcd8bcb6c013093ec",
+    "raw_overlaps_sha256": "4a7ae60482a65c80b068282e9866186921c413946ac42cbe6a0cb40bfb38ca8c",
+    "replay": {
+      "oracle_chain_input_records": 18,
+      "oracle_chain_input_sha256": "29c55787d424486c60036a892390d6d403724d44a5878ce4091976d8c324c992",
+      "pack_dir": "/tmp/cuflye-m8a-proof-20260701T203000Z/oracle-pack",
+      "pack_schema": "cuflye-read-to-graph-input-boundary-replay-pack-v0",
+      "raw_overlap_records": 27,
+      "replay_contract": {
+        "filter": "passes_chain_input_filter == 1",
+        "requires_unique_chain_input_read_begin": true,
+        "sort_key": [
+          "query_id",
+          "read_begin"
+        ]
+      },
+      "replayed_chain_input_records": 18,
+      "replayed_chain_input_sha256": "29c55787d424486c60036a892390d6d403724d44a5878ce4091976d8c324c992",
+      "schema": "cuflye-read-to-graph-input-boundary-replay-result-v0",
+      "selected_query_count": 16,
+      "selected_query_ids": [
+        5,
+        84,
+        361,
+        2145,
+        2146,
+        2148,
+        2149,
+        2150,
+        2152,
+        2154,
+        2157,
+        2160,
+        2161,
+        2163,
+        2165,
+        2167
+      ],
+      "status": "match"
+    },
+    "schema": "cuflye-read-to-graph-input-boundary-replay-pack-v0"
+  },
+  "plain_language_benefit": "M8a picks a replayable quick-overlap target that is about 85.59x larger than the M7d rejected chain/divergence boundary. It also shows the old M6j warm CUDA request is below this selected CPU quick-overlap budget, which makes M8b worth running on the same selected queries.",
+  "proof_root": "/tmp/cuflye-m8a-proof-20260701T203000Z",
+  "references": {
+    "m6j_bounded_hot_request_speedup_vs_cpu_replay_wall": 1.7241666341150392,
+    "m6j_cpu_replay_wall_ms": 90.0,
+    "m6j_note": "M6j is a reference old-pack hot-session result, not a speed proof for the M8a selected query set.",
+    "m6j_warm_request_total_best_ms": 52.199131,
+    "m7d_hot_kernel_plus_graph_ms": 54.250612000000004,
+    "m7d_selected_chain_plus_divergence_ms": 0.926453,
+    "m7d_selected_quick_overlap_ms": 13.973963
+  },
+  "schema": "cuflye-m8a-read-to-graph-quick-overlap-minimizer-target-proof-v0",
+  "selected": {
+    "chain_input_records": 18,
+    "m6j_hot_request_over_selected_quick_overlap_ratio": 0.6582976930241681,
+    "query_count": 16,
+    "query_ids": [
+      2145,
+      2160,
+      2146,
+      2152,
+      2161,
+      2167,
+      2148,
+      2154,
+      2157,
+      2163,
+      2165,
+      2149,
+      84,
+      2150,
+      5,
+      361
+    ],
+    "quick_overlap_vs_m7d_selected_chain_divergence_ratio": 85.58892032299534,
+    "raw_overlap_records": 27,
+    "timing_ms": {
+      "cpu_chain_dp_wall_ms": 0.037744,
+      "cpu_chain_plus_divergence_wall_ms": 3.4819340000000003,
+      "cpu_divergence_filter_wall_ms": 3.4441900000000003,
+      "input_filter_sort_wall_ms": 0.026624,
+      "quick_overlap_wall_ms": 79.294112
+    }
+  },
+  "source": {
+    "canonical_sha256": "674a6bc7ffb42a058859254ac78aa83b374c578a18d17a339bd2e6a669d6d628",
+    "chain_input_records": 3814,
+    "control_matches_golden": true,
+    "input_boundary_dump": "/tmp/cuflye-m7d-proof-20260701T190000Z/control/input-boundary.tsv",
+    "queries": 3577,
+    "raw_overlap_records": 5092,
+    "records": 12483,
+    "total_cpu_chain_dp_wall_ms": 2.660426,
+    "total_cpu_divergence_filter_wall_ms": 255.843835,
+    "total_quick_overlap_wall_ms": 3898.425897
+  },
+  "summary": {
+    "checks": {
+      "existing_m6j_hot_request_below_selected_quick_overlap": true,
+      "input_boundary_valid": true,
+      "selected_has_chain_inputs": true,
+      "selected_has_raw_overlaps": true,
+      "selected_pack_written": true,
+      "selected_query_count_positive": true,
+      "selected_quick_overlap_materially_exceeds_m7d_boundary": true
+    },
+    "checks_passed": 7,
+    "checks_required": 7,
+    "path": "/tmp/cuflye-m8a-proof-20260701T203000Z/m8a-quick-overlap-target-summary.json",
+    "schema": "cuflye-m8a-read-to-graph-quick-overlap-minimizer-target-summary-v0",
+    "sha256": "61930dde8782f4d74cd39f4cb2c710ba355719639acd26c52e1dbe4f1403a431"
+  },
+  "work_root": "/tmp/cuflye-m7b-work-uZhePGLL"
+}

@@ -4770,3 +4770,76 @@ M8a: move the performance target upstream to read-to-graph quick-overlap and
 minimizer candidate discovery, where CPU-control timing shows seconds rather
 than sub-millisecond selected chain/divergence work.
 ```
+
+## 2026-07-01 Update: M8a Quick-Overlap/Minimizer Target
+
+Status: completed.
+
+Task Card:
+
+- `docs/tasks/2026-07-01-cuflye-m8a-read-to-graph-quick-overlap-minimizer-target.md`
+
+Golden proof:
+
+- `tests/golden/cuflye-m8a-read-to-graph-quick-overlap-minimizer-target-dgx-aarch64.json`
+
+What changed:
+
+- Added
+  `tools/plan_read_to_graph_quick_overlap_minimizer_target.py` to rank
+  read-to-graph input-boundary queries by CPU quick-overlap time, enforce the
+  M6b replay-pack supported shape, write a replayable oracle pack, and compare
+  the selected target against M7d and M6j reference timings.
+- Added ABI notes for
+  `cuflye-m8a-read-to-graph-quick-overlap-minimizer-target-summary-v0`.
+- Added the M8b Task Card for running the existing full-query-hit CUDA replay
+  path on the exact M8a selected query ids.
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m8a-proof-20260701T203000Z
+fixture=toy-hifi
+source_input_boundary_sha256=674a6bc7ffb42a058859254ac78aa83b374c578a18d17a339bd2e6a669d6d628
+source_queries=3577
+source_raw_overlap_records=5092
+source_chain_input_records=3814
+source_total_quick_overlap_ms=3898.425897
+control_matches_golden=true
+selected_query_count=16
+selected_query_ids=2145,2160,2146,2152,2161,2167,2148,2154,2157,2163,2165,2149,84,2150,5,361
+selected_raw_overlap_records=27
+selected_chain_input_records=18
+selected_quick_overlap_ms=79.294112
+selected_chain_plus_divergence_ms=3.481934
+m7d_selected_chain_plus_divergence_ms=0.926453
+selected_quick_overlap_vs_m7d_ratio=85.58892032299534
+m6j_reference_warm_request_best_ms=52.199131
+m6j_reference_hot_request_over_selected_quick_overlap=0.6582976930241681
+oracle_pack_replay_status=match
+oracle_chain_input_records=18
+summary_checks=7/7
+```
+
+Allowed M8a claim:
+
+```text
+M8a identifies a bounded, replayable read-to-graph quick-overlap/minimizer
+target whose CPU-control quick-overlap time is materially larger than the M7d
+selected chain/divergence boundary.
+```
+
+Forbidden M8a claim:
+
+```text
+M8a does not prove default GPU mode, graph consumption, whole-Flye speedup, or
+CUDA speedup for the newly selected query set.
+```
+
+Next highest-ROI task:
+
+```text
+M8b: capture a full-query-hit source pack for the M8a selected queries and run
+the warm CUDA full-query-hit replay session against the same selected
+quick-overlap CPU baseline.
+```

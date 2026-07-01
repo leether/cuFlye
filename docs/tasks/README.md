@@ -11,12 +11,16 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m8a-read-to-graph-quick-overlap-minimizer-target.md`:
-  move the performance target upstream to read-to-graph quick-overlap/minimizer
-  candidate discovery after M7d proved selected chain/divergence CPU-skip is
-  too small to beat CUDA overhead.
+- `2026-07-01-cuflye-m8b-full-query-hit-source-pack-for-m8a-target.md`:
+  capture a full-query-hit source pack for the M8a selected query ids and run
+  the warm CUDA replay path against the same Flye quick-overlap baseline.
 
 Completed cards:
+
+- `2026-07-01-cuflye-m8a-read-to-graph-quick-overlap-minimizer-target.md`:
+  move the performance target upstream to read-to-graph quick-overlap/minimizer
+  candidate discovery, emit a replayable M6b oracle pack, and set the matched
+  M8b CUDA speed gate at `selected_quick_overlap_ms=79.294112`.
 
 - `2026-07-01-cuflye-m7d-read-to-graph-selected-cpu-skip-timing-expansion.md`:
   attribute M7c selected CPU-skip timing against a CPU-control input-boundary
