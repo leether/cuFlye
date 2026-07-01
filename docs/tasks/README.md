@@ -11,13 +11,17 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m5v-read-alignment-compact-binary-vector-substitution-smoke.md`:
-  after M5u validates and rehydrates compact-binary CUDA pre-divergence chains
-  inside Flye, run a guarded selected-slice `_readAlignments` substitution
-  smoke that preserves exact artifacts and fails closed.
+- `2026-07-01-cuflye-m5w-read-alignment-compact-binary-substitution-scaleup.md`:
+  scale the M5v compact-binary vector-substitution proof from selected batch64
+  to the full3546 selected read-alignment fixture set, preserve exact artifacts,
+  and measure whether broader substitution keeps the CUDA integration advantage.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m5v-read-alignment-compact-binary-vector-substitution-smoke.md`:
+  feed verified compact-binary CUDA-derived goodChains into Flye's selected
+  `_readAlignments` slice, preserve exact artifacts, and prove mismatch or
+  corrupted compact binary payloads fail closed before graph mutation.
 - `2026-07-01-cuflye-m5u-read-alignment-compact-binary-flye-rehydration.md`:
   move the M5t compact binary payload into the Flye-side pre-divergence
   dry-run seam, validate and rehydrate it inside Flye, match CPU goodChains for

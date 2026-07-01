@@ -176,6 +176,21 @@ divergence filter, and compares GPU-derived `goodChains` with CPU `goodChains`.
 The worker output remains non-consumed by graph mutation unless a later Task
 Card explicitly enables a guarded substitution mode.
 
+M5v guarded compact-binary vector substitution adds:
+
+```text
+CUFLYE_READ_ALIGNMENT_COMPACT_BINARY_VECTOR_SUBSTITUTION_MODE=verified-goodchains-v0
+```
+
+This mode is valid only with
+`CUFLYE_READ_ALIGNMENT_COMPACT_BINARY_MODE=rehydrate-v0`. Flye first validates
+and rehydrates the compact binary payload, then applies Flye's existing
+divergence filter and compares GPU-derived `goodChains` with CPU `goodChains`
+for every selected query. Only after every selected fixture matches does Flye
+replace the selected `_readAlignments` slice with the verified GPU-derived
+`goodChains`. The replacement is built in a temporary vector and swapped into
+place only after all selected query chain counts line up.
+
 ## Response JSON
 
 Response schema:
@@ -236,3 +251,22 @@ Positive M5u runs must report `worker_compact_binary_validation_status=passed`,
 `status=match` versus the CPU baseline. Corrupted payload runs, including
 checksum mismatch and truncation, must report `failed-closed-before-graph-mutation`
 with `graph_mutation_consumed_worker_output=false`.
+
+## M5v Proof Shape
+
+The compact binary vector-substitution proof extends the M5u audit with:
+
+- `compact_binary_vector_substitution_mode`;
+- `vector_substitution_mode`;
+- `vector_substitution_status`;
+- `vector_substitution_attempted`;
+- `vector_substitution_consumed`;
+- `total_substituted_chains`;
+- per-fixture `vector_substitution_status`,
+  `vector_substitution_consumed`, and `substituted_chains`.
+
+Positive M5v runs must report `vector_substitution_status=consumed`,
+`vector_substitution_consumed=true`, and
+`graph_mutation_consumed_worker_output=true`, while canonical Flye artifacts
+still match CPU. Negative mismatch or corruption runs must keep
+`graph_mutation_consumed_worker_output=false`.

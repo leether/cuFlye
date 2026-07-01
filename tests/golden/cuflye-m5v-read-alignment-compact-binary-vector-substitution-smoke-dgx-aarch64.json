@@ -1,0 +1,102 @@
+{
+  "allowed_claim": "cuFlye can substitute verified compact-binary-v0 CUDA-derived read-alignment goodChains into the selected _readAlignments slice inside Flye, preserve exact canonical artifacts, and fail closed before graph mutation on mismatch or corrupted compact binary payloads.",
+  "architecture": "aarch64",
+  "artifacts": {
+    "cuda_build_manifest": "/tmp/cuflye-m5v-proof-20260701T042828Z/out/m5v/build/cuda-read-alignment-chain-replay-build.json",
+    "flye_build_manifest": "/tmp/cuflye-m5v-proof-20260701T042828Z/out/m5v/build/flye-build.json",
+    "negative_mismatch_audit_json": "/tmp/cuflye-m5v-proof-20260701T042828Z/out/m5v/flye-negative-compact-binary-substitution-mismatch-batch64/read-alignment-replay-fixtures/predivergence-batch-worker/read-alignment-predivergence-batch-dry-run.json",
+    "negative_truncate_audit_json": "/tmp/cuflye-m5v-proof-20260701T042828Z/out/m5v/flye-negative-compact-binary-substitution-truncate-batch64/read-alignment-replay-fixtures/predivergence-batch-worker/read-alignment-predivergence-batch-dry-run.json",
+    "positive_audit_json": "/tmp/cuflye-m5v-proof-20260701T042828Z/out/m5v/flye-positive-compact-binary-substitution-batch64/read-alignment-replay-fixtures/predivergence-batch-worker/read-alignment-predivergence-batch-dry-run.json",
+    "positive_canonical_diff_json": "/tmp/cuflye-m5v-proof-20260701T042828Z/out/m5v/flye-positive-compact-binary-substitution-batch64/canonical-diff.json",
+    "positive_compact_binary_validation_json": "/tmp/cuflye-m5v-proof-20260701T042828Z/out/m5v/flye-positive-compact-binary-substitution-batch64/compact-binary-validation.json",
+    "positive_worker_response_json": "/tmp/cuflye-m5v-proof-20260701T042828Z/out/m5v/flye-positive-compact-binary-substitution-batch64/read-alignment-replay-fixtures/predivergence-batch-worker/read-alignment-worker-response.json"
+  },
+  "comparison": {
+    "m5u_selected_batch64_worker_actual_wall_ms": 2.084782,
+    "m5v_selected_batch64_worker_actual_wall_ms": 2.080723,
+    "m5v_worker_actual_wall_speedup_vs_m5u": 1.001950764229549,
+    "request_total_note": "M5v positive request_total was 1.511474 ms versus M5u 0.203472 ms because this run had a device_to_host timing outlier; do not claim an M5v request-time speedup over M5u from this proof."
+  },
+  "fixture": "toy-hifi",
+  "forbidden_claim": "M5v does not prove default GPU mode, full Flye acceleration, unbounded _readAlignments replacement, CUDA minimizer overlap discovery, or a new speedup over M5u.",
+  "host": "dgx",
+  "milestone": "M5v-read-alignment-compact-binary-vector-substitution-smoke",
+  "negative_mismatch": {
+    "decision": "failed-closed-before-graph-mutation",
+    "error": "One or more GPU-filtered batch goodChain sets differ from CPU goodChains",
+    "failed_closed": true,
+    "graph_mutation_consumed_worker_output": false,
+    "matched_fixture_count": 63,
+    "mismatched_fixture_count": 1,
+    "proof_fault": "drop-first-gpu-good-chain",
+    "proof_fault_applied": true,
+    "status": "failed",
+    "vector_substitution_attempted": false,
+    "vector_substitution_consumed": false,
+    "vector_substitution_status": "failed"
+  },
+  "negative_truncate": {
+    "decision": "failed-closed-before-graph-mutation",
+    "error_suffix": "compact binary payload size mismatch",
+    "failed_closed": true,
+    "graph_mutation_consumed_worker_output": false,
+    "proof_fault": "truncate-compact-binary-payload",
+    "proof_fault_applied": true,
+    "status": "failed",
+    "vector_substitution_attempted": false,
+    "vector_substitution_consumed": false,
+    "vector_substitution_status": "failed",
+    "worker_compact_binary_validation_status": "failed"
+  },
+  "next_recommended_step": "M5w: scale the compact-binary vector-substitution seam from the selected batch64 proof to the full3546 selected read-alignment fixture set, preserve exact artifacts, and measure whether the broader Flye-side substitution path keeps the CUDA integration advantage.",
+  "plain_language_benefit": "M5v is the first time this compact-binary path actually feeds verified GPU-derived goodChains back into Flye's selected _readAlignments slice. It keeps the assembly byte-identical and proves mismatch or corrupted binary payloads do not get consumed. It does not add a meaningful speedup over M5u by itself; the benefit is safety-gated consumption, which is the prerequisite for scaling the GPU path beyond a dry-run.",
+  "positive": {
+    "canonical_diff": "match",
+    "compact_binary_mode": "rehydrate-v0",
+    "compact_binary_vector_substitution_mode": "verified-goodchains-v0",
+    "decision": "compact-binary-verified-goodchains-substituted",
+    "fixture_count": 64,
+    "graph_mutation_consumed_worker_output": true,
+    "matched_fixture_count": 64,
+    "mismatched_fixture_count": 0,
+    "status": "passed",
+    "total_substituted_chains": 64,
+    "vector_substitution_attempted": true,
+    "vector_substitution_consumed": true,
+    "vector_substitution_status": "consumed",
+    "worker_actual_wall_ms": 2.080723,
+    "worker_compact_binary_sha256": "f6dc209fad4311c61396f93ad240f56928557dc0b70f6c947c6991d2f2047504",
+    "worker_compact_binary_validation_status": "passed"
+  },
+  "positive_compact_binary_validation": {
+    "bytes": 5952,
+    "fixture_count": 64,
+    "magic": "CUFRALB0",
+    "output_mode": "pre-divergence-chains",
+    "output_records": 64,
+    "record_bytes": 92,
+    "sha256": "f6dc209fad4311c61396f93ad240f56928557dc0b70f6c947c6991d2f2047504",
+    "status": "ok",
+    "total_input_records": 66
+  },
+  "positive_worker_response": {
+    "compact_output_only": true,
+    "output_artifact_mode": "compact-binary-v0",
+    "request_ordinal": 2,
+    "status": "ok",
+    "timing_ms": {
+      "backend_mean_total_before_json": 1.351457,
+      "device_to_host": 1.326673,
+      "kernel": 0.024544,
+      "request_total": 1.511474,
+      "worker_overhead": 0.160017,
+      "write_output": 0.104177
+    },
+    "worker_cuda_context_warm": true,
+    "worker_device_arena_cache_hit": true
+  },
+  "proof_root": "/tmp/cuflye-m5v-proof-20260701T042828Z",
+  "schema": "cuflye-m5v-read-alignment-compact-binary-vector-substitution-smoke-proof-v0",
+  "selected_query_count": 64,
+  "status": "accepted"
+}

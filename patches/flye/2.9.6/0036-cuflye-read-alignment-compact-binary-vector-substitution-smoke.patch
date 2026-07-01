@@ -1,0 +1,361 @@
+diff --git a/src/repeat_graph/read_aligner.cpp b/src/repeat_graph/read_aligner.cpp
+index 8328c3e..cff556a 100644
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -278,10 +278,12 @@ namespace
+ 		std::string workerTsv;
+ 		std::string workerBinary;
+ 		std::string status = "failed";
++		std::string vectorSubstitutionStatus = "not-run";
+ 		bool matched = false;
+ 		bool proofFaultApplied = false;
+ 		bool workerTsvReadable = false;
+ 		bool workerBinaryReadable = false;
++		bool vectorSubstitutionConsumed = false;
+ 		size_t cpuPreDivergenceChains = 0;
+ 		size_t gpuPreDivergenceChains = 0;
+ 		size_t cpuGoodChains = 0;
+@@ -289,7 +291,9 @@ namespace
+ 		size_t cpuGoodRecords = 0;
+ 		size_t gpuGoodRecords = 0;
+ 		size_t workerRecords = 0;
++		size_t substitutedChains = 0;
+ 		std::vector<ReadAlignmentDumpRecord> cpuGoodRecordsCanonical;
++		std::vector<GraphAlignment> gpuGoodChainsObject;
+ 		std::string error;
+ 	};
+ 
+@@ -318,6 +322,8 @@ namespace
+ 		std::string workerCompactBinarySha256;
+ 		std::string workerCompactBinaryChecksumStatus = "not-run";
+ 		std::string workerCompactBinaryValidationStatus = "not-run";
++		std::string vectorSubstitutionMode;
++		std::string vectorSubstitutionStatus = "not-run";
+ 		std::string workerSessionSubmitPath;
+ 		std::string workerSessionDonePath;
+ 		std::string workerWarmupSessionSubmitPath;
+@@ -328,6 +334,8 @@ namespace
+ 		double workerActualWallMs = 0.0;
+ 		bool attempted = false;
+ 		bool matched = false;
++		bool vectorSubstitutionAttempted = false;
++		bool vectorSubstitutionConsumed = false;
+ 		bool failedClosed = false;
+ 		bool proofFaultApplied = false;
+ 		bool graphMutationConsumedWorkerOutput = false;
+@@ -341,6 +349,7 @@ namespace
+ 		size_t totalCpuGoodRecords = 0;
+ 		size_t totalGpuGoodRecords = 0;
+ 		size_t totalWorkerRecords = 0;
++		size_t totalSubstitutedChains = 0;
+ 		std::vector<ReadAlignmentPreDivergenceBatchFixture> fixtures;
+ 		std::string error;
+ 	};
+@@ -1596,6 +1605,32 @@ namespace
+ 		return readAlignmentCompactBinaryMode() == "rehydrate-v0";
+ 	}
+ 
++	std::string readAlignmentCompactBinaryVectorSubstitutionMode()
++	{
++		static std::string mode = []()
++		{
++			const char* raw = std::getenv(
++				"CUFLYE_READ_ALIGNMENT_COMPACT_BINARY_VECTOR_SUBSTITUTION_MODE");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "verified-goodchains-v0")
++			{
++				throw std::runtime_error(
++					"Unsupported "
++					"CUFLYE_READ_ALIGNMENT_COMPACT_BINARY_VECTOR_SUBSTITUTION_MODE: " +
++					selected);
++			}
++			return selected;
++		}();
++		return mode;
++	}
++
++	bool readAlignmentCompactBinaryVectorSubstitutionEnabled()
++	{
++		return readAlignmentCompactBinaryVectorSubstitutionMode() ==
++			"verified-goodchains-v0";
++	}
++
+ 	std::string readAlignmentCompactBinaryExpectedSha256()
+ 	{
+ 		const char* raw = std::getenv(
+@@ -1765,6 +1800,7 @@ namespace
+ 		(void)readAlignmentReplayQueryIds();
+ 		(void)readAlignmentWorkerLifecycleMode();
+ 		(void)readAlignmentCompactBinaryMode();
++		(void)readAlignmentCompactBinaryVectorSubstitutionMode();
+ 		if (readAlignmentCompactBinaryEnabled() &&
+ 			!readAlignmentPreDivergenceBatchDryRunEnabled())
+ 		{
+@@ -1772,6 +1808,13 @@ namespace
+ 				"cuFlye read alignment compact binary rehydration requires "
+ 				"CUFLYE_READ_ALIGNMENT_PREDIVERGENCE_CHAIN_MODE=batch-dry-run-v0");
+ 		}
++		if (readAlignmentCompactBinaryVectorSubstitutionEnabled() &&
++			!readAlignmentCompactBinaryEnabled())
++		{
++			throw std::runtime_error(
++				"cuFlye read alignment compact binary vector substitution requires "
++				"CUFLYE_READ_ALIGNMENT_COMPACT_BINARY_MODE=rehydrate-v0");
++		}
+ 		(void)readAlignmentCompactBinaryExpectedSha256();
+ 		if (readAlignmentPreDivergenceBatchDryRunEnabled() &&
+ 			readAlignmentWorkerFileSessionLifecycleEnabled())
+@@ -1903,7 +1946,7 @@ namespace
+ 		for (size_t index = 0; index < validation.fixtures.size(); ++index)
+ 		{
+ 			const auto& fixture = validation.fixtures[index];
+-			json << "    {\n"
++			 json << "    {\n"
+ 				 << "      \"query_id\": " << fixture.queryId << ",\n"
+ 				 << "      \"fixture_dir\": \""
+ 				 << readAlignmentJsonEscape(fixture.fixtureDir) << "\",\n"
+@@ -3054,10 +3097,114 @@ namespace
+ 		result.decision = "failed-closed-before-graph-mutation";
+ 		result.failedClosed = true;
+ 		result.matched = false;
++		result.vectorSubstitutionConsumed = false;
++		if (result.vectorSubstitutionAttempted ||
++			readAlignmentCompactBinaryVectorSubstitutionEnabled())
++		{
++			result.vectorSubstitutionStatus = "failed";
++		}
+ 		result.graphMutationConsumedWorkerOutput = false;
+ 		if (!error.empty()) result.error = error;
+ 	}
+ 
++	void substituteReadAlignmentPreDivergenceBatchGoodChains(
++		ReadAlignmentPreDivergenceBatchDryRunResult& result,
++		std::vector<GraphAlignment>& alignments)
++	{
++		result.vectorSubstitutionMode =
++			readAlignmentCompactBinaryVectorSubstitutionMode();
++		if (!readAlignmentCompactBinaryVectorSubstitutionEnabled())
++		{
++			result.vectorSubstitutionStatus = "disabled";
++			return;
++		}
++
++		result.vectorSubstitutionAttempted = true;
++		result.vectorSubstitutionStatus = "failed";
++		if (!readAlignmentCompactBinaryEnabled())
++		{
++			throw std::runtime_error(
++				"compact binary vector substitution requires compact binary "
++				"rehydration");
++		}
++		if (!result.matched)
++		{
++			throw std::runtime_error(
++				"compact binary vector substitution requires all selected "
++				"GPU goodChains to match CPU goodChains");
++		}
++
++		std::vector<ReadAlignmentQueryReplacement> replacements;
++		replacements.reserve(result.fixtures.size());
++		for (auto& fixture : result.fixtures)
++		{
++			fixture.vectorSubstitutionStatus = "pending";
++			if (!fixture.matched)
++			{
++				throw std::runtime_error(
++					"compact binary vector substitution found unmatched fixture " +
++					std::to_string(fixture.queryId));
++			}
++			ReadAlignmentQueryReplacement replacement;
++			replacement.queryId = fixture.queryId;
++			replacement.chains = fixture.gpuGoodChainsObject;
++			replacements.push_back(replacement);
++		}
++
++		std::vector<GraphAlignment> substitutedAlignments(alignments);
++		std::vector<size_t> replacementOffsets(replacements.size(), 0);
++		size_t substitutedChains = 0;
++		for (auto& chain : substitutedAlignments)
++		{
++			if (chain.empty()) continue;
++			int64_t queryId = chain.front().overlap.curId.signedId();
++			for (size_t index = 0; index < replacements.size(); ++index)
++			{
++				if (replacements[index].queryId != queryId) continue;
++				size_t& offset = replacementOffsets[index];
++				if (offset >= replacements[index].chains.size())
++				{
++					throw std::runtime_error(
++						"compact binary vector substitution replacement count "
++						"mismatch for query " + std::to_string(queryId));
++				}
++				chain = replacements[index].chains[offset];
++				++offset;
++				++substitutedChains;
++				break;
++			}
++		}
++		for (size_t index = 0; index < replacements.size(); ++index)
++		{
++			if (replacementOffsets[index] != replacements[index].chains.size())
++			{
++				throw std::runtime_error(
++					"compact binary vector substitution did not find every CPU "
++					"chain for query " +
++					std::to_string(replacements[index].queryId));
++			}
++		}
++		for (auto& fixture : result.fixtures)
++		{
++			for (const auto& replacement : replacements)
++			{
++				if (replacement.queryId == fixture.queryId)
++				{
++					fixture.substitutedChains = replacement.chains.size();
++					fixture.vectorSubstitutionStatus = "consumed";
++					fixture.vectorSubstitutionConsumed = true;
++				}
++			}
++		}
++
++		alignments.swap(substitutedAlignments);
++		result.totalSubstitutedChains = substitutedChains;
++		result.vectorSubstitutionStatus = "consumed";
++		result.vectorSubstitutionConsumed = true;
++		result.graphMutationConsumedWorkerOutput = true;
++		result.decision = "compact-binary-verified-goodchains-substituted";
++	}
++
+ 	void writeReadAlignmentPreDivergenceBatchDryRunJson(
+ 		const std::string& path,
+ 		const ReadAlignmentPreDivergenceBatchDryRunResult& result)
+@@ -3118,6 +3265,13 @@ namespace
+ 			 << "  \"worker_compact_binary_validation_status\": \""
+ 			 << readAlignmentJsonEscape(
+ 				result.workerCompactBinaryValidationStatus) << "\",\n"
++			 << "  \"compact_binary_vector_substitution_mode\": \""
++			 << readAlignmentJsonEscape(
++				readAlignmentCompactBinaryVectorSubstitutionMode()) << "\",\n"
++			 << "  \"vector_substitution_mode\": \""
++			 << readAlignmentJsonEscape(result.vectorSubstitutionMode) << "\",\n"
++			 << "  \"vector_substitution_status\": \""
++			 << readAlignmentJsonEscape(result.vectorSubstitutionStatus) << "\",\n"
+ 			 << "  \"worker_session_submit_path\": \""
+ 			 << readAlignmentJsonEscape(result.workerSessionSubmitPath) << "\",\n"
+ 			 << "  \"worker_session_done_path\": \""
+@@ -3138,6 +3292,11 @@ namespace
+ 			 << readAlignmentBoolJson(result.attempted) << ",\n"
+ 			 << "  \"matched\": " << readAlignmentBoolJson(result.matched)
+ 			 << ",\n"
++			 << "  \"vector_substitution_attempted\": "
++			 << readAlignmentBoolJson(result.vectorSubstitutionAttempted)
++			 << ",\n"
++			 << "  \"vector_substitution_consumed\": "
++			 << readAlignmentBoolJson(result.vectorSubstitutionConsumed) << ",\n"
+ 			 << "  \"failed_closed\": "
+ 			 << readAlignmentBoolJson(result.failedClosed) << ",\n"
+ 			 << "  \"proof_fault_applied\": "
+@@ -3163,7 +3322,9 @@ namespace
+ 			 << "  \"total_gpu_good_records\": "
+ 			 << result.totalGpuGoodRecords << ",\n"
+ 			 << "  \"total_worker_records\": "
+-			 << result.totalWorkerRecords << ",\n";
++			 << result.totalWorkerRecords << ",\n"
++			 << "  \"total_substituted_chains\": "
++			 << result.totalSubstitutedChains << ",\n";
+ 		if (!result.error.empty())
+ 		{
+ 			json << "  \"error\": \""
+@@ -3183,8 +3344,14 @@ namespace
+ 				 << readAlignmentJsonEscape(fixture.workerBinary) << "\",\n"
+ 				 << "      \"status\": \""
+ 				 << readAlignmentJsonEscape(fixture.status) << "\",\n"
++				 << "      \"vector_substitution_status\": \""
++				 << readAlignmentJsonEscape(fixture.vectorSubstitutionStatus)
++				 << "\",\n"
+ 				 << "      \"matched\": "
+ 				 << readAlignmentBoolJson(fixture.matched) << ",\n"
++				 << "      \"vector_substitution_consumed\": "
++				 << readAlignmentBoolJson(fixture.vectorSubstitutionConsumed)
++				 << ",\n"
+ 				 << "      \"proof_fault_applied\": "
+ 				 << readAlignmentBoolJson(fixture.proofFaultApplied) << ",\n"
+ 				 << "      \"worker_tsv_readable\": "
+@@ -3204,12 +3371,14 @@ namespace
+ 				 << "      \"gpu_good_records\": " << fixture.gpuGoodRecords
+ 				 << ",\n"
+ 				 << "      \"worker_records\": " << fixture.workerRecords;
+-			if (!fixture.error.empty())
+-			{
+-				json << ",\n      \"error\": \""
+-					 << readAlignmentJsonEscape(fixture.error) << "\"\n";
+-			}
+-			else
++				json << ",\n      \"substituted_chains\": "
++					 << fixture.substitutedChains;
++				if (!fixture.error.empty())
++				{
++					json << ",\n      \"error\": \""
++						 << readAlignmentJsonEscape(fixture.error) << "\"\n";
++				}
++				else
+ 			{
+ 				json << "\n";
+ 			}
+@@ -3235,6 +3404,12 @@ namespace
+ 		result.mode = readAlignmentPreDivergenceChainMode();
+ 		result.proofFault = readAlignmentPreDivergenceChainProofFault();
+ 		result.workerLifecycleMode = readAlignmentWorkerLifecycleMode();
++		result.vectorSubstitutionMode =
++			readAlignmentCompactBinaryVectorSubstitutionMode();
++		result.vectorSubstitutionStatus =
++			readAlignmentCompactBinaryVectorSubstitutionEnabled()
++				? "pending"
++				: "disabled";
+ 		if (readAlignmentWorkerFileSessionLifecycleEnabled())
+ 		{
+ 			result.workerSessionDir = readAlignmentWorkerFileSessionDir();
+@@ -4351,11 +4526,12 @@ void ReadAligner::alignReads()
+ 						fixture.proofFaultApplied = true;
+ 						batchDryRun.proofFaultApplied = true;
+ 						faultApplied = true;
+-					}
+-					fixture.gpuGoodChains = gpuGoodChains.size();
+-					auto gpuGoodRecords =
+-						canonicalReadAlignmentRecordsFromGraphAlignments(
+-							gpuGoodChains);
++						}
++						fixture.gpuGoodChains = gpuGoodChains.size();
++						fixture.gpuGoodChainsObject = gpuGoodChains;
++						auto gpuGoodRecords =
++							canonicalReadAlignmentRecordsFromGraphAlignments(
++								gpuGoodChains);
+ 					fixture.gpuGoodRecords = gpuGoodRecords.size();
+ 					fixture.matched =
+ 						fixture.cpuGoodRecordsCanonical == gpuGoodRecords;
+@@ -4391,14 +4567,16 @@ void ReadAligner::alignReads()
+ 
+ 			batchDryRun.matched =
+ 				batchDryRun.matchedFixtureCount == batchDryRun.fixtureCount;
+-			if (batchDryRun.matched)
+-			{
+-				batchDryRun.status = "passed";
+-				batchDryRun.decision = "batch-dry-run-match-not-consumed";
+-				batchDryRun.failedClosed = false;
+-				batchDryRun.graphMutationConsumedWorkerOutput = false;
+-			}
+-			else
++				if (batchDryRun.matched)
++				{
++					batchDryRun.status = "passed";
++					batchDryRun.decision = "batch-dry-run-match-not-consumed";
++					batchDryRun.failedClosed = false;
++					batchDryRun.graphMutationConsumedWorkerOutput = false;
++					substituteReadAlignmentPreDivergenceBatchGoodChains(
++						batchDryRun, _readAlignments);
++				}
++				else
+ 			{
+ 				markReadAlignmentPreDivergenceBatchDryRunFailed(
+ 					batchDryRun,

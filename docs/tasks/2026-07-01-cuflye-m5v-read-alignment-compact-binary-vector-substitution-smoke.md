@@ -1,6 +1,6 @@
 # Task Card: cuFlye M5v Read Alignment Compact Binary Vector Substitution Smoke
 
-Status: proposed
+Status: accepted
 
 Created: 2026-07-01
 
@@ -64,17 +64,75 @@ _readAlignments slice while preserving exact artifacts and failing closed?
 
 ## Acceptance Gates
 
-- [ ] Patch series applies and patched Flye builds on DGX.
-- [ ] CUDA worker builds on DGX.
-- [ ] Positive compact-binary vector substitution reports all selected fixtures
+- [x] Patch series applies and patched Flye builds on DGX.
+- [x] CUDA worker builds on DGX.
+- [x] Positive compact-binary vector substitution reports all selected fixtures
       validated and substituted.
-- [ ] Canonical Flye artifacts match CPU.
-- [ ] Negative mismatch/corruption case fails closed before graph mutation.
-- [ ] Audit JSON records `graph_mutation_consumed_worker_output=true` only for
+- [x] Canonical Flye artifacts match CPU.
+- [x] Negative mismatch/corruption case fails closed before graph mutation.
+- [x] Audit JSON records `graph_mutation_consumed_worker_output=true` only for
       the positive, validated substitution path.
-- [ ] Local and DGX syntax/style gates pass.
-- [ ] Ownership scan shows no new direct owning heap/resource APIs.
+- [x] Local and DGX syntax/style gates pass.
+- [x] Ownership scan shows no new direct owning heap/resource APIs.
 
 ## Completion Notes
 
-Pending implementation.
+Accepted on DGX:
+
+```text
+proof_root=/tmp/cuflye-m5v-proof-20260701T042828Z
+golden=tests/golden/cuflye-m5v-read-alignment-compact-binary-vector-substitution-smoke-dgx-aarch64.json
+last_applied_patch=0036-cuflye-read-alignment-compact-binary-vector-substitution-smoke.patch
+selected_query_count=64
+compact_binary_mode=rehydrate-v0
+compact_binary_vector_substitution_mode=verified-goodchains-v0
+positive_status=passed
+positive_canonical_diff=match
+positive_matched_fixture_count=64
+positive_total_substituted_chains=64
+positive_graph_mutation_consumed_worker_output=true
+positive_worker_actual_wall_ms=2.080723
+positive_worker_request_total_ms=1.511474
+positive_compact_binary_sha256=f6dc209fad4311c61396f93ad240f56928557dc0b70f6c947c6991d2f2047504
+negative_mismatch_status=failed
+negative_mismatch_graph_mutation_consumed_worker_output=false
+negative_truncate_status=failed
+negative_truncate_graph_mutation_consumed_worker_output=false
+```
+
+Allowed M5v claim:
+
+```text
+cuFlye can substitute verified compact-binary-v0 CUDA-derived read-alignment
+goodChains into the selected _readAlignments slice inside Flye, preserve exact
+canonical artifacts, and fail closed before graph mutation on mismatch or
+corrupted compact binary payloads.
+```
+
+Forbidden M5v claim:
+
+```text
+M5v does not prove default GPU mode, full Flye acceleration, unbounded
+_readAlignments replacement, CUDA minimizer overlap discovery, or a new speedup
+over M5u.
+```
+
+Plain-language benefit:
+
+```text
+M5v is the first time this compact-binary path actually feeds verified
+GPU-derived goodChains back into Flye's selected _readAlignments slice. It keeps
+the assembly byte-identical and proves mismatch or corrupted binary payloads do
+not get consumed. It does not add a meaningful speedup over M5u by itself; the
+benefit is safety-gated consumption, which is the prerequisite for scaling the
+GPU path beyond a dry-run.
+```
+
+Next highest-ROI task:
+
+```text
+M5w: scale the compact-binary vector-substitution seam from the selected
+batch64 proof to the full3546 selected read-alignment fixture set, preserve
+exact artifacts, and measure whether the broader Flye-side substitution path
+keeps the CUDA integration advantage.
+```

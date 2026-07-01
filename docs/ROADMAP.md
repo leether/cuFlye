@@ -225,7 +225,7 @@ Completed:
   `98.134393%` versus the M4u cold batch-run worker process, but the full
   toy-raw run was still slower than CPU (`88s` vs `82s`) because the proof still
   pays for one synthetic warmup request inside the same Flye run.
-- M5a-M5u: cuFlye now has a deterministic read-to-graph alignment oracle,
+- M5a-M5v: cuFlye now has a deterministic read-to-graph alignment oracle,
   bounded replay fixtures, a CUDA chain replay prototype, real multi-read
   batching, heterogeneous shape grouping, and a persistent per-shape CUDA arena.
   The M5h proof expands the toy-hifi replay harvest to `3546` valid fixtures
@@ -256,7 +256,9 @@ Completed:
   one compact binary file from the CUDA session, validate and rehydrate it,
   apply Flye's existing divergence filter, match CPU `goodChains`, preserve
   exact canonical artifacts, and fail closed on checksum/truncation corruption
-  before graph mutation.
+  before graph mutation. M5v then consumes that verified output for the selected
+  `_readAlignments` slice, preserving exact artifacts while proving mismatch
+  and corrupted payloads remain fail-closed.
 
 Current allowed performance claim:
 
@@ -377,6 +379,12 @@ rehydrates CUDA-produced chains, applies its existing divergence filter, and
 matches CPU `goodChains` for the selected batch while preserving exact
 artifacts. This is a Flye-side binary consumption and integration-overhead
 claim, not a default GPU mode or whole-Flye speed claim.
+
+cuFlye can now substitute verified compact-binary CUDA-derived `goodChains` into
+Flye's selected `_readAlignments` slice while preserving exact artifacts and
+failing closed on mismatch or corrupted payloads. This is a selected-slice
+graph-facing consumption claim, not an unbounded replacement or whole-Flye
+speed claim.
 ```
 
 Current forbidden claim:
@@ -2430,4 +2438,71 @@ goodChains for an allowlisted batch, run a guarded vector-substitution smoke
 that feeds the verified GPU-derived goodChains into the selected
 _readAlignments slice while preserving exact artifacts and fail-closed
 behavior.
+```
+
+M5v accepted result:
+
+```text
+cuFlye can substitute verified compact-binary-v0 CUDA-derived read-alignment
+goodChains into the selected _readAlignments slice inside Flye, preserve exact
+canonical artifacts, and fail closed before graph mutation on mismatch or
+corrupted compact binary payloads.
+```
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m5v-proof-20260701T042828Z
+golden=tests/golden/cuflye-m5v-read-alignment-compact-binary-vector-substitution-smoke-dgx-aarch64.json
+fixture_count=64
+compact_binary_mode=rehydrate-v0
+compact_binary_vector_substitution_mode=verified-goodchains-v0
+positive_status=passed
+positive_canonical_diff=match
+positive_matched_fixture_count=64
+positive_total_substituted_chains=64
+positive_graph_mutation_consumed_worker_output=true
+positive_worker_actual_wall_ms=2.080723
+positive_worker_request_total_ms=1.511474
+positive_compact_binary_sha256=f6dc209fad4311c61396f93ad240f56928557dc0b70f6c947c6991d2f2047504
+negative_mismatch_status=failed
+negative_mismatch_graph_mutation_consumed_worker_output=false
+negative_truncate_status=failed
+negative_truncate_graph_mutation_consumed_worker_output=false
+```
+
+Allowed M5v claim:
+
+```text
+cuFlye can feed verified compact-binary CUDA-derived goodChains into Flye's
+selected _readAlignments slice, preserve exact artifacts, and block mismatch or
+corruption before graph mutation.
+```
+
+Forbidden M5v claim:
+
+```text
+M5v does not prove default GPU mode, full Flye acceleration, unbounded
+_readAlignments replacement, CUDA minimizer overlap discovery, or a new speedup
+over M5u.
+```
+
+Plain-language benefit:
+
+```text
+M5v is the first compact-binary path that actually feeds verified GPU-derived
+goodChains back into Flye's selected _readAlignments slice. It keeps the
+assembly byte-identical and proves mismatch or corrupted binary payloads do not
+get consumed. It does not add a meaningful speedup over M5u by itself; the
+benefit is safety-gated consumption, which is the prerequisite for scaling the
+GPU path beyond a dry-run.
+```
+
+Next highest-ROI task:
+
+```text
+M5w: scale the compact-binary vector-substitution seam from the selected
+batch64 proof to the full3546 selected read-alignment fixture set, preserve
+exact artifacts, and measure whether the broader Flye-side substitution path
+keeps the CUDA integration advantage.
 ```
