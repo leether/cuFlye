@@ -225,7 +225,7 @@ Completed:
   `98.134393%` versus the M4u cold batch-run worker process, but the full
   toy-raw run was still slower than CPU (`88s` vs `82s`) because the proof still
   pays for one synthetic warmup request inside the same Flye run.
-- M5a-M5l: cuFlye now has a deterministic read-to-graph alignment oracle,
+- M5a-M5o: cuFlye now has a deterministic read-to-graph alignment oracle,
   bounded replay fixtures, a CUDA chain replay prototype, real multi-read
   batching, heterogeneous shape grouping, and a persistent per-shape CUDA arena.
   The M5h proof expands the toy-hifi replay harvest to `3546` valid fixtures
@@ -235,10 +235,14 @@ Completed:
   same M5h harvest, explicit persistent bulk-output CUDA averages
   `0.302834 ms` versus CPU `0.333798 ms` before TSV/JSON emission, a bounded
   replay hot-path speedup of `1.102247x`, while preserving every oracle diff.
-  M5j-M5l move that worker into a Flye-side dry-run seam: Flye can invoke the
-  CUDA read-alignment backend, validate output against CPU oracle rows, rehydrate
-  typed rows into a shadow `std::vector<GraphAlignment>` object-vector, prove it
-  matches the CPU `_readAlignments` slice, and still stop before graph mutation.
+  M5j-M5m move that worker into a Flye-side seam: Flye can invoke the CUDA
+  read-alignment backend, validate output against CPU oracle rows, rehydrate
+  typed rows into a `std::vector<GraphAlignment>` object-vector, substitute a
+  verified selected slice, preserve exact artifacts, and fail closed on
+  mismatch. M5n-M5o then move earlier in the read-alignment pipeline: the CUDA
+  worker can emit pre-divergence chain DP output without CPU divergence rows,
+  and Flye can run its own divergence filter on those GPU-produced chains in a
+  selected-read dry run while recovering the same CPU `goodChains`.
 
 Current allowed performance claim:
 
@@ -336,6 +340,12 @@ Flye run behind a graph-facing dry-run seam. The seam validates worker TSVs
 against CPU oracle TSVs, writes graph guard metadata, records
 `graph_mutation_consumed_worker_output=false`, and stops before graph mutation.
 This is an integration-safety claim, not a graph-consumption or speed claim.
+
+cuFlye can now invoke CUDA pre-divergence read-alignment chain output from
+inside Flye for a selected read, run Flye's existing divergence filter on those
+GPU-produced chains, recover the same `goodChains` as CPU, preserve exact Flye
+artifacts, and fail closed on mismatch. This is still an integration-boundary
+claim, not a default GPU mode or full-Flye speed claim.
 ```
 
 Current forbidden claim:
@@ -1902,10 +1912,63 @@ needs CPU divergence rows, so a later Flye-side selected-read mode can skip CPU
 chainReadAlignments and run divergence filtering on GPU-produced chains.
 ```
 
+M5o accepted result:
+
+```text
+cuFlye can invoke CUDA pre-divergence read-alignment chain output from inside
+Flye, run Flye's existing divergence filter on the GPU-produced chains, and
+prove the resulting goodChains match the CPU selected-read goodChains.
+```
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m5o-proof-20260701T021134Z
+query_id=3512
+positive_status=passed
+positive_cpu_predivergence_chains=1
+positive_gpu_predivergence_chains=1
+positive_cpu_good_records=3
+positive_gpu_good_records=3
+positive_canonical_diff=match
+negative_fault=drop-first-gpu-good-chain
+negative_exit_status=1
+negative_failed_closed=true
+negative_worker_exit_status=0
+negative_worker_tsv_readable=true
+graph_mutation_consumed_worker_output=false
+```
+
+Allowed M5o claim:
+
+```text
+cuFlye can request CUDA pre-divergence read-alignment chains from inside Flye
+for an allowlisted read, run CPU divergence filtering on those GPU-produced
+chains, recover the same goodChains as CPU, preserve exact artifacts, and fail
+closed on mismatch.
+```
+
+Forbidden M5o claim:
+
+```text
+M5o does not prove default GPU mode, broad _readAlignments replacement from
+pre-divergence output, CUDA minimizer overlap discovery, CPU divergence
+replacement, or end-to-end Flye acceleration.
+```
+
+Plain-language benefit:
+
+```text
+M5o is not a full-Flye speed win. The gain is integration safety: CUDA
+pre-divergence chain output can now enter Flye's read-alignment loop and pass
+Flye's own divergence/filtering semantics without changing final artifacts.
+```
+
 Next highest-ROI task:
 
 ```text
-M5o: wire pre-divergence CUDA chain output into a guarded Flye-side
-selected-read dry run, compute divergence on the GPU-produced chains, and
-compare the resulting goodChains against CPU before any graph mutation.
+M5p: remove selected-read per-read process overhead by moving pre-divergence
+chain output into a batched or persistent Flye-side dry-run seam, then measure
+whether the integration path can become cheaper than CPU chainReadAlignments on
+a supported batch.
 ```

@@ -1,0 +1,385 @@
+diff --git a/src/repeat_graph/read_aligner.cpp b/src/repeat_graph/read_aligner.cpp
+index 132dd3e..6207648 100644
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -231,6 +231,38 @@ namespace
+ 		std::vector<ReadAlignmentFixtureVectorSubstitution> fixtures;
+ 	};
+ 
++	struct ReadAlignmentPreDivergenceDryRunResult
++	{
++		std::string mode;
++		std::string proofFault;
++		std::string status = "not-requested";
++		std::string decision = "disabled";
++		int64_t queryId = 0;
++		std::string fixtureDir;
++		std::string workerOutputDir;
++		std::string workerTsv;
++		std::string workerJson;
++		std::string stdoutLog;
++		std::string stderrLog;
++		std::string auditJson;
++		std::string workerCommand;
++		int workerExitStatus = 1;
++		bool attempted = false;
++		bool matched = false;
++		bool failedClosed = false;
++		bool proofFaultApplied = false;
++		bool graphMutationConsumedWorkerOutput = false;
++		bool workerTsvReadable = false;
++		size_t cpuPreDivergenceChains = 0;
++		size_t gpuPreDivergenceChains = 0;
++		size_t cpuGoodChains = 0;
++		size_t gpuGoodChains = 0;
++		size_t cpuGoodRecords = 0;
++		size_t gpuGoodRecords = 0;
++		size_t workerRecords = 0;
++		std::string error;
++	};
++
+ 	std::mutex& readAlignmentDumpMutex()
+ 	{
+ 		static std::mutex dumpMutex;
+@@ -1011,6 +1043,51 @@ namespace
+ 		return fault;
+ 	}
+ 
++	std::string readAlignmentPreDivergenceChainMode()
++	{
++		static std::string mode = []()
++		{
++			const char* raw =
++				std::getenv("CUFLYE_READ_ALIGNMENT_PREDIVERGENCE_CHAIN_MODE");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "selected-read-dry-run-v0")
++			{
++				throw std::runtime_error(
++					"Unsupported "
++					"CUFLYE_READ_ALIGNMENT_PREDIVERGENCE_CHAIN_MODE: " +
++					selected);
++			}
++			return selected;
++		}();
++		return mode;
++	}
++
++	bool readAlignmentPreDivergenceChainEnabled()
++	{
++		return !readAlignmentPreDivergenceChainMode().empty();
++	}
++
++	std::string readAlignmentPreDivergenceChainProofFault()
++	{
++		static std::string fault = []()
++		{
++			const char* raw = std::getenv(
++				"CUFLYE_READ_ALIGNMENT_PREDIVERGENCE_CHAIN_PROOF_FAULT");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "drop-first-gpu-good-chain")
++			{
++				throw std::runtime_error(
++					"Unsupported "
++					"CUFLYE_READ_ALIGNMENT_PREDIVERGENCE_CHAIN_PROOF_FAULT: " +
++					selected);
++			}
++			return selected;
++		}();
++		return fault;
++	}
++
+ 	std::string readAlignmentOptionalEnv(const char* name,
+ 										 const std::string& defaultValue)
+ 	{
+@@ -1063,6 +1140,27 @@ namespace
+ 		(void)readAlignmentReplayQueryIds();
+ 	}
+ 
++	void validateReadAlignmentPreDivergenceChainConfig()
++	{
++		if (!readAlignmentPreDivergenceChainEnabled()) return;
++		if (Parameters::get().numThreads != 1)
++		{
++			throw std::runtime_error(
++				"cuFlye read alignment pre-divergence dry-run requires --threads 1");
++		}
++		if (!readAlignmentReplayDumpEnabled() ||
++			!readAlignmentReplayMultiDumpEnabled())
++		{
++			throw std::runtime_error(
++				"cuFlye read alignment pre-divergence dry-run requires "
++				"CUFLYE_READ_ALIGNMENT_REPLAY_DUMP_DIR and "
++				"CUFLYE_READ_ALIGNMENT_REPLAY_QUERY_IDS");
++		}
++		(void)readAlignmentReplayQueryIds();
++		(void)readAlignmentRequiredEnv("CUFLYE_READ_ALIGNMENT_WORKER_BIN");
++		(void)readAlignmentPreDivergenceChainProofFault();
++	}
++
+ 	std::vector<int64_t> sortedReadAlignmentReplayQueryIds()
+ 	{
+ 		std::vector<int64_t> queryIds(readAlignmentReplayQueryIds().begin(),
+@@ -2182,6 +2280,166 @@ namespace
+ 		writeReadAlignmentTextFile(path, json.str());
+ 	}
+ 
++	void markReadAlignmentPreDivergenceDryRunFailed(
++		ReadAlignmentPreDivergenceDryRunResult& result,
++		const std::string& error)
++	{
++		result.status = "failed";
++		result.decision = "failed-closed-before-graph-mutation";
++		result.failedClosed = true;
++		result.matched = false;
++		result.graphMutationConsumedWorkerOutput = false;
++		if (!error.empty()) result.error = error;
++	}
++
++	void writeReadAlignmentPreDivergenceDryRunJson(
++		const std::string& path,
++		const ReadAlignmentPreDivergenceDryRunResult& result)
++	{
++		std::ostringstream json;
++		json << "{\n"
++			 << "  \"schema\": \"cuflye-read-alignment-predivergence-flye-dry-run-v0\",\n"
++			 << "  \"status\": \"" << readAlignmentJsonEscape(result.status)
++			 << "\",\n"
++			 << "  \"mode\": \"" << readAlignmentJsonEscape(result.mode) << "\",\n"
++			 << "  \"proof_fault\": \""
++			 << readAlignmentJsonEscape(result.proofFault) << "\",\n"
++			 << "  \"decision\": \""
++			 << readAlignmentJsonEscape(result.decision) << "\",\n"
++			 << "  \"query_id\": " << result.queryId << ",\n"
++			 << "  \"fixture_dir\": \""
++			 << readAlignmentJsonEscape(result.fixtureDir) << "\",\n"
++			 << "  \"worker_output_dir\": \""
++			 << readAlignmentJsonEscape(result.workerOutputDir) << "\",\n"
++			 << "  \"worker_tsv\": \""
++			 << readAlignmentJsonEscape(result.workerTsv) << "\",\n"
++			 << "  \"worker_json\": \""
++			 << readAlignmentJsonEscape(result.workerJson) << "\",\n"
++			 << "  \"stdout_log\": \""
++			 << readAlignmentJsonEscape(result.stdoutLog) << "\",\n"
++			 << "  \"stderr_log\": \""
++			 << readAlignmentJsonEscape(result.stderrLog) << "\",\n"
++			 << "  \"audit_json\": \""
++			 << readAlignmentJsonEscape(result.auditJson) << "\",\n"
++			 << "  \"worker_command\": \""
++			 << readAlignmentJsonEscape(result.workerCommand) << "\",\n"
++			 << "  \"worker_exit_status\": " << result.workerExitStatus << ",\n"
++			 << "  \"attempted\": " << readAlignmentBoolJson(result.attempted)
++			 << ",\n"
++			 << "  \"matched\": " << readAlignmentBoolJson(result.matched) << ",\n"
++			 << "  \"failed_closed\": "
++			 << readAlignmentBoolJson(result.failedClosed) << ",\n"
++			 << "  \"proof_fault_applied\": "
++			 << readAlignmentBoolJson(result.proofFaultApplied) << ",\n"
++			 << "  \"graph_mutation_consumed_worker_output\": "
++			 << readAlignmentBoolJson(result.graphMutationConsumedWorkerOutput)
++			 << ",\n"
++			 << "  \"worker_tsv_readable\": "
++			 << readAlignmentBoolJson(result.workerTsvReadable) << ",\n"
++			 << "  \"cpu_predivergence_chains\": "
++			 << result.cpuPreDivergenceChains << ",\n"
++			 << "  \"gpu_predivergence_chains\": "
++			 << result.gpuPreDivergenceChains << ",\n"
++			 << "  \"cpu_good_chains\": " << result.cpuGoodChains << ",\n"
++			 << "  \"gpu_good_chains\": " << result.gpuGoodChains << ",\n"
++			 << "  \"cpu_good_records\": " << result.cpuGoodRecords << ",\n"
++			 << "  \"gpu_good_records\": " << result.gpuGoodRecords << ",\n"
++			 << "  \"worker_records\": " << result.workerRecords;
++		if (!result.error.empty())
++		{
++			json << ",\n  \"error\": \""
++				 << readAlignmentJsonEscape(result.error) << "\"\n";
++		}
++		else
++		{
++			json << "\n";
++		}
++		json << "}\n";
++		writeReadAlignmentTextFile(path, json.str());
++	}
++
++	bool readAlignmentPreDivergenceChainSelected(const FastaRecord::Id& seqId)
++	{
++		return readAlignmentPreDivergenceChainEnabled() &&
++			readAlignmentReplayQueryIds().count(seqId.signedId()) > 0;
++	}
++
++	std::vector<GraphAlignment> runReadAlignmentPreDivergenceWorker(
++		const FastaRecord::Id& seqId,
++		RepeatGraph& graph,
++		ReadAlignmentPreDivergenceDryRunResult& result)
++	{
++		result.mode = readAlignmentPreDivergenceChainMode();
++		result.proofFault = readAlignmentPreDivergenceChainProofFault();
++		result.status = "failed";
++		result.decision = "failed-closed-before-graph-mutation";
++		result.failedClosed = true;
++		result.queryId = seqId.signedId();
++		result.fixtureDir = readAlignmentFixtureDirForQuery(seqId.signedId());
++		result.workerOutputDir =
++			joinReplayPath(result.fixtureDir, "predivergence-worker");
++		result.workerTsv = joinReplayPath(result.workerOutputDir,
++										  "read-alignment.tsv");
++		result.workerJson = joinReplayPath(result.workerOutputDir, "worker.json");
++		result.stdoutLog = joinReplayPath(result.workerOutputDir, "stdout.log");
++		result.stderrLog = joinReplayPath(result.workerOutputDir, "stderr.log");
++		result.auditJson = joinReplayPath(
++			result.fixtureDir, "read-alignment-predivergence-dry-run.json");
++		result.attempted = true;
++
++		ensureReplayDirectory(result.workerOutputDir);
++		std::string workerBin =
++			readAlignmentRequiredEnv("CUFLYE_READ_ALIGNMENT_WORKER_BIN");
++		result.workerCommand = readAlignmentShellQuote(workerBin) +
++			" --backend cuda --device " +
++			readAlignmentShellQuote(
++				readAlignmentOptionalEnv("CUFLYE_READ_ALIGNMENT_WORKER_DEVICE",
++										 "0")) +
++			" --fixture-dir " + readAlignmentShellQuote(result.fixtureDir) +
++			" --output-tsv " + readAlignmentShellQuote(result.workerTsv) +
++			" --json-output " + readAlignmentShellQuote(result.workerJson) +
++			" --emit-pre-divergence-chains --warmup-runs " +
++			readAlignmentShellQuote(readAlignmentOptionalEnv(
++				"CUFLYE_READ_ALIGNMENT_WORKER_WARMUP_RUNS", "0")) +
++			" --benchmark-runs " +
++			readAlignmentShellQuote(readAlignmentOptionalEnv(
++				"CUFLYE_READ_ALIGNMENT_WORKER_BENCHMARK_RUNS", "1"));
++		std::string memoryBudget = readAlignmentOptionalEnv(
++			"CUFLYE_READ_ALIGNMENT_WORKER_MEMORY_BUDGET_BYTES", "");
++		if (!memoryBudget.empty())
++		{
++			result.workerCommand += " --memory-budget-bytes " +
++									readAlignmentShellQuote(memoryBudget);
++		}
++		result.workerCommand += " > " + readAlignmentShellQuote(result.stdoutLog) +
++								" 2> " + readAlignmentShellQuote(result.stderrLog);
++		result.workerExitStatus = std::system(result.workerCommand.c_str());
++		if (result.workerExitStatus != 0)
++		{
++			throw std::runtime_error(
++				"CUDA read-alignment pre-divergence worker failed with status " +
++				std::to_string(result.workerExitStatus));
++		}
++
++		result.workerTsvReadable = readableFile(result.workerTsv);
++		if (!result.workerTsvReadable)
++		{
++			throw std::runtime_error(
++				"CUDA read-alignment pre-divergence worker did not write TSV: " +
++				result.workerTsv);
++		}
++
++		auto workerRecords = readAlignmentDumpRecords(result.workerTsv);
++		result.workerRecords = workerRecords.size();
++		auto typedRecords =
++			rehydrateTypedReadAlignmentRecords(workerRecords, graph,
++											   result.workerTsv);
++		auto objectVector =
++			rehydrateGraphAlignmentObjectVector(typedRecords, result.workerTsv);
++		result.gpuPreDivergenceChains = objectVector.size();
++		return objectVector;
++	}
++
+ 	void runReadAlignmentWorkerDryRunSeam(
+ 		RepeatGraph& graph,
+ 		std::vector<GraphAlignment>& cpuAlignments)
+@@ -2649,6 +2907,7 @@ void ReadAligner::alignReads()
+ 	validateReadAlignmentDumpConfig();
+ 	validateReadAlignmentReplayDumpConfig();
+ 	validateReadAlignmentWorkerConfig();
++	validateReadAlignmentPreDivergenceChainConfig();
+ 
+ 	static const int SMALL_ALN = 100;
+ 	static const int BIG_ALN = 500;
+@@ -2747,6 +3006,86 @@ void ReadAligner::alignReads()
+ 									   chainDivergences, goodChains, _readSeqs,
+ 									   _graph.edgeSequences());
+ 
++		if (readAlignmentPreDivergenceChainSelected(seqId))
++		{
++			ReadAlignmentPreDivergenceDryRunResult dryRun;
++			try
++			{
++				dryRun.cpuPreDivergenceChains = readChains.size();
++				dryRun.cpuGoodChains = goodChains.size();
++				auto cpuGoodRecords =
++					canonicalReadAlignmentRecordsFromGraphAlignments(goodChains);
++				dryRun.cpuGoodRecords = cpuGoodRecords.size();
++
++				auto gpuPreChains =
++					runReadAlignmentPreDivergenceWorker(seqId, _graph, dryRun);
++				std::vector<GraphAlignment> gpuGoodChains;
++				for (auto& chain : gpuPreChains)
++				{
++					float chainDivergence = this->getChainBaseDivergence(
++						chain, (bool)Config::get("reads_base_alignment"));
++					if (chainDivergence < MAX_DIVERGENCE)
++					{
++						gpuGoodChains.push_back(chain);
++					}
++				}
++				if (dryRun.proofFault == "drop-first-gpu-good-chain" &&
++					!gpuGoodChains.empty())
++				{
++					gpuGoodChains.erase(gpuGoodChains.begin());
++					dryRun.proofFaultApplied = true;
++				}
++				dryRun.gpuGoodChains = gpuGoodChains.size();
++				auto gpuGoodRecords =
++					canonicalReadAlignmentRecordsFromGraphAlignments(gpuGoodChains);
++				dryRun.gpuGoodRecords = gpuGoodRecords.size();
++				dryRun.matched = cpuGoodRecords == gpuGoodRecords;
++				if (dryRun.matched)
++				{
++					dryRun.status = "passed";
++					dryRun.decision = "dry-run-match-not-consumed";
++					dryRun.failedClosed = false;
++					dryRun.graphMutationConsumedWorkerOutput = false;
++				}
++				else
++				{
++					markReadAlignmentPreDivergenceDryRunFailed(
++						dryRun,
++						"GPU-filtered goodChains differ from CPU goodChains");
++				}
++			}
++			catch (const std::exception& exc)
++			{
++				if (dryRun.auditJson.empty())
++				{
++					dryRun.queryId = seqId.signedId();
++					dryRun.fixtureDir =
++						readAlignmentFixtureDirForQuery(seqId.signedId());
++					dryRun.auditJson = joinReplayPath(
++						dryRun.fixtureDir,
++						"read-alignment-predivergence-dry-run.json");
++				}
++				if (dryRun.mode.empty())
++				{
++					dryRun.mode = readAlignmentPreDivergenceChainMode();
++				}
++				if (dryRun.proofFault.empty())
++				{
++					dryRun.proofFault =
++						readAlignmentPreDivergenceChainProofFault();
++				}
++				markReadAlignmentPreDivergenceDryRunFailed(dryRun, exc.what());
++			}
++			writeReadAlignmentPreDivergenceDryRunJson(dryRun.auditJson, dryRun);
++			if (dryRun.status != "passed")
++			{
++				throw std::runtime_error(
++					"cuFlye read alignment pre-divergence dry-run failed for "
++					"query " + std::to_string(seqId.signedId()) + ": " +
++					dryRun.auditJson);
++			}
++		}
++
+ 		std::vector<GraphAlignment> complChains(goodChains);
+ 		for (auto& chain : complChains)
+ 		{
