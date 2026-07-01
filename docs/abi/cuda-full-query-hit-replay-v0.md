@@ -14,8 +14,9 @@ boundary. It consumes a validated
 `cuflye-read-to-graph-minimizer-source-pack-v0` directory and emits raw-overlap
 records with row keys compatible with the M6g CPU replay oracle.
 
-M6h is a correctness boundary. It does not feed CUDA output into Flye graph
-logic and does not claim whole-Flye acceleration.
+M6h is a correctness boundary. M6i adds an optional `parallel-score` kernel
+mode for the same ABI. Neither mode feeds CUDA output into Flye graph logic or
+claims whole-Flye acceleration.
 
 ## Command
 
@@ -24,6 +25,7 @@ cuflye-cuda-full-query-hit-replay \
   --source-pack-dir DIR \
   --output-tsv PATH \
   [--json-output PATH] \
+  [--kernel-mode serial|parallel-score] \
   [--device ID] \
   [--memory-budget-bytes N]
 ```
@@ -41,15 +43,25 @@ budget violations, and malformed source-pack files.
 
 ## CUDA Work
 
-For each active ext group, one CUDA block serially replays:
+Two kernel modes are currently accepted:
+
+- `serial`: one CUDA block with one active thread per ext group. This is the
+  M6h correctness mode.
+- `parallel-score`: one CUDA block with `128` threads per ext group. Threads
+  split predecessor scoring for each DP row and reduce to a deterministic best
+  predecessor. Backtracking, overlap geometry checks, sorting, and
+  primary-overlap filtering remain serial inside the block.
+
+For each active ext group, both modes replay:
 
 - Flye-style gap-aware chain DP;
 - DP backtracking from descending score order;
 - overlap geometry checks for the read-to-graph detector shape;
 - primary-overlap containment filtering.
 
-This is intentionally conservative. It proves the CUDA boundary can reproduce
-the selected row-key output before M6i attempts more parallelism.
+This remains intentionally conservative. The accepted proof requires CPU vs
+CUDA and serial vs parallel canonical row-key `match` before any stronger claim
+is allowed.
 
 ## Output TSV
 
@@ -77,6 +89,8 @@ uses a different tie order; CUDA A/B row order is deterministic.
   "schema": "cuflye-cuda-full-query-hit-replay-v0",
   "status": "ok",
   "backend": "cuda",
+  "kernel_mode": "parallel-score",
+  "parallel_threads": 128,
   "source_pack_dir": "...",
   "output_tsv": "...",
   "device": 0,
@@ -89,21 +103,22 @@ uses a different tie order; CUDA A/B row order is deterministic.
   "max_supported_group_matches": 4096,
   "required_bytes": 1142052,
   "timing_ms": {
-    "kernel": 53.170850,
-    "total": 349.315503
+    "kernel": 52.542531,
+    "total": 311.103565
   }
 }
 ```
 
 On fail-closed errors, JSON uses the same schema with `status: "error"` and an
-`error` string.
+`error` string. Error JSON also includes `kernel_mode` so rejected requests can
+be attributed to the selected backend shape.
 
 ## Non-Goals
 
-M6h does not:
+M6h/M6i do not:
 
 - reproduce non-key raw-overlap fields such as `edge_id` or full
   `seq_divergence` parity;
 - preserve direct CPU raw row order for equal-score ties;
 - consume CUDA output inside Flye;
-- prove speedup.
+- prove whole-Flye speedup.

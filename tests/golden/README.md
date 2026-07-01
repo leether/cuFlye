@@ -189,3 +189,5 @@ M6 read-to-graph input-boundary proof:
   `cuflye-m6g-query-hit-replay-tie-closure-dgx-aarch64.json`
 - CUDA full query-hit replay consumer manifest:
   `cuflye-m6h-cuda-full-query-hit-replay-consumer-dgx-aarch64.json`
+- Parallel full query-hit replay benchmark manifest:
+  `cuflye-m6i-parallel-full-query-hit-replay-benchmark-dgx-aarch64.json`

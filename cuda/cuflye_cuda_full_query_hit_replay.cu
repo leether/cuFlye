@@ -27,6 +27,7 @@ namespace
 using Clock = std::chrono::steady_clock;
 
 const int32_t kMaxSupportedGroupMatches = 4096;
+const int32_t kParallelScoreThreads = 128;
 const float kLargeGapPenalty = 2.0f;
 const float kSmallGapPenalty = 0.5f;
 const int32_t kGapJumpThreshold = 100;
@@ -99,6 +100,7 @@ struct Options
 	std::string packDir;
 	std::string outputTsv;
 	std::string jsonOutput;
+	std::string kernelMode = "serial";
 	int device = 0;
 	bool hasMemoryBudget = false;
 	unsigned long long memoryBudgetBytes = 0;
@@ -123,7 +125,9 @@ struct RunSummary
 	size_t freeBytes = 0;
 	size_t totalBytes = 0;
 	int device = 0;
+	int parallelThreads = 1;
 	std::string deviceName;
+	std::string kernelMode;
 };
 
 double elapsedMs(Clock::time_point start, Clock::time_point end)
@@ -510,6 +514,7 @@ Options parseOptions(int argc, char** argv)
 		if (arg == "--source-pack-dir") options.packDir = requireValue(arg);
 		else if (arg == "--output-tsv") options.outputTsv = requireValue(arg);
 		else if (arg == "--json-output") options.jsonOutput = requireValue(arg);
+		else if (arg == "--kernel-mode") options.kernelMode = requireValue(arg);
 		else if (arg == "--device") options.device = parseI32(requireValue(arg), arg);
 		else if (arg == "--memory-budget-bytes")
 		{
@@ -521,7 +526,8 @@ Options parseOptions(int argc, char** argv)
 		{
 			std::cout << "Usage: cuflye-cuda-full-query-hit-replay "
 					  << "--source-pack-dir DIR --output-tsv PATH "
-					  << "[--json-output PATH] [--device ID] "
+					  << "[--json-output PATH] "
+					  << "[--kernel-mode serial|parallel-score] [--device ID] "
 					  << "[--memory-budget-bytes N]\n";
 			std::exit(0);
 		}
@@ -535,6 +541,10 @@ Options parseOptions(int argc, char** argv)
 		throw std::runtime_error("--source-pack-dir is required");
 	}
 	if (options.outputTsv.empty()) throw std::runtime_error("--output-tsv is required");
+	if (options.kernelMode != "serial" && options.kernelMode != "parallel-score")
+	{
+		throw std::runtime_error("--kernel-mode must be serial or parallel-score");
+	}
 	return options;
 }
 
@@ -748,6 +758,185 @@ __global__ void replayFullQueryHitGroupsKernel(
 	atomicAdd(&status->outputRecords, outputCount);
 }
 
+__device__ bool betterScoreCandidate(int32_t score, int32_t id,
+									 int32_t bestScore, int32_t bestId)
+{
+	return score > bestScore || (score == bestScore && id > bestId);
+}
+
+__global__ void replayFullQueryHitGroupsParallelScoreKernel(
+	const MatchRecord* matches,
+	const GroupRecord* groups,
+	int32_t groupCount,
+	int32_t* scoreTable,
+	int32_t* backtrackTable,
+	int32_t* orderScratch,
+	OverlapRecord* proposalRows,
+	int32_t* proposalCounts,
+	OverlapRecord* outputRows,
+	int32_t* outputCounts,
+	DeviceStatus* status)
+{
+	__shared__ int32_t sharedScores[kParallelScoreThreads];
+	__shared__ int32_t sharedIds[kParallelScoreThreads];
+
+	int32_t groupIdx = blockIdx.x;
+	if (groupIdx >= groupCount) return;
+	GroupRecord group = groups[groupIdx];
+	if (group.matchCount <= 0 ||
+		group.matchCount > kMaxSupportedGroupMatches ||
+		blockDim.x != kParallelScoreThreads)
+	{
+		if (threadIdx.x == 0) status->errorCode = 1;
+		return;
+	}
+
+	int32_t base = group.matchOffset;
+	if (threadIdx.x == 0)
+	{
+		scoreTable[base] = 0;
+		backtrackTable[base] = -1;
+	}
+	__syncthreads();
+
+	for (int32_t i = 1; i < group.matchCount; ++i)
+	{
+		int32_t localBestScore = 0;
+		int32_t localBestId = 0;
+		int32_t curNext = matches[base + i].curPos;
+		int32_t extNext = matches[base + i].extPos;
+		for (int32_t j = i - 1 - static_cast<int32_t>(threadIdx.x);
+			 j >= 0; j -= blockDim.x)
+		{
+			int32_t curPrev = matches[base + j].curPos;
+			int32_t extPrev = matches[base + j].extPos;
+			int32_t curDelta = curNext - curPrev;
+			int32_t extDelta = extNext - extPrev;
+			int32_t jumpDiv = deviceAbs(curDelta - extDelta);
+			if (0 < curDelta && curDelta < group.maxJump &&
+				0 < extDelta && extDelta < group.maxJump &&
+				jumpDiv <= kMaxJumpGap)
+			{
+				int32_t matchScore = min(min(curDelta, extDelta), group.kmerSize);
+				float penalty = jumpDiv > kGapJumpThreshold ? kLargeGapPenalty :
+															 kSmallGapPenalty;
+				int32_t gapCost = static_cast<int32_t>(penalty * jumpDiv);
+				int32_t nextScore = scoreTable[base + j] + matchScore - gapCost;
+				if (betterScoreCandidate(nextScore, j,
+										 localBestScore, localBestId))
+				{
+					localBestScore = nextScore;
+					localBestId = j;
+				}
+			}
+		}
+
+		sharedScores[threadIdx.x] = localBestScore;
+		sharedIds[threadIdx.x] = localBestId;
+		__syncthreads();
+		for (int32_t stride = kParallelScoreThreads / 2; stride > 0; stride /= 2)
+		{
+			if (threadIdx.x < stride)
+			{
+				int32_t otherScore = sharedScores[threadIdx.x + stride];
+				int32_t otherId = sharedIds[threadIdx.x + stride];
+				if (betterScoreCandidate(otherScore, otherId,
+										 sharedScores[threadIdx.x],
+										 sharedIds[threadIdx.x]))
+				{
+					sharedScores[threadIdx.x] = otherScore;
+					sharedIds[threadIdx.x] = otherId;
+				}
+			}
+			__syncthreads();
+		}
+		if (threadIdx.x == 0)
+		{
+			int32_t maxScore = sharedScores[0];
+			scoreTable[base + i] = max(maxScore, group.kmerSize);
+			backtrackTable[base + i] = maxScore > group.kmerSize ?
+									   sharedIds[0] : -1;
+		}
+		__syncthreads();
+	}
+
+	if (threadIdx.x != 0) return;
+	for (int32_t i = 0; i < group.matchCount; ++i) orderScratch[base + i] = i;
+	sortIndicesByScore(orderScratch + base, group.matchCount, scoreTable + base);
+
+	int32_t proposalCount = 0;
+	for (int32_t orderIdx = 0; orderIdx < group.matchCount; ++orderIdx)
+	{
+		int32_t chainStart = orderScratch[base + orderIdx];
+		if (backtrackTable[base + chainStart] == -1) continue;
+		int32_t lastMatch = chainStart;
+		int32_t firstMatch = 0;
+		int32_t chainLength = 0;
+		int32_t pos = chainStart;
+		while (pos != -1)
+		{
+			firstMatch = pos;
+			++chainLength;
+			int32_t newPos = backtrackTable[base + pos];
+			backtrackTable[base + pos] = -1;
+			pos = newPos;
+		}
+
+		OverlapRecord row;
+		row.queryId = group.queryId;
+		row.queryOrdinal = group.queryOrdinal;
+		row.curBegin = matches[base + firstMatch].curPos;
+		row.extBegin = matches[base + firstMatch].extPos;
+		row.curLen = group.queryLen;
+		row.extId = group.extId;
+		row.extLen = group.extLen;
+		row.curEnd = matches[base + lastMatch].curPos + group.kmerSize - 1;
+		row.extEnd = matches[base + lastMatch].extPos + group.kmerSize - 1;
+		row.score = scoreTable[base + lastMatch] -
+					scoreTable[base + firstMatch] + group.kmerSize - 1;
+		row.seqDivergence = 0.0f;
+		row.chainLength = chainLength;
+		if (!overlapTest(row, group.minOverlap)) continue;
+		int32_t curRange = row.curEnd - row.curBegin;
+		int32_t extRange = row.extEnd - row.extBegin;
+		int32_t normLen = max(curRange, extRange);
+		if (normLen <= 0) continue;
+		float matchRate = static_cast<float>(chainLength) /
+						  static_cast<float>(normLen);
+		if (matchRate > 1.0f) matchRate = 1.0f;
+		if (matchRate <= 0.0f) continue;
+		row.seqDivergence = logf(1.0f / matchRate) /
+							static_cast<float>(group.kmerSize);
+		proposalRows[base + proposalCount] = row;
+		++proposalCount;
+	}
+	proposalCounts[groupIdx] = proposalCount;
+	sortOverlapsByScore(proposalRows + base, proposalCount);
+
+	int32_t outputCount = 0;
+	for (int32_t i = 0; i < proposalCount; ++i)
+	{
+		OverlapRecord row = proposalRows[base + i];
+		bool isContained = false;
+		for (int32_t j = 0; j < outputCount; ++j)
+		{
+			OverlapRecord primary = outputRows[group.outputOffset + j];
+			if (containedBy(row, primary) && primary.score > row.score)
+			{
+				isContained = true;
+				break;
+			}
+		}
+		if (!isContained && row.seqDivergence < kMaxDivergence)
+		{
+			outputRows[group.outputOffset + outputCount] = row;
+			++outputCount;
+		}
+	}
+	outputCounts[groupIdx] = outputCount;
+	atomicAdd(&status->outputRecords, outputCount);
+}
+
 void writeRawOverlapTsv(const std::string& path,
 						const std::vector<QuerySummary>& queries,
 						std::vector<OverlapRecord> rows)
@@ -809,6 +998,8 @@ void writeJson(const std::string& path, const Options& options,
 		   << "  \"schema\": \"cuflye-cuda-full-query-hit-replay-v0\",\n"
 		   << "  \"status\": \"ok\",\n"
 		   << "  \"backend\": \"cuda\",\n"
+		   << "  \"kernel_mode\": \"" << jsonEscape(summary.kernelMode) << "\",\n"
+		   << "  \"parallel_threads\": " << summary.parallelThreads << ",\n"
 		   << "  \"source_pack_dir\": \"" << jsonEscape(options.packDir) << "\",\n"
 		   << "  \"output_tsv\": \"" << jsonEscape(options.outputTsv) << "\",\n"
 		   << "  \"device\": " << summary.device << ",\n"
@@ -845,6 +1036,7 @@ void writeErrorJson(const std::string& path, const Options& options,
 		   << "  \"schema\": \"cuflye-cuda-full-query-hit-replay-v0\",\n"
 		   << "  \"status\": \"error\",\n"
 		   << "  \"backend\": \"cuda\",\n"
+		   << "  \"kernel_mode\": \"" << jsonEscape(options.kernelMode) << "\",\n"
 		   << "  \"source_pack_dir\": \"" << jsonEscape(options.packDir) << "\",\n"
 		   << "  \"output_tsv\": \"" << jsonEscape(options.outputTsv) << "\",\n"
 		   << "  \"error\": \"" << jsonEscape(message) << "\"\n"
@@ -861,6 +1053,9 @@ int main(int argc, char** argv)
 		options = parseOptions(argc, argv);
 		RunSummary summary;
 		summary.device = options.device;
+		summary.kernelMode = options.kernelMode;
+		summary.parallelThreads = options.kernelMode == "parallel-score" ?
+								  kParallelScoreThreads : 1;
 
 		auto parseStart = Clock::now();
 		std::vector<QuerySummary> queries;
@@ -1080,11 +1275,24 @@ int main(int argc, char** argv)
 		summary.hostToDeviceMs = elapsedMs(h2dStart, Clock::now());
 
 		auto kernelStart = Clock::now();
-		replayFullQueryHitGroupsKernel<<<static_cast<int32_t>(groups.size()), 1>>>(
-			dMatches.get(), dGroups.get(), static_cast<int32_t>(groups.size()),
-			dScore.get(), dBacktrack.get(), dOrder.get(), dProposals.get(),
-			dProposalCounts.get(), dOutput.get(), dOutputCounts.get(),
-			dStatus.get());
+		if (options.kernelMode == "serial")
+		{
+			replayFullQueryHitGroupsKernel<<<static_cast<int32_t>(groups.size()), 1>>>(
+				dMatches.get(), dGroups.get(), static_cast<int32_t>(groups.size()),
+				dScore.get(), dBacktrack.get(), dOrder.get(), dProposals.get(),
+				dProposalCounts.get(), dOutput.get(), dOutputCounts.get(),
+				dStatus.get());
+		}
+		else
+		{
+			replayFullQueryHitGroupsParallelScoreKernel
+				<<<static_cast<int32_t>(groups.size()), kParallelScoreThreads>>>(
+					dMatches.get(), dGroups.get(),
+					static_cast<int32_t>(groups.size()), dScore.get(),
+					dBacktrack.get(), dOrder.get(), dProposals.get(),
+					dProposalCounts.get(), dOutput.get(), dOutputCounts.get(),
+					dStatus.get());
+		}
 		cuflye::cuda_raii::checkCuda(
 			cudaGetLastError(), "launch full query-hit replay kernel");
 		cuflye::cuda_raii::checkCuda(
@@ -1122,7 +1330,7 @@ int main(int argc, char** argv)
 			int32_t count = outputCounts[groupIdx];
 			if (count < 0 || count > groups[groupIdx].matchCount)
 			{
-					throw std::runtime_error("device output count is outside group bounds");
+				throw std::runtime_error("device output count is outside group bounds");
 			}
 			std::vector<OverlapRecord> groupRows;
 			groupRows.reserve(static_cast<size_t>(count));

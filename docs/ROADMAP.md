@@ -363,6 +363,17 @@ Completed:
   equal-score pair, so M6h uses the explicit canonical row-key diff gate. This
   is not a speed claim: CPU replay wall time was about `0.11s`, while the cold
   CUDA process was about `0.48s` and CUDA kernel time was `53.170850 ms`.
+- M6i: the standalone CUDA full-query-hit replay consumer now supports
+  `--kernel-mode serial|parallel-score`. The new `parallel-score` mode uses
+  `128` threads per active ext group to parallelize predecessor scoring while
+  preserving the M6h canonical row-key output. DGX proof showed CPU vs
+  parallel row-key diff `match`, serial vs parallel row-key diff `match`,
+  deterministic parallel A/B output, and fail-closed memory-budget rejection.
+  On the selected tiny pack, kernel time improved only slightly
+  (`53.287348 ms` serial to `52.542531 ms` parallel-score) and cold CUDA wall
+  time improved from `0.48s` to `0.43s`, but CPU replay remained faster at
+  about `0.11s`. This is a bounded kernel-parallelism proof, not a whole-Flye
+  speed claim.
 
 Current allowed performance claim:
 
@@ -517,8 +528,14 @@ CUDA speed claim and not full non-key field reproduction.
 cuFlye now has a standalone CUDA consumer for that selected full-query-hit
 source pack. It produces the same canonical raw-overlap row-key set as the M6g
 CPU replay for all selected rows and fails closed on unsupported memory budget,
-but it is slower than CPU on the tiny pack because the M6h kernel is still a
-serial per-group correctness prototype.
+but it is slower than CPU on the tiny pack because the M6h path pays cold CUDA
+process and context overhead.
+
+cuFlye now has a `parallel-score` full-query-hit replay mode that preserves the
+same canonical row-key set as the M6h serial CUDA path. It gives a small
+bounded CUDA improvement on the selected pack, but CPU replay is still faster,
+so the next performance claim must come from warm session overhead reduction or
+larger supported work.
 ```
 
 Current forbidden claim:
@@ -2897,10 +2914,70 @@ edge group and pays cold CUDA process overhead. This is a correctness migration
 milestone, not a performance milestone.
 ```
 
+M6i accepted result:
+
+```text
+cuFlye now has a `parallel-score` CUDA full-query-hit replay mode that uses
+128 threads per active ext group, preserves the M6h canonical row-key output,
+and records matched CPU/serial/parallel timing on the selected source pack.
+```
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m6i-proof-20260701T072117Z
+golden=tests/golden/cuflye-m6i-parallel-full-query-hit-replay-benchmark-dgx-aarch64.json
+source_pack_canonical_sha256=16f4ced6054e7e4491071a1a7512760424a1e4fbc157e532ddb7c9e2aac53e5f
+cpu_replay_status=match
+cpu_row_key_exact_match=true
+serial_kernel_mode=serial
+parallel_kernel_mode=parallel-score
+parallel_threads=128
+cpu_vs_serial_row_key_diff=match
+cpu_vs_parallel_row_key_diff=match
+serial_vs_parallel_row_key_diff=match
+parallel_ab_row_key_diff=match
+unsupported_exit_status=2
+unsupported_json_status=error
+unsupported_error="required bytes exceed memory budget"
+cpu_replay_wall_seconds=0.11
+serial_cuda_wall_seconds=0.48
+parallel_cuda_wall_seconds=0.43
+serial_kernel_ms=53.287348
+parallel_kernel_ms=52.542531
+parallel_kernel_speedup_vs_serial_kernel=1.0141755066957092
+parallel_total_speedup_vs_serial_total=1.148385663790127
+```
+
+Allowed M6i claim:
+
+```text
+cuFlye can run the selected full-query-hit CUDA replay in a deterministic
+parallel-score mode that preserves canonical CPU row-key parity and slightly
+improves bounded CUDA timing versus the M6h-style serial CUDA mode.
+```
+
+Forbidden M6i claim:
+
+```text
+M6i does not prove CPU-beating replay, full non-key field reproduction, Flye
+graph consumption, default GPU mode, or whole-Flye speedup.
+```
+
+Plain-language benefit:
+
+```text
+M6i shows the GPU path can start doing real parallel work without changing the
+raw-overlap coordinates and scores we care about. The benefit is real but tiny
+on this pack: the kernel gets about 1.014x faster than serial CUDA, while the
+whole cold CUDA run is still slower than CPU. The next useful move is to keep
+the CUDA process warm instead of paying setup cost on every request.
+```
+
 Next highest-ROI task:
 
 ```text
-M6i: parallelize the full-query-hit replay benchmark while preserving canonical
-row-key parity, then decide whether the next blocker is kernel parallelism or
-worker/session overhead.
+M6j: move the full-query-hit replay path into a warm worker/session proof so
+repeated requests avoid cold CUDA process and context setup while preserving
+the same row-key parity and fail-closed gates.
 ```

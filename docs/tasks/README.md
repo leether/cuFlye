@@ -11,12 +11,17 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m6i-parallel-full-query-hit-replay-benchmark.md`:
-  parallelize the M6h CUDA full-query-hit replay benchmark while preserving
-  canonical row-key parity and fail-closed behavior.
+- `2026-07-01-cuflye-m6j-persistent-full-query-hit-replay-session.md`:
+  move the M6i full-query-hit replay path into a warm session proof so repeated
+  requests avoid cold CUDA process and context setup while preserving canonical
+  row-key parity and fail-closed behavior.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m6i-parallel-full-query-hit-replay-benchmark.md`:
+  add a `parallel-score` CUDA kernel mode that preserves M6h canonical row-key
+  parity, deterministic CUDA A/B output, and fail-closed memory-budget
+  behavior while improving tiny-pack CUDA kernel time only slightly.
 - `2026-07-01-cuflye-m6h-cuda-full-query-hit-replay-consumer.md`:
   build the first CUDA consumer for the selected full-query-hit source pack,
   emit `36` raw-overlap records that canonical row-key diff `match` against

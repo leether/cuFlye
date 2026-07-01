@@ -1,6 +1,6 @@
 # Task Card: cuFlye M6i Parallel Full Query-Hit Replay Benchmark
 
-Status: proposed
+Status: completed
 
 Created: 2026-07-01
 
@@ -52,14 +52,57 @@ fail-closed behavior.
 
 ## Acceptance Gates
 
-- [ ] M6h canonical CPU-vs-CUDA row-key parity still passes.
-- [ ] CUDA A/B row-key diff remains `match`.
-- [ ] Unsupported-shape fail-closed proof still passes.
-- [ ] Matched CPU and CUDA timings are recorded.
-- [ ] Any speedup claim is supported by the matched timing data; otherwise the
+- [x] M6h canonical CPU-vs-CUDA row-key parity still passes.
+- [x] CUDA A/B row-key diff remains `match`.
+- [x] Unsupported-shape fail-closed proof still passes.
+- [x] Matched CPU and CUDA timings are recorded.
+- [x] Any speedup claim is supported by the matched timing data; otherwise the
       Task Card explicitly says there is no speed benefit yet.
-- [ ] Local and DGX syntax/style/ownership gates pass.
+- [x] Local and DGX syntax/style/ownership gates pass.
 
 ## Completion Notes
 
-Pending implementation.
+M6i adds `--kernel-mode serial|parallel-score` to the standalone CUDA
+full-query-hit replay consumer. `serial` preserves the M6h one-thread-per-group
+kernel. `parallel-score` uses `128` CUDA threads per active ext group to split
+the predecessor scoring scan inside each DP row, then keeps DP backtracking,
+overlap geometry checks, sorting, and primary-overlap filtering serial inside
+the block to minimize semantic risk.
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m6i-proof-20260701T072117Z
+golden=tests/golden/cuflye-m6i-parallel-full-query-hit-replay-benchmark-dgx-aarch64.json
+source_pack_canonical_sha256=16f4ced6054e7e4491071a1a7512760424a1e4fbc157e532ddb7c9e2aac53e5f
+cpu_replay_status=match
+cpu_row_key_exact_match=true
+serial_kernel_mode=serial
+parallel_kernel_mode=parallel-score
+parallel_threads=128
+cpu_vs_serial_row_key_diff=match
+cpu_vs_parallel_row_key_diff=match
+serial_vs_parallel_row_key_diff=match
+parallel_ab_row_key_diff=match
+unsupported_exit_status=2
+unsupported_json_status=error
+unsupported_error="required bytes exceed memory budget"
+cpu_replay_wall_seconds=0.11
+serial_cuda_wall_seconds=0.48
+parallel_cuda_wall_seconds=0.43
+serial_kernel_ms=53.287348
+parallel_kernel_ms=52.542531
+parallel_kernel_speedup_vs_serial_kernel=1.0141755066957092
+parallel_total_speedup_vs_serial_total=1.148385663790127
+```
+
+Plain-language benefit:
+
+```text
+M6i proves that the full-query-hit CUDA replay can start using real GPU
+parallelism without changing the canonical row-key output. The gain is small on
+this tiny pack: parallel-score improves kernel time from 53.287348 ms to
+52.542531 ms and cold CUDA wall time from 0.48 s to 0.43 s, but CPU replay is
+still about 0.11 s. The next ROI is not more micro-kernel tuning; it is a warm
+session/worker path that removes repeated CUDA process and context overhead.
+```
