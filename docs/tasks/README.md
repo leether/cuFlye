@@ -11,12 +11,17 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m6q-full-query-hit-shadow-consumption-ledger.md`:
-  add a no-mutation shadow consumption ledger for M6p-rehydrated full-query-hit
-  raw-overlap rows, including unresolved `edge_id=0` accounting.
+- `2026-07-01-cuflye-m6r-chain-input-positive-full-query-hit-selection.md`:
+  find and prove a bounded full-query-hit selection with nonzero
+  `passes_chain_input_filter=1` rows before attempting graph-facing
+  consumption.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m6q-full-query-hit-shadow-consumption-ledger.md`:
+  add a no-mutation shadow consumption ledger for M6p-rehydrated full-query-hit
+  raw-overlap rows, including unresolved `edge_id=0` accounting and zero
+  graph-edge consumption candidates.
 - `2026-07-01-cuflye-m6p-full-query-hit-guarded-consumption-dry-run.md`:
   parse session-validated full-query-hit worker rows into Flye-side
   OverlapRange-shaped records in a no-graph-mutation guarded dry-run, prove

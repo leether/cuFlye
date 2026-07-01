@@ -1,0 +1,598 @@
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -441,6 +441,52 @@
+ 		size_t rehydratedRecords = 0;
+ 		std::vector<ReadToGraphRawOverlapRehydrationCheck> checks;
+ 		ReadToGraphRawOverlapRowKeyDiff typedDiff;
++	};
++
++	struct ReadToGraphFullQueryHitShadowLedgerCheck
++	{
++		std::string name;
++		bool required = true;
++		bool passed = false;
++		std::string detail;
++	};
++
++	struct ReadToGraphFullQueryHitShadowLedgerQuerySummary
++	{
++		int64_t queryId = 0;
++		size_t ledgerRows = 0;
++		size_t chainInputFilterRows = 0;
++		size_t unresolvedEdgeIdZeroRows = 0;
++		size_t resolvedEdgeIdRows = 0;
++	};
++
++	struct ReadToGraphFullQueryHitShadowLedgerResult
++	{
++		std::string mode;
++		std::string proofFault;
++		std::string status = "not-requested";
++		std::string state = "not-consumed";
++		std::string decision = "disabled";
++		std::string workerTsv;
++		std::string rehydrationStatus = "not-requested";
++		std::string error;
++		bool eligible = false;
++		bool consumed = false;
++		bool notConsumed = true;
++		bool failedClosed = false;
++		bool proofFaultApplied = false;
++		bool graphMutationConsumedWorkerOutput = false;
++		size_t workerRecords = 0;
++		size_t rehydratedRecords = 0;
++		size_t ledgerRows = 0;
++		size_t chainInputFilterRows = 0;
++		size_t unresolvedEdgeIdZeroRows = 0;
++		size_t resolvedEdgeIdRows = 0;
++		size_t futureRawOverlapShadowRows = 0;
++		size_t futureChainInputShadowRows = 0;
++		size_t graphEdgeConsumptionCandidateRows = 0;
++		std::vector<ReadToGraphFullQueryHitShadowLedgerCheck> checks;
++		std::vector<ReadToGraphFullQueryHitShadowLedgerQuerySummary> queries;
+ 	};
+ 
+ 	struct ReadToGraphFullQueryHitWorkerDryRunResult
+@@ -471,6 +517,12 @@
+ 		std::string rawOverlapRehydrationStatus = "not-requested";
+ 		std::string rawOverlapRehydrationState = "not-consumed";
+ 		std::string rawOverlapRehydrationDecision = "disabled";
++		std::string rawOverlapShadowLedgerJson;
++		std::string rawOverlapShadowLedgerMode;
++		std::string rawOverlapShadowLedgerProofFault;
++		std::string rawOverlapShadowLedgerStatus = "not-requested";
++		std::string rawOverlapShadowLedgerState = "not-consumed";
++		std::string rawOverlapShadowLedgerDecision = "disabled";
+ 		std::string workerCommand;
+ 		std::string error;
+ 		std::vector<int64_t> queryIds;
+@@ -488,8 +540,15 @@
+ 		bool workerOutputConsumptionEligible = false;
+ 		bool rawOverlapRehydrationEligible = false;
+ 		bool rawOverlapRehydrationFailedClosed = false;
++		bool rawOverlapShadowLedgerEligible = false;
++		bool rawOverlapShadowLedgerFailedClosed = false;
+ 		size_t expectedOutputRecords = 0;
+ 		size_t rawOverlapRehydratedRecords = 0;
++		size_t rawOverlapShadowLedgerRows = 0;
++		size_t rawOverlapShadowChainInputFilterRows = 0;
++		size_t rawOverlapShadowUnresolvedEdgeIdZeroRows = 0;
++		size_t rawOverlapShadowResolvedEdgeIdRows = 0;
++		size_t rawOverlapShadowGraphEdgeConsumptionCandidateRows = 0;
+ 		double workerContextSetupMs = 0.0;
+ 		double actualRequestTotalMs = 0.0;
+ 		double actualKernelMs = 0.0;
+@@ -2481,6 +2540,51 @@
+ 		return proofFault;
+ 	}
+ 
++	std::string readToGraphFullQueryHitShadowLedgerMode()
++	{
++		static std::string mode = []()
++		{
++			const char* raw = std::getenv(
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SHADOW_LEDGER_MODE");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "raw-overlap-chain-input-shadow-v0")
++			{
++				throw std::runtime_error(
++					"Unsupported "
++					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SHADOW_LEDGER_MODE: " +
++					selected);
++			}
++			return selected;
++		}();
++		return mode;
++	}
++
++	bool readToGraphFullQueryHitShadowLedgerEnabled()
++	{
++		return !readToGraphFullQueryHitShadowLedgerMode().empty();
++	}
++
++	std::string readToGraphFullQueryHitShadowLedgerProofFault()
++	{
++		static std::string proofFault = []()
++		{
++			const char* raw = std::getenv(
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SHADOW_LEDGER_PROOF_FAULT");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "drop-first-ledger-row")
++			{
++				throw std::runtime_error(
++					"Unsupported "
++					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SHADOW_LEDGER_PROOF_FAULT: " +
++					selected);
++			}
++			return selected;
++		}();
++		return proofFault;
++	}
++
+ 	std::string readToGraphFullQueryHitWorkerLifecycleMode()
+ 	{
+ 		static std::string mode = []()
+@@ -2604,6 +2708,10 @@
+ 			readToGraphFullQueryHitRawOverlapRehydrationEnabled();
+ 		std::string rehydrationProofFault =
+ 			readToGraphFullQueryHitRawOverlapRehydrationProofFault();
++		bool shadowLedgerEnabled =
++			readToGraphFullQueryHitShadowLedgerEnabled();
++		std::string shadowLedgerProofFault =
++			readToGraphFullQueryHitShadowLedgerProofFault();
+ 		if (rehydrationEnabled && !readToGraphFullQueryHitWorkerDryRunEnabled())
+ 		{
+ 			throw std::runtime_error(
+@@ -2617,6 +2725,25 @@
+ 				"proof fault requires "
+ 				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_REHYDRATION_MODE");
+ 		}
++		if (shadowLedgerEnabled && !readToGraphFullQueryHitWorkerDryRunEnabled())
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit shadow ledger requires "
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_MODE");
++		}
++		if (shadowLedgerEnabled && !rehydrationEnabled)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit shadow ledger requires "
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_REHYDRATION_MODE");
++		}
++		if (!shadowLedgerProofFault.empty() && !shadowLedgerEnabled)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit shadow ledger proof fault "
++				"requires "
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SHADOW_LEDGER_MODE");
++		}
+ 		if (!readToGraphFullQueryHitWorkerDryRunEnabled()) return;
+ 		if (!readToGraphSourcePackEnabled())
+ 		{
+@@ -3596,8 +3723,294 @@
+ 		}
+ 		json << "}\n";
+ 		writeReadAlignmentTextFile(path, json.str());
++	}
++
++	void addReadToGraphFullQueryHitShadowLedgerCheck(
++		ReadToGraphFullQueryHitShadowLedgerResult& ledger,
++		const std::string& name,
++		bool passed,
++		const std::string& detail)
++	{
++		ReadToGraphFullQueryHitShadowLedgerCheck check;
++		check.name = name;
++		check.required = true;
++		check.passed = passed;
++		check.detail = detail;
++		ledger.checks.push_back(check);
++	}
++
++	bool allReadToGraphFullQueryHitShadowLedgerChecksPassed(
++		const ReadToGraphFullQueryHitShadowLedgerResult& ledger)
++	{
++		for (const auto& check : ledger.checks)
++		{
++			if (check.required && !check.passed) return false;
++		}
++		return !ledger.checks.empty();
++	}
++
++	void markReadToGraphFullQueryHitShadowLedgerFailed(
++		ReadToGraphFullQueryHitShadowLedgerResult& ledger)
++	{
++		ledger.status = "failed";
++		ledger.state = "failed-closed";
++		ledger.decision = "failed-closed-before-graph-mutation";
++		ledger.eligible = false;
++		ledger.consumed = false;
++		ledger.notConsumed = false;
++		ledger.failedClosed = true;
++		ledger.graphMutationConsumedWorkerOutput = false;
+ 	}
+ 
++	ReadToGraphFullQueryHitShadowLedgerResult
++	evaluateReadToGraphFullQueryHitShadowLedger(
++		const ReadToGraphFullQueryHitWorkerDryRunResult& dryRun,
++		const ReadToGraphRawOverlapRehydrationResult& rehydration)
++	{
++		ReadToGraphFullQueryHitShadowLedgerResult result;
++		result.mode = readToGraphFullQueryHitShadowLedgerMode();
++		result.proofFault = readToGraphFullQueryHitShadowLedgerProofFault();
++		result.workerTsv = dryRun.workerOutputTsv;
++		result.rehydrationStatus = rehydration.status;
++		result.workerRecords = rehydration.workerRecords;
++		result.rehydratedRecords = rehydration.rehydratedRecords;
++		if (!readToGraphFullQueryHitShadowLedgerEnabled()) return result;
++
++		markReadToGraphFullQueryHitShadowLedgerFailed(result);
++		addReadToGraphFullQueryHitShadowLedgerCheck(
++			result, "explicit_shadow_ledger_mode",
++			result.mode == "raw-overlap-chain-input-shadow-v0",
++			"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SHADOW_LEDGER_MODE="
++			"raw-overlap-chain-input-shadow-v0");
++		addReadToGraphFullQueryHitShadowLedgerCheck(
++			result, "rehydration_passed",
++			rehydration.status == "passed" && rehydration.eligible &&
++				!rehydration.failedClosed,
++			"M6p raw-overlap rehydration must pass before shadow ledger");
++		addReadToGraphFullQueryHitShadowLedgerCheck(
++			result, "worker_output_readable",
++			dryRun.workerOutputReadable,
++			"validated worker raw-overlap TSV must be readable");
++		addReadToGraphFullQueryHitShadowLedgerCheck(
++			result, "audit_metadata_available",
++			!dryRun.rawOverlapShadowLedgerJson.empty(),
++			"shadow ledger audit JSON path must be available");
++		addReadToGraphFullQueryHitShadowLedgerCheck(
++			result, "graph_not_mutated",
++			!dryRun.graphMutationConsumedWorkerOutput,
++			"worker output must not have reached graph mutation");
++
++		if (!allReadToGraphFullQueryHitShadowLedgerChecksPassed(result))
++		{
++			result.error = "shadow ledger preconditions failed";
++			return result;
++		}
++
++		try
++		{
++			auto records = readToGraphRawOverlapRecords(result.workerTsv);
++			if (result.proofFault == "drop-first-ledger-row" &&
++				!records.empty())
++			{
++				records.erase(records.begin());
++				result.proofFaultApplied = true;
++			}
++			result.ledgerRows = records.size();
++			std::map<int64_t, ReadToGraphFullQueryHitShadowLedgerQuerySummary>
++				byQuery;
++			for (const auto& record : records)
++			{
++				auto& summary = byQuery[record.queryId];
++				summary.queryId = record.queryId;
++				++summary.ledgerRows;
++				if (record.passesChainInputFilter)
++				{
++					++summary.chainInputFilterRows;
++				}
++				if (record.edgeId == 0)
++				{
++					++summary.unresolvedEdgeIdZeroRows;
++				}
++				else
++				{
++					++summary.resolvedEdgeIdRows;
++				}
++			}
++			for (const auto& entry : byQuery)
++			{
++				const auto& summary = entry.second;
++				result.queries.push_back(summary);
++				result.chainInputFilterRows += summary.chainInputFilterRows;
++				result.unresolvedEdgeIdZeroRows +=
++					summary.unresolvedEdgeIdZeroRows;
++				result.resolvedEdgeIdRows += summary.resolvedEdgeIdRows;
++			}
++			result.futureRawOverlapShadowRows = result.ledgerRows;
++			result.futureChainInputShadowRows = result.chainInputFilterRows;
++			result.graphEdgeConsumptionCandidateRows = 0;
++
++			addReadToGraphFullQueryHitShadowLedgerCheck(
++				result, "ledger_count_matches_rehydration",
++				result.ledgerRows == result.rehydratedRecords,
++				"ledger row count must match M6p rehydrated record count");
++			addReadToGraphFullQueryHitShadowLedgerCheck(
++				result, "edge_id_rows_accounted",
++				result.unresolvedEdgeIdZeroRows + result.resolvedEdgeIdRows ==
++					result.ledgerRows,
++				"every ledger row must be counted as unresolved or resolved edge_id");
++			addReadToGraphFullQueryHitShadowLedgerCheck(
++				result, "graph_edge_consumption_candidates_blocked",
++				result.graphEdgeConsumptionCandidateRows == 0,
++				"M6q records shadow eligibility but exposes no graph edge "
++				"consumption candidates");
++			addReadToGraphFullQueryHitShadowLedgerCheck(
++				result, "graph_not_mutated_after_ledger",
++				!result.graphMutationConsumedWorkerOutput,
++				"ledger evaluation must not mutate graph state");
++
++			if (allReadToGraphFullQueryHitShadowLedgerChecksPassed(result))
++			{
++				result.status = "passed";
++				result.state = "not-consumed";
++				result.decision = "shadow-ledger-written-not-consumed";
++				result.eligible = true;
++				result.consumed = false;
++				result.notConsumed = true;
++				result.failedClosed = false;
++				result.error.clear();
++			}
++			else
++			{
++				result.error =
++					"shadow ledger rows differ from rehydrated raw-overlap rows";
++			}
++		}
++		catch (const std::exception& exc)
++		{
++			result.error = exc.what();
++			markReadToGraphFullQueryHitShadowLedgerFailed(result);
++		}
++		return result;
++	}
++
++	void captureReadToGraphFullQueryHitShadowLedgerResult(
++		ReadToGraphFullQueryHitWorkerDryRunResult& dryRun,
++		const ReadToGraphFullQueryHitShadowLedgerResult& ledger)
++	{
++		dryRun.rawOverlapShadowLedgerMode = ledger.mode;
++		dryRun.rawOverlapShadowLedgerProofFault = ledger.proofFault;
++		dryRun.rawOverlapShadowLedgerStatus = ledger.status;
++		dryRun.rawOverlapShadowLedgerState = ledger.state;
++		dryRun.rawOverlapShadowLedgerDecision = ledger.decision;
++		dryRun.rawOverlapShadowLedgerEligible = ledger.eligible;
++		dryRun.rawOverlapShadowLedgerFailedClosed = ledger.failedClosed;
++		dryRun.rawOverlapShadowLedgerRows = ledger.ledgerRows;
++		dryRun.rawOverlapShadowChainInputFilterRows =
++			ledger.chainInputFilterRows;
++		dryRun.rawOverlapShadowUnresolvedEdgeIdZeroRows =
++			ledger.unresolvedEdgeIdZeroRows;
++		dryRun.rawOverlapShadowResolvedEdgeIdRows =
++			ledger.resolvedEdgeIdRows;
++		dryRun.rawOverlapShadowGraphEdgeConsumptionCandidateRows =
++			ledger.graphEdgeConsumptionCandidateRows;
++	}
++
++	void writeReadToGraphFullQueryHitShadowLedgerJson(
++		const std::string& path,
++		const ReadToGraphFullQueryHitShadowLedgerResult& ledger)
++	{
++		std::ostringstream json;
++		json << "{\n"
++			 << "  \"schema\": "
++				"\"cuflye-read-to-graph-full-query-hit-shadow-consumption-ledger-v0\",\n"
++			 << "  \"status\": \"" << readAlignmentJsonEscape(ledger.status)
++			 << "\",\n"
++			 << "  \"mode\": \"" << readAlignmentJsonEscape(ledger.mode)
++			 << "\",\n"
++			 << "  \"proof_fault\": \""
++			 << readAlignmentJsonEscape(ledger.proofFault) << "\",\n"
++			 << "  \"proof_fault_applied\": "
++			 << readAlignmentBoolJson(ledger.proofFaultApplied) << ",\n"
++			 << "  \"state\": \"" << readAlignmentJsonEscape(ledger.state)
++			 << "\",\n"
++			 << "  \"decision\": \"" << readAlignmentJsonEscape(ledger.decision)
++			 << "\",\n"
++			 << "  \"worker_tsv\": \""
++			 << readAlignmentJsonEscape(ledger.workerTsv) << "\",\n"
++			 << "  \"rehydration_status\": \""
++			 << readAlignmentJsonEscape(ledger.rehydrationStatus) << "\",\n"
++			 << "  \"eligible\": " << readAlignmentBoolJson(ledger.eligible)
++			 << ",\n"
++			 << "  \"consumed\": " << readAlignmentBoolJson(ledger.consumed)
++			 << ",\n"
++			 << "  \"not_consumed\": "
++			 << readAlignmentBoolJson(ledger.notConsumed) << ",\n"
++			 << "  \"failed_closed\": "
++			 << readAlignmentBoolJson(ledger.failedClosed) << ",\n"
++			 << "  \"graph_mutation_consumed_worker_output\": "
++			 << readAlignmentBoolJson(
++					ledger.graphMutationConsumedWorkerOutput) << ",\n"
++			 << "  \"worker_records\": " << ledger.workerRecords << ",\n"
++			 << "  \"rehydrated_records\": " << ledger.rehydratedRecords << ",\n"
++			 << "  \"ledger_rows\": " << ledger.ledgerRows << ",\n"
++			 << "  \"chain_input_filter_rows\": "
++			 << ledger.chainInputFilterRows << ",\n"
++			 << "  \"unresolved_edge_id_zero_rows\": "
++			 << ledger.unresolvedEdgeIdZeroRows << ",\n"
++			 << "  \"resolved_edge_id_rows\": "
++			 << ledger.resolvedEdgeIdRows << ",\n"
++			 << "  \"future_raw_overlap_shadow_rows\": "
++			 << ledger.futureRawOverlapShadowRows << ",\n"
++			 << "  \"future_chain_input_shadow_rows\": "
++			 << ledger.futureChainInputShadowRows << ",\n"
++			 << "  \"graph_edge_consumption_candidate_rows\": "
++			 << ledger.graphEdgeConsumptionCandidateRows << ",\n"
++			 << "  \"checks\": [\n";
++		for (size_t index = 0; index < ledger.checks.size(); ++index)
++		{
++			const auto& check = ledger.checks[index];
++			json << "    {\n"
++				 << "      \"name\": \"" << readAlignmentJsonEscape(check.name)
++				 << "\",\n"
++				 << "      \"required\": " << readAlignmentBoolJson(check.required)
++				 << ",\n"
++				 << "      \"passed\": " << readAlignmentBoolJson(check.passed)
++				 << ",\n"
++				 << "      \"detail\": \"" << readAlignmentJsonEscape(check.detail)
++				 << "\"\n"
++				 << "    }" << (index + 1 == ledger.checks.size() ? "\n" : ",\n");
++		}
++		json << "  ],\n"
++			 << "  \"queries\": [\n";
++		for (size_t index = 0; index < ledger.queries.size(); ++index)
++		{
++			const auto& summary = ledger.queries[index];
++			json << "    {\n"
++				 << "      \"query_id\": " << summary.queryId << ",\n"
++				 << "      \"ledger_rows\": " << summary.ledgerRows << ",\n"
++				 << "      \"chain_input_filter_rows\": "
++				 << summary.chainInputFilterRows << ",\n"
++				 << "      \"unresolved_edge_id_zero_rows\": "
++				 << summary.unresolvedEdgeIdZeroRows << ",\n"
++				 << "      \"resolved_edge_id_rows\": "
++				 << summary.resolvedEdgeIdRows << "\n"
++				 << "    }" << (index + 1 == ledger.queries.size() ? "\n" : ",\n");
++		}
++		json << "  ]";
++		if (!ledger.error.empty())
++		{
++			json << ",\n"
++				 << "  \"error\": \""
++				 << readAlignmentJsonEscape(ledger.error) << "\"\n";
++		}
++		else
++		{
++			json << "\n";
++		}
++		json << "}\n";
++		writeReadAlignmentTextFile(path, json.str());
++	}
++
+ 	void writeReadToGraphFullQueryHitWorkerDryRunJson(
+ 		const std::string& path,
+ 		const ReadToGraphFullQueryHitWorkerDryRunResult& result)
+@@ -3658,6 +4071,24 @@
+ 				 << "  \"raw_overlap_rehydration_decision\": \""
+ 				 << readAlignmentJsonEscape(result.rawOverlapRehydrationDecision)
+ 				 << "\",\n"
++				 << "  \"raw_overlap_shadow_ledger_json\": \""
++				 << readAlignmentJsonEscape(result.rawOverlapShadowLedgerJson)
++				 << "\",\n"
++				 << "  \"raw_overlap_shadow_ledger_mode\": \""
++				 << readAlignmentJsonEscape(result.rawOverlapShadowLedgerMode)
++				 << "\",\n"
++				 << "  \"raw_overlap_shadow_ledger_proof_fault\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapShadowLedgerProofFault) << "\",\n"
++				 << "  \"raw_overlap_shadow_ledger_status\": \""
++				 << readAlignmentJsonEscape(result.rawOverlapShadowLedgerStatus)
++				 << "\",\n"
++				 << "  \"raw_overlap_shadow_ledger_state\": \""
++				 << readAlignmentJsonEscape(result.rawOverlapShadowLedgerState)
++				 << "\",\n"
++				 << "  \"raw_overlap_shadow_ledger_decision\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapShadowLedgerDecision) << "\",\n"
+ 				 << "  \"stdout_log\": \"" << readAlignmentJsonEscape(result.stdoutLog)
+ 				  << "\",\n"
+ 			 << "  \"stderr_log\": \"" << readAlignmentJsonEscape(result.stderrLog)
+@@ -3690,6 +4121,12 @@
+ 				 << "  \"raw_overlap_rehydration_failed_closed\": "
+ 				 << readAlignmentBoolJson(
+ 					 result.rawOverlapRehydrationFailedClosed) << ",\n"
++				 << "  \"raw_overlap_shadow_ledger_eligible\": "
++				 << readAlignmentBoolJson(
++					 result.rawOverlapShadowLedgerEligible) << ",\n"
++				 << "  \"raw_overlap_shadow_ledger_failed_closed\": "
++				 << readAlignmentBoolJson(
++					 result.rawOverlapShadowLedgerFailedClosed) << ",\n"
+ 				 << "  \"graph_mutation_consumed_worker_output\": "
+ 				 << readAlignmentBoolJson(result.graphMutationConsumedWorkerOutput)
+ 				 << ",\n"
+@@ -3710,6 +4147,17 @@
+ 				 << result.expectedOutputRecords << ",\n"
+ 				 << "  \"raw_overlap_rehydrated_records\": "
+ 				 << result.rawOverlapRehydratedRecords << ",\n"
++				 << "  \"raw_overlap_shadow_ledger_rows\": "
++				 << result.rawOverlapShadowLedgerRows << ",\n"
++				 << "  \"raw_overlap_shadow_chain_input_filter_rows\": "
++				 << result.rawOverlapShadowChainInputFilterRows << ",\n"
++				 << "  \"raw_overlap_shadow_unresolved_edge_id_zero_rows\": "
++				 << result.rawOverlapShadowUnresolvedEdgeIdZeroRows << ",\n"
++				 << "  \"raw_overlap_shadow_resolved_edge_id_rows\": "
++				 << result.rawOverlapShadowResolvedEdgeIdRows << ",\n"
++				 << "  \"raw_overlap_shadow_graph_edge_consumption_candidate_rows\": "
++				 << result.rawOverlapShadowGraphEdgeConsumptionCandidateRows
++				 << ",\n"
+ 				 << "  \"query_ids\": [";
+ 		for (size_t idx = 0; idx < result.queryIds.size(); ++idx)
+ 		{
+@@ -3789,6 +4237,10 @@
+ 					readToGraphFullQueryHitRawOverlapRehydrationMode();
+ 				result.rawOverlapRehydrationProofFault =
+ 					readToGraphFullQueryHitRawOverlapRehydrationProofFault();
++				result.rawOverlapShadowLedgerMode =
++					readToGraphFullQueryHitShadowLedgerMode();
++				result.rawOverlapShadowLedgerProofFault =
++					readToGraphFullQueryHitShadowLedgerProofFault();
+ 				result.sourcePackDir = std::string(readToGraphSourcePackDir());
+ 				result.workerOutputRoot = readAlignmentRequiredEnv(
+ 					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_OUTPUT_DIR");
+@@ -3826,6 +4278,9 @@
+ 				result.rawOverlapRehydrationJson = joinReplayPath(
+ 					result.workerOutputRoot,
+ 					"full-query-hit-worker-raw-overlap-rehydration.json");
++				result.rawOverlapShadowLedgerJson = joinReplayPath(
++					result.workerOutputRoot,
++					"full-query-hit-worker-shadow-consumption-ledger.json");
+ 				result.workerSessionSubmitPath = joinReplayPath(
+ 					result.workerOutputRoot, "full-query-hit-worker-session-submit.txt");
+ 			result.queryIds = sortedReadToGraphSourcePackQueryIds();
+@@ -4053,6 +4508,27 @@
+ 						result, rehydration);
+ 					writeReadToGraphRawOverlapRehydrationJson(
+ 						result.rawOverlapRehydrationJson, rehydration);
++					if (readToGraphFullQueryHitShadowLedgerEnabled())
++					{
++						auto ledger = evaluateReadToGraphFullQueryHitShadowLedger(
++							result, rehydration);
++						captureReadToGraphFullQueryHitShadowLedgerResult(
++							result, ledger);
++						writeReadToGraphFullQueryHitShadowLedgerJson(
++							result.rawOverlapShadowLedgerJson, ledger);
++						if (ledger.failedClosed &&
++							!rehydration.failedClosed)
++						{
++							result.status =
++								"shadow-ledger-failed-before-graph-mutation";
++							result.decision = "fail-closed-before-graph-mutation";
++							result.failedClosed = true;
++							result.workerOutputConsumptionEligible = false;
++							result.graphMutationConsumedWorkerOutput = false;
++							result.error =
++								"CUDA full-query-hit shadow ledger failed";
++						}
++					}
+ 					if (rehydration.failedClosed)
+ 					{
+ 						result.status = "rehydration-failed-before-graph-mutation";
+@@ -4063,7 +4539,8 @@
+ 						result.error =
+ 							"CUDA full-query-hit raw-overlap rehydration failed";
+ 					}
+-					else
++					else if (result.status !=
++							 "shadow-ledger-failed-before-graph-mutation")
+ 					{
+ 						result.status = "passed";
+ 						result.decision = "stopped-before-graph-mutation";
+@@ -4094,6 +4571,14 @@
+ 					"cuFlye read-to-graph full-query-hit raw-overlap rehydration "
+ 					"fail-closed before graph mutation; rehydration_json=" +
+ 					result.rawOverlapRehydrationJson + "; audit_json=" +
++					result.auditJson);
++			}
++			if (result.status == "shadow-ledger-failed-before-graph-mutation")
++			{
++				throw std::runtime_error(
++					"cuFlye read-to-graph full-query-hit shadow ledger "
++					"fail-closed before graph mutation; ledger_json=" +
++					result.rawOverlapShadowLedgerJson + "; audit_json=" +
+ 					result.auditJson);
+ 			}
+ 			throw std::runtime_error(

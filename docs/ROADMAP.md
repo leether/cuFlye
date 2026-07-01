@@ -3536,3 +3536,89 @@ keeping graph mutation disabled. This should determine whether there is a safe
 first read-to-graph consumption candidate or whether the next blocker is graph
 edge identity.
 ```
+
+### M6q: Full-query-hit shadow consumption ledger
+
+M6q adds
+`0046-cuflye-read-to-graph-full-query-hit-shadow-ledger.patch`,
+`docs/abi/read-to-graph-full-query-hit-shadow-consumption-ledger-v0.md`, and
+`tests/golden/cuflye-m6q-full-query-hit-shadow-consumption-ledger-dgx-aarch64.json`.
+The Flye full-query-hit dry-run seam now supports:
+
+```text
+CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SHADOW_LEDGER_MODE=raw-overlap-chain-input-shadow-v0
+CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SHADOW_LEDGER_PROOF_FAULT=drop-first-ledger-row
+```
+
+The ledger only runs after M6p rehydration passes. It reparses the validated
+worker raw-overlap TSV through the typed M6p parser, writes
+`full-query-hit-worker-shadow-consumption-ledger.json`, records per-query and
+total row accounting, and still stops before graph mutation. The proof fault
+drops one ledger row after rehydration passes, proving this gate fails closed
+independently of row-key parity and typed rehydration.
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m6q-proof-20260701T095436Z
+fixture=toy-hifi
+query_ids=5,6,7,8,9,10,11,12
+positive_status=passed
+positive_rehydration_status=passed
+positive_shadow_ledger_status=passed
+positive_worker_records=36
+positive_rehydrated_records=36
+positive_shadow_ledger_rows=36
+positive_chain_input_filter_rows=0
+positive_unresolved_edge_id_zero_rows=36
+positive_resolved_edge_id_rows=0
+positive_graph_edge_consumption_candidate_rows=0
+positive_graph_mutation_consumed_worker_output=false
+negative_status=shadow-ledger-failed-before-graph-mutation
+negative_rehydration_status=passed
+negative_shadow_ledger_status=failed
+negative_proof_fault=drop-first-ledger-row
+negative_proof_fault_applied=true
+negative_rehydrated_records=36
+negative_shadow_ledger_rows=35
+negative_graph_mutation_consumed_worker_output=false
+default_cpu_artifact_hashes_match_m0=true
+```
+
+Allowed M6q claim:
+
+```text
+cuFlye can write a deterministic no-mutation shadow ledger for M6p-rehydrated
+CUDA full-query-hit rows, prove all 36 selected rows are accounted as future
+raw-overlap shadow rows, record that all 36 still have unresolved edge_id=0,
+and fail closed if the ledger row accounting is corrupted after rehydration
+passes.
+```
+
+Forbidden M6q claim:
+
+```text
+M6q does not prove whole-Flye speedup, chain-input-positive consumption,
+graph-edge identity, GraphEdge object-vector consumption, graph mutation, or a
+default GPU mode.
+```
+
+Plain-language benefit:
+
+```text
+M6q still does not make Flye faster. It makes the next decision concrete:
+row-key parity and typed parsing are no longer the blocker for this selected
+full-query-hit pack, but the pack has zero chain-input-filter rows and zero
+graph-edge consumption candidates. The next high-ROI step is therefore to find
+a chain-input-positive full-query-hit selection before attempting any graph
+edge binding or graph mutation.
+```
+
+Next highest-ROI task:
+
+```text
+M6r: scan/select a bounded chain-input-positive full-query-hit query set, then
+run the existing CUDA session worker plus M6p/M6q gates on that selection. This
+should determine whether edge identity is the next blocker after chain-input
+rows actually exist.
+```

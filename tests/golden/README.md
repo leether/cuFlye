@@ -205,3 +205,5 @@ M6 read-to-graph input-boundary proof:
   `cuflye-m6o-session-scale-performance-gate-dgx-aarch64.json`
 - Full query-hit guarded consumption dry-run manifest:
   `cuflye-m6p-full-query-hit-guarded-consumption-dry-run-dgx-aarch64.json`
+- Full query-hit shadow consumption ledger manifest:
+  `cuflye-m6q-full-query-hit-shadow-consumption-ledger-dgx-aarch64.json`
