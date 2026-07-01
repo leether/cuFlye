@@ -50,6 +50,7 @@ M5e adds real multi-fixture batch mode:
 --batch-json-output PATH
 --allow-heterogeneous-batch
 --cuda-persistent-arena
+--cuda-persistent-bulk-output
 ```
 
 The fixture list is a newline-delimited file of
@@ -77,6 +78,13 @@ invalid outside batch mode and invalid with `--backend cpu`. It does not change
 the default same-shape fail-closed behavior; mixed-shape input still requires
 `--allow-heterogeneous-batch`.
 
+`--cuda-persistent-bulk-output` is an explicit M5i CUDA-only batch mode layered
+on top of `--cuda-persistent-arena`. It keeps the same kernel and per-fixture
+`DeviceSummary` contract, but copies the full output buffer once per shape group
+and slices that host buffer into per-fixture `read-alignment-v1` outputs. It is
+invalid unless `--cuda-persistent-arena` is also set. JSON records
+`cuda_execution_mode=persistent-arena-bulk-output`.
+
 ## Supported Shape
 
 - Fixture schema must be `cuflye-read-alignment-replay-fixture-v0`.
@@ -96,6 +104,10 @@ the default same-shape fail-closed behavior; mixed-shape input still requires
 - In M5g persistent-arena mode, all selected groups are allocated up front and
   the aggregate CUDA arena memory must fit `--memory-budget-bytes` before any
   device allocation starts.
+- In M5i persistent bulk-output mode, output slicing is bounded by each
+  fixture's `DeviceSummary.outputRecords` and the group's checked output
+  capacity. The mode changes transfer granularity only; it must not change
+  candidate chains, accepted chains, output rows, or TSV canonical ordering.
 
 Unsupported shapes must fail closed before writing a successful JSON summary.
 
@@ -109,7 +121,9 @@ The JSON summary uses schema
 - backend, fixture path, query id, input records, candidate chains, accepted
   chains, and output records;
 - `cuda_execution_mode`, which is `null` for CPU, `per-run-allocation` for the
-  cold CUDA path, and `persistent-arena` for the M5g persistent batch path;
+  cold CUDA path, `persistent-arena` for the M5g persistent batch path, and
+  `persistent-arena-bulk-output` for the M5i persistent batch path with
+  group-level output copies;
 - CUDA device and memory fields when backend is CUDA;
 - setup, allocation, host-to-device, one-time setup/allocation/host-to-device,
   kernel, CPU-chain, device-to-host, finalize, write, and benchmark timing
@@ -135,6 +149,10 @@ Batch JSON uses schema
   allocation, and static host-to-device copies; those costs are reported in
   `timing_ms.one_time_setup`, `timing_ms.one_time_device_allocation`,
   `timing_ms.one_time_host_to_device`, and `timing_ms.one_time_total`;
+- for `persistent-arena-bulk-output`, the same steady-state accounting applies,
+  but `timing_ms.device_to_host` is expected to represent one summary copy and
+  at most one output-buffer copy per shape group instead of one output copy per
+  fixture;
 - supported-shape flags documenting same-shape requirements and that the output
   is not representative-only.
 

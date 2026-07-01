@@ -225,14 +225,16 @@ Completed:
   `98.134393%` versus the M4u cold batch-run worker process, but the full
   toy-raw run was still slower than CPU (`88s` vs `82s`) because the proof still
   pays for one synthetic warmup request inside the same Flye run.
-- M5a-M5h: cuFlye now has a deterministic read-to-graph alignment oracle,
+- M5a-M5i: cuFlye now has a deterministic read-to-graph alignment oracle,
   bounded replay fixtures, a CUDA chain replay prototype, real multi-read
   batching, heterogeneous shape grouping, and a persistent per-shape CUDA arena.
   The M5h proof expands the toy-hifi replay harvest to `3546` valid fixtures
   and `3781` total input records while preserving every per-read
-  `read-alignment-v1` oracle diff. Persistent CUDA kernel/core time is
-  `12.706503x` faster than CPU core work, but total persistent CUDA is still
-  `55.029972x` slower than CPU because device-to-host/output handling dominates.
+  `read-alignment-v1` oracle diff. M5i then replaces thousands of tiny
+  per-fixture output copies with one bulk output copy per shape group. On the
+  same M5h harvest, explicit persistent bulk-output CUDA averages
+  `0.302834 ms` versus CPU `0.333798 ms` before TSV/JSON emission, a bounded
+  replay hot-path speedup of `1.102247x`, while preserving every oracle diff.
 
 Current allowed performance claim:
 
@@ -318,6 +320,12 @@ Flye speed claim.
 cuFlye can now expand that proof to a much larger toy-hifi read-alignment
 fixture harvest. This improves diagnosis: kernel work is no longer the main
 problem, while thousands of tiny output copies dominate total CUDA time.
+
+cuFlye can now run that bounded M5h read-alignment chain replay harvest through
+an explicit persistent CUDA bulk-output mode faster than the CPU replay
+baseline before TSV/JSON emission while preserving every per-read oracle diff.
+This is a bounded read-alignment replay hot-path claim, not a full Flye GPU-mode
+claim.
 ```
 
 Current forbidden claim:
@@ -1562,11 +1570,61 @@ realignment replay, end-to-end Flye acceleration, or CPU-beating
 read-alignment speed.
 ```
 
+M5i adds `--cuda-persistent-bulk-output`, an explicit CUDA batch mode layered on
+top of `--cuda-persistent-arena`. It keeps the same kernel and per-fixture
+`DeviceSummary` contract, but copies one output buffer per shape group and
+slices that host buffer into the existing per-fixture `read-alignment-v1`
+outputs.
+
+The DGX proof reused the M5h larger selected fixture list:
+
+```text
+selected_fixture_count=3546
+selected_total_input_records=3781
+selected_total_output_records=3616
+shape_group_count=4
+```
+
+Every oracle, CPU, current persistent CUDA, and bulk persistent CUDA
+per-fixture `read-alignment-v1` output validated and canonical-diffed as
+`match` across all `3546` selected fixtures.
+
+Warm benchmark timing with `5` warmups and `50` timed runs:
+
+```text
+cpu_mean_total_before_json_ms=0.333798
+cpu_mean_core_ms=0.333798
+current_persistent_cuda_mean_total_before_json_ms=17.862780
+current_persistent_cuda_mean_kernel_ms=0.025782
+current_persistent_cuda_device_to_host_ms=17.680561
+bulk_persistent_cuda_mean_total_before_json_ms=0.302834
+bulk_persistent_cuda_mean_kernel_ms=0.025953
+bulk_persistent_cuda_device_to_host_ms=0.223648
+bulk_total_speedup_vs_cpu=1.102247x
+bulk_total_speedup_vs_current_persistent=58.985385x
+bulk_d2h_speedup_vs_current_persistent_d2h=79.055306x
+bulk_core_speedup_vs_cpu_core=12.861634x
+```
+
+Allowed M5i claim:
+
+```text
+cuFlye can run the bounded M5h read-alignment chain replay harvest through an
+explicit persistent CUDA bulk-output mode faster than the CPU replay baseline
+before TSV/JSON emission while preserving every per-read oracle diff.
+```
+
+Forbidden M5i claim:
+
+```text
+M5i does not prove default GPU mode, Flye graph mutation consumption,
+edlib/base realignment replay, or end-to-end Flye acceleration.
+```
+
 Next highest-ROI task:
 
 ```text
-M5i: remove the dominant device-to-host/output overhead in the persistent
-read-alignment arena. Prefer bulk output transfer per shape group or
-device-side output compaction/prefix offsets before any graph-consumption
-integration.
+M5j: wire the validated bulk persistent read-alignment backend behind a
+graph-facing dry-run consumption seam, preserving oracle diff gates before any
+graph mutation.
 ```

@@ -118,6 +118,7 @@ struct Options
 	unsigned long long memoryBudgetBytes = 0;
 	bool allowHeterogeneousBatch = false;
 	bool cudaPersistentArena = false;
+	bool cudaPersistentBulkOutput = false;
 };
 
 struct RunSummary
@@ -1739,12 +1740,12 @@ CudaPersistentArena buildCudaPersistentArena(const Options& options,
 	return arenaContext;
 }
 
-RunSummary runCudaPersistentArenaOnce(const CudaPersistentArena& arenaContext,
+RunSummary runCudaPersistentArenaOnce(const CudaPersistentArena& arenaContext, bool bulkOutput,
                                       std::vector<std::vector<OutputSegment>>& segmentsByFixture)
 {
 	RunSummary summary;
 	summary.backend = "cuda";
-	summary.cudaExecutionMode = "persistent-arena";
+	summary.cudaExecutionMode = bulkOutput ? "persistent-arena-bulk-output" : "persistent-arena";
 	summary.device = arenaContext.device;
 	summary.deviceName = arenaContext.deviceName;
 	summary.freeBytes = arenaContext.freeBytes;
@@ -1790,6 +1791,7 @@ RunSummary runCudaPersistentArenaOnce(const CudaPersistentArena& arenaContext,
 		                                                   "copy persistent arena summary bytes"),
 		                                        cudaMemcpyDeviceToHost),
 		                             "copy persistent read alignment summary to host");
+		bool hasOutputRecords = false;
 		for (size_t index = 0; index < arena.batchSize; ++index)
 		{
 			if (!deviceSummaries[index].valid) continue;
@@ -1798,19 +1800,57 @@ RunSummary runCudaPersistentArenaOnce(const CudaPersistentArena& arenaContext,
 			{
 				throw std::runtime_error("persistent CUDA output count exceeds fixture capacity");
 			}
-			size_t recordCount = static_cast<size_t>(deviceSummaries[index].outputRecords);
-			if (recordCount == 0) continue;
-			size_t originalIndex = arena.originalIndices[index];
-			segmentsByFixture[originalIndex].resize(recordCount);
-			const OutputSegment* deviceOutput =
-			    arena.dOutput.get() +
-			    checkedMul(index, arena.outputCapacity, "persistent CUDA output offset");
+			hasOutputRecords = hasOutputRecords || deviceSummaries[index].outputRecords > 0;
+		}
+
+		if (bulkOutput && hasOutputRecords)
+		{
+			size_t outputItems = checkedMul(arena.batchSize, arena.outputCapacity,
+			                                "persistent CUDA bulk output item count");
+			std::vector<OutputSegment> rawGroupOutput(outputItems);
 			cuflye::cuda_raii::checkCuda(
-			    cudaMemcpy(segmentsByFixture[originalIndex].data(), deviceOutput,
-			               checkedMul(recordCount, sizeof(OutputSegment),
-			                          "copy persistent arena output bytes"),
+			    cudaMemcpy(rawGroupOutput.data(), arena.dOutput.get(),
+			               checkedMul(outputItems, sizeof(OutputSegment),
+			                          "copy persistent arena bulk output bytes"),
 			               cudaMemcpyDeviceToHost),
-			    "copy persistent read alignment output to host");
+			    "copy persistent read alignment bulk output to host");
+			for (size_t index = 0; index < arena.batchSize; ++index)
+			{
+				if (!deviceSummaries[index].valid) continue;
+				size_t recordCount = static_cast<size_t>(deviceSummaries[index].outputRecords);
+				if (recordCount == 0) continue;
+				size_t originalIndex = arena.originalIndices[index];
+				size_t outputOffset =
+				    checkedMul(index, arena.outputCapacity, "persistent CUDA output offset");
+				size_t outputEnd =
+				    checkedAdd(outputOffset, recordCount, "persistent CUDA bulk output end");
+				if (outputEnd > rawGroupOutput.size())
+				{
+					throw std::runtime_error("persistent CUDA bulk output slice is out of bounds");
+				}
+				const OutputSegment* outputBegin = rawGroupOutput.data() + outputOffset;
+				segmentsByFixture[originalIndex].assign(outputBegin, outputBegin + recordCount);
+			}
+		}
+		else if (!bulkOutput)
+		{
+			for (size_t index = 0; index < arena.batchSize; ++index)
+			{
+				if (!deviceSummaries[index].valid) continue;
+				size_t recordCount = static_cast<size_t>(deviceSummaries[index].outputRecords);
+				if (recordCount == 0) continue;
+				size_t originalIndex = arena.originalIndices[index];
+				segmentsByFixture[originalIndex].resize(recordCount);
+				const OutputSegment* deviceOutput =
+				    arena.dOutput.get() +
+				    checkedMul(index, arena.outputCapacity, "persistent CUDA output offset");
+				cuflye::cuda_raii::checkCuda(
+				    cudaMemcpy(segmentsByFixture[originalIndex].data(), deviceOutput,
+				               checkedMul(recordCount, sizeof(OutputSegment),
+				                          "copy persistent arena output bytes"),
+				               cudaMemcpyDeviceToHost),
+				    "copy persistent read alignment output to host");
+			}
 		}
 		summariesByGroup.push_back(std::move(deviceSummaries));
 	}
@@ -1851,13 +1891,14 @@ runCudaPersistentArenaBenchmark(const Options& options, const std::vector<Loaded
 	std::vector<std::vector<OutputSegment>> scratch;
 	for (uint32_t index = 0; index < options.warmupRuns; ++index)
 	{
-		(void)runCudaPersistentArenaOnce(arenaContext, scratch);
+		(void)runCudaPersistentArenaOnce(arenaContext, options.cudaPersistentBulkOutput, scratch);
 	}
 
 	std::vector<RunSummary> timedRuns;
 	for (uint32_t index = 0; index < options.benchmarkRuns; ++index)
 	{
-		RunSummary summary = runCudaPersistentArenaOnce(arenaContext, segmentsByFixture);
+		RunSummary summary = runCudaPersistentArenaOnce(
+		    arenaContext, options.cudaPersistentBulkOutput, segmentsByFixture);
 		timedRuns.push_back(summary);
 	}
 	RunSummary summary = timedRuns.back();
@@ -2304,6 +2345,8 @@ void parseArgs(int argc, char** argv, Options& options)
 			options.allowHeterogeneousBatch = true;
 		else if (arg == "--cuda-persistent-arena")
 			options.cudaPersistentArena = true;
+		else if (arg == "--cuda-persistent-bulk-output")
+			options.cudaPersistentBulkOutput = true;
 		else if (arg == "--backend")
 			options.backend = nextValue();
 		else if (arg == "--device")
@@ -2338,6 +2381,7 @@ void parseArgs(int argc, char** argv, Options& options)
 			          << "--batch-json-output PATH [--backend cpu|cuda] "
 			          << "[--device ID] [--warmup-runs N] [--benchmark-runs N] "
 			          << "[--allow-heterogeneous-batch] [--cuda-persistent-arena] "
+			          << "[--cuda-persistent-bulk-output] "
 			          << "[--memory-budget-bytes BYTES]\n";
 			std::exit(0);
 		}
@@ -2377,6 +2421,11 @@ void parseArgs(int argc, char** argv, Options& options)
 		{
 			throw std::runtime_error("--cuda-persistent-arena requires --backend cuda");
 		}
+		if (options.cudaPersistentBulkOutput && !options.cudaPersistentArena)
+		{
+			throw std::runtime_error(
+			    "--cuda-persistent-bulk-output requires --cuda-persistent-arena");
+		}
 	}
 	else
 	{
@@ -2387,6 +2436,11 @@ void parseArgs(int argc, char** argv, Options& options)
 		if (options.cudaPersistentArena)
 		{
 			throw std::runtime_error("--cuda-persistent-arena is only supported in batch mode");
+		}
+		if (options.cudaPersistentBulkOutput)
+		{
+			throw std::runtime_error(
+			    "--cuda-persistent-bulk-output is only supported in batch mode");
 		}
 		if (options.fixtureDir.empty()) throw std::runtime_error("--fixture-dir is required");
 		if (options.outputTsv.empty()) throw std::runtime_error("--output-tsv is required");

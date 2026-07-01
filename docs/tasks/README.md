@@ -15,6 +15,10 @@ Proposed cards:
 
 Completed cards:
 
+- `2026-07-01-cuflye-m5i-persistent-bulk-output-copy.md`: reduce persistent
+  read-alignment device-to-host overhead with explicit per-shape bulk output
+  copies while preserving per-read oracle diffs and beating the bounded CPU
+  replay pre-write benchmark.
 - `2026-07-01-cuflye-m5h-larger-read-alignment-fixture-harvest.md`: expand
   real read-alignment replay work for the persistent CUDA arena while
   preserving per-read oracle diffs.

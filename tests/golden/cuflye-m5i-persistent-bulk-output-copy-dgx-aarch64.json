@@ -1,0 +1,245 @@
+{
+  "acceptance": {
+    "all_bulk_outputs_validate_read_alignment_v1": true,
+    "bulk_json_records_execution_mode": true,
+    "bulk_output_mode_is_explicit": true,
+    "bulk_output_requires_persistent_arena": true,
+    "bulk_outputs_match_current_persistent": true,
+    "bulk_outputs_match_oracle": true,
+    "cpu_outputs_match_bulk": true,
+    "cuda_replay_binary_builds_on_dgx": true,
+    "dgx_build_shell_python_ownership_gates_pass": true,
+    "dgx_git_diff_check_not_run_in_rsync_checkout": true,
+    "local_syntax_style_ownership_gates_pass": true,
+    "runs_on_m5h_larger_fixture_list": true
+  },
+  "benchmarks": {
+    "bulk_output_persistent_cuda": {
+      "backend": "cuda",
+      "cuda_execution_mode": "persistent-arena-bulk-output",
+      "fixture_count": 3546,
+      "max_total_before_json_ms": 2.082178,
+      "mean_core_ms": 0.025953,
+      "mean_total_before_json_ms": 0.302834,
+      "min_total_before_json_ms": 0.252497,
+      "one_time_arena_ms": 256.431732,
+      "output_records": 3616,
+      "shape_group_count": 4,
+      "timed_runs": 50,
+      "timing_ms": {
+        "cpu_chain": 0.0,
+        "device_allocation": 0.0,
+        "device_to_host": 0.223648,
+        "finalize": 0.008832,
+        "host_to_device": 0.0,
+        "kernel": 0.0256,
+        "one_time_device_allocation": 0.397728,
+        "one_time_host_to_device": 0.063536,
+        "one_time_setup": 255.970468,
+        "one_time_total": 256.431732,
+        "setup": 0.0,
+        "total_before_json": 0.25808,
+        "write_output": 73.638918
+      },
+      "total_input_records": 3781,
+      "warmup_runs": 5
+    },
+    "cpu": {
+      "backend": "cpu",
+      "cuda_execution_mode": null,
+      "fixture_count": 3546,
+      "max_total_before_json_ms": 0.384993,
+      "mean_core_ms": 0.333798,
+      "mean_total_before_json_ms": 0.333798,
+      "min_total_before_json_ms": 0.329712,
+      "one_time_arena_ms": 0.0,
+      "output_records": 3616,
+      "shape_group_count": 4,
+      "timed_runs": 50,
+      "timing_ms": {
+        "cpu_chain": 0.330288,
+        "device_allocation": 0.0,
+        "device_to_host": 0.0,
+        "finalize": 0.0,
+        "host_to_device": 0.0,
+        "kernel": 0.0,
+        "one_time_device_allocation": 0.0,
+        "one_time_host_to_device": 0.0,
+        "one_time_setup": 0.0,
+        "one_time_total": 0.0,
+        "setup": 0.0,
+        "total_before_json": 0.330288,
+        "write_output": 77.927946
+      },
+      "total_input_records": 3781,
+      "warmup_runs": 5
+    },
+    "current_persistent_cuda": {
+      "backend": "cuda",
+      "cuda_execution_mode": "persistent-arena",
+      "fixture_count": 3546,
+      "max_total_before_json_ms": 19.796722,
+      "mean_core_ms": 0.025782,
+      "mean_total_before_json_ms": 17.86278,
+      "min_total_before_json_ms": 17.609553,
+      "one_time_arena_ms": 347.356778,
+      "output_records": 3616,
+      "shape_group_count": 4,
+      "timed_runs": 50,
+      "timing_ms": {
+        "cpu_chain": 0.0,
+        "device_allocation": 0.0,
+        "device_to_host": 17.680561,
+        "finalize": 0.008928,
+        "host_to_device": 0.0,
+        "kernel": 0.027328,
+        "one_time_device_allocation": 0.299793,
+        "one_time_host_to_device": 0.394288,
+        "one_time_setup": 346.662697,
+        "one_time_total": 347.356778,
+        "setup": 0.0,
+        "total_before_json": 17.716817,
+        "write_output": 75.983577
+      },
+      "total_input_records": 3781,
+      "warmup_runs": 5
+    }
+  },
+  "fixture_harvest": {
+    "selected_fixture_count": 3546,
+    "shape_groups": [
+      {
+        "chain_divergence_rows": 1,
+        "fixture_count": 3418,
+        "input_records_per_fixture": 1,
+        "output_records": 3418,
+        "query_id_max": 3582,
+        "query_id_min": 5,
+        "total_input_records": 3418
+      },
+      {
+        "chain_divergence_rows": 1,
+        "fixture_count": 29,
+        "input_records_per_fixture": 2,
+        "output_records": 45,
+        "query_id_max": 3567,
+        "query_id_min": 204,
+        "total_input_records": 58
+      },
+      {
+        "chain_divergence_rows": 1,
+        "fixture_count": 91,
+        "input_records_per_fixture": 3,
+        "output_records": 129,
+        "query_id_max": 3578,
+        "query_id_min": 47,
+        "total_input_records": 273
+      },
+      {
+        "chain_divergence_rows": 1,
+        "fixture_count": 8,
+        "input_records_per_fixture": 4,
+        "output_records": 24,
+        "query_id_max": 3512,
+        "query_id_min": 200,
+        "total_input_records": 32
+      }
+    ],
+    "total_input_records": 3781,
+    "total_output_records": 3616
+  },
+  "host": {
+    "architecture": "aarch64",
+    "cuda_arch": "sm_121",
+    "cuda_device": {
+      "free_bytes": 2393202688,
+      "id": 0,
+      "name": "NVIDIA GB10",
+      "total_bytes": 130594660352
+    },
+    "hostname": "edgexpert-45d2",
+    "nvcc": "/usr/local/cuda/bin/nvcc",
+    "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:57:39_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39"
+  },
+  "milestone": "M5i",
+  "negative_tests": {
+    "bulk_without_arena_status": 1,
+    "bulk_without_arena_stderr": "error: --cuda-persistent-bulk-output requires --cuda-persistent-arena"
+  },
+  "next_recommended_step": "M5j: wire the validated bulk persistent read-alignment backend behind a graph-facing dry-run consumption seam, preserving oracle diff gates before any graph mutation.",
+  "plain_language_assessment": {
+    "measured_advantage": "On the M5h 3546-fixture toy-hifi harvest, bulk persistent CUDA averaged 0.302834 ms versus CPU 0.333798 ms before TSV/JSON emission, a 1.102x hot-path speedup.",
+    "what_improved": "Changing persistent CUDA output transfer from thousands of tiny per-fixture copies to one bulk copy per shape group removed the dominant device-to-host overhead.",
+    "what_it_does_not_claim": "This is not an end-to-end Flye speedup and does not yet mutate Flye graph state; it proves a bounded read-alignment chain replay backend can beat CPU before TSV/JSON emission while preserving oracle output.",
+    "why_it_matters": "This is the first read-alignment replay batch where CUDA is faster for the measured bounded pre-write hot path, not just faster inside the kernel."
+  },
+  "proof_dir": "/tmp/cuflye-m5i-proof-20260701T000634Z",
+  "schema": "cuflye-dgx-proof-v1",
+  "source": {
+    "base_commit_before_m5i": "6d099ba",
+    "local_branch": "main",
+    "m5h_fixture_list": "/tmp/cuflye-m5h-proof-20260630T234728Z/out/m5h/larger-batch/selected-fixtures.list",
+    "proof_checkout": "/tmp/cuflye-m5i-proof-20260701T000634Z/repo"
+  },
+  "speedups": {
+    "bulk_core_speedup_vs_cpu_core": 12.861634,
+    "bulk_d2h_speedup_vs_current_persistent_d2h": 79.055306,
+    "bulk_total_speedup_vs_cpu": 1.102247,
+    "bulk_total_speedup_vs_current_persistent": 58.985385,
+    "current_persistent_total_slowdown_vs_cpu": 53.513742
+  },
+  "status": "accepted",
+  "title": "Persistent read-alignment bulk output copy",
+  "validation": {
+    "all_pairs_match": true,
+    "all_validated": true,
+    "canonical_samples": [
+      {
+        "canonical_sha256": "d0b566298ac82ded20a89345589d78ba6e383a8dd7556c57235adcda6b3acf25",
+        "fixture_dir": "/tmp/cuflye-m5h-proof-20260630T234728Z/out/m5h/runs/toy-hifi-wide-read-alignment/read-alignment-replay-fixtures/query_5",
+        "records": 1
+      },
+      {
+        "canonical_sha256": "ffd9f9807fc1678f2969ed35ee4c5e3677c7d62ca880c3699296b12b0c81e751",
+        "fixture_dir": "/tmp/cuflye-m5h-proof-20260630T234728Z/out/m5h/runs/toy-hifi-wide-read-alignment/read-alignment-replay-fixtures/query_6",
+        "records": 1
+      },
+      {
+        "canonical_sha256": "c14a949ec10e201583c3031b9cbf0c3457e1b250c8367ae48c0a23e70875d2a6",
+        "fixture_dir": "/tmp/cuflye-m5h-proof-20260630T234728Z/out/m5h/runs/toy-hifi-wide-read-alignment/read-alignment-replay-fixtures/query_7",
+        "records": 1
+      },
+      {
+        "canonical_sha256": "09a7aed1f0e6a163333e37aa90d73b71dd6b42a82cc79ee3da5f74e95faa7beb",
+        "fixture_dir": "/tmp/cuflye-m5h-proof-20260630T234728Z/out/m5h/runs/toy-hifi-wide-read-alignment/read-alignment-replay-fixtures/query_8",
+        "records": 1
+      },
+      {
+        "canonical_sha256": "7a66effece4f336176ed7d2142e78a1d5b95fb55991ac187a0ffe9f89118271b",
+        "fixture_dir": "/tmp/cuflye-m5h-proof-20260630T234728Z/out/m5h/runs/toy-hifi-wide-read-alignment/read-alignment-replay-fixtures/query_9",
+        "records": 1
+      }
+    ],
+    "pair_match_counts": {
+      "bulk_vs_oracle": 3546,
+      "bulk_vs_persistent": 3546,
+      "cpu_vs_bulk": 3546,
+      "cpu_vs_oracle": 3546,
+      "persistent_vs_oracle": 3546
+    },
+    "record_totals": {
+      "bulk": 3616,
+      "cpu": 3616,
+      "oracle": 3616,
+      "persistent": 3616
+    },
+    "summary": "/tmp/cuflye-m5i-proof-20260701T000634Z/out/m5i/read-alignment-validation-summary.json",
+    "validation_counts": {
+      "bulk": 3546,
+      "cpu": 3546,
+      "oracle": 3546,
+      "persistent": 3546
+    }
+  }
+}
