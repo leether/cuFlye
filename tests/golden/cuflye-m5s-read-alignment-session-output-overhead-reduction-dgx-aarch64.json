@@ -1,0 +1,74 @@
+{
+  "acceptance": {
+    "compact_output_preserves_exact_cpu_equivalence": true,
+    "compact_output_skips_per_fixture_tsv_files": true,
+    "cuda_worker_builds_on_dgx": true,
+    "local_syntax_gate_passed": true,
+    "negative_missing_compact_path_fails_closed": true,
+    "patched_flye_build_manifest_exists_on_dgx": true,
+    "request_time_improves_vs_m5r_full3546_session": true
+  },
+  "allowed_claim": "cuFlye can run the full3546 read-alignment pre-divergence CUDA session request in compact-output mode, produce a single deterministic compact JSONL artifact that byte-matches the CPU compact oracle, and reduce full3546 session request time by removing per-fixture TSV emission.",
+  "artifacts": {
+    "compact_sha256_file": "/tmp/cuflye-m5s-proof-20260701T033744Z/out/m5s/compact-proof/compact.sha256",
+    "cpu_batch_json": "/tmp/cuflye-m5s-proof-20260701T033744Z/out/m5s/compact-proof/cpu/batch.json",
+    "cpu_compact_jsonl": "/tmp/cuflye-m5s-proof-20260701T033744Z/out/m5s/compact-proof/cpu/compact.jsonl",
+    "cuda_actual_batch_json": "/tmp/cuflye-m5s-proof-20260701T033744Z/out/m5s/compact-proof/cuda-session/actual/batch.json",
+    "cuda_actual_compact_jsonl": "/tmp/cuflye-m5s-proof-20260701T033744Z/out/m5s/compact-proof/cuda-session/actual/compact.jsonl",
+    "cuda_actual_response_json": "/tmp/cuflye-m5s-proof-20260701T033744Z/out/m5s/compact-proof/cuda-session/actual/response.json",
+    "cuda_build_manifest": "/tmp/cuflye-m5s-proof-20260701T033744Z/out/m5s/build/cuda-read-alignment-chain-replay-build.json",
+    "flye_build_manifest": "/tmp/cuflye-m5s-proof-20260701T033744Z/out/m5s/build/flye-build.json",
+    "negative_response_json": "/tmp/cuflye-m5s-proof-20260701T033744Z/out/m5s/compact-proof/bad-session/response.json",
+    "proof_summary_json": "/tmp/cuflye-m5s-proof-20260701T033744Z/out/m5s/compact-proof/m5s-proof-summary.json"
+  },
+  "comparison": {
+    "cuda_backend_speedup_vs_cpu_compact_single_run": 0.9542198656833035,
+    "cuda_compact_request_total_speedup_vs_m5r_full3546_session": 20.60369723262538,
+    "m5r_full3546_cuda_session_request_total_ms": 91.698238
+  },
+  "fixture": "toy-hifi",
+  "host": "dgx",
+  "m5s": {
+    "compact_cmp": "match",
+    "compact_jsonl_bytes": 1126769,
+    "cpu": {
+      "benchmark_mean_total_before_json_ms": 0.422561,
+      "compact_sha256": "2b0371e45c7b6c100c169ffed3829738db93b308f4d5aa55690ddc286f19f2bd",
+      "output_artifact_mode": "compact-jsonl-v0",
+      "output_records": 3616,
+      "per_fixture_files_in_output_dir": 0,
+      "write_output_ms": 3.221193
+    },
+    "cuda_actual": {
+      "arena_cache_hit": true,
+      "backend_mean_total_before_json_ms": 0.442834,
+      "compact_sha256": "2b0371e45c7b6c100c169ffed3829738db93b308f4d5aa55690ddc286f19f2bd",
+      "output_artifact_mode": "compact-jsonl-v0",
+      "per_fixture_files_in_output_dir": 0,
+      "request_ordinal": 2,
+      "request_total_ms": 4.450572,
+      "status": "ok",
+      "write_output_ms": 3.975386
+    },
+    "cuda_warmup": {
+      "arena_cache_hit": false,
+      "backend_mean_total_before_json_ms": 0.425505,
+      "output_artifact_mode": "compact-jsonl-v0",
+      "request_ordinal": 1,
+      "request_total_ms": 32.120807,
+      "status": "ok",
+      "write_output_ms": 3.893867
+    },
+    "fixture_count": 3546,
+    "negative": {
+      "done_status": "error",
+      "error_message": "read-alignment worker compact_output_only requires compact_output_jsonl",
+      "response_status": "error",
+      "worker_exit_code": 1
+    }
+  },
+  "plain_language_benefit": "M5s removes the wrong kind of output work: the CUDA session no longer writes thousands of tiny per-fixture TSV files just to prove equivalence. The same 3546-fixture request now writes one compact JSONL file, byte-matches the CPU compact oracle, and drops from 91.698238 ms in M5r to 4.450572 ms. This is a real integration win, but not yet a whole-Flye speed claim because the remaining 1.1 MB JSONL write still dominates the request.",
+  "proof_root": "/tmp/cuflye-m5s-proof-20260701T033744Z",
+  "schema": "cuflye-m5s-read-alignment-session-output-overhead-reduction-proof-v0",
+  "status": "accepted"
+}

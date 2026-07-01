@@ -128,9 +128,25 @@ Optional field:
 
 ```text
 memory_budget_bytes
+compact_output_jsonl
+compact_output_only
 ```
 
 Unsupported values are rejected. Silent CPU fallback is not allowed.
+
+M5s compact output mode sets:
+
+```text
+compact_output_jsonl=<path>
+compact_output_only=true
+```
+
+In this mode the worker still runs the same CUDA pre-divergence chain replay,
+but it skips per-fixture TSV materialization and writes a single deterministic
+JSONL artifact. The batch JSON response switches to compact batch schema and
+omits per-fixture TSV paths. CPU and CUDA compact JSONL artifacts must compare
+byte-for-byte before compact output can be treated as an oracle-equivalent
+payload.
 
 ## Response JSON
 
@@ -149,6 +165,9 @@ Success response records:
 - `worker_device_arena_created`;
 - `worker_device_arena_capacity_bytes`;
 - `fixture_count`, `output_records`;
+- `output_artifact_mode`;
+- `compact_output_jsonl`;
+- `compact_output_only`;
 - `batch_json_output`, `batch_output_dir`;
 - `timing_ms.request_total`;
 - `timing_ms.backend_mean_total_before_json`;

@@ -225,7 +225,7 @@ Completed:
   `98.134393%` versus the M4u cold batch-run worker process, but the full
   toy-raw run was still slower than CPU (`88s` vs `82s`) because the proof still
   pays for one synthetic warmup request inside the same Flye run.
-- M5a-M5o: cuFlye now has a deterministic read-to-graph alignment oracle,
+- M5a-M5s: cuFlye now has a deterministic read-to-graph alignment oracle,
   bounded replay fixtures, a CUDA chain replay prototype, real multi-read
   batching, heterogeneous shape grouping, and a persistent per-shape CUDA arena.
   The M5h proof expands the toy-hifi replay harvest to `3546` valid fixtures
@@ -242,7 +242,13 @@ Completed:
   mismatch. M5n-M5o then move earlier in the read-alignment pipeline: the CUDA
   worker can emit pre-divergence chain DP output without CPU divergence rows,
   and Flye can run its own divergence filter on those GPU-produced chains in a
-  selected-read dry run while recovering the same CPU `goodChains`.
+  selected-read dry run while recovering the same CPU `goodChains`. M5p-M5r
+  then batch those pre-divergence chains behind a Flye-side session seam and
+  keep CUDA context/device arena state warm across requests. M5s removes the
+  remaining per-fixture TSV output bottleneck from the full3546 session path by
+  writing one deterministic compact JSONL artifact that byte-matches the CPU
+  compact oracle, reducing full3546 request time from `91.698238 ms` to
+  `4.450572 ms`.
 
 Current allowed performance claim:
 
@@ -346,6 +352,11 @@ inside Flye for a selected read, run Flye's existing divergence filter on those
 GPU-produced chains, recover the same `goodChains` as CPU, preserve exact Flye
 artifacts, and fail closed on mismatch. This is still an integration-boundary
 claim, not a default GPU mode or full-Flye speed claim.
+
+cuFlye can now bypass per-fixture TSV emission for the read-alignment CUDA
+session proof by writing one compact JSONL artifact that byte-matches the CPU
+compact oracle. This is a host-output overhead reduction claim for the scoped
+full3546 replay request, not a full Flye GPU-mode claim.
 ```
 
 Current forbidden claim:
@@ -2184,4 +2195,74 @@ M5s: reduce or bypass per-fixture TSV/JSON emission for the session path by
 returning a compact verified object-vector or shared artifact payload, then
 measure whether the graph-facing read-alignment path keeps the full3546 CUDA
 backend advantage after host output overhead is removed.
+```
+
+M5s accepted result:
+
+```text
+cuFlye can run the full3546 read-alignment pre-divergence CUDA session request
+in compact-output mode, produce a single deterministic compact JSONL artifact
+that byte-matches the CPU compact oracle, skip all per-fixture TSV files, and
+reduce full3546 session request time by removing host-side small-file output.
+```
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m5s-proof-20260701T033744Z
+golden=tests/golden/cuflye-m5s-read-alignment-session-output-overhead-reduction-dgx-aarch64.json
+fixture_count=3546
+compact_cmp=match
+compact_jsonl_bytes=1126769
+compact_sha256=2b0371e45c7b6c100c169ffed3829738db93b308f4d5aa55690ddc286f19f2bd
+cpu_compact_backend_mean_total_before_json_ms=0.422561
+cpu_compact_write_output_ms=3.221193
+cpu_compact_per_fixture_files=0
+cuda_actual_request_ordinal=2
+cuda_actual_arena_cache_hit=true
+cuda_actual_backend_mean_total_before_json_ms=0.442834
+cuda_actual_write_output_ms=3.975386
+cuda_actual_request_total_ms=4.450572
+cuda_actual_per_fixture_files=0
+m5r_full3546_cuda_session_request_total_ms=91.698238
+cuda_compact_request_total_speedup_vs_m5r=20.603697x
+negative_fault=compact_output_only_without_compact_output_jsonl
+negative_status=error
+negative_worker_exit_code=1
+```
+
+Allowed M5s claim:
+
+```text
+cuFlye can run the full3546 read-alignment pre-divergence CUDA session request
+in compact-output mode, produce a single deterministic compact JSONL artifact
+that byte-matches the CPU compact oracle, and reduce full3546 session request
+time from M5r's 91.698238 ms to 4.450572 ms.
+```
+
+Forbidden M5s claim:
+
+```text
+M5s still does not prove full Flye acceleration, default GPU mode, broad
+_readAlignments replacement, CUDA minimizer overlap discovery, or replacement
+of Flye's CPU divergence/base-alignment stages. The remaining compact JSONL
+write still dominates request time.
+```
+
+Plain-language benefit:
+
+```text
+M5s removes the thousands-of-small-files tax. It turns the full3546 session
+output into one compact, deterministic file and keeps CPU/CUDA artifacts
+byte-identical. That is why request time falls by about 20.6x versus M5r. It is
+not yet the final graph-facing payload: 1.1 MB of JSONL still costs about 4 ms
+to write.
+```
+
+Next highest-ROI task:
+
+```text
+M5t: replace the compact JSONL proof payload with a smaller graph-facing binary
+or object-vector payload, then validate and rehydrate it before graph mutation
+while measuring whether payload write/read cost falls below M5s.
 ```

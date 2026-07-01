@@ -113,6 +113,7 @@ struct Options
 	std::string batchFixturesFile;
 	std::string batchOutputDir;
 	std::string batchJsonOutput;
+	std::string compactOutputJsonl;
 	std::string workerRequestJson;
 	std::string workerRequestsJsonl;
 	std::string workerSessionDir;
@@ -130,6 +131,7 @@ struct Options
 	bool cudaPersistentArena = false;
 	bool cudaPersistentBulkOutput = false;
 	bool emitPreDivergenceChains = false;
+	bool compactOutputOnly = false;
 };
 
 struct RunSummary
@@ -2428,14 +2430,13 @@ void writeJsonSummary(const std::string& path, const Options& options,
 }
 
 std::vector<BatchFixtureOutput>
-writeBatchReadAlignments(const Options& options, const std::vector<LoadedFixture>& fixtures,
-                         const std::vector<std::vector<OutputSegment>>& segmentsByFixture)
+describeBatchReadAlignments(const Options& options, const std::vector<LoadedFixture>& fixtures,
+                            const std::vector<std::vector<OutputSegment>>& segmentsByFixture)
 {
 	if (fixtures.size() != segmentsByFixture.size())
 	{
 		throw std::runtime_error("batch output count differs from fixture count");
 	}
-	ensureDirectory(options.batchOutputDir);
 	std::vector<BatchFixtureOutput> outputs;
 	outputs.reserve(fixtures.size());
 	for (size_t index = 0; index < fixtures.size(); ++index)
@@ -2445,7 +2446,6 @@ writeBatchReadAlignments(const Options& options, const std::vector<LoadedFixture
 		if (name.empty()) name = "fixture_" + std::to_string(index);
 		std::string outputTsv =
 		    joinPath(joinPath(options.batchOutputDir, name), "read-alignment.tsv");
-		writeReadAlignment(outputTsv, fixture.overlaps, segmentsByFixture[index]);
 
 		BatchFixtureOutput output;
 		output.fixtureDir = fixture.fixtureDir;
@@ -2458,6 +2458,72 @@ writeBatchReadAlignments(const Options& options, const std::vector<LoadedFixture
 		outputs.push_back(output);
 	}
 	return outputs;
+}
+
+std::vector<BatchFixtureOutput>
+writeBatchReadAlignments(const Options& options, const std::vector<LoadedFixture>& fixtures,
+                         const std::vector<std::vector<OutputSegment>>& segmentsByFixture)
+{
+	std::vector<BatchFixtureOutput> outputs =
+	    describeBatchReadAlignments(options, fixtures, segmentsByFixture);
+	ensureDirectory(options.batchOutputDir);
+	for (size_t index = 0; index < outputs.size(); ++index)
+	{
+		writeReadAlignment(outputs[index].outputTsv, fixtures[index].overlaps,
+		                   segmentsByFixture[index]);
+	}
+	return outputs;
+}
+
+void writeCompactReadAlignmentJsonl(
+    const std::string& path, const std::vector<LoadedFixture>& fixtures,
+    const std::vector<std::vector<OutputSegment>>& segmentsByFixture)
+{
+	if (fixtures.size() != segmentsByFixture.size())
+	{
+		throw std::runtime_error("compact output count differs from fixture count");
+	}
+	ensureParentDirectory(path);
+	std::ofstream output(path);
+	if (!output)
+	{
+		throw std::runtime_error("cannot write compact read-alignment JSONL: " + path);
+	}
+	output << std::setprecision(9);
+	for (size_t fixtureIndex = 0; fixtureIndex < fixtures.size(); ++fixtureIndex)
+	{
+		const LoadedFixture& fixture = fixtures[fixtureIndex];
+		for (const OutputSegment& segment : segmentsByFixture[fixtureIndex])
+		{
+			if (segment.overlapIndex < 0 ||
+			    static_cast<size_t>(segment.overlapIndex) >= fixture.overlaps.size())
+			{
+				throw std::runtime_error("compact read-alignment output overlap index "
+				                         "is out of bounds");
+			}
+			const EdgeOverlap& overlap =
+			    fixture.overlaps[static_cast<size_t>(segment.overlapIndex)];
+			output << "{\"query_id\":" << fixture.manifest.queryId
+			       << ",\"chain_id\":" << segment.chainId
+			       << ",\"segment_id\":" << segment.segmentId
+			       << ",\"overlap_index\":" << segment.overlapIndex
+			       << ",\"candidate_id\":" << overlap.candidateId
+			       << ",\"read_id\":" << overlap.readId
+			       << ",\"read_begin\":" << overlap.readBegin
+			       << ",\"read_end\":" << overlap.readEnd
+			       << ",\"read_len\":" << overlap.readLen
+			       << ",\"edge_id\":" << overlap.edgeId
+			       << ",\"edge_left_node\":" << overlap.edgeLeftNode
+			       << ",\"edge_right_node\":" << overlap.edgeRightNode
+			       << ",\"edge_seq_id\":" << overlap.edgeSeqId
+			       << ",\"edge_begin\":" << overlap.edgeBegin
+			       << ",\"edge_end\":" << overlap.edgeEnd
+			       << ",\"edge_len\":" << overlap.edgeLen
+			       << ",\"score\":" << overlap.score
+			       << ",\"seq_divergence\":" << overlap.seqDivergence
+			       << "}\n";
+		}
+	}
 }
 
 std::vector<BatchShapeOutputSummary>
@@ -2654,6 +2720,125 @@ void writeBatchJsonSummary(const std::string& path, const Options& options,
 	       << "}\n";
 }
 
+void writeCompactBatchJsonSummary(const std::string& path, const Options& options,
+                                  const RunSummary& summary, size_t fixtureCount)
+{
+	ensureParentDirectory(path);
+	std::ofstream output(path);
+	if (!output)
+	{
+		throw std::runtime_error("cannot write compact batch JSON summary: " + path);
+	}
+	output << std::fixed << std::setprecision(6);
+	output << "{\n"
+	       << "  \"schema\": \"cuflye-cuda-read-alignment-chain-replay-compact-batch-v0\",\n"
+	       << "  \"status\": \"ok\",\n"
+	       << "  \"backend\": \"" << jsonEscape(summary.backend) << "\",\n"
+	       << "  \"cuda_execution_mode\": ";
+	if (summary.backend == "cuda")
+	{
+		output << "\"" << jsonEscape(summary.cudaExecutionMode) << "\",\n";
+	}
+	else
+	{
+		output << "null,\n";
+	}
+	output << "  \"output_artifact_mode\": \"compact-jsonl-v0\",\n"
+	       << "  \"compact_output_jsonl\": \""
+	       << jsonEscape(options.compactOutputJsonl) << "\",\n"
+	       << "  \"compact_output_only\": "
+	       << (options.compactOutputOnly ? "true" : "false") << ",\n"
+	       << "  \"batch_fixtures_file\": \""
+	       << jsonEscape(options.batchFixturesFile) << "\",\n"
+	       << "  \"batch_output_dir\": \""
+	       << jsonEscape(options.batchOutputDir) << "\",\n"
+	       << "  \"fixture_count\": " << fixtureCount << ",\n"
+	       << "  \"batch_size\": " << summary.batchSize << ",\n"
+	       << "  \"heterogeneous_batch\": "
+	       << (options.allowHeterogeneousBatch ? "true" : "false") << ",\n"
+	       << "  \"shape_group_count\": " << summary.shapeGroups << ",\n";
+	if (summary.inputRecords == 0)
+	{
+		output << "  \"input_records_per_fixture\": null,\n";
+	}
+	else
+	{
+		output << "  \"input_records_per_fixture\": " << summary.inputRecords << ",\n";
+	}
+	output << "  \"min_input_records_per_fixture\": " << summary.minInputRecords << ",\n"
+	       << "  \"max_input_records_per_fixture\": " << summary.maxInputRecords << ",\n"
+	       << "  \"total_input_records\": " << summary.totalInputRecords << ",\n"
+	       << "  \"candidate_chains\": " << summary.candidateChains << ",\n"
+	       << "  \"pre_divergence_accepted_chains\": "
+	       << summary.preDivergenceAcceptedChains << ",\n"
+	       << "  \"accepted_chains\": " << summary.acceptedChains << ",\n"
+	       << "  \"output_records\": " << summary.outputRecords << ",\n";
+	if (summary.backend == "cuda")
+	{
+		output << "  \"device\": {\n"
+		       << "    \"id\": " << summary.device << ",\n"
+		       << "    \"name\": \"" << jsonEscape(summary.deviceName) << "\",\n"
+		       << "    \"free_bytes\": " << summary.freeBytes << ",\n"
+		       << "    \"total_bytes\": " << summary.totalBytes << "\n"
+		       << "  },\n";
+	}
+	else
+	{
+		output << "  \"device\": null,\n";
+	}
+	output << "  \"memory\": {\n"
+	       << "    \"required_bytes\": " << summary.requiredBytes;
+	if (options.hasMemoryBudget)
+	{
+		output << ",\n    \"budget_bytes\": " << options.memoryBudgetBytes << "\n";
+	}
+	else
+	{
+		output << "\n";
+	}
+	output << "  },\n"
+	       << "  \"timing_ms\": {\n"
+	       << "    \"setup\": " << summary.setupMs << ",\n"
+	       << "    \"device_allocation\": " << summary.deviceAllocationMs << ",\n"
+	       << "    \"host_to_device\": " << summary.hostToDeviceMs << ",\n"
+	       << "    \"one_time_setup\": " << summary.oneTimeSetupMs << ",\n"
+	       << "    \"one_time_device_allocation\": "
+	       << summary.oneTimeDeviceAllocationMs << ",\n"
+	       << "    \"one_time_host_to_device\": "
+	       << summary.oneTimeHostToDeviceMs << ",\n"
+	       << "    \"one_time_total\": " << summary.oneTimeTotalMs << ",\n"
+	       << "    \"kernel\": " << summary.kernelMs << ",\n"
+	       << "    \"cpu_chain\": " << summary.cpuChainMs << ",\n"
+	       << "    \"device_to_host\": " << summary.deviceToHostMs << ",\n"
+	       << "    \"finalize\": " << summary.finalizeMs << ",\n"
+	       << "    \"write_output\": " << summary.writeMs << ",\n"
+	       << "    \"total_before_json\": " << summary.totalBeforeJsonMs << "\n"
+	       << "  },\n"
+	       << "  \"benchmark\": {\n"
+	       << "    \"warmup_runs\": " << summary.warmupRuns << ",\n"
+	       << "    \"timed_runs\": " << summary.timedRuns << ",\n"
+	       << "    \"mean_total_before_json_ms\": "
+	       << summary.benchmarkMeanTotalMs << ",\n"
+	       << "    \"min_total_before_json_ms\": "
+	       << summary.benchmarkMinTotalMs << ",\n"
+	       << "    \"max_total_before_json_ms\": "
+	       << summary.benchmarkMaxTotalMs << ",\n"
+	       << "    \"mean_core_ms\": " << summary.benchmarkMeanCoreMs << "\n"
+	       << "  },\n"
+	       << "  \"supported_shape\": {\n"
+	       << "    \"real_multi_fixture_batch\": true,\n"
+	       << "    \"heterogeneous_grouping_enabled\": "
+	       << (options.allowHeterogeneousBatch ? "true" : "false") << ",\n"
+	       << "    \"output_mode\": \""
+	       << (options.emitPreDivergenceChains ? "pre-divergence-chains"
+	                                           : "post-divergence-accepted-chains")
+	       << "\",\n"
+	       << "    \"representative_output_only\": false,\n"
+	       << "    \"max_replay_records\": " << MAX_REPLAY_RECORDS << "\n"
+	       << "  }\n"
+	       << "}\n";
+}
+
 bool sameSessionArenaRequest(const ReadAlignmentSessionCache& cache,
                              const ReadAlignmentWorkerRequest& request)
 {
@@ -2713,6 +2898,17 @@ ReadAlignmentWorkerRequest parseReadAlignmentWorkerRequestObject(const std::stri
 	request.options.benchmarkRuns =
 	    parseWorkerUInt32(requireJsonField(fields, "benchmark_runs"), "benchmark_runs");
 
+	std::string compactOutputJsonl = optionalJsonField(fields, "compact_output_jsonl");
+	if (!compactOutputJsonl.empty() && compactOutputJsonl != "null")
+	{
+		request.options.compactOutputJsonl = compactOutputJsonl;
+	}
+	std::string compactOutputOnly = optionalJsonField(fields, "compact_output_only");
+	if (!compactOutputOnly.empty() && compactOutputOnly != "null")
+	{
+		request.options.compactOutputOnly =
+		    parseWorkerBool(compactOutputOnly, "compact_output_only");
+	}
 	std::string memoryBudget = optionalJsonField(fields, "memory_budget_bytes");
 	if (!memoryBudget.empty() && memoryBudget != "null")
 	{
@@ -2816,6 +3012,11 @@ void validateReadAlignmentWorkerRequest(const ReadAlignmentWorkerRequest& reques
 	{
 		throw std::runtime_error("read-alignment worker benchmark_runs must be greater than zero");
 	}
+	if (request.options.compactOutputOnly && request.options.compactOutputJsonl.empty())
+	{
+		throw std::runtime_error(
+		    "read-alignment worker compact_output_only requires compact_output_jsonl");
+	}
 }
 
 void validateReadAlignmentWorkerRequestSet(
@@ -2866,6 +3067,20 @@ std::string buildReadAlignmentWorkerResponseJson(
 	     << jsonEscape(result.summary.cudaExecutionMode) << "\",\n"
 	     << "  \"fixture_count\": " << result.fixtureCount << ",\n"
 	     << "  \"output_records\": " << result.outputRecords << ",\n"
+	     << "  \"output_artifact_mode\": \""
+	     << (request.options.compactOutputOnly ? "compact-jsonl-v0"
+	                                           : "per-fixture-tsv-v0") << "\",\n"
+	     << "  \"compact_output_jsonl\": ";
+	if (request.options.compactOutputJsonl.empty())
+	{
+		json << "null,\n";
+	}
+	else
+	{
+		json << "\"" << jsonEscape(request.options.compactOutputJsonl) << "\",\n";
+	}
+	json << "  \"compact_output_only\": "
+	     << (request.options.compactOutputOnly ? "true" : "false") << ",\n"
 	     << "  \"batch_json_output\": \""
 	     << jsonEscape(request.options.batchJsonOutput) << "\",\n"
 	     << "  \"batch_output_dir\": \""
@@ -2951,12 +3166,34 @@ bool executeReadAlignmentWorkerRequest(
 		    request.options, cache.arena, segmentsByFixture);
 
 		auto writeStart = Clock::now();
-		std::vector<BatchFixtureOutput> outputs =
-		    writeBatchReadAlignments(request.options, cache.fixtures, segmentsByFixture);
+		std::vector<BatchFixtureOutput> outputs;
+		if (request.options.compactOutputOnly)
+		{
+			outputs =
+			    describeBatchReadAlignments(request.options, cache.fixtures, segmentsByFixture);
+		}
+		else
+		{
+			outputs =
+			    writeBatchReadAlignments(request.options, cache.fixtures, segmentsByFixture);
+		}
+		if (!request.options.compactOutputJsonl.empty())
+		{
+			writeCompactReadAlignmentJsonl(request.options.compactOutputJsonl,
+			                              cache.fixtures, segmentsByFixture);
+		}
 		auto writeEnd = Clock::now();
 		summary.writeMs = elapsedMs(writeStart, writeEnd);
-		writeBatchJsonSummary(request.options.batchJsonOutput, request.options,
-		                      summary, outputs);
+		if (request.options.compactOutputOnly)
+		{
+			writeCompactBatchJsonSummary(request.options.batchJsonOutput,
+			                             request.options, summary, outputs.size());
+		}
+		else
+		{
+			writeBatchJsonSummary(request.options.batchJsonOutput, request.options,
+			                      summary, outputs);
+		}
 
 		result.summary = summary;
 		result.fixtureCount = outputs.size();
@@ -3252,6 +3489,10 @@ void parseArgs(int argc, char** argv, Options& options)
 			options.batchOutputDir = nextValue();
 		else if (arg == "--batch-json-output")
 			options.batchJsonOutput = nextValue();
+		else if (arg == "--compact-output-jsonl")
+			options.compactOutputJsonl = nextValue();
+		else if (arg == "--compact-output-only")
+			options.compactOutputOnly = true;
 		else if (arg == "--worker-request-json")
 			options.workerRequestJson = nextValue();
 		else if (arg == "--worker-requests-jsonl")
@@ -3318,6 +3559,7 @@ void parseArgs(int argc, char** argv, Options& options)
 			          << "[--allow-heterogeneous-batch] [--cuda-persistent-arena] "
 			          << "[--cuda-persistent-bulk-output] "
 			          << "[--emit-pre-divergence-chains] "
+			          << "[--compact-output-jsonl PATH] [--compact-output-only] "
 			          << "[--memory-budget-bytes BYTES]\n"
 			          << "Worker mode: cuflye-cuda-read-alignment-chain-replay "
 			          << "--worker-request-json PATH "
@@ -3388,6 +3630,10 @@ void parseArgs(int argc, char** argv, Options& options)
 			throw std::runtime_error(
 			    "--cuda-persistent-bulk-output requires --cuda-persistent-arena");
 		}
+		if (options.compactOutputOnly && options.compactOutputJsonl.empty())
+		{
+			throw std::runtime_error("--compact-output-only requires --compact-output-jsonl");
+		}
 	}
 	else
 	{
@@ -3403,6 +3649,10 @@ void parseArgs(int argc, char** argv, Options& options)
 		{
 			throw std::runtime_error(
 			    "--cuda-persistent-bulk-output is only supported in batch mode");
+		}
+		if (!options.compactOutputJsonl.empty() || options.compactOutputOnly)
+		{
+			throw std::runtime_error("compact output is only supported in batch mode");
 		}
 		if (options.fixtureDir.empty()) throw std::runtime_error("--fixture-dir is required");
 		if (options.outputTsv.empty()) throw std::runtime_error("--output-tsv is required");
@@ -3460,11 +3710,31 @@ int main(int argc, char** argv)
 			RunSummary summary = runBatchBenchmark(options, fixtures, segmentsByFixture);
 
 			auto writeStart = Clock::now();
-			std::vector<BatchFixtureOutput> outputs =
-			    writeBatchReadAlignments(options, fixtures, segmentsByFixture);
+			std::vector<BatchFixtureOutput> outputs;
+			if (options.compactOutputOnly)
+			{
+				outputs = describeBatchReadAlignments(options, fixtures, segmentsByFixture);
+			}
+			else
+			{
+				outputs = writeBatchReadAlignments(options, fixtures, segmentsByFixture);
+			}
+			if (!options.compactOutputJsonl.empty())
+			{
+				writeCompactReadAlignmentJsonl(options.compactOutputJsonl, fixtures,
+				                              segmentsByFixture);
+			}
 			auto writeEnd = Clock::now();
 			summary.writeMs = elapsedMs(writeStart, writeEnd);
-			writeBatchJsonSummary(options.batchJsonOutput, options, summary, outputs);
+			if (options.compactOutputOnly)
+			{
+				writeCompactBatchJsonSummary(options.batchJsonOutput, options,
+				                             summary, outputs.size());
+			}
+			else
+			{
+				writeBatchJsonSummary(options.batchJsonOutput, options, summary, outputs);
+			}
 
 			std::cout << "cuFlye read-alignment chain replay batch: ok\n"
 			          << "  backend: " << summary.backend << "\n"

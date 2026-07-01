@@ -11,13 +11,18 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m5s-read-alignment-session-output-overhead-reduction.md`:
-  reduce the per-fixture TSV/JSON output overhead that dominates M5r full3546
-  session request time while preserving the same exactness and fail-closed
-  gates.
+- `2026-07-01-cuflye-m5t-read-alignment-compact-binary-payload.md`: replace
+  the M5s compact JSONL proof payload with a smaller graph-facing binary or
+  object-vector payload, preserving exact CPU equivalence while reducing the
+  remaining write/read/rehydration cost.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m5s-read-alignment-session-output-overhead-reduction.md`:
+  bypass per-fixture TSV emission in the read-alignment CUDA session path with
+  a deterministic compact JSONL payload, preserve byte-level CPU equivalence,
+  and reduce full3546 session request time from M5r's `91.698238 ms` to
+  `4.450572 ms`.
 - `2026-07-01-cuflye-m5r-read-alignment-pre-divergence-persistent-session.md`:
   remove fresh worker/context setup from Flye-side selected pre-divergence
   batches with a long-lived CUDA session proof, preserve exact artifacts and
