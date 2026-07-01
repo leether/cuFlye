@@ -175,3 +175,5 @@ M6 read-to-graph input-boundary proof:
 
 - Read-to-graph overlap input-boundary oracle manifest:
   `cuflye-m6a-read-to-graph-overlap-input-boundary-dgx-aarch64.json`
+- Read-to-graph input-boundary replay pack manifest:
+  `cuflye-m6b-read-to-graph-input-boundary-replay-pack-dgx-aarch64.json`

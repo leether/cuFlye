@@ -1,0 +1,65 @@
+{
+  "allowed_claim": "cuFlye can export a deterministic M6b read-to-graph input-boundary replay pack from the M6a oracle and replay the selected raw overlaps back into canonical chain_input rows without changing Flye graph logic.",
+  "architecture": "aarch64",
+  "fixture": "toy-hifi",
+  "forbidden_claim": "M6b does not add CUDA, replace quickSeqOverlaps, feed replayed records into Flye, prove default GPU mode, or prove whole-Flye speedup.",
+  "host": "dgx",
+  "milestone": "M6b-read-to-graph-input-boundary-replay-pack",
+  "next_recommended_step": "M6c: consume the M6b replay pack with a CUDA raw-overlap filter/sort prototype and prove CUDA-produced chain_input rows canonical-diff match against oracle.chain-input.tsv for every selected query.",
+  "pack": {
+    "oracle_chain_input_records": 8,
+    "oracle_chain_input_sha256": "5ab7b7fe51af9e90807e2d9be4824bd9216c732877cebc5eca58cb606b1c9f20",
+    "queries_sha256": "be063107ce2182a267386b9a4e8fb61342a8aff27972dedd33b1abd11ca978a4",
+    "raw_overlap_records": 36,
+    "raw_overlaps_sha256": "8fff14a4d96fd9557e09da01d55d504e5b486116a750369b399c16ae90c25d2b",
+    "selected_filtered_out_raw_overlap_records": 28,
+    "selected_query_count": 8,
+    "selected_query_ids": [
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "unsupported_shape_count": 60,
+    "unsupported_shape_reason_counts": {
+      "chain_input_count_zero": 1,
+      "duplicate_chain_input_read_begin": 59
+    }
+  },
+  "plain_language_benefit": "M6b still has no direct CUDA speedup. Its benefit is that the next CUDA prototype now has a small, deterministic pack to consume: 8 selected queries, 36 raw overlaps, and 8 expected chain_input rows. The replay proves those expected rows can be reconstructed from raw overlap records before any GPU output is allowed near Flye graph logic.",
+  "proof_root": "/tmp/cuflye-m6b-proof-20260701T055901Z",
+  "prototype_readiness": {
+    "missing_for_full_candidate_minimizer_generation": [
+      "query read sequence",
+      "graph edge sequences",
+      "VertexIndex minimizer buckets",
+      "k-mer size and minimizer window parameters",
+      "OverlapDetector quickSeqOverlaps internals"
+    ],
+    "sufficient_for": [
+      "CUDA raw-overlap filter/sort replay prototype",
+      "chain_input ABI production and canonical diff",
+      "fail-closed unsupported-shape handling"
+    ]
+  },
+  "source": {
+    "input_boundary_dump": "/tmp/cuflye-m6a-proof-20260701T054514Z/out/m6a/oracle-a/read-to-graph-input-boundary.tsv",
+    "input_boundary_sha256": "674a6bc7ffb42a058859254ac78aa83b374c578a18d17a339bd2e6a669d6d628",
+    "queries": 3577,
+    "raw_overlap_records": 5092,
+    "records": 12483
+  },
+  "verification": {
+    "dgx_pack_export_deterministic_diff": "match",
+    "dgx_replay_a_status": "match",
+    "dgx_replay_b_status": "match",
+    "local_python_py_compile": "passed",
+    "local_synthetic_pack_diff": "match",
+    "local_synthetic_replay_status": "match",
+    "local_whitespace_check": "passed"
+  }
+}

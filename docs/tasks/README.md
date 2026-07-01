@@ -11,13 +11,17 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m6b-read-to-graph-input-boundary-replay-pack.md`:
-  turn the M6a input-boundary oracle into an external replay/packing harness so
-  a CUDA candidate/minimizer prototype can reproduce `chain_input` records
-  before Flye consumes GPU output.
+- `2026-07-01-cuflye-m6c-cuda-raw-overlap-filter-sort-replay.md`:
+  consume the M6b replay pack with a bounded CUDA raw-overlap filter/sort
+  prototype and prove CUDA-produced `chain_input` rows match the oracle before
+  any richer minimizer-source pack work.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m6b-read-to-graph-input-boundary-replay-pack.md`:
+  turn the M6a input-boundary oracle into an external replay/packing harness,
+  prove deterministic pack export and CPU replay match, record unsupported
+  exclusions, and identify what is still missing for true minimizer discovery.
 - `2026-07-01-cuflye-m6a-read-to-graph-overlap-input-boundary.md`:
   define the read-to-graph overlap/minimizer input-boundary oracle, prove two
   deterministic CPU oracle runs canonical-diff `match`, preserve full Flye

@@ -284,7 +284,19 @@ Completed:
   versus oracle full Flye canonical artifact diffs both returned `match`. The
   timing attribution shows quick read-to-graph overlap discovery costs about
   `1.55-1.59s` on toy-hifi, while chain DP is under `1ms`, so the next CUDA
-  target should be candidate/minimizer discovery at this boundary.
+  target should move toward this upstream input boundary instead of the tiny
+  selected chain-DP slice.
+- M6b: the M6a input-boundary oracle can now be exported into a deterministic
+  replay pack and replayed outside Flye. The DGX proof selected queries
+  `5..12`, wrote `36` raw-overlap records and `8` oracle `chain_input` rows,
+  recorded `28` filtered-out raw overlaps, and preserved
+  `oracle.chain-input.tsv` SHA-256
+  `5ab7b7fe51af9e90807e2d9be4824bd9216c732877cebc5eca58cb606b1c9f20`
+  across CPU replay. Two pack exports diffed `match`. The pack is sufficient
+  for a CUDA raw-overlap filter/sort replay prototype, but it intentionally
+  does not yet contain query sequences, graph edge sequences, VertexIndex
+  minimizer buckets, k-mer parameters, or enough internals to claim full
+  `quickSeqOverlaps`/minimizer generation.
 
 Current allowed performance claim:
 
@@ -2701,8 +2713,7 @@ end-to-end GPU Flye speedup.
 Next highest-ROI task:
 
 ```text
-M6b: turn the M6a read-to-graph input-boundary oracle into an external
-replay/packing harness so the first CUDA candidate/minimizer prototype can
-reproduce Flye's chain_input records before any GPU output is consumed by graph
-logic.
+M6c: consume the M6b replay pack with a CUDA raw-overlap filter/sort prototype
+and prove CUDA-produced chain_input rows canonical-diff match against
+oracle.chain-input.tsv before building a richer minimizer-source pack.
 ```
