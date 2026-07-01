@@ -146,3 +146,5 @@ M5 read-to-graph alignment proof:
   `cuflye-m5l-read-alignment-graph-alignment-object-vector-dry-run-dgx-aarch64.json`
 - Read alignment vector substitution smoke manifest:
   `cuflye-m5m-read-alignment-vector-substitution-smoke-dgx-aarch64.json`
+- Read alignment pre-divergence chain output manifest:
+  `cuflye-m5n-read-alignment-pre-divergence-chain-output-dgx-aarch64.json`

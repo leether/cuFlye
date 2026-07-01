@@ -1,0 +1,89 @@
+{
+  "schema": "cuflye-golden-proof-v1",
+  "status": "accepted",
+  "title": "cuFlye M5n read-alignment pre-divergence chain output proof",
+  "milestone": "M5n-read-alignment-pre-divergence-chain-output",
+  "proof_dir": "/tmp/cuflye-m5n-proof-20260701T015602Z",
+  "host": {
+    "hostname": "edgexpert-45d2",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+    "architecture": "aarch64",
+    "nvcc": "/usr/local/cuda/bin/nvcc",
+    "cuda_arch": "sm_121"
+  },
+  "source": {
+    "base_commit_before_m5n": "2eaa60d",
+    "local_branch": "main",
+    "proof_checkout": "/tmp/cuflye-m5n-proof-20260701T015602Z/repo",
+    "repo_commit_at_sync": "2eaa60dd7eef91e601dd97dd58b0f5f4a8baf069"
+  },
+  "artifacts": {
+    "cuda_worker_build_manifest": "/tmp/cuflye-m5n-proof-20260701T015602Z/out/m5n/cuda_read_alignment_chain_replay_build_manifest.json",
+    "fixture_without_divergence": "/tmp/cuflye-m5n-proof-20260701T015602Z/out/m5n/predivergence-fixture/query_3512_no_divergence",
+    "cpu_json": "/tmp/cuflye-m5n-proof-20260701T015602Z/out/m5n/predivergence-cpu/read-alignment-chain-replay.json",
+    "cuda_json": "/tmp/cuflye-m5n-proof-20260701T015602Z/out/m5n/predivergence-cuda/read-alignment-chain-replay.json",
+    "cpu_output_tsv": "/tmp/cuflye-m5n-proof-20260701T015602Z/out/m5n/predivergence-cpu/read-alignment.tsv",
+    "cuda_output_tsv": "/tmp/cuflye-m5n-proof-20260701T015602Z/out/m5n/predivergence-cuda/read-alignment.tsv",
+    "cpu_vs_cuda_diff_json": "/tmp/cuflye-m5n-proof-20260701T015602Z/out/m5n/predivergence-cpu-vs-cuda-diff.json",
+    "negative_batch_stderr": "/tmp/cuflye-m5n-proof-20260701T015602Z/out/m5n/negative-batch/stderr.log"
+  },
+  "fixture": {
+    "source_fixture": "/tmp/cuflye-m5h-proof-20260630T234728Z/out/m5h/runs/toy-hifi-wide-read-alignment/read-alignment-replay-fixtures/query_3512",
+    "query_id": 3512,
+    "alignment_input_records": 4,
+    "candidate_chains": 1,
+    "oracle_chains": 1,
+    "chain_divergence_present": false,
+    "oracle_read_alignment_present": false
+  },
+  "cpu_pre_divergence": {
+    "backend": "cpu",
+    "status": "ok",
+    "output_mode": "pre-divergence-chains",
+    "uses_fixture_divergence_acceptance": false,
+    "input_records": 4,
+    "candidate_chains": 1,
+    "pre_divergence_accepted_chains": 1,
+    "accepted_chains": 1,
+    "output_records": 3,
+    "mean_total_before_json_ms": 0.001696,
+    "mean_core_ms": 0.001696
+  },
+  "cuda_pre_divergence": {
+    "backend": "cuda",
+    "status": "ok",
+    "cuda_execution_mode": "per-run-allocation",
+    "output_mode": "pre-divergence-chains",
+    "uses_fixture_divergence_acceptance": false,
+    "input_records": 4,
+    "candidate_chains": 1,
+    "pre_divergence_accepted_chains": 1,
+    "accepted_chains": 1,
+    "output_records": 3,
+    "mean_total_before_json_ms": 0.189792,
+    "mean_core_ms": 0.01656,
+    "device_name": "NVIDIA GB10"
+  },
+  "diff": {
+    "status": "match",
+    "records": 3,
+    "canonical_sha256": "c817d867dfa173d28f76ebe9b19274e2d54db650ed87fa5bc3811a17a1e3e67f"
+  },
+  "negative_batch_rejection": {
+    "exit_status": 1,
+    "stderr": "error: --emit-pre-divergence-chains is only supported in single-fixture mode",
+    "failed_closed": true
+  },
+  "acceptance": {
+    "cuda_read_alignment_worker_builds_on_dgx": true,
+    "cpu_pre_divergence_runs_without_chain_divergence": true,
+    "cuda_pre_divergence_runs_without_chain_divergence": true,
+    "cpu_cuda_pre_divergence_outputs_match": true,
+    "json_records_pre_divergence_mode": true,
+    "json_records_no_fixture_divergence_acceptance": true,
+    "batch_mode_rejects_pre_divergence_flag": true,
+    "local_and_dgx_syntax_style_ownership_gates_pass": true
+  },
+  "plain_language_assessment": "M5n does not speed up full Flye. It removes a protocol dependency: the CUDA read-alignment chain worker can now produce the same pre-divergence chain DP output as the CPU replay without reading CPU-generated chain-divergence rows. This is the prerequisite for a later Flye-side mode that skips CPU chainReadAlignments for selected reads and then runs CPU divergence filtering on CUDA-produced chains.",
+  "next_recommended_step": "M5o: wire pre-divergence CUDA chain output into a guarded Flye-side selected-read dry run, compute divergence on the GPU-produced chains, and compare the resulting goodChains against CPU before any graph mutation."
+}

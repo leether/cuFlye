@@ -1845,10 +1845,67 @@ M5m does not prove default GPU mode, broad _readAlignments replacement, removal
 of CPU read alignment, or end-to-end Flye acceleration.
 ```
 
+M5n accepted result:
+
+```text
+cuFlye can emit read-alignment pre-divergence chain DP output from the CUDA
+worker without reading CPU-generated chain-divergence acceptance rows, and the
+CPU/CUDA pre-divergence outputs match on a real fixture.
+```
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m5n-proof-20260701T015602Z
+fixture=query_3512_no_divergence
+chain_divergence_present=false
+oracle_read_alignment_present=false
+alignment_input_records=4
+cpu_output_mode=pre-divergence-chains
+cuda_output_mode=pre-divergence-chains
+uses_fixture_divergence_acceptance=false
+cpu_output_records=3
+cuda_output_records=3
+cpu_vs_cuda_pre_divergence_diff=match
+canonical_sha256=c817d867dfa173d28f76ebe9b19274e2d54db650ed87fa5bc3811a17a1e3e67f
+```
+
+The negative DGX gate enabled `--emit-pre-divergence-chains` in batch mode.
+The worker rejected it fail-closed with:
+
+```text
+error: --emit-pre-divergence-chains is only supported in single-fixture mode
+```
+
+Allowed M5n claim:
+
+```text
+cuFlye can run the read-alignment chain DP replay on CUDA without depending on
+CPU-generated divergence acceptance rows, producing the same pre-divergence
+chain output as the CPU replay for a real fixture.
+```
+
+Forbidden M5n claim:
+
+```text
+M5n does not prove Flye graph-facing consumption of pre-divergence CUDA output,
+default GPU mode, CUDA minimizer overlap discovery, CPU divergence replacement,
+or end-to-end Flye acceleration.
+```
+
+Plain-language benefit:
+
+```text
+M5n is not a full-Flye speed win. On the tiny single fixture, CUDA total time is
+slower than CPU. The gain is architectural: the CUDA chain worker no longer
+needs CPU divergence rows, so a later Flye-side selected-read mode can skip CPU
+chainReadAlignments and run divergence filtering on GPU-produced chains.
+```
+
 Next highest-ROI task:
 
 ```text
-M5n: reduce duplicate CPU work around the read-alignment substitution path by
-introducing a guarded GPU-first read-alignment planner for selected safe slices,
-with artifact parity and fail-closed gates preserved.
+M5o: wire pre-divergence CUDA chain output into a guarded Flye-side
+selected-read dry run, compute divergence on the GPU-produced chains, and
+compare the resulting goodChains against CPU before any graph mutation.
 ```

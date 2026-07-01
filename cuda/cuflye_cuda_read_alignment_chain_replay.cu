@@ -119,6 +119,7 @@ struct Options
 	bool allowHeterogeneousBatch = false;
 	bool cudaPersistentArena = false;
 	bool cudaPersistentBulkOutput = false;
+	bool emitPreDivergenceChains = false;
 };
 
 struct RunSummary
@@ -532,15 +533,18 @@ std::vector<uint8_t> loadDivergenceAccepted(const std::string& path)
 	return accepted;
 }
 
-LoadedFixture loadFixture(const std::string& fixtureDir)
+LoadedFixture loadFixture(const std::string& fixtureDir, bool requireDivergenceAcceptance)
 {
 	LoadedFixture fixture;
 	fixture.fixtureDir = fixtureDir;
 	fixture.manifest = loadManifest(fixtureDir);
 	fixture.overlaps =
 	    loadEdgeOverlaps(joinPath(fixtureDir, "edge-overlaps.tsv"), fixture.manifest.queryId);
-	fixture.divergenceAccepted =
-	    loadDivergenceAccepted(joinPath(fixtureDir, "chain-divergence.tsv"));
+	if (requireDivergenceAcceptance)
+	{
+		fixture.divergenceAccepted =
+		    loadDivergenceAccepted(joinPath(fixtureDir, "chain-divergence.tsv"));
+	}
 	if (fixture.overlaps.size() != static_cast<size_t>(fixture.manifest.alignmentInputRecords))
 	{
 		throw std::runtime_error("edge-overlap count does not match manifest");
@@ -550,6 +554,11 @@ LoadedFixture loadFixture(const std::string& fixtureDir)
 		throw std::runtime_error("fixture exceeds M5c bounded CUDA replay record limit");
 	}
 	return fixture;
+}
+
+LoadedFixture loadFixture(const std::string& fixtureDir)
+{
+	return loadFixture(fixtureDir, true);
 }
 
 std::vector<std::string> loadFixtureList(const std::string& path)
@@ -754,6 +763,26 @@ buildSegmentsFromCpuChains(const std::vector<CpuChain>& chains,
 	return segments;
 }
 
+std::vector<OutputSegment> buildSegmentsFromPreDivergenceCpuChains(
+    const std::vector<CpuChain>& chains)
+{
+	std::vector<OutputSegment> segments;
+	int32_t outputChainId = 0;
+	for (const CpuChain& chain : chains)
+	{
+		for (size_t segmentId = 0; segmentId < chain.indices.size(); ++segmentId)
+		{
+			OutputSegment segment{};
+			segment.chainId = outputChainId;
+			segment.segmentId = static_cast<int32_t>(segmentId);
+			segment.overlapIndex = chain.indices[segmentId];
+			segments.push_back(segment);
+		}
+		++outputChainId;
+	}
+	return segments;
+}
+
 __device__ void initChain(ChainRecord& chain, int32_t parent, int32_t overlapIndex,
                           int32_t firstIndex, int32_t length, int32_t score)
 {
@@ -776,7 +805,12 @@ __global__ void readAlignmentChainKernel(const EdgeOverlap* overlaps, int32_t ov
 	if (threadIdx.x != 0) return;
 	uint32_t batchId = blockIdx.x;
 	overlaps += static_cast<size_t>(batchId) * static_cast<size_t>(overlapCount);
-	divergenceAccepted += static_cast<size_t>(batchId) * static_cast<size_t>(divergenceCount);
+	bool emitPreDivergenceChains = divergenceCount == 0;
+	if (!emitPreDivergenceChains)
+	{
+		divergenceAccepted += static_cast<size_t>(batchId) *
+		                      static_cast<size_t>(divergenceCount);
+	}
 	chains += static_cast<size_t>(batchId) * static_cast<size_t>(overlapCount);
 	activeIds += static_cast<size_t>(batchId) * static_cast<size_t>(overlapCount);
 	frozenIds += static_cast<size_t>(batchId) * static_cast<size_t>(overlapCount);
@@ -925,7 +959,7 @@ __global__ void readAlignmentChainKernel(const EdgeOverlap* overlaps, int32_t ov
 		}
 	}
 
-	if (preDivergenceAccepted != divergenceCount)
+	if (!emitPreDivergenceChains && preDivergenceAccepted != divergenceCount)
 	{
 		summary->errorCode = 1;
 		return;
@@ -935,7 +969,7 @@ __global__ void readAlignmentChainKernel(const EdgeOverlap* overlaps, int32_t ov
 	int32_t outputChainId = 0;
 	for (int32_t chainIndex = 0; chainIndex < preDivergenceAccepted; ++chainIndex)
 	{
-		if (!divergenceAccepted[chainIndex]) continue;
+		if (!emitPreDivergenceChains && !divergenceAccepted[chainIndex]) continue;
 		int32_t chainId = acceptedIds[chainIndex];
 		ChainRecord chain = chains[chainId];
 		if (chain.length > overlapCount)
@@ -1090,7 +1124,9 @@ RunSummary runCpu(const Options& options, const LoadedFixture& fixture,
 		std::vector<CpuChain> chains =
 		    cpuChainReadAlignments(fixture.overlaps, fixture.manifest.params);
 		std::vector<OutputSegment> repeatedSegments =
-		    buildSegmentsFromCpuChains(chains, fixture.divergenceAccepted);
+		    options.emitPreDivergenceChains
+		        ? buildSegmentsFromPreDivergenceCpuChains(chains)
+		        : buildSegmentsFromCpuChains(chains, fixture.divergenceAccepted);
 		if (repeat == 0)
 		{
 			representativeChains = chains;
@@ -1102,10 +1138,17 @@ RunSummary runCpu(const Options& options, const LoadedFixture& fixture,
 	summary.cpuChainMs = elapsedMs(start, end);
 	summary.candidateChains = representativeChains.size();
 	summary.preDivergenceAcceptedChains = representativeChains.size();
-	summary.acceptedChains = 0;
-	for (uint8_t accepted : fixture.divergenceAccepted)
+	if (options.emitPreDivergenceChains)
 	{
-		if (accepted) ++summary.acceptedChains;
+		summary.acceptedChains = representativeChains.size();
+	}
+	else
+	{
+		summary.acceptedChains = 0;
+		for (uint8_t accepted : fixture.divergenceAccepted)
+		{
+			if (accepted) ++summary.acceptedChains;
+		}
 	}
 	summary.outputRecords = segments.size();
 	summary.totalBeforeJsonMs = summary.cpuChainMs;
@@ -1194,14 +1237,16 @@ RunSummary runCuda(const Options& options, const LoadedFixture& fixture,
 	summary.totalInputRecords = checkedMul(fixture.overlaps.size(), options.replicateFixture,
 	                                       "CUDA replicated total input records");
 	size_t overlapCount = fixture.overlaps.size();
+	size_t divergenceCount =
+	    options.emitPreDivergenceChains ? 0 : fixture.divergenceAccepted.size();
 	size_t outputCapacity = checkedOutputCapacity(overlapCount);
 	size_t batchSize = options.replicateFixture;
 	size_t overlapItems = checkedMul(overlapCount, batchSize, "CUDA replicated overlap items");
-	size_t divergenceItems = checkedMul(fixture.divergenceAccepted.size(), batchSize,
-	                                    "CUDA replicated divergence items");
+	size_t divergenceItems =
+	    checkedMul(divergenceCount, batchSize, "CUDA replicated divergence items");
 	size_t outputItems = checkedMul(outputCapacity, batchSize, "CUDA replicated output items");
-	summary.requiredBytes = cudaRequiredBytes(overlapCount, fixture.divergenceAccepted.size(),
-	                                          outputCapacity, batchSize);
+	summary.requiredBytes =
+	    cudaRequiredBytes(overlapCount, divergenceCount, outputCapacity, batchSize);
 	if (options.hasMemoryBudget &&
 	    summary.requiredBytes > static_cast<size_t>(options.memoryBudgetBytes))
 	{
@@ -1217,8 +1262,11 @@ RunSummary runCuda(const Options& options, const LoadedFixture& fixture,
 	{
 		packedOverlaps.insert(packedOverlaps.end(), fixture.overlaps.begin(),
 		                      fixture.overlaps.end());
-		packedDivergence.insert(packedDivergence.end(), fixture.divergenceAccepted.begin(),
-		                        fixture.divergenceAccepted.end());
+		if (!options.emitPreDivergenceChains)
+		{
+			packedDivergence.insert(packedDivergence.end(), fixture.divergenceAccepted.begin(),
+			                        fixture.divergenceAccepted.end());
+		}
 	}
 	cuflye::cuda_raii::checkCuda(cudaSetDevice(options.device), "set CUDA device");
 	cudaDeviceProp props{};
@@ -1266,18 +1314,22 @@ RunSummary runCuda(const Options& options, const LoadedFixture& fixture,
 	                                                   "copy read alignment overlap bytes"),
 	                                        cudaMemcpyHostToDevice),
 	                             "copy read alignment overlaps to device");
-	cuflye::cuda_raii::checkCuda(cudaMemcpy(dDivergence.get(), packedDivergence.data(),
-	                                        checkedMul(packedDivergence.size(), sizeof(uint8_t),
-	                                                   "copy read alignment divergence bytes"),
-	                                        cudaMemcpyHostToDevice),
-	                             "copy chain divergence flags to device");
+	if (!packedDivergence.empty())
+	{
+		cuflye::cuda_raii::checkCuda(
+		    cudaMemcpy(dDivergence.get(), packedDivergence.data(),
+		               checkedMul(packedDivergence.size(), sizeof(uint8_t),
+		                          "copy read alignment divergence bytes"),
+		               cudaMemcpyHostToDevice),
+		    "copy chain divergence flags to device");
+	}
 	auto h2dEnd = Clock::now();
 	summary.hostToDeviceMs = elapsedMs(h2dStart, h2dEnd);
 
 	auto kernelStart = Clock::now();
 	readAlignmentChainKernel<<<static_cast<unsigned int>(batchSize), 1>>>(
 	    dOverlaps.get(), static_cast<int32_t>(overlapCount), dDivergence.get(),
-	    static_cast<int32_t>(fixture.divergenceAccepted.size()), fixture.manifest.params,
+	    static_cast<int32_t>(divergenceCount), fixture.manifest.params,
 	    dChains.get(), dActive.get(), dFrozen.get(), dOrdered.get(), dAccepted.get(),
 	    dScratch.get(), dOutput.get(), static_cast<int32_t>(outputCapacity), dSummary.get());
 	cuflye::cuda_raii::checkCuda(cudaGetLastError(), "launch read alignment chain kernel");
@@ -2087,7 +2139,12 @@ void writeJsonSummary(const std::string& path, const Options& options,
 	       << "  \"supported_shape\": {\n"
 	       << "    \"reads_base_alignment\": " << (manifest.readsBaseAlignment ? "true" : "false")
 	       << ",\n"
-	       << "    \"uses_fixture_divergence_acceptance\": true,\n"
+	       << "    \"output_mode\": \""
+	       << (options.emitPreDivergenceChains ? "pre-divergence-chains"
+	                                           : "post-divergence-accepted-chains")
+	       << "\",\n"
+	       << "    \"uses_fixture_divergence_acceptance\": "
+	       << (options.emitPreDivergenceChains ? "false" : "true") << ",\n"
 	       << "    \"representative_output_only\": true,\n"
 	       << "    \"max_replay_records\": " << MAX_REPLAY_RECORDS << "\n"
 	       << "  }\n"
@@ -2347,6 +2404,8 @@ void parseArgs(int argc, char** argv, Options& options)
 			options.cudaPersistentArena = true;
 		else if (arg == "--cuda-persistent-bulk-output")
 			options.cudaPersistentBulkOutput = true;
+		else if (arg == "--emit-pre-divergence-chains")
+			options.emitPreDivergenceChains = true;
 		else if (arg == "--backend")
 			options.backend = nextValue();
 		else if (arg == "--device")
@@ -2375,6 +2434,7 @@ void parseArgs(int argc, char** argv, Options& options)
 			          << "[--backend cpu|cuda] [--device ID] "
 			          << "[--warmup-runs N] [--benchmark-runs N] "
 			          << "[--replicate-fixture N] "
+			          << "[--emit-pre-divergence-chains] "
 			          << "[--memory-budget-bytes BYTES]\n"
 			          << "Batch mode: cuflye-cuda-read-alignment-chain-replay "
 			          << "--batch-fixtures-file FILE --batch-output-dir DIR "
@@ -2425,6 +2485,11 @@ void parseArgs(int argc, char** argv, Options& options)
 		{
 			throw std::runtime_error(
 			    "--cuda-persistent-bulk-output requires --cuda-persistent-arena");
+		}
+		if (options.emitPreDivergenceChains)
+		{
+			throw std::runtime_error(
+			    "--emit-pre-divergence-chains is only supported in single-fixture mode");
 		}
 	}
 	else
@@ -2508,7 +2573,8 @@ int main(int argc, char** argv)
 			return 0;
 		}
 
-		LoadedFixture fixture = loadFixture(options.fixtureDir);
+		LoadedFixture fixture =
+		    loadFixture(options.fixtureDir, !options.emitPreDivergenceChains);
 		std::vector<OutputSegment> segments;
 		RunSummary summary = runBenchmark(options, fixture, segments);
 

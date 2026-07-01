@@ -15,6 +15,9 @@ Proposed cards:
 
 Completed cards:
 
+- `2026-07-01-cuflye-m5n-read-alignment-pre-divergence-chain-output.md`:
+  emit CUDA read-alignment chain DP results before CPU divergence acceptance,
+  proving the worker no longer needs `chain-divergence.tsv` for that substage.
 - `2026-07-01-cuflye-m5m-read-alignment-vector-substitution-smoke.md`:
   substitute a verified CUDA-derived `std::vector<GraphAlignment>` slice into
   `_readAlignments`, preserve exact artifacts, and fail closed on mismatch.
