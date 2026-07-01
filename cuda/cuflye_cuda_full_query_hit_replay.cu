@@ -102,8 +102,18 @@ struct Options
 	std::string jsonOutput;
 	std::string kernelMode = "serial";
 	int device = 0;
+	int repeatCount = 1;
 	bool hasMemoryBudget = false;
 	unsigned long long memoryBudgetBytes = 0;
+};
+
+struct RequestTiming
+{
+	double resetMs = 0.0;
+	double kernelMs = 0.0;
+	double deviceToHostMs = 0.0;
+	double requestTotalMs = 0.0;
+	int32_t outputRecords = 0;
 };
 
 struct RunSummary
@@ -126,8 +136,10 @@ struct RunSummary
 	size_t totalBytes = 0;
 	int device = 0;
 	int parallelThreads = 1;
+	int repeatCount = 1;
 	std::string deviceName;
 	std::string kernelMode;
+	std::vector<RequestTiming> requestTimings;
 };
 
 double elapsedMs(Clock::time_point start, Clock::time_point end)
@@ -516,6 +528,8 @@ Options parseOptions(int argc, char** argv)
 		else if (arg == "--json-output") options.jsonOutput = requireValue(arg);
 		else if (arg == "--kernel-mode") options.kernelMode = requireValue(arg);
 		else if (arg == "--device") options.device = parseI32(requireValue(arg), arg);
+		else if (arg == "--repeat-count")
+			options.repeatCount = parseI32(requireValue(arg), arg);
 		else if (arg == "--memory-budget-bytes")
 		{
 			options.hasMemoryBudget = true;
@@ -528,6 +542,7 @@ Options parseOptions(int argc, char** argv)
 					  << "--source-pack-dir DIR --output-tsv PATH "
 					  << "[--json-output PATH] "
 					  << "[--kernel-mode serial|parallel-score] [--device ID] "
+					  << "[--repeat-count N] "
 					  << "[--memory-budget-bytes N]\n";
 			std::exit(0);
 		}
@@ -545,6 +560,7 @@ Options parseOptions(int argc, char** argv)
 	{
 		throw std::runtime_error("--kernel-mode must be serial or parallel-score");
 	}
+	if (options.repeatCount <= 0) throw std::runtime_error("--repeat-count must be > 0");
 	return options;
 }
 
@@ -1000,6 +1016,7 @@ void writeJson(const std::string& path, const Options& options,
 		   << "  \"backend\": \"cuda\",\n"
 		   << "  \"kernel_mode\": \"" << jsonEscape(summary.kernelMode) << "\",\n"
 		   << "  \"parallel_threads\": " << summary.parallelThreads << ",\n"
+		   << "  \"repeat_count\": " << summary.repeatCount << ",\n"
 		   << "  \"source_pack_dir\": \"" << jsonEscape(options.packDir) << "\",\n"
 		   << "  \"output_tsv\": \"" << jsonEscape(options.outputTsv) << "\",\n"
 		   << "  \"device\": " << summary.device << ",\n"
@@ -1022,8 +1039,26 @@ void writeJson(const std::string& path, const Options& options,
 		   << "    \"device_to_host\": " << summary.deviceToHostMs << ",\n"
 		   << "    \"write_output\": " << summary.writeMs << ",\n"
 		   << "    \"total\": " << summary.totalMs << "\n"
-		   << "  }\n"
-		   << "}\n";
+		   << "  }";
+	if (!summary.requestTimings.empty())
+	{
+		output << ",\n"
+			   << "  \"request_timings_ms\": [\n";
+		for (size_t i = 0; i < summary.requestTimings.size(); ++i)
+		{
+			const RequestTiming& timing = summary.requestTimings[i];
+			output << "    {\n"
+				   << "      \"request_ordinal\": " << i << ",\n"
+				   << "      \"reset\": " << timing.resetMs << ",\n"
+				   << "      \"kernel\": " << timing.kernelMs << ",\n"
+				   << "      \"device_to_host\": " << timing.deviceToHostMs << ",\n"
+				   << "      \"request_total\": " << timing.requestTotalMs << ",\n"
+				   << "      \"output_records\": " << timing.outputRecords << "\n"
+				   << "    }" << (i + 1 == summary.requestTimings.size() ? "\n" : ",\n");
+		}
+		output << "  ]";
+	}
+	output << "\n}\n";
 }
 
 void writeErrorJson(const std::string& path, const Options& options,
@@ -1037,6 +1072,7 @@ void writeErrorJson(const std::string& path, const Options& options,
 		   << "  \"status\": \"error\",\n"
 		   << "  \"backend\": \"cuda\",\n"
 		   << "  \"kernel_mode\": \"" << jsonEscape(options.kernelMode) << "\",\n"
+		   << "  \"repeat_count\": " << options.repeatCount << ",\n"
 		   << "  \"source_pack_dir\": \"" << jsonEscape(options.packDir) << "\",\n"
 		   << "  \"output_tsv\": \"" << jsonEscape(options.outputTsv) << "\",\n"
 		   << "  \"error\": \"" << jsonEscape(message) << "\"\n"
@@ -1056,6 +1092,7 @@ int main(int argc, char** argv)
 		summary.kernelMode = options.kernelMode;
 		summary.parallelThreads = options.kernelMode == "parallel-score" ?
 								  kParallelScoreThreads : 1;
+		summary.repeatCount = options.repeatCount;
 
 		auto parseStart = Clock::now();
 		std::vector<QuerySummary> queries;
@@ -1274,54 +1311,77 @@ int main(int argc, char** argv)
 			"initialize full query-hit device status");
 		summary.hostToDeviceMs = elapsedMs(h2dStart, Clock::now());
 
-		auto kernelStart = Clock::now();
-		if (options.kernelMode == "serial")
-		{
-			replayFullQueryHitGroupsKernel<<<static_cast<int32_t>(groups.size()), 1>>>(
-				dMatches.get(), dGroups.get(), static_cast<int32_t>(groups.size()),
-				dScore.get(), dBacktrack.get(), dOrder.get(), dProposals.get(),
-				dProposalCounts.get(), dOutput.get(), dOutputCounts.get(),
-				dStatus.get());
-		}
-		else
-		{
-			replayFullQueryHitGroupsParallelScoreKernel
-				<<<static_cast<int32_t>(groups.size()), kParallelScoreThreads>>>(
-					dMatches.get(), dGroups.get(),
-					static_cast<int32_t>(groups.size()), dScore.get(),
-					dBacktrack.get(), dOrder.get(), dProposals.get(),
-					dProposalCounts.get(), dOutput.get(), dOutputCounts.get(),
-					dStatus.get());
-		}
-		cuflye::cuda_raii::checkCuda(
-			cudaGetLastError(), "launch full query-hit replay kernel");
-		cuflye::cuda_raii::checkCuda(
-			cudaDeviceSynchronize(), "synchronize full query-hit replay kernel");
-		summary.kernelMs = elapsedMs(kernelStart, Clock::now());
-
-		auto d2hStart = Clock::now();
 		DeviceStatus status{};
-		cuflye::cuda_raii::checkCuda(
-			cudaMemcpy(outputRows.data(), dOutput.get(),
-					   checkedBytes(outputRows.size(), sizeof(OverlapRecord),
-									"copy output rows"),
-					   cudaMemcpyDeviceToHost),
-			"copy full query-hit output rows to host");
-		cuflye::cuda_raii::checkCuda(
-			cudaMemcpy(outputCounts.data(), dOutputCounts.get(),
-					   checkedBytes(outputCounts.size(), sizeof(int32_t),
-									"copy output counts"),
-					   cudaMemcpyDeviceToHost),
-			"copy full query-hit output counts to host");
-		cuflye::cuda_raii::checkCuda(
-			cudaMemcpy(&status, dStatus.get(), sizeof(DeviceStatus),
-					   cudaMemcpyDeviceToHost),
-			"copy full query-hit status to host");
-		summary.deviceToHostMs = elapsedMs(d2hStart, Clock::now());
-		if (status.errorCode != 0)
+		for (int requestIdx = 0; requestIdx < options.repeatCount; ++requestIdx)
 		{
-			throw std::runtime_error("device full query-hit kernel reported an error");
+			RequestTiming requestTiming;
+			auto requestStart = Clock::now();
+
+			auto resetStart = Clock::now();
+			cuflye::cuda_raii::checkCuda(
+				cudaMemcpy(dStatus.get(), &zeroStatus, sizeof(DeviceStatus),
+						   cudaMemcpyHostToDevice),
+				"reset full query-hit device status");
+			requestTiming.resetMs = elapsedMs(resetStart, Clock::now());
+
+			auto kernelStart = Clock::now();
+			if (options.kernelMode == "serial")
+			{
+				replayFullQueryHitGroupsKernel
+					<<<static_cast<int32_t>(groups.size()), 1>>>(
+						dMatches.get(), dGroups.get(),
+						static_cast<int32_t>(groups.size()), dScore.get(),
+						dBacktrack.get(), dOrder.get(), dProposals.get(),
+						dProposalCounts.get(), dOutput.get(), dOutputCounts.get(),
+						dStatus.get());
+			}
+			else
+			{
+				replayFullQueryHitGroupsParallelScoreKernel
+					<<<static_cast<int32_t>(groups.size()), kParallelScoreThreads>>>(
+						dMatches.get(), dGroups.get(),
+						static_cast<int32_t>(groups.size()), dScore.get(),
+						dBacktrack.get(), dOrder.get(), dProposals.get(),
+						dProposalCounts.get(), dOutput.get(), dOutputCounts.get(),
+						dStatus.get());
+			}
+			cuflye::cuda_raii::checkCuda(
+				cudaGetLastError(), "launch full query-hit replay kernel");
+			cuflye::cuda_raii::checkCuda(
+				cudaDeviceSynchronize(), "synchronize full query-hit replay kernel");
+			requestTiming.kernelMs = elapsedMs(kernelStart, Clock::now());
+
+			auto d2hStart = Clock::now();
+			cuflye::cuda_raii::checkCuda(
+				cudaMemcpy(outputRows.data(), dOutput.get(),
+						   checkedBytes(outputRows.size(), sizeof(OverlapRecord),
+										"copy output rows"),
+						   cudaMemcpyDeviceToHost),
+				"copy full query-hit output rows to host");
+			cuflye::cuda_raii::checkCuda(
+				cudaMemcpy(outputCounts.data(), dOutputCounts.get(),
+						   checkedBytes(outputCounts.size(), sizeof(int32_t),
+										"copy output counts"),
+						   cudaMemcpyDeviceToHost),
+				"copy full query-hit output counts to host");
+			cuflye::cuda_raii::checkCuda(
+				cudaMemcpy(&status, dStatus.get(), sizeof(DeviceStatus),
+						   cudaMemcpyDeviceToHost),
+				"copy full query-hit status to host");
+			requestTiming.deviceToHostMs = elapsedMs(d2hStart, Clock::now());
+			requestTiming.requestTotalMs = elapsedMs(requestStart, Clock::now());
+			requestTiming.outputRecords = status.outputRecords;
+			summary.requestTimings.push_back(requestTiming);
+			if (status.errorCode != 0)
+			{
+				throw std::runtime_error(
+					"device full query-hit kernel reported an error");
+			}
 		}
+		const RequestTiming& finalRequest = summary.requestTimings.back();
+		summary.kernelMs = finalRequest.kernelMs;
+		summary.deviceToHostMs = finalRequest.deviceToHostMs;
+		summary.outputRecords = finalRequest.outputRecords;
 
 		std::vector<OverlapRecord> finalRows;
 		finalRows.reserve(static_cast<size_t>(status.outputRecords));

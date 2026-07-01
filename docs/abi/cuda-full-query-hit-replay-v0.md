@@ -15,8 +15,9 @@ boundary. It consumes a validated
 records with row keys compatible with the M6g CPU replay oracle.
 
 M6h is a correctness boundary. M6i adds an optional `parallel-score` kernel
-mode for the same ABI. Neither mode feeds CUDA output into Flye graph logic or
-claims whole-Flye acceleration.
+mode for the same ABI. M6j adds a bounded `--repeat-count` warm-session
+benchmark mode for the same selected source-pack shape. None of these modes
+feed CUDA output into Flye graph logic or claim whole-Flye acceleration.
 
 ## Command
 
@@ -27,6 +28,7 @@ cuflye-cuda-full-query-hit-replay \
   [--json-output PATH] \
   [--kernel-mode serial|parallel-score] \
   [--device ID] \
+  [--repeat-count N] \
   [--memory-budget-bytes N]
 ```
 
@@ -63,6 +65,12 @@ This remains intentionally conservative. The accepted proof requires CPU vs
 CUDA and serial vs parallel canonical row-key `match` before any stronger claim
 is allowed.
 
+`--repeat-count N` keeps parsed input, CUDA context, and device buffers alive
+inside one process, then launches the selected kernel `N` times. It writes only
+the final request's TSV output, and JSON records per-request reset, kernel,
+device-to-host, and request-total timings. This is a benchmark harness for the
+future worker boundary, not a long-lived JSONL worker.
+
 ## Output TSV
 
 `--output-tsv` writes `cuflye-read-to-graph-raw-overlap-v0` rows. The M6h
@@ -91,6 +99,7 @@ uses a different tie order; CUDA A/B row order is deterministic.
   "backend": "cuda",
   "kernel_mode": "parallel-score",
   "parallel_threads": 128,
+  "repeat_count": 5,
   "source_pack_dir": "...",
   "output_tsv": "...",
   "device": 0,
@@ -105,7 +114,17 @@ uses a different tie order; CUDA A/B row order is deterministic.
   "timing_ms": {
     "kernel": 52.542531,
     "total": 311.103565
-  }
+  },
+  "request_timings_ms": [
+    {
+      "request_ordinal": 0,
+      "reset": 0.003760,
+      "kernel": 52.544731,
+      "device_to_host": 0.031712,
+      "request_total": 52.580331,
+      "output_records": 36
+    }
+  ]
 }
 ```
 
@@ -115,7 +134,7 @@ be attributed to the selected backend shape.
 
 ## Non-Goals
 
-M6h/M6i do not:
+M6h/M6i/M6j do not:
 
 - reproduce non-key raw-overlap fields such as `edge_id` or full
   `seq_divergence` parity;

@@ -11,13 +11,16 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m6j-persistent-full-query-hit-replay-session.md`:
-  move the M6i full-query-hit replay path into a warm session proof so repeated
-  requests avoid cold CUDA process and context setup while preserving canonical
-  row-key parity and fail-closed behavior.
+- `2026-07-01-cuflye-m6k-full-query-hit-worker-seam.md`:
+  convert the M6j warm repeat-count benchmark into a real worker or Flye-side
+  dry-run seam while preserving row-key parity and fail-closed behavior.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m6j-persistent-full-query-hit-replay-session.md`:
+  add a `--repeat-count` warm-session benchmark mode that preserves canonical
+  row-key parity and shows the bounded warm CUDA request is faster than the
+  matched CPU replay on the selected full-query-hit pack.
 - `2026-07-01-cuflye-m6i-parallel-full-query-hit-replay-benchmark.md`:
   add a `parallel-score` CUDA kernel mode that preserves M6h canonical row-key
   parity, deterministic CUDA A/B output, and fail-closed memory-budget

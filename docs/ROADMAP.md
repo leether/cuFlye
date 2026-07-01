@@ -374,6 +374,16 @@ Completed:
   time improved from `0.48s` to `0.43s`, but CPU replay remained faster at
   about `0.11s`. This is a bounded kernel-parallelism proof, not a whole-Flye
   speed claim.
+- M6j: the full-query-hit replay consumer now supports `--repeat-count` as a
+  warm-session benchmark harness. It keeps one process, CUDA context, and
+  device-buffer set alive across repeated `parallel-score` requests while
+  preserving CPU-vs-session row-key `match`, cold-vs-session row-key `match`,
+  session A/B row-key `match`, and fail-closed memory-budget rejection. On the
+  selected source pack, the best warm request total was `52.199131 ms` versus
+  CPU replay wall time `90.0 ms`, a bounded hot-request speedup of
+  `1.7241666341150392x`. The cold CUDA process was still slower at about
+  `470 ms`, so this is a scoped session hot-path claim, not a whole-Flye
+  speedup claim.
 
 Current allowed performance claim:
 
@@ -536,6 +546,12 @@ same canonical row-key set as the M6h serial CUDA path. It gives a small
 bounded CUDA improvement on the selected pack, but CPU replay is still faster,
 so the next performance claim must come from warm session overhead reduction or
 larger supported work.
+
+cuFlye now has that first warm-session full-query-hit replay proof: with CUDA
+context and device buffers kept warm, the bounded `parallel-score` request beats
+the matched CPU replay wall time for the selected source pack while preserving
+canonical row-key parity. This is a hot-request claim, not a cold-process,
+Flye-stage, or whole-Flye claim.
 ```
 
 Current forbidden claim:
@@ -2974,10 +2990,71 @@ whole cold CUDA run is still slower than CPU. The next useful move is to keep
 the CUDA process warm instead of paying setup cost on every request.
 ```
 
+M6j accepted result:
+
+```text
+cuFlye now has a warm-session benchmark mode for the selected full-query-hit
+CUDA replay path. It keeps one process, CUDA context, and device-buffer set
+alive across repeated `parallel-score` requests and records per-request timing.
+```
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m6j-proof-20260701T073041Z
+golden=tests/golden/cuflye-m6j-persistent-full-query-hit-replay-session-dgx-aarch64.json
+source_pack_canonical_sha256=16f4ced6054e7e4491071a1a7512760424a1e4fbc157e532ddb7c9e2aac53e5f
+cpu_replay_status=match
+cpu_row_key_exact_match=true
+cpu_replay_wall_ms=90.0
+cold_parallel_kernel_mode=parallel-score
+cold_parallel_repeat_count=1
+cold_parallel_wall_ms=470.0
+cold_parallel_total_ms=355.993331
+session_parallel_repeat_count=5
+session_warm_request_total_best_ms=52.199131
+session_warm_request_total_mean_ms=52.200286750000004
+session_warm_kernel_best_ms=52.174907
+cpu_vs_session_row_key_diff=match
+cold_vs_session_row_key_diff=match
+session_ab_row_key_diff=match
+unsupported_exit_status=2
+unsupported_json_status=error
+unsupported_repeat_count=5
+bounded_hot_request_speedup_vs_cpu_replay_wall=1.7241666341150392
+```
+
+Allowed M6j claim:
+
+```text
+cuFlye can run a bounded warm full-query-hit CUDA request faster than the
+matched CPU replay wall time for the selected source pack while preserving
+canonical raw-overlap row-key parity.
+```
+
+Forbidden M6j claim:
+
+```text
+M6j does not prove cold-process CUDA speedup, full non-key field reproduction,
+Flye graph consumption, default GPU mode, Flye-stage speedup, or whole-Flye
+speedup.
+```
+
+Plain-language benefit:
+
+```text
+M6j is the first clean win for this read-to-graph full-query-hit boundary:
+when CUDA stays warm, one request takes about 52.199 ms versus about 90 ms for
+the matched CPU replay. The important caveat is that the full cold process is
+still slower. So the engineering lesson is clear: the GPU work can win, but
+only if we expose it through a warm worker/session seam instead of launching a
+fresh CUDA process each time.
+```
+
 Next highest-ROI task:
 
 ```text
-M6j: move the full-query-hit replay path into a warm worker/session proof so
-repeated requests avoid cold CUDA process and context setup while preserving
-the same row-key parity and fail-closed gates.
+M6k: convert the M6j warm repeat-count benchmark into a real worker or
+Flye-side dry-run seam while preserving the same row-key parity, fail-closed
+behavior, and bounded hot-request timing advantage.
 ```
