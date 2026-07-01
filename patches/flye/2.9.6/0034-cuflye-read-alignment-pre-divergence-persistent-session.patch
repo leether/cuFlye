@@ -1,0 +1,471 @@
+diff --git a/src/repeat_graph/read_aligner.cpp b/src/repeat_graph/read_aligner.cpp
+index 9f70f9c..0a25059 100644
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -6,9 +6,11 @@
+ #include "../sequence/alignment.h"
+ #include "../common/parallel.h"
+ #include <algorithm>
++#include <cctype>
+ #include <cerrno>
+ #include <chrono>
+ #include <cmath>
++#include <cstdio>
+ #include <cstring>
+ #include <cstdlib>
+ #include <fstream>
+@@ -17,6 +19,7 @@
+ #include <mutex>
+ #include <queue>
+ #include <sstream>
++#include <thread>
+ #include <unordered_set>
+ #include <sys/stat.h>
+ #include <sys/types.h>
+@@ -298,8 +301,20 @@ namespace
+ 		std::string stderrLog;
+ 		std::string auditJson;
+ 		std::string workerCommand;
++		std::string workerLifecycleMode;
++		std::string workerSessionDir;
++		std::string workerRequestJson;
++		std::string workerResponseJson;
++		std::string workerWarmupRequestJson;
++		std::string workerWarmupResponseJson;
++		std::string workerSessionSubmitPath;
++		std::string workerSessionDonePath;
++		std::string workerWarmupSessionSubmitPath;
++		std::string workerWarmupSessionDonePath;
+ 		int workerExitStatus = 1;
+ 		double workerWallMs = 0.0;
++		double workerWarmupWallMs = 0.0;
++		double workerActualWallMs = 0.0;
+ 		bool attempted = false;
+ 		bool matched = false;
+ 		bool failedClosed = false;
+@@ -558,6 +573,8 @@ namespace
+ 		return quoted;
+ 	}
+ 
++	std::string readAlignmentWorkerFileSessionDir();
++
+ 	void writeReadAlignmentTextFile(const std::string& path,
+ 									const std::string& text)
+ 	{
+@@ -570,6 +587,85 @@ namespace
+ 		output << text;
+ 	}
+ 
++	std::string readAlignmentTextFile(const std::string& path)
++	{
++		std::ifstream input(path);
++		if (!input)
++		{
++			throw std::runtime_error("Can't open cuFlye read alignment input file: " +
++									 path);
++		}
++		std::ostringstream buffer;
++		buffer << input.rdbuf();
++		return buffer.str();
++	}
++
++	void renameReadAlignmentPath(const std::string& from,
++								 const std::string& to)
++	{
++		if (std::rename(from.c_str(), to.c_str()) != 0)
++		{
++			throw std::runtime_error("cuFlye read alignment worker seam cannot rename " +
++									 from + " to " + to + ": " +
++									 std::strerror(errno));
++		}
++	}
++
++	void waitForReadAlignmentReadableFile(const std::string& path,
++										  const std::string& label,
++										  unsigned long timeoutMs,
++										  unsigned long pollMs)
++	{
++		auto waitStart = std::chrono::steady_clock::now();
++		while (!readableFile(path))
++		{
++			if (readAlignmentElapsedMs(waitStart,
++									   std::chrono::steady_clock::now()) >
++				static_cast<double>(timeoutMs))
++			{
++				throw std::runtime_error(
++					"cuFlye read alignment worker seam timed out waiting for " +
++					label + ": " + path);
++			}
++			std::this_thread::sleep_for(std::chrono::milliseconds(pollMs));
++		}
++	}
++
++	std::string readAlignmentWorkerFileSessionInboxDir()
++	{
++		return joinReplayPath(readAlignmentWorkerFileSessionDir(), "inbox");
++	}
++
++	std::string readAlignmentWorkerFileSessionDoneDir()
++	{
++		return joinReplayPath(readAlignmentWorkerFileSessionDir(), "done");
++	}
++
++	void submitReadAlignmentWorkerFileSessionRequest(
++		const std::string& requestId,
++		const std::string& requestJson,
++		const std::string& sessionSubmitPath,
++		std::string& readyPath,
++		std::string& donePath)
++	{
++		std::string readyName = requestId + ".ready";
++		std::string pendingPath = joinReplayPath(
++			readAlignmentWorkerFileSessionInboxDir(), readyName + ".pending");
++		readyPath = joinReplayPath(readAlignmentWorkerFileSessionInboxDir(),
++									readyName);
++		donePath = joinReplayPath(readAlignmentWorkerFileSessionDoneDir(),
++								  readyName + ".done");
++		writeReadAlignmentTextFile(pendingPath, requestJson + "\n");
++		renameReadAlignmentPath(pendingPath, readyPath);
++		writeReadAlignmentTextFile(
++			sessionSubmitPath,
++			"schema=cuflye-read-alignment-worker-session-submit-v0\n"
++			"request_id=" + requestId + "\n"
++			"request_json=" + requestJson + "\n"
++			"ready_file=" + readyPath + "\n"
++			"done_file=" + donePath + "\n");
++	}
++
+ 	std::vector<std::string> readCanonicalAlignmentRows(const std::string& path)
+ 	{
+ 		std::ifstream input(path);
+@@ -1182,6 +1278,75 @@ namespace
+ 		return std::string(raw);
+ 	}
+ 
++	std::string readAlignmentWorkerLifecycleMode()
++	{
++		static std::string mode = []()
++		{
++			const char* raw =
++				std::getenv("CUFLYE_READ_ALIGNMENT_WORKER_LIFECYCLE_MODE");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "session-file-v0")
++			{
++				throw std::runtime_error(
++					"Unsupported "
++					"CUFLYE_READ_ALIGNMENT_WORKER_LIFECYCLE_MODE: " +
++					selected);
++			}
++			return selected;
++		}();
++		return mode;
++	}
++
++	bool readAlignmentWorkerFileSessionLifecycleEnabled()
++	{
++		return readAlignmentWorkerLifecycleMode() == "session-file-v0";
++	}
++
++	std::string readAlignmentWorkerFileSessionDir()
++	{
++		if (!readAlignmentWorkerFileSessionLifecycleEnabled())
++		{
++			return std::string();
++		}
++		return readAlignmentRequiredEnv("CUFLYE_READ_ALIGNMENT_WORKER_SESSION_DIR");
++	}
++
++	unsigned long parsePositiveReadAlignmentWorkerEnv(const char* name,
++													  unsigned long fallback)
++	{
++		const char* raw = std::getenv(name);
++		if (!raw || !raw[0]) return fallback;
++		std::string text(raw);
++		size_t parsedChars = 0;
++		if (!std::isdigit(static_cast<unsigned char>(text[0])))
++		{
++			throw std::runtime_error(std::string("Unsupported ") + name +
++									 ": expected positive integer, got " + text);
++		}
++		unsigned long parsed = std::stoul(text, &parsedChars);
++		if (parsedChars != text.size() || parsed == 0)
++		{
++			throw std::runtime_error(std::string("Unsupported ") + name +
++									 ": expected positive integer, got " + text);
++		}
++		return parsed;
++	}
++
++	unsigned long readAlignmentWorkerFileSessionPollMs()
++	{
++		static unsigned long pollMs = parsePositiveReadAlignmentWorkerEnv(
++			"CUFLYE_READ_ALIGNMENT_WORKER_SESSION_POLL_MS", 2);
++		return pollMs;
++	}
++
++	unsigned long readAlignmentWorkerFileSessionTimeoutMs()
++	{
++		static unsigned long timeoutMs = parsePositiveReadAlignmentWorkerEnv(
++			"CUFLYE_READ_ALIGNMENT_WORKER_SESSION_TIMEOUT_MS", 600000);
++		return timeoutMs;
++	}
++
+ 	void validateReadAlignmentWorkerConfig()
+ 	{
+ 		if (!readAlignmentWorkerEnabled()) return;
+@@ -1232,7 +1397,18 @@ namespace
+ 				"CUFLYE_READ_ALIGNMENT_REPLAY_QUERY_IDS");
+ 		}
+ 		(void)readAlignmentReplayQueryIds();
+-		(void)readAlignmentRequiredEnv("CUFLYE_READ_ALIGNMENT_WORKER_BIN");
++		(void)readAlignmentWorkerLifecycleMode();
++		if (readAlignmentPreDivergenceBatchDryRunEnabled() &&
++			readAlignmentWorkerFileSessionLifecycleEnabled())
++		{
++			(void)readAlignmentWorkerFileSessionDir();
++			(void)readAlignmentWorkerFileSessionPollMs();
++			(void)readAlignmentWorkerFileSessionTimeoutMs();
++		}
++		else
++		{
++			(void)readAlignmentRequiredEnv("CUFLYE_READ_ALIGNMENT_WORKER_BIN");
++		}
+ 		(void)readAlignmentPreDivergenceChainProofFault();
+ 	}
+ 
+@@ -1269,6 +1445,61 @@ namespace
+ 		writeReadAlignmentTextFile(path, text.str());
+ 	}
+ 
++	void writeReadAlignmentPreDivergenceWorkerRequestJson(
++		const std::string& path,
++		const std::string& requestId,
++		const std::string& fixtureList,
++		const std::string& batchOutputDir,
++		const std::string& batchJson,
++		const std::string& responseJson,
++		size_t expectedFixtureCount)
++	{
++		std::ostringstream json;
++		json << "{\n"
++			 << "  \"schema\": \"cuflye-read-alignment-worker-request-v0\",\n"
++			 << "  \"request_id\": \""
++			 << readAlignmentJsonEscape(requestId) << "\",\n"
++			 << "  \"adapter_mode\": "
++			 << "\"read-alignment-predivergence-batch-v0\",\n"
++			 << "  \"read_alignment_abi\": \"read-alignment-v1\",\n"
++			 << "  \"output_mode\": \"pre-divergence-chains\",\n"
++			 << "  \"backend\": \"cuda\",\n"
++			 << "  \"cuda_execution_mode\": "
++			 << "\"persistent-arena-bulk-output\",\n"
++			 << "  \"device\": "
++			 << readAlignmentOptionalEnv(
++					"CUFLYE_READ_ALIGNMENT_WORKER_DEVICE", "0") << ",\n"
++			 << "  \"batch_fixtures_file\": \""
++			 << readAlignmentJsonEscape(fixtureList) << "\",\n"
++			 << "  \"batch_output_dir\": \""
++			 << readAlignmentJsonEscape(batchOutputDir) << "\",\n"
++			 << "  \"batch_json_output\": \""
++			 << readAlignmentJsonEscape(batchJson) << "\",\n"
++			 << "  \"response_json\": \""
++			 << readAlignmentJsonEscape(responseJson) << "\",\n"
++			 << "  \"allow_heterogeneous_batch\": true,\n"
++			 << "  \"cuda_persistent_arena\": true,\n"
++			 << "  \"cuda_persistent_bulk_output\": true,\n"
++			 << "  \"emit_pre_divergence_chains\": true,\n"
++			 << "  \"warmup_runs\": "
++			 << readAlignmentOptionalEnv(
++					"CUFLYE_READ_ALIGNMENT_WORKER_WARMUP_RUNS", "0") << ",\n"
++			 << "  \"benchmark_runs\": "
++			 << readAlignmentOptionalEnv(
++					"CUFLYE_READ_ALIGNMENT_WORKER_BENCHMARK_RUNS", "1")
++			 << ",\n";
++		std::string memoryBudget = readAlignmentOptionalEnv(
++			"CUFLYE_READ_ALIGNMENT_WORKER_MEMORY_BUDGET_BYTES", "");
++		if (!memoryBudget.empty())
++		{
++			json << "  \"memory_budget_bytes\": " << memoryBudget << ",\n";
++		}
++		json << "  \"expected_fixture_count\": "
++			 << expectedFixtureCount << "\n"
++			 << "}\n";
++		writeReadAlignmentTextFile(path, json.str());
++	}
++
+ 	void writeReadAlignmentWorkerValidationJson(
+ 		const std::string& path,
+ 		const ReadAlignmentWorkerValidationResult& validation)
+@@ -2477,8 +2708,34 @@ namespace
+ 			 << readAlignmentJsonEscape(result.auditJson) << "\",\n"
+ 			 << "  \"worker_command\": \""
+ 			 << readAlignmentJsonEscape(result.workerCommand) << "\",\n"
++			 << "  \"worker_lifecycle_mode\": \""
++			 << readAlignmentJsonEscape(result.workerLifecycleMode) << "\",\n"
++			 << "  \"worker_session_dir\": \""
++			 << readAlignmentJsonEscape(result.workerSessionDir) << "\",\n"
++			 << "  \"worker_request_json\": \""
++			 << readAlignmentJsonEscape(result.workerRequestJson) << "\",\n"
++			 << "  \"worker_response_json\": \""
++			 << readAlignmentJsonEscape(result.workerResponseJson) << "\",\n"
++			 << "  \"worker_warmup_request_json\": \""
++			 << readAlignmentJsonEscape(result.workerWarmupRequestJson) << "\",\n"
++			 << "  \"worker_warmup_response_json\": \""
++			 << readAlignmentJsonEscape(result.workerWarmupResponseJson) << "\",\n"
++			 << "  \"worker_session_submit_path\": \""
++			 << readAlignmentJsonEscape(result.workerSessionSubmitPath) << "\",\n"
++			 << "  \"worker_session_done_path\": \""
++			 << readAlignmentJsonEscape(result.workerSessionDonePath) << "\",\n"
++			 << "  \"worker_warmup_session_submit_path\": \""
++			 << readAlignmentJsonEscape(result.workerWarmupSessionSubmitPath)
++			 << "\",\n"
++			 << "  \"worker_warmup_session_done_path\": \""
++			 << readAlignmentJsonEscape(result.workerWarmupSessionDonePath)
++			 << "\",\n"
+ 			 << "  \"worker_exit_status\": " << result.workerExitStatus << ",\n"
+ 			 << "  \"worker_wall_ms\": " << result.workerWallMs << ",\n"
++			 << "  \"worker_warmup_wall_ms\": "
++			 << result.workerWarmupWallMs << ",\n"
++			 << "  \"worker_actual_wall_ms\": "
++			 << result.workerActualWallMs << ",\n"
+ 			 << "  \"attempted\": "
+ 			 << readAlignmentBoolJson(result.attempted) << ",\n"
+ 			 << "  \"matched\": " << readAlignmentBoolJson(result.matched)
+@@ -2575,6 +2832,11 @@ namespace
+ 		}
+ 		result.mode = readAlignmentPreDivergenceChainMode();
+ 		result.proofFault = readAlignmentPreDivergenceChainProofFault();
++		result.workerLifecycleMode = readAlignmentWorkerLifecycleMode();
++		if (readAlignmentWorkerFileSessionLifecycleEnabled())
++		{
++			result.workerSessionDir = readAlignmentWorkerFileSessionDir();
++		}
+ 		result.status = "failed";
+ 		result.decision = "failed-closed-before-graph-mutation";
+ 		result.failedClosed = true;
+@@ -2590,6 +2852,24 @@ namespace
+ 		result.batchJson =
+ 			joinReplayPath(result.workerOutputRoot,
+ 						   "read-alignment-worker-batch.json");
++		result.workerRequestJson =
++			joinReplayPath(result.workerOutputRoot,
++						   "read-alignment-worker-request.json");
++		result.workerResponseJson =
++			joinReplayPath(result.workerOutputRoot,
++						   "read-alignment-worker-response.json");
++		result.workerWarmupRequestJson =
++			joinReplayPath(result.workerOutputRoot,
++						   "read-alignment-worker-request-warmup.json");
++		result.workerWarmupResponseJson =
++			joinReplayPath(result.workerOutputRoot,
++						   "read-alignment-worker-response-warmup.json");
++		result.workerSessionSubmitPath =
++			joinReplayPath(result.workerOutputRoot,
++						   "read-alignment-worker-session-submit.path");
++		result.workerWarmupSessionSubmitPath =
++			joinReplayPath(result.workerOutputRoot,
++						   "read-alignment-worker-session-submit-warmup.path");
+ 		result.stdoutLog =
+ 			joinReplayPath(result.workerOutputRoot,
+ 						   "read-alignment-worker-stdout.log");
+@@ -2631,6 +2911,100 @@ namespace
+ 		}
+ 		writeReadAlignmentFixtureList(result.fixtureList, queryIds);
+ 
++		if (readAlignmentWorkerFileSessionLifecycleEnabled())
++		{
++			std::string warmupBatchOutputDir = joinReplayPath(
++				result.workerOutputRoot, "read-alignment-output-warmup");
++			std::string warmupBatchJson = joinReplayPath(
++				result.workerOutputRoot, "read-alignment-worker-batch-warmup.json");
++			ensureReplayDirectory(warmupBatchOutputDir);
++			result.workerCommand = "session-file-v0";
++
++			waitForReadAlignmentReadableFile(
++				joinReplayPath(readAlignmentWorkerFileSessionDir(),
++							   "session-ready.json"),
++				"read alignment worker session ready JSON",
++				readAlignmentWorkerFileSessionTimeoutMs(),
++				readAlignmentWorkerFileSessionPollMs());
++
++			writeReadAlignmentPreDivergenceWorkerRequestJson(
++				result.workerWarmupRequestJson,
++				"read-alignment-predivergence-warmup",
++				result.fixtureList,
++				warmupBatchOutputDir,
++				warmupBatchJson,
++				result.workerWarmupResponseJson,
++				result.fixtures.size());
++			auto warmupStart = std::chrono::steady_clock::now();
++			std::string warmupReadyPath;
++			submitReadAlignmentWorkerFileSessionRequest(
++				"read-alignment-predivergence-warmup",
++				result.workerWarmupRequestJson,
++				result.workerWarmupSessionSubmitPath,
++				warmupReadyPath,
++				result.workerWarmupSessionDonePath);
++			waitForReadAlignmentReadableFile(
++				result.workerWarmupSessionDonePath,
++				"read alignment worker warmup session done file",
++				readAlignmentWorkerFileSessionTimeoutMs(),
++				readAlignmentWorkerFileSessionPollMs());
++			result.workerWarmupWallMs = readAlignmentElapsedMs(
++				warmupStart, std::chrono::steady_clock::now());
++			std::string warmupDoneText =
++				readAlignmentTextFile(result.workerWarmupSessionDonePath);
++			if (warmupDoneText.find("status=ok\n") != 0)
++			{
++				throw std::runtime_error(
++					"CUDA read-alignment pre-divergence session warmup "
++					"failed; done_file=" + result.workerWarmupSessionDonePath);
++			}
++			waitForReadAlignmentReadableFile(
++				result.workerWarmupResponseJson,
++				"read alignment worker warmup response JSON",
++				readAlignmentWorkerFileSessionTimeoutMs(),
++				readAlignmentWorkerFileSessionPollMs());
++
++			writeReadAlignmentPreDivergenceWorkerRequestJson(
++				result.workerRequestJson,
++				"read-alignment-predivergence-actual",
++				result.fixtureList,
++				result.batchOutputDir,
++				result.batchJson,
++				result.workerResponseJson,
++				result.fixtures.size());
++			auto actualStart = std::chrono::steady_clock::now();
++			std::string actualReadyPath;
++			submitReadAlignmentWorkerFileSessionRequest(
++				"read-alignment-predivergence-actual",
++				result.workerRequestJson,
++				result.workerSessionSubmitPath,
++				actualReadyPath,
++				result.workerSessionDonePath);
++			waitForReadAlignmentReadableFile(
++				result.workerSessionDonePath,
++				"read alignment worker actual session done file",
++				readAlignmentWorkerFileSessionTimeoutMs(),
++				readAlignmentWorkerFileSessionPollMs());
++			result.workerActualWallMs = readAlignmentElapsedMs(
++				actualStart, std::chrono::steady_clock::now());
++			result.workerWallMs = result.workerActualWallMs;
++			std::string actualDoneText =
++				readAlignmentTextFile(result.workerSessionDonePath);
++			if (actualDoneText.find("status=ok\n") != 0)
++			{
++				throw std::runtime_error(
++					"CUDA read-alignment pre-divergence session actual "
++					"request failed; done_file=" + result.workerSessionDonePath);
++			}
++			waitForReadAlignmentReadableFile(
++				result.workerResponseJson,
++				"read alignment worker actual response JSON",
++				readAlignmentWorkerFileSessionTimeoutMs(),
++				readAlignmentWorkerFileSessionPollMs());
++			result.workerExitStatus = 0;
++			return;
++		}
++
+ 		std::string workerBin =
+ 			readAlignmentRequiredEnv("CUFLYE_READ_ALIGNMENT_WORKER_BIN");
+ 		result.workerCommand = readAlignmentShellQuote(workerBin) +

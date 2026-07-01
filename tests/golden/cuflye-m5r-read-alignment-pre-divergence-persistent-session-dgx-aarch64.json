@@ -1,0 +1,66 @@
+{
+  "architecture": "aarch64",
+  "artifacts": {
+    "cuda_build_manifest": "/tmp/cuflye-m5r-proof-20260701T032358Z/out/m5r/build/cuda-read-alignment-chain-replay-build.json",
+    "flye_build_manifest": "/tmp/cuflye-m5r-proof-20260701T032358Z/out/m5r/build/flye-build.json",
+    "full3546_cpu_batch_json": "/tmp/cuflye-m5r-proof-20260701T032358Z/out/m5r/full3546-cpu/batch.json",
+    "full3546_session_actual_response_json": "/tmp/cuflye-m5r-proof-20260701T032358Z/out/m5r/full3546-session/actual-response.json",
+    "negative_audit_json": "/tmp/cuflye-m5r-proof-20260701T032358Z/out/m5r/flye-negative-session-batch64/read-alignment-replay-fixtures/predivergence-batch-worker/read-alignment-predivergence-batch-dry-run.json",
+    "positive_audit_json": "/tmp/cuflye-m5r-proof-20260701T032358Z/out/m5r/flye-positive-session-batch64/read-alignment-replay-fixtures/predivergence-batch-worker/read-alignment-predivergence-batch-dry-run.json",
+    "positive_canonical_diff_json": "/tmp/cuflye-m5r-proof-20260701T032358Z/out/m5r/flye-positive-session-batch64/canonical-diff.json",
+    "positive_worker_response_json": "/tmp/cuflye-m5r-proof-20260701T032358Z/out/m5r/flye-positive-session-batch64/read-alignment-replay-fixtures/predivergence-batch-worker/read-alignment-worker-response.json"
+  },
+  "comparison": {
+    "full3546_cuda_backend_speedup_vs_cpu": 1.366772619330723,
+    "m5q_fresh_worker_wall_ms": 435.505899,
+    "selected_batch64_request_total_improvement_vs_m5q_fresh_process": 158.31281862067965,
+    "selected_batch64_worker_wall_improvement_vs_m5q_fresh_process": 105.21140901414017
+  },
+  "fixture": "toy-hifi",
+  "host": "dgx",
+  "negative": {
+    "decision": "failed-closed-before-graph-mutation",
+    "failed_closed": true,
+    "fixture_count": 64,
+    "graph_mutation_consumed_worker_output": false,
+    "matched": false,
+    "matched_fixture_count": 63,
+    "mismatched_fixture_count": 1,
+    "proof_fault_applied": true,
+    "status": "failed",
+    "worker_actual_wall_ms": 41.56514
+  },
+  "positive": {
+    "actual_response_arena_cache_hit": true,
+    "actual_response_backend_mean_total_before_json_ms": 0.995699,
+    "actual_response_context_warm": true,
+    "actual_response_request_ordinal": 2,
+    "actual_response_request_total_ms": 2.75092,
+    "actual_response_worker_overhead_ms": 1.755221,
+    "canonical_diff": "match",
+    "fixture_count": 64,
+    "graph_mutation_consumed_worker_output": false,
+    "matched": true,
+    "matched_fixture_count": 64,
+    "mismatched_fixture_count": 0,
+    "status": "passed",
+    "warmup_response_arena_cache_hit": false,
+    "warmup_response_request_ordinal": 1,
+    "worker_actual_wall_ms": 4.139341,
+    "worker_lifecycle_mode": "session-file-v0",
+    "worker_wall_ms": 4.139341,
+    "worker_warmup_wall_ms": 6.173764
+  },
+  "proof_root": "/tmp/cuflye-m5r-proof-20260701T032358Z",
+  "schema": "cuflye-m5r-read-alignment-pre-divergence-persistent-session-proof-v0",
+  "selected_query_count": 64,
+  "standalone_full3546": {
+    "cpu_backend_mean_total_before_json_ms": 0.408065,
+    "cuda_session_arena_cache_hit": true,
+    "cuda_session_backend_mean_total_before_json_ms": 0.298561,
+    "cuda_session_request_ordinal": 2,
+    "cuda_session_request_total_ms": 91.698238,
+    "fixture_count": 3546
+  },
+  "status": "accepted"
+}

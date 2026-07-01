@@ -2110,3 +2110,78 @@ long-lived session/persistent worker proof so selected batches can reuse CUDA
 context and arena across Flye calls, then re-measure batch64 and larger
 selected-read integration timing.
 ```
+
+M5r accepted result:
+
+```text
+cuFlye can run the selected Flye read-alignment pre-divergence batch through a
+long-lived file-backed CUDA session. The actual Flye-side batch64 request is
+the second session request, hits the cached CUDA arena, preserves exact
+canonical Flye artifacts, and fails closed on an injected mismatch.
+```
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m5r-proof-20260701T032358Z
+golden=tests/golden/cuflye-m5r-read-alignment-pre-divergence-persistent-session-dgx-aarch64.json
+positive_selected_query_count=64
+positive_status=passed
+positive_matched_fixture_count=64
+positive_canonical_diff=match
+positive_worker_lifecycle_mode=session-file-v0
+positive_worker_warmup_wall_ms=6.173764
+positive_worker_actual_wall_ms=4.139341
+positive_actual_response_request_ordinal=2
+positive_actual_response_arena_cache_hit=true
+positive_actual_response_request_total_ms=2.750920
+m5q_fresh_worker_wall_ms=435.505899
+selected_batch64_worker_wall_improvement_vs_m5q=105.211409x
+selected_batch64_request_total_improvement_vs_m5q=158.312819x
+negative_fault=drop-first-gpu-good-chain
+negative_status=failed
+negative_failed_closed=true
+negative_matched_fixture_count=63
+negative_mismatched_fixture_count=1
+negative_graph_mutation_consumed_worker_output=false
+full3546_cpu_backend_mean_total_before_json_ms=0.408065
+full3546_cuda_session_backend_mean_total_before_json_ms=0.298561
+full3546_cuda_backend_speedup_vs_cpu=1.366773x
+full3546_cuda_session_request_total_ms=91.698238
+```
+
+Allowed M5r claim:
+
+```text
+M5r proves that a long-lived CUDA session removes the fresh-process/context
+setup blocker for the selected pre-divergence read-alignment batch seam, and
+that the full3546 scoped backend hot path is faster on CUDA than CPU.
+```
+
+Forbidden M5r claim:
+
+```text
+M5r still does not prove full Flye acceleration, default GPU mode, broad
+_readAlignments replacement, CUDA minimizer overlap discovery, or replacement
+of Flye's CPU divergence/base-alignment stages. Full request time for full3546
+is still dominated by per-fixture TSV/JSON output.
+```
+
+Plain-language benefit:
+
+```text
+M5r finally separates the real GPU win from the integration tax. For the
+Flye-selected 64-read proof, session mode cuts the worker wall segment from
+435.505899 ms to 4.139341 ms while keeping exact artifacts. For the larger
+3546-fixture backend hot path, CUDA beats CPU by 1.366773x. The remaining
+problem is no longer CUDA setup; it is host-side output materialization.
+```
+
+Next highest-ROI task:
+
+```text
+M5s: reduce or bypass per-fixture TSV/JSON emission for the session path by
+returning a compact verified object-vector or shared artifact payload, then
+measure whether the graph-facing read-alignment path keeps the full3546 CUDA
+backend advantage after host output overhead is removed.
+```

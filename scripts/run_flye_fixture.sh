@@ -44,6 +44,14 @@ Options:
                        Set CUFLYE_READ_ALIGNMENT_WORKER_MEMORY_BUDGET_BYTES
   --read-alignment-worker-validation-mode MODE
                        Set CUFLYE_READ_ALIGNMENT_WORKER_VALIDATION_MODE
+  --read-alignment-worker-lifecycle-mode MODE
+                       Set CUFLYE_READ_ALIGNMENT_WORKER_LIFECYCLE_MODE
+  --read-alignment-worker-session-dir PATH
+                       Set CUFLYE_READ_ALIGNMENT_WORKER_SESSION_DIR
+  --read-alignment-worker-session-poll-ms N
+                       Set CUFLYE_READ_ALIGNMENT_WORKER_SESSION_POLL_MS
+  --read-alignment-worker-session-timeout-ms N
+                       Set CUFLYE_READ_ALIGNMENT_WORKER_SESSION_TIMEOUT_MS
   --read-alignment-graph-consumption-mode MODE
                        Set CUFLYE_READ_ALIGNMENT_GRAPH_CONSUMPTION_MODE
   --read-alignment-rehydration-mode MODE
@@ -182,6 +190,10 @@ read_alignment_worker_warmup_runs="${CUFLYE_READ_ALIGNMENT_WORKER_WARMUP_RUNS:-}
 read_alignment_worker_benchmark_runs="${CUFLYE_READ_ALIGNMENT_WORKER_BENCHMARK_RUNS:-}"
 read_alignment_worker_memory_budget_bytes="${CUFLYE_READ_ALIGNMENT_WORKER_MEMORY_BUDGET_BYTES:-}"
 read_alignment_worker_validation_mode="${CUFLYE_READ_ALIGNMENT_WORKER_VALIDATION_MODE:-}"
+read_alignment_worker_lifecycle_mode="${CUFLYE_READ_ALIGNMENT_WORKER_LIFECYCLE_MODE:-}"
+read_alignment_worker_session_dir="${CUFLYE_READ_ALIGNMENT_WORKER_SESSION_DIR:-}"
+read_alignment_worker_session_poll_ms="${CUFLYE_READ_ALIGNMENT_WORKER_SESSION_POLL_MS:-}"
+read_alignment_worker_session_timeout_ms="${CUFLYE_READ_ALIGNMENT_WORKER_SESSION_TIMEOUT_MS:-}"
 read_alignment_graph_consumption_mode="${CUFLYE_READ_ALIGNMENT_GRAPH_CONSUMPTION_MODE:-}"
 read_alignment_rehydration_mode="${CUFLYE_READ_ALIGNMENT_REHYDRATION_MODE:-}"
 read_alignment_rehydration_proof_fault="${CUFLYE_READ_ALIGNMENT_REHYDRATION_PROOF_FAULT:-}"
@@ -322,6 +334,22 @@ while [ "$#" -gt 0 ]; do
       ;;
     --read-alignment-worker-validation-mode)
       read_alignment_worker_validation_mode="$2"
+      shift 2
+      ;;
+    --read-alignment-worker-lifecycle-mode)
+      read_alignment_worker_lifecycle_mode="$2"
+      shift 2
+      ;;
+    --read-alignment-worker-session-dir)
+      read_alignment_worker_session_dir="$2"
+      shift 2
+      ;;
+    --read-alignment-worker-session-poll-ms)
+      read_alignment_worker_session_poll_ms="$2"
+      shift 2
+      ;;
+    --read-alignment-worker-session-timeout-ms)
+      read_alignment_worker_session_timeout_ms="$2"
       shift 2
       ;;
     --read-alignment-graph-consumption-mode)
@@ -716,6 +744,18 @@ fi
 if [ -n "${read_alignment_worker_validation_mode}" ]; then
   export CUFLYE_READ_ALIGNMENT_WORKER_VALIDATION_MODE="${read_alignment_worker_validation_mode}"
 fi
+if [ -n "${read_alignment_worker_lifecycle_mode}" ]; then
+  export CUFLYE_READ_ALIGNMENT_WORKER_LIFECYCLE_MODE="${read_alignment_worker_lifecycle_mode}"
+fi
+if [ -n "${read_alignment_worker_session_dir}" ]; then
+  export CUFLYE_READ_ALIGNMENT_WORKER_SESSION_DIR="${read_alignment_worker_session_dir}"
+fi
+if [ -n "${read_alignment_worker_session_poll_ms}" ]; then
+  export CUFLYE_READ_ALIGNMENT_WORKER_SESSION_POLL_MS="${read_alignment_worker_session_poll_ms}"
+fi
+if [ -n "${read_alignment_worker_session_timeout_ms}" ]; then
+  export CUFLYE_READ_ALIGNMENT_WORKER_SESSION_TIMEOUT_MS="${read_alignment_worker_session_timeout_ms}"
+fi
 if [ -n "${read_alignment_graph_consumption_mode}" ]; then
   export CUFLYE_READ_ALIGNMENT_GRAPH_CONSUMPTION_MODE="${read_alignment_graph_consumption_mode}"
 fi
@@ -868,7 +908,7 @@ if [ -n "${overlap_vector_substitution_proof_fault}" ]; then
 fi
 
 metadata_tmp="${out_dir}/run_metadata.pre.json"
-python3 - "$metadata_tmp" "$repo_root" "$flye_dir" "$fixture" "$reads" "$read_type" "$genome_size" "$min_overlap" "$threads" "$candidate_dump" "$overlap_dump" "$read_alignment_dump" "$read_alignment_replay_dump_dir" "$read_alignment_replay_query_id" "$read_alignment_replay_query_ids" "$read_alignment_worker_mode" "$read_alignment_worker_bin" "$read_alignment_worker_output_dir" "$read_alignment_worker_device" "$read_alignment_worker_warmup_runs" "$read_alignment_worker_benchmark_runs" "$read_alignment_worker_memory_budget_bytes" "$read_alignment_worker_validation_mode" "$read_alignment_graph_consumption_mode" "$read_alignment_rehydration_mode" "$read_alignment_rehydration_proof_fault" "$read_alignment_object_rehydration_mode" "$read_alignment_object_rehydration_proof_fault" "$read_alignment_vector_substitution_mode" "$read_alignment_vector_substitution_proof_fault" "$read_alignment_predivergence_chain_mode" "$read_alignment_predivergence_chain_proof_fault" "$overlap_replay_dump_dir" "$overlap_replay_query_id" "$overlap_replay_query_ids" "$overlap_replay_max_fixtures" "$overlap_replay_stop_after_dump" "$candidate_backend" "$cuda_device" "$cuda_memory_budget_bytes" "$cuda_adapter_mode" "$cuda_backend_bin" "$cuda_packed_fixture_dir" "$cuda_adapter_output_tsv" "$cuda_adapter_json" "$cuda_packed_kmer_size" "$cuda_pack_dump_dir" "$cuda_pack_query_id" "$cuda_stop_after_packed_query" "$overlap_worker_mode" "$overlap_worker_bin" "$overlap_worker_output_dir" "$overlap_worker_device" "$overlap_worker_kernel_mode" "$overlap_worker_warmup_runs" "$overlap_worker_benchmark_runs" "$overlap_worker_memory_budget_bytes" "$overlap_worker_validation_mode" "$overlap_worker_shadow_mode" "$overlap_worker_lifecycle_mode" "$overlap_worker_session_dir" "$overlap_worker_session_poll_ms" "$overlap_worker_session_timeout_ms" "$overlap_graph_consumption_mode" "$overlap_rehydration_mode" "$overlap_rehydration_proof_fault" "$overlap_object_rehydration_mode" "$overlap_object_rehydration_proof_fault" "$overlap_vector_substitution_mode" "$overlap_vector_substitution_ledger_mode" "$overlap_gpu_first_audit_mode" "$overlap_gpu_first_audit_query_ids" "$overlap_vector_substitution_proof_fault" "${cmd[@]}" <<'PY'
+python3 - "$metadata_tmp" "$repo_root" "$flye_dir" "$fixture" "$reads" "$read_type" "$genome_size" "$min_overlap" "$threads" "$candidate_dump" "$overlap_dump" "$read_alignment_dump" "$read_alignment_replay_dump_dir" "$read_alignment_replay_query_id" "$read_alignment_replay_query_ids" "$read_alignment_worker_mode" "$read_alignment_worker_bin" "$read_alignment_worker_output_dir" "$read_alignment_worker_device" "$read_alignment_worker_warmup_runs" "$read_alignment_worker_benchmark_runs" "$read_alignment_worker_memory_budget_bytes" "$read_alignment_worker_validation_mode" "$read_alignment_worker_lifecycle_mode" "$read_alignment_worker_session_dir" "$read_alignment_worker_session_poll_ms" "$read_alignment_worker_session_timeout_ms" "$read_alignment_graph_consumption_mode" "$read_alignment_rehydration_mode" "$read_alignment_rehydration_proof_fault" "$read_alignment_object_rehydration_mode" "$read_alignment_object_rehydration_proof_fault" "$read_alignment_vector_substitution_mode" "$read_alignment_vector_substitution_proof_fault" "$read_alignment_predivergence_chain_mode" "$read_alignment_predivergence_chain_proof_fault" "$overlap_replay_dump_dir" "$overlap_replay_query_id" "$overlap_replay_query_ids" "$overlap_replay_max_fixtures" "$overlap_replay_stop_after_dump" "$candidate_backend" "$cuda_device" "$cuda_memory_budget_bytes" "$cuda_adapter_mode" "$cuda_backend_bin" "$cuda_packed_fixture_dir" "$cuda_adapter_output_tsv" "$cuda_adapter_json" "$cuda_packed_kmer_size" "$cuda_pack_dump_dir" "$cuda_pack_query_id" "$cuda_stop_after_packed_query" "$overlap_worker_mode" "$overlap_worker_bin" "$overlap_worker_output_dir" "$overlap_worker_device" "$overlap_worker_kernel_mode" "$overlap_worker_warmup_runs" "$overlap_worker_benchmark_runs" "$overlap_worker_memory_budget_bytes" "$overlap_worker_validation_mode" "$overlap_worker_shadow_mode" "$overlap_worker_lifecycle_mode" "$overlap_worker_session_dir" "$overlap_worker_session_poll_ms" "$overlap_worker_session_timeout_ms" "$overlap_graph_consumption_mode" "$overlap_rehydration_mode" "$overlap_rehydration_proof_fault" "$overlap_object_rehydration_mode" "$overlap_object_rehydration_proof_fault" "$overlap_vector_substitution_mode" "$overlap_vector_substitution_ledger_mode" "$overlap_gpu_first_audit_mode" "$overlap_gpu_first_audit_query_ids" "$overlap_vector_substitution_proof_fault" "${cmd[@]}" <<'PY'
 import json
 import os
 import platform
@@ -877,7 +917,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 
-metadata_path, repo_root, flye_dir, fixture, reads, read_type, genome_size, min_overlap, threads, candidate_dump, overlap_dump, read_alignment_dump, read_alignment_replay_dump_dir, read_alignment_replay_query_id, read_alignment_replay_query_ids, read_alignment_worker_mode, read_alignment_worker_bin, read_alignment_worker_output_dir, read_alignment_worker_device, read_alignment_worker_warmup_runs, read_alignment_worker_benchmark_runs, read_alignment_worker_memory_budget_bytes, read_alignment_worker_validation_mode, read_alignment_graph_consumption_mode, read_alignment_rehydration_mode, read_alignment_rehydration_proof_fault, read_alignment_object_rehydration_mode, read_alignment_object_rehydration_proof_fault, read_alignment_vector_substitution_mode, read_alignment_vector_substitution_proof_fault, read_alignment_predivergence_chain_mode, read_alignment_predivergence_chain_proof_fault, overlap_replay_dump_dir, overlap_replay_query_id, overlap_replay_query_ids, overlap_replay_max_fixtures, overlap_replay_stop_after_dump, candidate_backend, cuda_device, cuda_memory_budget_bytes, cuda_adapter_mode, cuda_backend_bin, cuda_packed_fixture_dir, cuda_adapter_output_tsv, cuda_adapter_json, cuda_packed_kmer_size, cuda_pack_dump_dir, cuda_pack_query_id, cuda_stop_after_packed_query, overlap_worker_mode, overlap_worker_bin, overlap_worker_output_dir, overlap_worker_device, overlap_worker_kernel_mode, overlap_worker_warmup_runs, overlap_worker_benchmark_runs, overlap_worker_memory_budget_bytes, overlap_worker_validation_mode, overlap_worker_shadow_mode, overlap_worker_lifecycle_mode, overlap_worker_session_dir, overlap_worker_session_poll_ms, overlap_worker_session_timeout_ms, overlap_graph_consumption_mode, overlap_rehydration_mode, overlap_rehydration_proof_fault, overlap_object_rehydration_mode, overlap_object_rehydration_proof_fault, overlap_vector_substitution_mode, overlap_vector_substitution_ledger_mode, overlap_gpu_first_audit_mode, overlap_gpu_first_audit_query_ids, overlap_vector_substitution_proof_fault, *cmd = sys.argv[1:]
+metadata_path, repo_root, flye_dir, fixture, reads, read_type, genome_size, min_overlap, threads, candidate_dump, overlap_dump, read_alignment_dump, read_alignment_replay_dump_dir, read_alignment_replay_query_id, read_alignment_replay_query_ids, read_alignment_worker_mode, read_alignment_worker_bin, read_alignment_worker_output_dir, read_alignment_worker_device, read_alignment_worker_warmup_runs, read_alignment_worker_benchmark_runs, read_alignment_worker_memory_budget_bytes, read_alignment_worker_validation_mode, read_alignment_worker_lifecycle_mode, read_alignment_worker_session_dir, read_alignment_worker_session_poll_ms, read_alignment_worker_session_timeout_ms, read_alignment_graph_consumption_mode, read_alignment_rehydration_mode, read_alignment_rehydration_proof_fault, read_alignment_object_rehydration_mode, read_alignment_object_rehydration_proof_fault, read_alignment_vector_substitution_mode, read_alignment_vector_substitution_proof_fault, read_alignment_predivergence_chain_mode, read_alignment_predivergence_chain_proof_fault, overlap_replay_dump_dir, overlap_replay_query_id, overlap_replay_query_ids, overlap_replay_max_fixtures, overlap_replay_stop_after_dump, candidate_backend, cuda_device, cuda_memory_budget_bytes, cuda_adapter_mode, cuda_backend_bin, cuda_packed_fixture_dir, cuda_adapter_output_tsv, cuda_adapter_json, cuda_packed_kmer_size, cuda_pack_dump_dir, cuda_pack_query_id, cuda_stop_after_packed_query, overlap_worker_mode, overlap_worker_bin, overlap_worker_output_dir, overlap_worker_device, overlap_worker_kernel_mode, overlap_worker_warmup_runs, overlap_worker_benchmark_runs, overlap_worker_memory_budget_bytes, overlap_worker_validation_mode, overlap_worker_shadow_mode, overlap_worker_lifecycle_mode, overlap_worker_session_dir, overlap_worker_session_poll_ms, overlap_worker_session_timeout_ms, overlap_graph_consumption_mode, overlap_rehydration_mode, overlap_rehydration_proof_fault, overlap_object_rehydration_mode, overlap_object_rehydration_proof_fault, overlap_vector_substitution_mode, overlap_vector_substitution_ledger_mode, overlap_gpu_first_audit_mode, overlap_gpu_first_audit_query_ids, overlap_vector_substitution_proof_fault, *cmd = sys.argv[1:]
 
 def run(cmdline):
     try:
@@ -933,6 +973,14 @@ if read_alignment_worker_memory_budget_bytes:
     payload["read_alignment_worker_memory_budget_bytes"] = read_alignment_worker_memory_budget_bytes
 if read_alignment_worker_validation_mode:
     payload["read_alignment_worker_validation_mode"] = read_alignment_worker_validation_mode
+if read_alignment_worker_lifecycle_mode:
+    payload["read_alignment_worker_lifecycle_mode"] = read_alignment_worker_lifecycle_mode
+if read_alignment_worker_session_dir:
+    payload["read_alignment_worker_session_dir"] = os.path.abspath(read_alignment_worker_session_dir)
+if read_alignment_worker_session_poll_ms:
+    payload["read_alignment_worker_session_poll_ms"] = read_alignment_worker_session_poll_ms
+if read_alignment_worker_session_timeout_ms:
+    payload["read_alignment_worker_session_timeout_ms"] = read_alignment_worker_session_timeout_ms
 if read_alignment_graph_consumption_mode:
     payload["read_alignment_graph_consumption_mode"] = read_alignment_graph_consumption_mode
 if read_alignment_rehydration_mode:

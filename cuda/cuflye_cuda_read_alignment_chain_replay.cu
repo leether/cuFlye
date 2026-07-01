@@ -11,19 +11,23 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <dirent.h>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <limits>
 #include <map>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 namespace
 {
@@ -109,11 +113,17 @@ struct Options
 	std::string batchFixturesFile;
 	std::string batchOutputDir;
 	std::string batchJsonOutput;
+	std::string workerRequestJson;
+	std::string workerRequestsJsonl;
+	std::string workerSessionDir;
 	std::string backend = "cuda";
 	int device = 0;
 	uint32_t warmupRuns = 0;
 	uint32_t benchmarkRuns = 1;
 	uint32_t replicateFixture = 1;
+	uint32_t workerSessionMaxRequests = 1;
+	uint32_t workerSessionPollMs = 2;
+	uint32_t workerSessionTimeoutMs = 600000;
 	bool hasMemoryBudget = false;
 	unsigned long long memoryBudgetBytes = 0;
 	bool allowHeterogeneousBatch = false;
@@ -160,6 +170,20 @@ struct RunSummary
 	size_t totalBytes = 0;
 	std::string deviceName;
 	int device = 0;
+};
+
+struct ReadAlignmentWorkerRequest
+{
+	std::string schema;
+	std::string requestId;
+	std::string responseJson;
+	std::string adapterMode;
+	std::string readAlignmentAbi;
+	std::string outputMode;
+	std::string cudaExecutionMode;
+	Options options;
+	bool hasExpectedFixtureCount = false;
+	size_t expectedFixtureCount = 0;
 };
 
 struct BatchFixtureOutput
@@ -222,6 +246,28 @@ struct CudaPersistentArena
 	int device = 0;
 };
 
+struct ReadAlignmentSessionCache
+{
+	bool initialized = false;
+	std::string batchFixturesFile;
+	int device = 0;
+	bool hasMemoryBudget = false;
+	unsigned long long memoryBudgetBytes = 0;
+	bool emitPreDivergenceChains = false;
+	bool allowHeterogeneousBatch = false;
+	std::vector<LoadedFixture> fixtures;
+	CudaPersistentArena arena;
+};
+
+struct ReadAlignmentWorkerResult
+{
+	RunSummary summary;
+	bool arenaCacheHit = false;
+	bool arenaCacheCreated = false;
+	size_t fixtureCount = 0;
+	size_t outputRecords = 0;
+};
+
 struct CpuChain
 {
 	std::vector<int32_t> indices;
@@ -230,6 +276,9 @@ struct CpuChain
 
 void attachBenchmarkStats(RunSummary& summary, const std::vector<RunSummary>& timedRuns,
                           uint32_t warmupRuns);
+RunSummary runCudaPersistentArenaBenchmarkWithExistingArena(
+    const Options& options, const CudaPersistentArena& arenaContext,
+    std::vector<std::vector<OutputSegment>>& segmentsByFixture);
 
 double elapsedMs(Clock::time_point start, Clock::time_point end)
 {
@@ -329,6 +378,205 @@ std::string readTextFile(const std::string& path)
 	std::ostringstream buffer;
 	buffer << input.rdbuf();
 	return buffer.str();
+}
+
+void writeTextFile(const std::string& path, const std::string& text)
+{
+	ensureParentDirectory(path);
+	std::ofstream output(path);
+	if (!output)
+	{
+		throw std::runtime_error("cannot write file: " + path);
+	}
+	output << text;
+}
+
+std::string trim(const std::string& text)
+{
+	size_t begin = 0;
+	while (begin < text.size() &&
+	       std::isspace(static_cast<unsigned char>(text[begin])))
+	{
+		++begin;
+	}
+	size_t end = text.size();
+	while (end > begin && std::isspace(static_cast<unsigned char>(text[end - 1])))
+	{
+		--end;
+	}
+	return text.substr(begin, end - begin);
+}
+
+void skipJsonWhitespace(const std::string& text, size_t& offset)
+{
+	while (offset < text.size() &&
+	       std::isspace(static_cast<unsigned char>(text[offset])))
+	{
+		++offset;
+	}
+}
+
+std::string parseJsonStringToken(const std::string& text, size_t& offset)
+{
+	skipJsonWhitespace(text, offset);
+	if (offset >= text.size() || text[offset] != '"')
+	{
+		throw std::runtime_error("JSON string expected");
+	}
+	++offset;
+	std::ostringstream value;
+	while (offset < text.size())
+	{
+		char ch = text[offset++];
+		if (ch == '"') return value.str();
+		if (ch != '\\')
+		{
+			value << ch;
+			continue;
+		}
+		if (offset >= text.size()) throw std::runtime_error("unterminated JSON escape");
+		char escaped = text[offset++];
+		switch (escaped)
+		{
+		case '"': value << '"'; break;
+		case '\\': value << '\\'; break;
+		case '/': value << '/'; break;
+		case 'b': value << '\b'; break;
+		case 'f': value << '\f'; break;
+		case 'n': value << '\n'; break;
+		case 'r': value << '\r'; break;
+		case 't': value << '\t'; break;
+		default:
+			throw std::runtime_error("unsupported JSON escape sequence");
+		}
+	}
+	throw std::runtime_error("unterminated JSON string");
+}
+
+std::string parseJsonValueToken(const std::string& text, size_t& offset)
+{
+	skipJsonWhitespace(text, offset);
+	if (offset >= text.size()) throw std::runtime_error("JSON value expected");
+	if (text[offset] == '"') return parseJsonStringToken(text, offset);
+	if (text[offset] == '{' || text[offset] == '[')
+	{
+		throw std::runtime_error(
+		    "nested JSON values are not supported by read-alignment worker v0");
+	}
+	size_t begin = offset;
+	while (offset < text.size() && text[offset] != ',' && text[offset] != '}') ++offset;
+	std::string value = trim(text.substr(begin, offset - begin));
+	if (value.empty()) throw std::runtime_error("JSON scalar value expected");
+	return value;
+}
+
+std::map<std::string, std::string> parseFlatJsonObject(const std::string& text)
+{
+	std::map<std::string, std::string> fields;
+	size_t offset = 0;
+	skipJsonWhitespace(text, offset);
+	if (offset >= text.size() || text[offset] != '{')
+	{
+		throw std::runtime_error("JSON object expected");
+	}
+	++offset;
+	while (true)
+	{
+		skipJsonWhitespace(text, offset);
+		if (offset < text.size() && text[offset] == '}')
+		{
+			++offset;
+			break;
+		}
+		std::string key = parseJsonStringToken(text, offset);
+		skipJsonWhitespace(text, offset);
+		if (offset >= text.size() || text[offset] != ':')
+		{
+			throw std::runtime_error("JSON object field separator ':' expected");
+		}
+		++offset;
+		std::string value = parseJsonValueToken(text, offset);
+		if (!fields.insert(std::make_pair(key, value)).second)
+		{
+			throw std::runtime_error("duplicate JSON field: " + key);
+		}
+		skipJsonWhitespace(text, offset);
+		if (offset < text.size() && text[offset] == ',')
+		{
+			++offset;
+			continue;
+		}
+		if (offset < text.size() && text[offset] == '}')
+		{
+			++offset;
+			break;
+		}
+		throw std::runtime_error("JSON object field separator ',' or '}' expected");
+	}
+	skipJsonWhitespace(text, offset);
+	if (offset != text.size()) throw std::runtime_error("unexpected characters after JSON object");
+	return fields;
+}
+
+std::string requireJsonField(const std::map<std::string, std::string>& fields,
+                             const std::string& key)
+{
+	auto iter = fields.find(key);
+	if (iter == fields.end() || iter->second.empty())
+	{
+		throw std::runtime_error("read-alignment worker request missing required field: " + key);
+	}
+	return iter->second;
+}
+
+std::string optionalJsonField(const std::map<std::string, std::string>& fields,
+                              const std::string& key)
+{
+	auto iter = fields.find(key);
+	if (iter == fields.end()) return "";
+	return iter->second;
+}
+
+unsigned long long parseWorkerUnsigned(const std::string& value,
+                                       const std::string& name)
+{
+	if (value.empty()) throw std::runtime_error(name + " must not be empty");
+	if (value[0] == '-') throw std::runtime_error(name + " must be unsigned: " + value);
+	char* end = nullptr;
+	errno = 0;
+	unsigned long long parsed = std::strtoull(value.c_str(), &end, 10);
+	if (errno != 0 || end == value.c_str() || *end != '\0')
+	{
+		throw std::runtime_error(name + " must be an unsigned decimal integer: " + value);
+	}
+	return parsed;
+}
+
+int parseWorkerInt(const std::string& value, const std::string& name)
+{
+	unsigned long long parsed = parseWorkerUnsigned(value, name);
+	if (parsed > static_cast<unsigned long long>(std::numeric_limits<int>::max()))
+	{
+		throw std::runtime_error(name + " is outside int range: " + value);
+	}
+	return static_cast<int>(parsed);
+}
+
+uint32_t parseWorkerUInt32(const std::string& value, const std::string& name)
+{
+	unsigned long long parsed = parseWorkerUnsigned(value, name);
+	if (parsed > static_cast<unsigned long long>(std::numeric_limits<uint32_t>::max()))
+	{
+		throw std::runtime_error(name + " is outside uint32 range: " + value);
+	}
+	return static_cast<uint32_t>(parsed);
+}
+
+bool parseWorkerBool(const std::string& value, const std::string& name)
+{
+	if (value == "true") return true;
+	if (value == "false") return false;
+	throw std::runtime_error(name + " must be true or false: " + value);
 }
 
 std::vector<std::string> splitTabs(const std::string& line)
@@ -1959,6 +2207,15 @@ runCudaPersistentArenaBenchmark(const Options& options, const std::vector<Loaded
                                 std::vector<std::vector<OutputSegment>>& segmentsByFixture)
 {
 	CudaPersistentArena arenaContext = buildCudaPersistentArena(options, fixtures);
+	RunSummary summary =
+	    runCudaPersistentArenaBenchmarkWithExistingArena(options, arenaContext, segmentsByFixture);
+	return summary;
+}
+
+RunSummary runCudaPersistentArenaBenchmarkWithExistingArena(
+    const Options& options, const CudaPersistentArena& arenaContext,
+    std::vector<std::vector<OutputSegment>>& segmentsByFixture)
+{
 	std::vector<std::vector<OutputSegment>> scratch;
 	for (uint32_t index = 0; index < options.warmupRuns; ++index)
 	{
@@ -2397,6 +2654,579 @@ void writeBatchJsonSummary(const std::string& path, const Options& options,
 	       << "}\n";
 }
 
+bool sameSessionArenaRequest(const ReadAlignmentSessionCache& cache,
+                             const ReadAlignmentWorkerRequest& request)
+{
+	return cache.initialized &&
+	       cache.batchFixturesFile == request.options.batchFixturesFile &&
+	       cache.device == request.options.device &&
+	       cache.hasMemoryBudget == request.options.hasMemoryBudget &&
+	       cache.memoryBudgetBytes == request.options.memoryBudgetBytes &&
+	       cache.emitPreDivergenceChains == request.options.emitPreDivergenceChains &&
+	       cache.allowHeterogeneousBatch == request.options.allowHeterogeneousBatch;
+}
+
+std::vector<LoadedFixture> loadReadAlignmentWorkerFixtures(
+    const ReadAlignmentWorkerRequest& request)
+{
+	std::vector<LoadedFixture> fixtures = loadBatchFixtures(
+	    request.options.batchFixturesFile, request.options.allowHeterogeneousBatch,
+	    !request.options.emitPreDivergenceChains);
+	if (request.hasExpectedFixtureCount &&
+	    fixtures.size() != request.expectedFixtureCount)
+	{
+		throw std::runtime_error("read-alignment worker expected fixture count mismatch");
+	}
+	return fixtures;
+}
+
+ReadAlignmentWorkerRequest parseReadAlignmentWorkerRequestObject(const std::string& text)
+{
+	std::map<std::string, std::string> fields = parseFlatJsonObject(text);
+	ReadAlignmentWorkerRequest request;
+	request.schema = requireJsonField(fields, "schema");
+	request.requestId = requireJsonField(fields, "request_id");
+	request.responseJson = requireJsonField(fields, "response_json");
+	request.adapterMode = requireJsonField(fields, "adapter_mode");
+	request.readAlignmentAbi = requireJsonField(fields, "read_alignment_abi");
+	request.outputMode = requireJsonField(fields, "output_mode");
+	request.cudaExecutionMode = requireJsonField(fields, "cuda_execution_mode");
+	request.options.backend = requireJsonField(fields, "backend");
+	request.options.device = parseWorkerInt(requireJsonField(fields, "device"), "device");
+	request.options.batchFixturesFile = requireJsonField(fields, "batch_fixtures_file");
+	request.options.batchOutputDir = requireJsonField(fields, "batch_output_dir");
+	request.options.batchJsonOutput = requireJsonField(fields, "batch_json_output");
+	request.options.allowHeterogeneousBatch =
+	    parseWorkerBool(requireJsonField(fields, "allow_heterogeneous_batch"),
+	                    "allow_heterogeneous_batch");
+	request.options.cudaPersistentArena =
+	    parseWorkerBool(requireJsonField(fields, "cuda_persistent_arena"),
+	                    "cuda_persistent_arena");
+	request.options.cudaPersistentBulkOutput =
+	    parseWorkerBool(requireJsonField(fields, "cuda_persistent_bulk_output"),
+	                    "cuda_persistent_bulk_output");
+	request.options.emitPreDivergenceChains =
+	    parseWorkerBool(requireJsonField(fields, "emit_pre_divergence_chains"),
+	                    "emit_pre_divergence_chains");
+	request.options.warmupRuns =
+	    parseWorkerUInt32(requireJsonField(fields, "warmup_runs"), "warmup_runs");
+	request.options.benchmarkRuns =
+	    parseWorkerUInt32(requireJsonField(fields, "benchmark_runs"), "benchmark_runs");
+
+	std::string memoryBudget = optionalJsonField(fields, "memory_budget_bytes");
+	if (!memoryBudget.empty() && memoryBudget != "null")
+	{
+		request.options.hasMemoryBudget = true;
+		request.options.memoryBudgetBytes = parseWorkerUnsigned(memoryBudget,
+		                                                        "memory_budget_bytes");
+	}
+	std::string expectedFixtureCount = optionalJsonField(fields, "expected_fixture_count");
+	if (!expectedFixtureCount.empty() && expectedFixtureCount != "null")
+	{
+		request.hasExpectedFixtureCount = true;
+		request.expectedFixtureCount =
+		    static_cast<size_t>(parseWorkerUnsigned(expectedFixtureCount,
+		                                            "expected_fixture_count"));
+	}
+	return request;
+}
+
+std::vector<ReadAlignmentWorkerRequest> loadReadAlignmentWorkerRequests(
+    const Options& options)
+{
+	std::vector<ReadAlignmentWorkerRequest> requests;
+	if (!options.workerRequestJson.empty())
+	{
+		requests.push_back(parseReadAlignmentWorkerRequestObject(
+		    readTextFile(options.workerRequestJson)));
+		return requests;
+	}
+
+	std::ifstream input(options.workerRequestsJsonl);
+	if (!input)
+	{
+		throw std::runtime_error("cannot read read-alignment worker requests JSONL: " +
+		                         options.workerRequestsJsonl);
+	}
+	std::string line;
+	size_t lineNumber = 0;
+	while (std::getline(input, line))
+	{
+		++lineNumber;
+		std::string stripped = trim(line);
+		if (stripped.empty()) continue;
+		try
+		{
+			requests.push_back(parseReadAlignmentWorkerRequestObject(stripped));
+		}
+		catch (const std::exception& exc)
+		{
+			throw std::runtime_error(options.workerRequestsJsonl + ":" +
+			                         std::to_string(lineNumber) + ": " + exc.what());
+		}
+	}
+	if (requests.size() < 2)
+	{
+		throw std::runtime_error(
+		    "--worker-requests-jsonl proof mode requires at least two requests");
+	}
+	return requests;
+}
+
+void validateReadAlignmentWorkerRequest(const ReadAlignmentWorkerRequest& request)
+{
+	if (request.schema != "cuflye-read-alignment-worker-request-v0")
+	{
+		throw std::runtime_error("unsupported read-alignment worker request schema");
+	}
+	if (request.adapterMode != "read-alignment-predivergence-batch-v0")
+	{
+		throw std::runtime_error("unsupported read-alignment worker adapter_mode");
+	}
+	if (request.readAlignmentAbi != "read-alignment-v1")
+	{
+		throw std::runtime_error("unsupported read-alignment worker read_alignment_abi");
+	}
+	if (request.outputMode != "pre-divergence-chains")
+	{
+		throw std::runtime_error("unsupported read-alignment worker output_mode");
+	}
+	if (request.options.backend != "cuda")
+	{
+		throw std::runtime_error("unsupported read-alignment worker backend");
+	}
+	if (request.cudaExecutionMode != "persistent-arena-bulk-output")
+	{
+		throw std::runtime_error("unsupported read-alignment worker cuda_execution_mode");
+	}
+	if (!request.options.allowHeterogeneousBatch)
+	{
+		throw std::runtime_error("read-alignment worker requires heterogeneous batch support");
+	}
+	if (!request.options.cudaPersistentArena ||
+	    !request.options.cudaPersistentBulkOutput)
+	{
+		throw std::runtime_error("read-alignment worker requires persistent bulk CUDA arena");
+	}
+	if (!request.options.emitPreDivergenceChains)
+	{
+		throw std::runtime_error("read-alignment worker requires pre-divergence output mode");
+	}
+	if (request.options.benchmarkRuns == 0)
+	{
+		throw std::runtime_error("read-alignment worker benchmark_runs must be greater than zero");
+	}
+}
+
+void validateReadAlignmentWorkerRequestSet(
+    const std::vector<ReadAlignmentWorkerRequest>& requests)
+{
+	if (requests.empty()) throw std::runtime_error("read-alignment worker request set is empty");
+	int device = requests.front().options.device;
+	for (const auto& request : requests)
+	{
+		if (request.options.device != device)
+		{
+			throw std::runtime_error(
+			    "read-alignment worker requires all requests to use one CUDA device");
+		}
+	}
+}
+
+std::string buildReadAlignmentWorkerResponseJson(
+    const ReadAlignmentWorkerRequest& request, const ReadAlignmentWorkerResult& result,
+    const ReadAlignmentSessionCache& cache, size_t requestOrdinal,
+    bool workerContextWarm, double workerContextSetupMs, double workerUptimeMs,
+    double requestTotalMs)
+{
+	double timedBackendTotal = result.summary.benchmarkMeanTotalMs *
+	                           static_cast<double>(request.options.benchmarkRuns);
+	double workerOverhead = std::max(0.0, requestTotalMs - timedBackendTotal);
+	std::ostringstream json;
+	json << std::fixed << std::setprecision(6);
+	json << "{\n"
+	     << "  \"schema\": \"cuflye-read-alignment-worker-response-v0\",\n"
+	     << "  \"request_id\": \"" << jsonEscape(request.requestId) << "\",\n"
+	     << "  \"status\": \"ok\",\n"
+	     << "  \"request_ordinal\": " << requestOrdinal << ",\n"
+	     << "  \"worker_cuda_context_warm\": "
+	     << (workerContextWarm ? "true" : "false") << ",\n"
+	     << "  \"worker_context_setup_ms\": " << workerContextSetupMs << ",\n"
+	     << "  \"worker_device_arena_enabled\": true,\n"
+	     << "  \"worker_device_arena_cache_hit\": "
+	     << (result.arenaCacheHit ? "true" : "false") << ",\n"
+	     << "  \"worker_device_arena_created\": "
+	     << (result.arenaCacheCreated ? "true" : "false") << ",\n"
+	     << "  \"worker_device_arena_capacity_bytes\": "
+	     << (cache.initialized ? cache.arena.requiredBytes : 0) << ",\n"
+	     << "  \"adapter_mode\": \"read-alignment-predivergence-batch-v0\",\n"
+	     << "  \"read_alignment_abi\": \"read-alignment-v1\",\n"
+	     << "  \"output_mode\": \"pre-divergence-chains\",\n"
+	     << "  \"cuda_execution_mode\": \""
+	     << jsonEscape(result.summary.cudaExecutionMode) << "\",\n"
+	     << "  \"fixture_count\": " << result.fixtureCount << ",\n"
+	     << "  \"output_records\": " << result.outputRecords << ",\n"
+	     << "  \"batch_json_output\": \""
+	     << jsonEscape(request.options.batchJsonOutput) << "\",\n"
+	     << "  \"batch_output_dir\": \""
+	     << jsonEscape(request.options.batchOutputDir) << "\",\n"
+	     << "  \"timing_ms\": {\n"
+	     << "    \"worker_uptime\": " << workerUptimeMs << ",\n"
+	     << "    \"request_total\": " << requestTotalMs << ",\n"
+	     << "    \"backend_mean_total_before_json\": "
+	     << result.summary.benchmarkMeanTotalMs << ",\n"
+	     << "    \"backend_timed_total_before_json\": " << timedBackendTotal << ",\n"
+	     << "    \"worker_overhead\": " << workerOverhead << ",\n"
+	     << "    \"one_time_arena_setup\": " << result.summary.oneTimeSetupMs << ",\n"
+	     << "    \"one_time_arena_device_allocation\": "
+	     << result.summary.oneTimeDeviceAllocationMs << ",\n"
+	     << "    \"one_time_arena_host_to_device\": "
+	     << result.summary.oneTimeHostToDeviceMs << ",\n"
+	     << "    \"one_time_arena_total\": " << result.summary.oneTimeTotalMs << ",\n"
+	     << "    \"write_output\": " << result.summary.writeMs << ",\n"
+	     << "    \"kernel\": " << result.summary.kernelMs << ",\n"
+	     << "    \"device_to_host\": " << result.summary.deviceToHostMs << "\n"
+	     << "  }\n"
+	     << "}\n";
+	return json.str();
+}
+
+std::string buildReadAlignmentWorkerErrorJson(
+    const ReadAlignmentWorkerRequest& request, size_t requestOrdinal,
+    const std::string& message)
+{
+	std::ostringstream json;
+	json << "{\n"
+	     << "  \"schema\": \"cuflye-read-alignment-worker-response-v0\",\n"
+	     << "  \"request_id\": \"" << jsonEscape(request.requestId) << "\",\n"
+	     << "  \"status\": \"error\",\n"
+	     << "  \"request_ordinal\": " << requestOrdinal << ",\n"
+	     << "  \"error_code\": \"request-failed\",\n"
+	     << "  \"error_message\": \"" << jsonEscape(message) << "\",\n"
+	     << "  \"cuda_error_code\": null,\n"
+	     << "  \"cuda_error_name\": null,\n"
+	     << "  \"cuda_error_text\": null\n"
+	     << "}\n";
+	return json.str();
+}
+
+void emitReadAlignmentWorkerResponse(const std::string& path, const std::string& response)
+{
+	writeTextFile(path, response);
+	std::cout << response;
+}
+
+bool executeReadAlignmentWorkerRequest(
+    const ReadAlignmentWorkerRequest& request, size_t requestOrdinal,
+    bool workerContextWarm, double workerContextSetupMs, Clock::time_point workerStart,
+    ReadAlignmentSessionCache& cache)
+{
+	auto requestStart = Clock::now();
+	try
+	{
+		validateReadAlignmentWorkerRequest(request);
+		ReadAlignmentWorkerResult result;
+		if (sameSessionArenaRequest(cache, request))
+		{
+			result.arenaCacheHit = true;
+		}
+		else
+		{
+			cache.fixtures = loadReadAlignmentWorkerFixtures(request);
+			CudaPersistentArena arena = buildCudaPersistentArena(request.options,
+			                                                     cache.fixtures);
+			cache.arena = std::move(arena);
+			cache.initialized = true;
+			cache.batchFixturesFile = request.options.batchFixturesFile;
+			cache.device = request.options.device;
+			cache.hasMemoryBudget = request.options.hasMemoryBudget;
+			cache.memoryBudgetBytes = request.options.memoryBudgetBytes;
+			cache.emitPreDivergenceChains = request.options.emitPreDivergenceChains;
+			cache.allowHeterogeneousBatch = request.options.allowHeterogeneousBatch;
+			result.arenaCacheCreated = true;
+		}
+
+		std::vector<std::vector<OutputSegment>> segmentsByFixture;
+		RunSummary summary = runCudaPersistentArenaBenchmarkWithExistingArena(
+		    request.options, cache.arena, segmentsByFixture);
+
+		auto writeStart = Clock::now();
+		std::vector<BatchFixtureOutput> outputs =
+		    writeBatchReadAlignments(request.options, cache.fixtures, segmentsByFixture);
+		auto writeEnd = Clock::now();
+		summary.writeMs = elapsedMs(writeStart, writeEnd);
+		writeBatchJsonSummary(request.options.batchJsonOutput, request.options,
+		                      summary, outputs);
+
+		result.summary = summary;
+		result.fixtureCount = outputs.size();
+		result.outputRecords = summary.outputRecords;
+		double requestTotalMs = elapsedMs(requestStart, Clock::now());
+		double workerUptimeMs = elapsedMs(workerStart, Clock::now());
+		std::string response = buildReadAlignmentWorkerResponseJson(
+		    request, result, cache, requestOrdinal, workerContextWarm,
+		    workerContextSetupMs, workerUptimeMs, requestTotalMs);
+		emitReadAlignmentWorkerResponse(request.responseJson, response);
+		return true;
+	}
+	catch (const std::exception& exc)
+	{
+		std::string response =
+		    buildReadAlignmentWorkerErrorJson(request, requestOrdinal, exc.what());
+		emitReadAlignmentWorkerResponse(request.responseJson, response);
+		return false;
+	}
+}
+
+std::string sessionInboxDir(const Options& options)
+{
+	return joinPath(options.workerSessionDir, "inbox");
+}
+
+std::string sessionProcessingDir(const Options& options)
+{
+	return joinPath(options.workerSessionDir, "processing");
+}
+
+std::string sessionDoneDir(const Options& options)
+{
+	return joinPath(options.workerSessionDir, "done");
+}
+
+bool hasSuffix(const std::string& value, const std::string& suffix)
+{
+	return value.size() >= suffix.size() &&
+	       value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
+std::vector<std::string> listSessionReadyFiles(const std::string& inbox)
+{
+	std::vector<std::string> readyFiles;
+	std::unique_ptr<DIR, int (*)(DIR*)> dir(::opendir(inbox.c_str()), ::closedir);
+	if (!dir)
+	{
+		if (errno == ENOENT) return readyFiles;
+		throw std::runtime_error("cannot read worker session inbox: " + inbox +
+		                         ": " + std::strerror(errno));
+	}
+	while (dirent* entry = ::readdir(dir.get()))
+	{
+		std::string name = entry->d_name;
+		if (name == "." || name == "..") continue;
+		if (!hasSuffix(name, ".ready")) continue;
+		readyFiles.push_back(joinPath(inbox, name));
+	}
+	std::sort(readyFiles.begin(), readyFiles.end());
+	return readyFiles;
+}
+
+void renameFile(const std::string& from, const std::string& to)
+{
+	ensureParentDirectory(to);
+	if (::rename(from.c_str(), to.c_str()) != 0)
+	{
+		throw std::runtime_error("cannot rename " + from + " to " + to +
+		                         ": " + std::strerror(errno));
+	}
+}
+
+double initializeReadAlignmentWorkerContext(const Options& options,
+                                            std::string& deviceName,
+                                            size_t& freeBytes,
+                                            size_t& totalBytes)
+{
+	auto contextStart = Clock::now();
+	cuflye::cuda_raii::checkCuda(cudaSetDevice(options.device), "set CUDA worker device");
+	cudaDeviceProp props{};
+	cuflye::cuda_raii::checkCuda(cudaGetDeviceProperties(&props, options.device),
+	                             "get CUDA worker device properties");
+	deviceName = props.name;
+	cuflye::cuda_raii::checkCuda(cudaMemGetInfo(&freeBytes, &totalBytes),
+	                             "query CUDA worker memory");
+	return elapsedMs(contextStart, Clock::now());
+}
+
+void writeReadAlignmentWorkerSessionStateJson(
+    const std::string& path, const Options& options, const std::string& status,
+    size_t processedRequests, double workerContextSetupMs,
+    const std::string& deviceName, size_t freeBytes, size_t totalBytes,
+    const ReadAlignmentSessionCache& cache)
+{
+	std::ostringstream json;
+	json << std::fixed << std::setprecision(6);
+	json << "{\n"
+	     << "  \"schema\": \"cuflye-read-alignment-worker-session-v0\",\n"
+	     << "  \"status\": \"" << jsonEscape(status) << "\",\n"
+	     << "  \"worker_session_dir\": \"" << jsonEscape(options.workerSessionDir) << "\",\n"
+	     << "  \"worker_session_max_requests\": "
+	     << options.workerSessionMaxRequests << ",\n"
+	     << "  \"worker_session_processed_requests\": "
+	     << processedRequests << ",\n"
+	     << "  \"worker_session_poll_ms\": " << options.workerSessionPollMs << ",\n"
+	     << "  \"worker_session_timeout_ms\": "
+	     << options.workerSessionTimeoutMs << ",\n"
+	     << "  \"worker_context_setup_ms\": " << workerContextSetupMs << ",\n"
+	     << "  \"worker_device_arena_enabled\": true,\n"
+	     << "  \"worker_device_arena_initialized\": "
+	     << (cache.initialized ? "true" : "false") << ",\n"
+	     << "  \"worker_device_arena_capacity_bytes\": "
+	     << (cache.initialized ? cache.arena.requiredBytes : 0) << ",\n"
+	     << "  \"device\": " << options.device << ",\n"
+	     << "  \"device_name\": \"" << jsonEscape(deviceName) << "\",\n"
+	     << "  \"free_bytes\": " << freeBytes << ",\n"
+	     << "  \"total_bytes\": " << totalBytes << ",\n"
+	     << "  \"pid\": " << static_cast<long long>(::getpid()) << "\n"
+	     << "}\n";
+	writeTextFile(path, json.str());
+}
+
+int runReadAlignmentWorkerSessionMain(const Options& cliOptions)
+{
+	ensureDirectory(cliOptions.workerSessionDir);
+	ensureDirectory(sessionInboxDir(cliOptions));
+	ensureDirectory(sessionProcessingDir(cliOptions));
+	ensureDirectory(sessionDoneDir(cliOptions));
+
+	ReadAlignmentSessionCache cache;
+	auto workerStart = Clock::now();
+	std::string deviceName;
+	size_t freeBytes = 0;
+	size_t totalBytes = 0;
+	double workerContextSetupMs = initializeReadAlignmentWorkerContext(
+	    cliOptions, deviceName, freeBytes, totalBytes);
+	writeReadAlignmentWorkerSessionStateJson(
+	    joinPath(cliOptions.workerSessionDir, "session-ready.json"),
+	    cliOptions, "ready", 0, workerContextSetupMs, deviceName,
+	    freeBytes, totalBytes, cache);
+
+	size_t processedRequests = 0;
+	auto idleStart = Clock::now();
+	while (processedRequests < cliOptions.workerSessionMaxRequests)
+	{
+		std::vector<std::string> readyFiles =
+		    listSessionReadyFiles(sessionInboxDir(cliOptions));
+		if (readyFiles.empty())
+		{
+			double idleMs = elapsedMs(idleStart, Clock::now());
+			if (idleMs > static_cast<double>(cliOptions.workerSessionTimeoutMs))
+			{
+				writeReadAlignmentWorkerSessionStateJson(
+				    joinPath(cliOptions.workerSessionDir, "session-error.json"),
+				    cliOptions, "timeout", processedRequests, workerContextSetupMs,
+				    deviceName, freeBytes, totalBytes, cache);
+				return 1;
+			}
+			std::this_thread::sleep_for(
+			    std::chrono::milliseconds(cliOptions.workerSessionPollMs));
+			continue;
+		}
+
+		idleStart = Clock::now();
+		std::string readyPath = readyFiles.front();
+		std::string readyName = baseName(readyPath);
+		std::string processingPath =
+		    joinPath(sessionProcessingDir(cliOptions), readyName + ".processing");
+		std::string donePath = joinPath(sessionDoneDir(cliOptions), readyName + ".done");
+		renameFile(readyPath, processingPath);
+		std::string requestJsonPath = trim(readTextFile(processingPath));
+		if (requestJsonPath.empty())
+		{
+			writeTextFile(donePath, "status=error\nerror=empty request path\n");
+			writeReadAlignmentWorkerSessionStateJson(
+			    joinPath(cliOptions.workerSessionDir, "session-error.json"),
+			    cliOptions, "error", processedRequests, workerContextSetupMs,
+			    deviceName, freeBytes, totalBytes, cache);
+			return 1;
+		}
+
+		ReadAlignmentWorkerRequest request;
+		try
+		{
+			request = parseReadAlignmentWorkerRequestObject(readTextFile(requestJsonPath));
+		}
+		catch (const std::exception& exc)
+		{
+			writeTextFile(donePath, "status=error\nrequest_json=" +
+			              requestJsonPath + "\nerror=" + exc.what() + "\n");
+			writeReadAlignmentWorkerSessionStateJson(
+			    joinPath(cliOptions.workerSessionDir, "session-error.json"),
+			    cliOptions, "error", processedRequests, workerContextSetupMs,
+			    deviceName, freeBytes, totalBytes, cache);
+			return 1;
+		}
+
+		++processedRequests;
+		if (request.options.device != cliOptions.device)
+		{
+			std::string message =
+			    "read-alignment worker session request device does not match session device";
+			emitReadAlignmentWorkerResponse(
+			    request.responseJson,
+			    buildReadAlignmentWorkerErrorJson(request, processedRequests, message));
+			writeTextFile(donePath, "status=error\nrequest_json=" +
+			              requestJsonPath + "\nerror=" + message + "\n");
+			writeReadAlignmentWorkerSessionStateJson(
+			    joinPath(cliOptions.workerSessionDir, "session-error.json"),
+			    cliOptions, "error", processedRequests, workerContextSetupMs,
+			    deviceName, freeBytes, totalBytes, cache);
+			return 1;
+		}
+
+		bool ok = executeReadAlignmentWorkerRequest(
+		    request, processedRequests, true, workerContextSetupMs, workerStart, cache);
+		writeTextFile(donePath, std::string("status=") + (ok ? "ok" : "error") +
+		              "\nrequest_json=" + requestJsonPath + "\n");
+		if (!ok)
+		{
+			writeReadAlignmentWorkerSessionStateJson(
+			    joinPath(cliOptions.workerSessionDir, "session-error.json"),
+			    cliOptions, "error", processedRequests, workerContextSetupMs,
+			    deviceName, freeBytes, totalBytes, cache);
+			return 1;
+		}
+	}
+
+	writeReadAlignmentWorkerSessionStateJson(
+	    joinPath(cliOptions.workerSessionDir, "session-complete.json"),
+	    cliOptions, "complete", processedRequests, workerContextSetupMs,
+	    deviceName, freeBytes, totalBytes, cache);
+	return 0;
+}
+
+int runReadAlignmentWorkerMain(const Options& cliOptions)
+{
+	if (!cliOptions.workerSessionDir.empty())
+	{
+		return runReadAlignmentWorkerSessionMain(cliOptions);
+	}
+
+	std::vector<ReadAlignmentWorkerRequest> requests =
+	    loadReadAlignmentWorkerRequests(cliOptions);
+	validateReadAlignmentWorkerRequestSet(requests);
+
+	ReadAlignmentSessionCache cache;
+	auto workerStart = Clock::now();
+	std::string deviceName;
+	size_t freeBytes = 0;
+	size_t totalBytes = 0;
+	double workerContextSetupMs = initializeReadAlignmentWorkerContext(
+	    requests.front().options, deviceName, freeBytes, totalBytes);
+	(void)deviceName;
+	(void)freeBytes;
+	(void)totalBytes;
+
+	for (size_t index = 0; index < requests.size(); ++index)
+	{
+		size_t requestOrdinal = index + 1;
+		bool workerContextWarm = requestOrdinal > 1;
+		bool ok = executeReadAlignmentWorkerRequest(
+		    requests[index], requestOrdinal, workerContextWarm,
+		    workerContextSetupMs, workerStart, cache);
+		if (!ok) return 1;
+	}
+	return 0;
+}
+
 void parseArgs(int argc, char** argv, Options& options)
 {
 	for (int index = 1; index < argc; ++index)
@@ -2422,6 +3252,12 @@ void parseArgs(int argc, char** argv, Options& options)
 			options.batchOutputDir = nextValue();
 		else if (arg == "--batch-json-output")
 			options.batchJsonOutput = nextValue();
+		else if (arg == "--worker-request-json")
+			options.workerRequestJson = nextValue();
+		else if (arg == "--worker-requests-jsonl")
+			options.workerRequestsJsonl = nextValue();
+		else if (arg == "--worker-session-dir")
+			options.workerSessionDir = nextValue();
 		else if (arg == "--allow-heterogeneous-batch")
 			options.allowHeterogeneousBatch = true;
 		else if (arg == "--cuda-persistent-arena")
@@ -2451,6 +3287,21 @@ void parseArgs(int argc, char** argv, Options& options)
 			options.hasMemoryBudget = true;
 			options.memoryBudgetBytes = std::stoull(nextValue());
 		}
+		else if (arg == "--worker-session-max-requests")
+		{
+			options.workerSessionMaxRequests =
+			    parseWorkerUInt32(nextValue(), "--worker-session-max-requests");
+		}
+		else if (arg == "--worker-session-poll-ms")
+		{
+			options.workerSessionPollMs =
+			    parseWorkerUInt32(nextValue(), "--worker-session-poll-ms");
+		}
+		else if (arg == "--worker-session-timeout-ms")
+		{
+			options.workerSessionTimeoutMs =
+			    parseWorkerUInt32(nextValue(), "--worker-session-timeout-ms");
+		}
 		else if (arg == "-h" || arg == "--help")
 		{
 			std::cout << "Usage: cuflye-cuda-read-alignment-chain-replay "
@@ -2467,7 +3318,14 @@ void parseArgs(int argc, char** argv, Options& options)
 			          << "[--allow-heterogeneous-batch] [--cuda-persistent-arena] "
 			          << "[--cuda-persistent-bulk-output] "
 			          << "[--emit-pre-divergence-chains] "
-			          << "[--memory-budget-bytes BYTES]\n";
+			          << "[--memory-budget-bytes BYTES]\n"
+			          << "Worker mode: cuflye-cuda-read-alignment-chain-replay "
+			          << "--worker-request-json PATH "
+			          << "or --worker-requests-jsonl PATH "
+			          << "or --worker-session-dir DIR "
+			          << "[--device ID] [--worker-session-max-requests N] "
+			          << "[--worker-session-poll-ms N] "
+			          << "[--worker-session-timeout-ms N]\n";
 			std::exit(0);
 		}
 		else
@@ -2478,7 +3336,26 @@ void parseArgs(int argc, char** argv, Options& options)
 
 	bool batchMode = !options.batchFixturesFile.empty() || !options.batchOutputDir.empty() ||
 	                 !options.batchJsonOutput.empty();
-	if (batchMode)
+	bool workerMode = !options.workerRequestJson.empty() ||
+	                  !options.workerRequestsJsonl.empty() ||
+	                  !options.workerSessionDir.empty();
+	if (workerMode)
+	{
+		int workerInputs = 0;
+		if (!options.workerRequestJson.empty()) ++workerInputs;
+		if (!options.workerRequestsJsonl.empty()) ++workerInputs;
+		if (!options.workerSessionDir.empty()) ++workerInputs;
+		if (workerInputs != 1)
+		{
+			throw std::runtime_error("set exactly one worker request input");
+		}
+		if (batchMode || !options.fixtureDir.empty() || !options.outputTsv.empty() ||
+		    !options.jsonOutput.empty())
+		{
+			throw std::runtime_error("worker mode cannot be combined with direct replay mode");
+		}
+	}
+	else if (batchMode)
 	{
 		if (options.batchFixturesFile.empty())
 		{
@@ -2547,6 +3424,18 @@ void parseArgs(int argc, char** argv, Options& options)
 	{
 		throw std::runtime_error("--replicate-fixture must be greater than zero");
 	}
+	if (!options.workerSessionDir.empty() && options.workerSessionMaxRequests == 0)
+	{
+		throw std::runtime_error("--worker-session-max-requests must be greater than zero");
+	}
+	if (!options.workerSessionDir.empty() && options.workerSessionPollMs == 0)
+	{
+		throw std::runtime_error("--worker-session-poll-ms must be greater than zero");
+	}
+	if (!options.workerSessionDir.empty() && options.workerSessionTimeoutMs == 0)
+	{
+		throw std::runtime_error("--worker-session-timeout-ms must be greater than zero");
+	}
 }
 } // namespace
 
@@ -2556,6 +3445,12 @@ int main(int argc, char** argv)
 	{
 		Options options;
 		parseArgs(argc, argv, options);
+		if (!options.workerRequestJson.empty() ||
+		    !options.workerRequestsJsonl.empty() ||
+		    !options.workerSessionDir.empty())
+		{
+			return runReadAlignmentWorkerMain(options);
+		}
 		if (!options.batchFixturesFile.empty())
 		{
 			std::vector<LoadedFixture> fixtures = loadBatchFixtures(

@@ -7,17 +7,22 @@ change is considered complete.
 
 Active cards:
 
-- `2026-07-01-cuflye-m5r-read-alignment-pre-divergence-persistent-session.md`:
-  remove fresh worker/context setup from Flye-side selected pre-divergence
-  batches with a long-lived CUDA session proof, while preserving exact
-  artifacts and fail-closed behavior.
+- None.
 
 Proposed cards:
 
-- None.
+- `2026-07-01-cuflye-m5s-read-alignment-session-output-overhead-reduction.md`:
+  reduce the per-fixture TSV/JSON output overhead that dominates M5r full3546
+  session request time while preserving the same exactness and fail-closed
+  gates.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m5r-read-alignment-pre-divergence-persistent-session.md`:
+  remove fresh worker/context setup from Flye-side selected pre-divergence
+  batches with a long-lived CUDA session proof, preserve exact artifacts and
+  fail-closed behavior, and show a full3546 CUDA backend hot-path advantage
+  over CPU while identifying file output as the next bottleneck.
 - `2026-07-01-cuflye-m5q-read-alignment-pre-divergence-batch-crossover.md`:
   benchmark larger selected pre-divergence read-alignment batches, prove CUDA
   output parity, find a warm persistent-bulk hot-path win at full batch size,
