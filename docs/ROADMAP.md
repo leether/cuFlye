@@ -1684,10 +1684,61 @@ M5j does not prove default GPU mode, replacement of Flye _readAlignments, graph
 mutation consumption, or end-to-end Flye acceleration.
 ```
 
+M5k accepted result:
+
+```text
+cuFlye can convert validated CUDA read-alignment worker TSV rows into
+Flye-side GraphAlignment-shaped typed records, confirm current repeat-graph
+edge identity, validate chain segment continuity, canonicalize the typed
+records back to read-alignment fields, and match the CPU oracle while still
+stopping before graph mutation.
+```
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m5k-proof-20260701T005103Z
+positive_query_ids=5,47,200,204
+worker_validation_status=passed
+graph_guard_status=passed
+read_alignment_rehydration_status=passed
+read_alignment_rehydration_state=not-consumed
+read_alignment_rehydration_total_records=7
+read_alignment_rehydration_total_chains=4
+graph_mutation_consumed_worker_output=false
+```
+
+The DGX negative proof enabled
+`CUFLYE_READ_ALIGNMENT_REHYDRATION_PROOF_FAULT=drop-first-worker-record` for
+query ids `5,47`. Worker validation and graph guard both passed first, then
+typed rehydration failed closed with:
+
+```text
+read_alignment_rehydration_status=failed
+read_alignment_rehydration_state=failed-closed
+read_alignment_rehydration_decision=failed-closed-before-graph-mutation
+graph_mutation_consumed_worker_output=false
+```
+
+Allowed M5k claim:
+
+```text
+cuFlye can convert validated CUDA read-alignment output into Flye-side
+GraphAlignment-shaped typed records, prove that the typed records still match
+the CPU oracle, and still stop before graph mutation.
+```
+
+Forbidden M5k claim:
+
+```text
+M5k does not prove default GPU mode, replacement of Flye _readAlignments, graph
+mutation consumption, or end-to-end Flye acceleration.
+```
+
 Next highest-ROI task:
 
 ```text
-M5k: add a typed read-alignment rehydration dry-run that converts validated
-worker TSV rows back toward Flye GraphAlignment-shaped records without
-replacing _readAlignments.
+M5l: group M5k typed segments into a shadow std::vector<GraphAlignment>
+object-vector, compare it against the CPU _readAlignments slice, and still
+avoid replacing _readAlignments.
 ```

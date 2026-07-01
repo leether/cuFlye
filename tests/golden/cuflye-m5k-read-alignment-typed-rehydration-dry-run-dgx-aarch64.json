@@ -1,0 +1,134 @@
+{
+  "acceptance": {
+    "cuda_read_alignment_worker_builds_on_dgx": true,
+    "independent_python_oracle_diffs_match": true,
+    "local_and_dgx_syntax_patch_ownership_gates_pass": true,
+    "negative_proof_fault_fails_closed_after_validation_and_guard": true,
+    "negative_records_no_graph_mutation_consumption": true,
+    "patch_series_applies_through_0029": true,
+    "patched_flye_builds_on_dgx": true,
+    "positive_dry_run_invokes_cuda_worker_from_flye": true,
+    "positive_dry_run_stops_before_graph_mutation": true,
+    "positive_graph_guard_not_consumed": true,
+    "positive_records_no_graph_mutation_consumption": true,
+    "positive_typed_rehydration_passed": true,
+    "positive_worker_outputs_validate_against_oracle": true
+  },
+  "artifacts": {
+    "cuda_worker_build_manifest": "/tmp/cuflye-m5k-proof-20260701T005103Z/out/m5k/cuda_read_alignment_chain_replay_build_manifest.json",
+    "flye_build_manifest": "/tmp/cuflye-m5k-proof-20260701T005103Z/out/m5k/flye_build_manifest.json",
+    "negative_graph_guard_json": "/tmp/cuflye-m5k-proof-20260701T005103Z/out/m5k/negative-rehydration-fault/read-alignment-worker/read-alignment-graph-consumption-guard.json",
+    "negative_rehydration_json": "/tmp/cuflye-m5k-proof-20260701T005103Z/out/m5k/negative-rehydration-fault/read-alignment-worker/read-alignment-worker-rehydration.json",
+    "negative_seam_summary_json": "/tmp/cuflye-m5k-proof-20260701T005103Z/out/m5k/negative-rehydration-fault/read-alignment-worker/read-alignment-seam-summary.json",
+    "negative_validation_json": "/tmp/cuflye-m5k-proof-20260701T005103Z/out/m5k/negative-rehydration-fault/read-alignment-worker/read-alignment-worker-validation.json",
+    "positive_graph_guard_json": "/tmp/cuflye-m5k-proof-20260701T005103Z/out/m5k/positive-run/read-alignment-worker/read-alignment-graph-consumption-guard.json",
+    "positive_rehydration_json": "/tmp/cuflye-m5k-proof-20260701T005103Z/out/m5k/positive-run/read-alignment-worker/read-alignment-worker-rehydration.json",
+    "positive_seam_summary_json": "/tmp/cuflye-m5k-proof-20260701T005103Z/out/m5k/positive-run/read-alignment-worker/read-alignment-seam-summary.json",
+    "positive_validation_json": "/tmp/cuflye-m5k-proof-20260701T005103Z/out/m5k/positive-run/read-alignment-worker/read-alignment-worker-validation.json"
+  },
+  "host": {
+    "architecture": "aarch64",
+    "cuda_arch": "sm_121",
+    "hostname": "edgexpert-45d2",
+    "nvcc": "/usr/local/cuda/bin/nvcc",
+    "nvidia_smi": "GPU 0: NVIDIA GB10 (UUID: GPU-36e1e91e-fa5c-6e0d-d076-203391a7bb03)",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39"
+  },
+  "milestone": "M5k-read-alignment-typed-rehydration-dry-run",
+  "negative_rehydration_fault": {
+    "elapsed_seconds": 13,
+    "exit_status": 1,
+    "expected_failure": true,
+    "graph_consumption_state": "not-consumed",
+    "graph_guard_status": "passed",
+    "graph_mutation_consumed_worker_output": false,
+    "proof_fault": "drop-first-worker-record",
+    "proof_fault_applied_all": true,
+    "query_ids": [
+      5,
+      47
+    ],
+    "rehydration_decision": "failed-closed-before-graph-mutation",
+    "rehydration_state": "failed-closed",
+    "rehydration_status": "failed",
+    "summary_status": "rehydration-failed-before-graph-mutation",
+    "validated_fixture_count": 2,
+    "validation_status": "passed"
+  },
+  "next_recommended_step": "M5l: group M5k typed segments into a shadow std::vector<GraphAlignment> object-vector, compare it against the CPU _readAlignments slice, and still avoid replacing _readAlignments.",
+  "plain_language_assessment": "M5k does not add a new speed claim. Its CUDA-side benefit is representation safety: validated GPU read-alignment output now has to survive Flye-side type conversion, current graph edge lookup, and chain segment checks before any later milestone can consider consuming it.",
+  "positive_typed_rehydration_dry_run": {
+    "cuda_execution_mode": "persistent-arena-bulk-output",
+    "elapsed_seconds": 14,
+    "exit_status": 1,
+    "expected_failure": true,
+    "graph_consumption_state": "not-consumed",
+    "graph_guard_status": "passed",
+    "graph_mutation_consumed_worker_output": false,
+    "independent_validation": [
+      {
+        "canonical_sha256": "d0b566298ac82ded20a89345589d78ba6e383a8dd7556c57235adcda6b3acf25",
+        "diff_status": "match",
+        "query_id": 5,
+        "records": 1
+      },
+      {
+        "canonical_sha256": "b284e52b9560bf3e0cb7b8de0cb0da72a9be9094c9c663aad793088de74d9fdc",
+        "diff_status": "match",
+        "query_id": 47,
+        "records": 1
+      },
+      {
+        "canonical_sha256": "c8aa478626cad18a598140a00a39effba464c187109a2b71a2509806ff7aa802",
+        "diff_status": "match",
+        "query_id": 200,
+        "records": 3
+      },
+      {
+        "canonical_sha256": "b4d437190c033d199b1cd1592c786e8bbe35b679af2d3a41c0ac84610bc613fb",
+        "diff_status": "match",
+        "query_id": 204,
+        "records": 2
+      }
+    ],
+    "query_ids": [
+      5,
+      47,
+      200,
+      204
+    ],
+    "rehydration_decision": "typed-graph-alignment-match-not-consumed",
+    "rehydration_state": "not-consumed",
+    "rehydration_status": "passed",
+    "summary_status": "stopped-before-graph-mutation",
+    "total_rehydrated_chains": 4,
+    "total_rehydrated_records": 7,
+    "validated_fixture_count": 4,
+    "validation_status": "passed",
+    "worker_benchmark": {
+      "max_total_before_json_ms": 0.063408,
+      "mean_core_ms": 0.020336,
+      "mean_total_before_json_ms": 0.062048,
+      "min_total_before_json_ms": 0.060496,
+      "timed_runs": 3,
+      "warmup_runs": 1
+    },
+    "worker_output_consumption_eligible": true,
+    "worker_timing_ms": {
+      "device_to_host": 0.040832,
+      "kernel": 0.019632,
+      "one_time_total": 320.596108,
+      "total_before_json": 0.060496,
+      "write_output": 0.238769
+    }
+  },
+  "proof_dir": "/tmp/cuflye-m5k-proof-20260701T005103Z",
+  "schema": "cuflye-golden-proof-v1",
+  "source": {
+    "base_commit_before_m5k": "9389ead",
+    "local_branch": "main",
+    "proof_checkout": "/tmp/cuflye-m5k-proof-20260701T005103Z/repo"
+  },
+  "status": "accepted",
+  "title": "cuFlye M5k read-alignment typed rehydration dry-run proof"
+}

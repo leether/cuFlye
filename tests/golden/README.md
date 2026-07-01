@@ -140,3 +140,5 @@ M5 read-to-graph alignment proof:
   `cuflye-m5i-persistent-bulk-output-copy-dgx-aarch64.json`
 - Read alignment graph dry-run seam manifest:
   `cuflye-m5j-read-alignment-graph-dry-run-seam-dgx-aarch64.json`
+- Read alignment typed rehydration dry-run manifest:
+  `cuflye-m5k-read-alignment-typed-rehydration-dry-run-dgx-aarch64.json`

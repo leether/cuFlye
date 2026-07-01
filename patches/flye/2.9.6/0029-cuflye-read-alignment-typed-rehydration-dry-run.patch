@@ -1,0 +1,752 @@
+diff --git a/src/repeat_graph/read_aligner.cpp b/src/repeat_graph/read_aligner.cpp
+index 57144e4..c8d3a8e 100644
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -12,6 +12,7 @@
+ #include <cstdlib>
+ #include <fstream>
+ #include <iomanip>
++#include <limits>
+ #include <mutex>
+ #include <queue>
+ #include <sstream>
+@@ -72,6 +73,71 @@ namespace
+ 		std::vector<ReadAlignmentGraphGuardCheck> checks;
+ 	};
+ 
++	struct ReadAlignmentDumpRecord
++	{
++		int64_t chainId = 0;
++		int64_t segmentId = 0;
++		int64_t readId = 0;
++		int64_t readBegin = 0;
++		int64_t readEnd = 0;
++		int64_t readLen = 0;
++		int64_t edgeId = 0;
++		int64_t edgeSeqId = 0;
++		int64_t edgeBegin = 0;
++		int64_t edgeEnd = 0;
++		int64_t edgeLen = 0;
++		int64_t score = 0;
++		float seqDivergence = 0.0f;
++	};
++
++	struct ReadAlignmentTypedSegment
++	{
++		int64_t chainId = 0;
++		int64_t segmentId = 0;
++		EdgeAlignment alignment;
++	};
++
++	struct ReadAlignmentRehydrationCheck
++	{
++		std::string name;
++		bool required = true;
++		bool passed = false;
++		std::string detail;
++	};
++
++	struct ReadAlignmentFixtureRehydration
++	{
++		int64_t queryId = 0;
++		std::string fixtureDir;
++		std::string oracleTsv;
++		std::string workerTsv;
++		std::string status = "failed";
++		std::string typedGraphAlignmentStatus = "not-run";
++		bool proofFaultApplied = false;
++		size_t oracleRecords = 0;
++		size_t workerRecords = 0;
++		size_t rehydratedRecords = 0;
++		size_t rehydratedChains = 0;
++		std::string error;
++	};
++
++	struct ReadAlignmentRehydrationResult
++	{
++		std::string mode;
++		std::string proofFault;
++		std::string status = "not-requested";
++		std::string state = "not-consumed";
++		std::string decision = "disabled";
++		bool eligible = false;
++		bool consumed = false;
++		bool notConsumed = true;
++		bool failedClosed = false;
++		size_t totalRehydratedRecords = 0;
++		size_t totalRehydratedChains = 0;
++		std::vector<ReadAlignmentRehydrationCheck> checks;
++		std::vector<ReadAlignmentFixtureRehydration> fixtures;
++	};
++
+ 	std::mutex& readAlignmentDumpMutex()
+ 	{
+ 		static std::mutex dumpMutex;
+@@ -335,6 +401,269 @@ namespace
+ 		return rows;
+ 	}
+ 
++	bool operator<(const ReadAlignmentDumpRecord& left,
++				   const ReadAlignmentDumpRecord& right)
++	{
++		if (left.chainId != right.chainId) return left.chainId < right.chainId;
++		if (left.segmentId != right.segmentId) return left.segmentId < right.segmentId;
++		if (left.readId != right.readId) return left.readId < right.readId;
++		if (left.readBegin != right.readBegin) return left.readBegin < right.readBegin;
++		if (left.readEnd != right.readEnd) return left.readEnd < right.readEnd;
++		if (left.readLen != right.readLen) return left.readLen < right.readLen;
++		if (left.edgeId != right.edgeId) return left.edgeId < right.edgeId;
++		if (left.edgeSeqId != right.edgeSeqId) return left.edgeSeqId < right.edgeSeqId;
++		if (left.edgeBegin != right.edgeBegin) return left.edgeBegin < right.edgeBegin;
++		if (left.edgeEnd != right.edgeEnd) return left.edgeEnd < right.edgeEnd;
++		if (left.edgeLen != right.edgeLen) return left.edgeLen < right.edgeLen;
++		if (left.score != right.score) return left.score < right.score;
++		return left.seqDivergence < right.seqDivergence;
++	}
++
++	bool operator==(const ReadAlignmentDumpRecord& left,
++					const ReadAlignmentDumpRecord& right)
++	{
++		return left.chainId == right.chainId &&
++			left.segmentId == right.segmentId &&
++			left.readId == right.readId &&
++			left.readBegin == right.readBegin &&
++			left.readEnd == right.readEnd &&
++			left.readLen == right.readLen &&
++			left.edgeId == right.edgeId &&
++			left.edgeSeqId == right.edgeSeqId &&
++			left.edgeBegin == right.edgeBegin &&
++			left.edgeEnd == right.edgeEnd &&
++			left.edgeLen == right.edgeLen &&
++			left.score == right.score &&
++			left.seqDivergence == right.seqDivergence;
++	}
++
++	ReadAlignmentDumpRecord parseReadAlignmentDumpRecord(
++		const std::string& line,
++		const std::string& path,
++		size_t lineNumber)
++	{
++		ReadAlignmentDumpRecord record;
++		double seqDivergence = 0.0;
++		std::istringstream stream(line);
++		std::string extra;
++		if (!(stream >> record.chainId >> record.segmentId >> record.readId >>
++			  record.readBegin >> record.readEnd >> record.readLen >>
++			  record.edgeId >> record.edgeSeqId >> record.edgeBegin >>
++			  record.edgeEnd >> record.edgeLen >> record.score >>
++			  seqDivergence) ||
++			stream >> extra)
++		{
++			throw std::runtime_error(path + ": malformed read-alignment row at line " +
++									 std::to_string(lineNumber));
++		}
++		record.seqDivergence = static_cast<float>(seqDivergence);
++		if (!std::isfinite(seqDivergence) || !std::isfinite(record.seqDivergence))
++		{
++			throw std::runtime_error(path + ": non-finite seq_divergence at line " +
++									 std::to_string(lineNumber));
++		}
++		return record;
++	}
++
++	std::vector<ReadAlignmentDumpRecord> readAlignmentDumpRecords(
++		const std::string& path)
++	{
++		std::ifstream input(path);
++		if (!input)
++		{
++			throw std::runtime_error("Can't open read alignment TSV: " + path);
++		}
++		std::vector<ReadAlignmentDumpRecord> records;
++		std::string line;
++		size_t lineNumber = 0;
++		while (std::getline(input, line))
++		{
++			++lineNumber;
++			if (!line.empty() && line.back() == '\r') line.pop_back();
++			if (line.empty()) continue;
++			records.push_back(parseReadAlignmentDumpRecord(line, path, lineNumber));
++		}
++		std::sort(records.begin(), records.end());
++		return records;
++	}
++
++	FastaRecord::Id readAlignmentFastaIdFromSigned(int64_t signedId)
++	{
++		if (signedId > 0)
++		{
++			return FastaRecord::Id(static_cast<uint32_t>((signedId - 1) * 2));
++		}
++		return FastaRecord::Id(static_cast<uint32_t>((-signedId) * 2 - 1));
++	}
++
++	FastaRecord::Id checkedReadAlignmentFastaIdFromSigned(
++		int64_t signedId,
++		const std::string& name,
++		const std::string& path)
++	{
++		if (signedId < -static_cast<int64_t>(std::numeric_limits<int32_t>::max()) ||
++			signedId > static_cast<int64_t>(std::numeric_limits<int32_t>::max()) ||
++			signedId == 0)
++		{
++			throw std::runtime_error(path + ": " + name +
++									 " is outside Flye signed-id range");
++		}
++		return readAlignmentFastaIdFromSigned(signedId);
++	}
++
++	int32_t checkedReadAlignmentInt32(int64_t value,
++									  const std::string& name,
++									  const std::string& path)
++	{
++		if (value < std::numeric_limits<int32_t>::min() ||
++			value > std::numeric_limits<int32_t>::max())
++		{
++			throw std::runtime_error(path + ": " + name +
++									 " is outside int32 range");
++		}
++		return static_cast<int32_t>(value);
++	}
++
++	void checkReadAlignmentRange(int64_t begin,
++								 int64_t end,
++								 int64_t len,
++								 const std::string& name,
++								 const std::string& path)
++	{
++		if (begin < 0 || end < begin || len < end)
++		{
++			throw std::runtime_error(path + ": invalid " + name +
++									 " begin/end/len range");
++		}
++	}
++
++	ReadAlignmentTypedSegment readAlignmentRecordToTypedSegment(
++		const ReadAlignmentDumpRecord& record,
++		RepeatGraph& graph,
++		const std::string& path)
++	{
++		if (record.chainId < 0 || record.segmentId < 0)
++		{
++			throw std::runtime_error(path +
++									 ": chain_id and segment_id must be non-negative");
++		}
++		checkReadAlignmentRange(record.readBegin, record.readEnd, record.readLen,
++								"read", path);
++		checkReadAlignmentRange(record.edgeBegin, record.edgeEnd, record.edgeLen,
++								"edge", path);
++
++		ReadAlignmentTypedSegment typed;
++		typed.chainId = record.chainId;
++		typed.segmentId = record.segmentId;
++
++		OverlapRange overlap;
++		overlap.curId = checkedReadAlignmentFastaIdFromSigned(record.readId,
++															  "read_id", path);
++		overlap.curBegin = checkedReadAlignmentInt32(record.readBegin,
++													 "read_begin", path);
++		overlap.curEnd = checkedReadAlignmentInt32(record.readEnd,
++												   "read_end", path);
++		overlap.curLen = checkedReadAlignmentInt32(record.readLen,
++												   "read_len", path);
++		overlap.extId = checkedReadAlignmentFastaIdFromSigned(record.edgeSeqId,
++															  "edge_seq_id", path);
++		overlap.extBegin = checkedReadAlignmentInt32(record.edgeBegin,
++													 "edge_begin", path);
++		overlap.extEnd = checkedReadAlignmentInt32(record.edgeEnd,
++												   "edge_end", path);
++		overlap.extLen = checkedReadAlignmentInt32(record.edgeLen,
++												   "edge_len", path);
++		overlap.score = checkedReadAlignmentInt32(record.score, "score", path);
++		overlap.seqDivergence = record.seqDivergence;
++
++		FastaRecord::Id edgeId = checkedReadAlignmentFastaIdFromSigned(
++			record.edgeId, "edge_id", path);
++		GraphEdge* edge = graph.getEdge(edgeId);
++		if (!edge)
++		{
++			throw std::runtime_error(path + ": edge_id " +
++									 std::to_string(record.edgeId) +
++									 " is absent from the current repeat graph");
++		}
++		typed.alignment.overlap = overlap;
++		typed.alignment.edge = edge;
++		return typed;
++	}
++
++	std::vector<ReadAlignmentTypedSegment> rehydrateTypedReadAlignmentRecords(
++		const std::vector<ReadAlignmentDumpRecord>& records,
++		RepeatGraph& graph,
++		const std::string& path)
++	{
++		std::vector<ReadAlignmentTypedSegment> typedRecords;
++		typedRecords.reserve(records.size());
++		for (const auto& record : records)
++		{
++			typedRecords.push_back(
++				readAlignmentRecordToTypedSegment(record, graph, path));
++		}
++		return typedRecords;
++	}
++
++	ReadAlignmentDumpRecord readAlignmentTypedSegmentToDumpRecord(
++		const ReadAlignmentTypedSegment& typed)
++	{
++		ReadAlignmentDumpRecord record;
++		const auto& overlap = typed.alignment.overlap;
++		record.chainId = typed.chainId;
++		record.segmentId = typed.segmentId;
++		record.readId = overlap.curId.signedId();
++		record.readBegin = overlap.curBegin;
++		record.readEnd = overlap.curEnd;
++		record.readLen = overlap.curLen;
++		record.edgeId = typed.alignment.edge->edgeId.signedId();
++		record.edgeSeqId = overlap.extId.signedId();
++		record.edgeBegin = overlap.extBegin;
++		record.edgeEnd = overlap.extEnd;
++		record.edgeLen = overlap.extLen;
++		record.score = overlap.score;
++		record.seqDivergence = overlap.seqDivergence;
++		return record;
++	}
++
++	std::vector<ReadAlignmentDumpRecord> canonicalReadAlignmentRecordsFromTyped(
++		const std::vector<ReadAlignmentTypedSegment>& typedRecords)
++	{
++		std::vector<ReadAlignmentDumpRecord> records;
++		records.reserve(typedRecords.size());
++		for (const auto& typed : typedRecords)
++		{
++			records.push_back(readAlignmentTypedSegmentToDumpRecord(typed));
++		}
++		std::sort(records.begin(), records.end());
++		return records;
++	}
++
++	size_t validateReadAlignmentTypedChains(
++		const std::vector<ReadAlignmentTypedSegment>& typedRecords,
++		const std::string& path)
++	{
++		size_t chainCount = 0;
++		int64_t currentChain = -1;
++		int64_t expectedSegment = 0;
++		for (const auto& typed : typedRecords)
++		{
++			if (typed.chainId != currentChain)
++			{
++				currentChain = typed.chainId;
++				expectedSegment = 0;
++				++chainCount;
++			}
++			if (typed.segmentId != expectedSegment)
++			{
++				throw std::runtime_error(path + ": non-contiguous segment_id in "
++										 "rehydrated GraphAlignment-shaped chain");
++			}
++			++expectedSegment;
++		}
++		return chainCount;
++	}
++
+ 	std::string readAlignmentWorkerMode()
+ 	{
+ 		static std::string mode = []()
+@@ -395,6 +724,49 @@ namespace
+ 		return mode;
+ 	}
+ 
++	std::string readAlignmentRehydrationMode()
++	{
++		static std::string mode = []()
++		{
++			const char* raw =
++				std::getenv("CUFLYE_READ_ALIGNMENT_REHYDRATION_MODE");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "typed-graph-alignment-v0")
++			{
++				throw std::runtime_error(
++					"Unsupported CUFLYE_READ_ALIGNMENT_REHYDRATION_MODE: " +
++					selected);
++			}
++			return selected;
++		}();
++		return mode;
++	}
++
++	bool readAlignmentRehydrationEnabled()
++	{
++		return !readAlignmentRehydrationMode().empty();
++	}
++
++	std::string readAlignmentRehydrationProofFault()
++	{
++		static std::string fault = []()
++		{
++			const char* raw =
++				std::getenv("CUFLYE_READ_ALIGNMENT_REHYDRATION_PROOF_FAULT");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "drop-first-worker-record")
++			{
++				throw std::runtime_error(
++					"Unsupported CUFLYE_READ_ALIGNMENT_REHYDRATION_PROOF_FAULT: " +
++					selected);
++			}
++			return selected;
++		}();
++		return fault;
++	}
++
+ 	std::string readAlignmentOptionalEnv(const char* name,
+ 										 const std::string& defaultValue)
+ 	{
+@@ -437,6 +809,8 @@ namespace
+ 				"CUFLYE_READ_ALIGNMENT_GRAPH_CONSUMPTION_MODE=dry-run-v0");
+ 		}
+ 		(void)readAlignmentWorkerValidationMode();
++		(void)readAlignmentRehydrationMode();
++		(void)readAlignmentRehydrationProofFault();
+ 		(void)readAlignmentRequiredEnv("CUFLYE_READ_ALIGNMENT_WORKER_OUTPUT_DIR");
+ 		(void)readAlignmentReplayQueryIds();
+ 	}
+@@ -674,6 +1048,231 @@ namespace
+ 		writeReadAlignmentTextFile(path, json.str());
+ 	}
+ 
++	void addReadAlignmentRehydrationCheck(
++		ReadAlignmentRehydrationResult& rehydration,
++		const std::string& name,
++		bool passed,
++		const std::string& detail)
++	{
++		ReadAlignmentRehydrationCheck check;
++		check.name = name;
++		check.required = true;
++		check.passed = passed;
++		check.detail = detail;
++		rehydration.checks.push_back(check);
++	}
++
++	bool allReadAlignmentRehydrationChecksPassed(
++		const ReadAlignmentRehydrationResult& rehydration)
++	{
++		for (const auto& check : rehydration.checks)
++		{
++			if (check.required && !check.passed) return false;
++		}
++		return !rehydration.checks.empty();
++	}
++
++	void markReadAlignmentRehydrationFailed(
++		ReadAlignmentRehydrationResult& rehydration)
++	{
++		rehydration.status = "failed";
++		rehydration.state = "failed-closed";
++		rehydration.decision = "failed-closed-before-graph-mutation";
++		rehydration.eligible = false;
++		rehydration.consumed = false;
++		rehydration.notConsumed = false;
++		rehydration.failedClosed = true;
++	}
++
++	ReadAlignmentRehydrationResult evaluateReadAlignmentRehydration(
++		const std::vector<int64_t>& queryIds,
++		const std::string& batchOutputDir,
++		const ReadAlignmentWorkerValidationResult& validation,
++		const ReadAlignmentGraphGuardResult& guard,
++		const std::string& rehydrationJson,
++		RepeatGraph& graph)
++	{
++		ReadAlignmentRehydrationResult result;
++		result.mode = readAlignmentRehydrationMode();
++		result.proofFault = readAlignmentRehydrationProofFault();
++		if (!readAlignmentRehydrationEnabled()) return result;
++
++		markReadAlignmentRehydrationFailed(result);
++		addReadAlignmentRehydrationCheck(
++			result, "explicit_rehydration_mode",
++			result.mode == "typed-graph-alignment-v0",
++			"CUFLYE_READ_ALIGNMENT_REHYDRATION_MODE=typed-graph-alignment-v0");
++		addReadAlignmentRehydrationCheck(
++			result, "graph_guard_passed",
++			guard.status == "passed" && guard.eligible,
++			"M5j read-alignment graph guard must be eligible");
++		addReadAlignmentRehydrationCheck(
++			result, "validation_passed",
++			validation.status == "passed" && validation.consumptionEligible,
++			"worker output validation must pass");
++		addReadAlignmentRehydrationCheck(
++			result, "fixture_count_nonzero", !queryIds.empty(),
++			"at least one replay fixture must be selected");
++		addReadAlignmentRehydrationCheck(
++			result, "audit_metadata_available", !rehydrationJson.empty(),
++			"rehydration audit JSON path must be available");
++
++		if (!allReadAlignmentRehydrationChecksPassed(result)) return result;
++
++		result.status = "passed";
++		result.state = "not-consumed";
++		result.decision = "typed-graph-alignment-match-not-consumed";
++		result.eligible = true;
++		result.notConsumed = true;
++		result.failedClosed = false;
++
++		for (int64_t queryId : queryIds)
++		{
++			ReadAlignmentFixtureRehydration fixture;
++			fixture.queryId = queryId;
++			fixture.fixtureDir = readAlignmentFixtureDirForQuery(queryId);
++			fixture.oracleTsv = joinReplayPath(fixture.fixtureDir,
++											   "oracle.read-alignment.tsv");
++			fixture.workerTsv = joinReplayPath(
++				joinReplayPath(batchOutputDir, replayQueryDirName(queryId)),
++				"read-alignment.tsv");
++			try
++			{
++				auto oracleRecords = readAlignmentDumpRecords(fixture.oracleTsv);
++				auto workerRecords = readAlignmentDumpRecords(fixture.workerTsv);
++				fixture.oracleRecords = oracleRecords.size();
++				fixture.workerRecords = workerRecords.size();
++				if (result.proofFault == "drop-first-worker-record" &&
++					!workerRecords.empty())
++				{
++					workerRecords.erase(workerRecords.begin());
++					fixture.proofFaultApplied = true;
++				}
++				auto typedRecords =
++					rehydrateTypedReadAlignmentRecords(workerRecords, graph,
++													   fixture.workerTsv);
++				fixture.rehydratedRecords = typedRecords.size();
++				fixture.rehydratedChains =
++					validateReadAlignmentTypedChains(typedRecords, fixture.workerTsv);
++				auto rehydratedRecords =
++					canonicalReadAlignmentRecordsFromTyped(typedRecords);
++				if (oracleRecords == rehydratedRecords)
++				{
++					fixture.status = "passed";
++					fixture.typedGraphAlignmentStatus = "match";
++					result.totalRehydratedRecords += fixture.rehydratedRecords;
++					result.totalRehydratedChains += fixture.rehydratedChains;
++				}
++				else
++				{
++					fixture.status = "failed";
++					fixture.typedGraphAlignmentStatus = "mismatch";
++					fixture.error =
++						"rehydrated GraphAlignment-shaped records differ from CPU oracle";
++					markReadAlignmentRehydrationFailed(result);
++				}
++			}
++			catch (const std::exception& exc)
++			{
++				fixture.status = "failed";
++				fixture.error = exc.what();
++				markReadAlignmentRehydrationFailed(result);
++			}
++			result.fixtures.push_back(fixture);
++		}
++
++		if (result.fixtures.empty()) markReadAlignmentRehydrationFailed(result);
++		return result;
++	}
++
++	void writeReadAlignmentRehydrationJson(
++		const std::string& path,
++		const ReadAlignmentRehydrationResult& rehydration)
++	{
++		std::ostringstream json;
++		json << "{\n"
++			 << "  \"schema\": \"cuflye-read-alignment-typed-rehydration-dry-run-v0\",\n"
++			 << "  \"status\": \"" << readAlignmentJsonEscape(rehydration.status)
++			 << "\",\n"
++			 << "  \"mode\": \"" << readAlignmentJsonEscape(rehydration.mode)
++			 << "\",\n"
++			 << "  \"typed_representation\": \"typed-graph-alignment-v0\",\n"
++			 << "  \"proof_fault\": \""
++			 << readAlignmentJsonEscape(rehydration.proofFault) << "\",\n"
++			 << "  \"state\": \"" << readAlignmentJsonEscape(rehydration.state)
++			 << "\",\n"
++			 << "  \"decision\": \"" << readAlignmentJsonEscape(rehydration.decision)
++			 << "\",\n"
++			 << "  \"eligible\": " << readAlignmentBoolJson(rehydration.eligible)
++			 << ",\n"
++			 << "  \"consumed\": " << readAlignmentBoolJson(rehydration.consumed)
++			 << ",\n"
++			 << "  \"not_consumed\": "
++			 << readAlignmentBoolJson(rehydration.notConsumed) << ",\n"
++			 << "  \"failed_closed\": "
++			 << readAlignmentBoolJson(rehydration.failedClosed) << ",\n"
++			 << "  \"graph_mutation_consumed_worker_output\": false,\n"
++			 << "  \"fixture_count\": " << rehydration.fixtures.size() << ",\n"
++			 << "  \"total_rehydrated_records\": "
++			 << rehydration.totalRehydratedRecords << ",\n"
++			 << "  \"total_rehydrated_chains\": "
++			 << rehydration.totalRehydratedChains << ",\n"
++			 << "  \"checks\": [\n";
++		for (size_t index = 0; index < rehydration.checks.size(); ++index)
++		{
++			const auto& check = rehydration.checks[index];
++			json << "    {\n"
++				 << "      \"name\": \"" << readAlignmentJsonEscape(check.name)
++				 << "\",\n"
++				 << "      \"required\": " << readAlignmentBoolJson(check.required)
++				 << ",\n"
++				 << "      \"passed\": " << readAlignmentBoolJson(check.passed)
++				 << ",\n"
++				 << "      \"detail\": \"" << readAlignmentJsonEscape(check.detail)
++				 << "\"\n"
++				 << "    }" << (index + 1 == rehydration.checks.size() ? "\n" : ",\n");
++		}
++		json << "  ],\n"
++			 << "  \"fixtures\": [\n";
++		for (size_t index = 0; index < rehydration.fixtures.size(); ++index)
++		{
++			const auto& fixture = rehydration.fixtures[index];
++			json << "    {\n"
++				 << "      \"query_id\": " << fixture.queryId << ",\n"
++				 << "      \"fixture_dir\": \""
++				 << readAlignmentJsonEscape(fixture.fixtureDir) << "\",\n"
++				 << "      \"oracle_tsv\": \""
++				 << readAlignmentJsonEscape(fixture.oracleTsv) << "\",\n"
++				 << "      \"worker_tsv\": \""
++				 << readAlignmentJsonEscape(fixture.workerTsv) << "\",\n"
++				 << "      \"status\": \""
++				 << readAlignmentJsonEscape(fixture.status) << "\",\n"
++				 << "      \"typed_graph_alignment_status\": \""
++				 << readAlignmentJsonEscape(fixture.typedGraphAlignmentStatus)
++				 << "\",\n"
++				 << "      \"proof_fault_applied\": "
++				 << readAlignmentBoolJson(fixture.proofFaultApplied) << ",\n"
++				 << "      \"oracle_records\": " << fixture.oracleRecords << ",\n"
++				 << "      \"worker_records\": " << fixture.workerRecords << ",\n"
++				 << "      \"rehydrated_records\": "
++				 << fixture.rehydratedRecords << ",\n"
++				 << "      \"rehydrated_chains\": " << fixture.rehydratedChains;
++			if (!fixture.error.empty())
++			{
++				json << ",\n      \"error\": \""
++					 << readAlignmentJsonEscape(fixture.error) << "\"\n";
++			}
++			else
++			{
++				json << "\n";
++			}
++			json << "    }" << (index + 1 == rehydration.fixtures.size() ? "\n" : ",\n");
++		}
++		json << "  ]\n"
++			 << "}\n";
++		writeReadAlignmentTextFile(path, json.str());
++	}
++
+ 	void writeReadAlignmentSeamSummaryJson(
+ 		const std::string& path,
+ 		const std::string& fixtureList,
+@@ -683,6 +1282,8 @@ namespace
+ 		const ReadAlignmentWorkerValidationResult& validation,
+ 		const std::string& guardJson,
+ 		const ReadAlignmentGraphGuardResult& guard,
++		const std::string& rehydrationJson,
++		const ReadAlignmentRehydrationResult& rehydration,
+ 		const std::string& status,
+ 		int workerStatus,
+ 		size_t fixtureCount)
+@@ -721,6 +1322,22 @@ namespace
+ 			 << readAlignmentJsonEscape(guard.decision) << "\",\n"
+ 			 << "  \"graph_consumption_eligible\": "
+ 			 << readAlignmentBoolJson(guard.eligible) << ",\n"
++			 << "  \"read_alignment_rehydration_mode\": \""
++			 << readAlignmentJsonEscape(readAlignmentRehydrationMode()) << "\",\n"
++			 << "  \"read_alignment_rehydration_json\": \""
++			 << readAlignmentJsonEscape(rehydrationJson) << "\",\n"
++			 << "  \"read_alignment_rehydration_status\": \""
++			 << readAlignmentJsonEscape(rehydration.status) << "\",\n"
++			 << "  \"read_alignment_rehydration_state\": \""
++			 << readAlignmentJsonEscape(rehydration.state) << "\",\n"
++			 << "  \"read_alignment_rehydration_decision\": \""
++			 << readAlignmentJsonEscape(rehydration.decision) << "\",\n"
++			 << "  \"read_alignment_rehydration_eligible\": "
++			 << readAlignmentBoolJson(rehydration.eligible) << ",\n"
++			 << "  \"read_alignment_rehydration_total_records\": "
++			 << rehydration.totalRehydratedRecords << ",\n"
++			 << "  \"read_alignment_rehydration_total_chains\": "
++			 << rehydration.totalRehydratedChains << ",\n"
+ 			 << "  \"fixture_count\": " << fixtureCount << ",\n"
+ 			 << "  \"validated_fixture_count\": "
+ 			 << validation.validatedFixtureCount << ",\n"
+@@ -730,7 +1347,7 @@ namespace
+ 		writeReadAlignmentTextFile(path, json.str());
+ 	}
+ 
+-	void runReadAlignmentWorkerDryRunSeam()
++	void runReadAlignmentWorkerDryRunSeam(RepeatGraph& graph)
+ 	{
+ 		if (!readAlignmentWorkerEnabled()) return;
+ 
+@@ -748,6 +1365,8 @@ namespace
+ 			joinReplayPath(outputRoot, "read-alignment-worker-validation.json");
+ 		std::string guardJson =
+ 			joinReplayPath(outputRoot, "read-alignment-graph-consumption-guard.json");
++		std::string rehydrationJson =
++			joinReplayPath(outputRoot, "read-alignment-worker-rehydration.json");
+ 		std::string seamSummary =
+ 			joinReplayPath(outputRoot, "read-alignment-seam-summary.json");
+ 		std::string stdoutLog =
+@@ -807,23 +1426,43 @@ namespace
+ 		auto guard = evaluateReadAlignmentGraphGuard(
+ 			validation, workerStatus, queryIds.size(), guardJson);
+ 		writeReadAlignmentGraphGuardJson(guardJson, guard);
++		ReadAlignmentRehydrationResult rehydration;
+ 
+ 		if (guard.failedClosed)
+ 		{
+ 			writeReadAlignmentSeamSummaryJson(
+ 				seamSummary, fixtureList, batchOutputDir, batchJson, validationJson,
+-				validation, guardJson, guard, "guard-failed-before-graph-mutation",
+-				workerStatus, queryIds.size());
++				validation, guardJson, guard, rehydrationJson, rehydration,
++				"guard-failed-before-graph-mutation", workerStatus, queryIds.size());
+ 			throw std::runtime_error(
+ 				"cuFlye read alignment worker dry-run fail-closed before graph "
+ 				"mutation; guard_json=" +
+ 				guardJson + "; seam_summary=" + seamSummary);
+ 		}
+ 
++		if (readAlignmentRehydrationEnabled())
++		{
++			rehydration = evaluateReadAlignmentRehydration(
++				queryIds, batchOutputDir, validation, guard, rehydrationJson, graph);
++			writeReadAlignmentRehydrationJson(rehydrationJson, rehydration);
++			if (rehydration.failedClosed)
++			{
++				writeReadAlignmentSeamSummaryJson(
++					seamSummary, fixtureList, batchOutputDir, batchJson,
++					validationJson, validation, guardJson, guard, rehydrationJson,
++					rehydration, "rehydration-failed-before-graph-mutation",
++					workerStatus, queryIds.size());
++				throw std::runtime_error(
++					"cuFlye read alignment worker dry-run fail-closed; typed "
++					"read-alignment rehydration failed; rehydration_json=" +
++					rehydrationJson + "; seam_summary=" + seamSummary);
++			}
++		}
++
+ 		writeReadAlignmentSeamSummaryJson(
+ 			seamSummary, fixtureList, batchOutputDir, batchJson, validationJson,
+-			validation, guardJson, guard, "stopped-before-graph-mutation",
+-			workerStatus, queryIds.size());
++			validation, guardJson, guard, rehydrationJson, rehydration,
++			"stopped-before-graph-mutation", workerStatus, queryIds.size());
+ 		throw std::runtime_error(
+ 			"cuFlye read alignment worker dry-run stopped before graph mutation; "
+ 			"seam_summary=" +
+@@ -1245,7 +1884,7 @@ void ReadAligner::alignReads()
+ 		<< totalLength << " (" << (float)alignedLength / totalLength << ")";
+ 	readsOverlaps.overlapDivergenceStats(divergenceStats, MAX_DIVERGENCE);
+ 	dumpReadAlignmentRecords(_readAlignments);
+-	runReadAlignmentWorkerDryRunSeam();
++	runReadAlignmentWorkerDryRunSeam(_graph);
+ }
+ 
+ //updates alignments with respect to the new graph

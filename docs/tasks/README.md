@@ -15,6 +15,9 @@ Proposed cards:
 
 Completed cards:
 
+- `2026-07-01-cuflye-m5k-read-alignment-typed-rehydration-dry-run.md`:
+  convert validated CUDA read-alignment rows into GraphAlignment-shaped typed
+  records in a no-consumption dry-run.
 - `2026-07-01-cuflye-m5j-read-alignment-graph-dry-run-seam.md`: invoke and
   validate the M5i CUDA read-alignment backend from Flye in a no-mutation
   graph-facing dry-run seam.
