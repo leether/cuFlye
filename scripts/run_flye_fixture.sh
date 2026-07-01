@@ -70,6 +70,22 @@ Options:
                        Set CUFLYE_READ_ALIGNMENT_PREDIVERGENCE_CHAIN_MODE
   --read-alignment-predivergence-chain-proof-fault NAME
                        Set CUFLYE_READ_ALIGNMENT_PREDIVERGENCE_CHAIN_PROOF_FAULT
+  --read-to-graph-source-pack-dir PATH
+                       Set CUFLYE_READ_TO_GRAPH_SOURCE_PACK_DIR
+  --read-to-graph-source-pack-query-ids IDS
+                       Set CUFLYE_READ_TO_GRAPH_SOURCE_PACK_QUERY_IDS
+  --read-to-graph-full-query-hit-worker-mode MODE
+                       Set CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_MODE
+  --read-to-graph-full-query-hit-worker-bin PATH
+                       Set CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_BIN
+  --read-to-graph-full-query-hit-worker-output-dir PATH
+                       Set CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_OUTPUT_DIR
+  --read-to-graph-full-query-hit-worker-device ID
+                       Set CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_DEVICE
+  --read-to-graph-full-query-hit-worker-kernel-mode MODE
+                       Set CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_KERNEL_MODE
+  --read-to-graph-full-query-hit-worker-memory-budget-bytes N
+                       Set CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_MEMORY_BUDGET_BYTES
   --overlap-replay-dump-dir PATH
                        Set CUFLYE_OVERLAP_REPLAY_DUMP_DIR for M4b replay fixture
   --overlap-replay-query-id ID
@@ -203,6 +219,14 @@ read_alignment_vector_substitution_mode="${CUFLYE_READ_ALIGNMENT_VECTOR_SUBSTITU
 read_alignment_vector_substitution_proof_fault="${CUFLYE_READ_ALIGNMENT_VECTOR_SUBSTITUTION_PROOF_FAULT:-}"
 read_alignment_predivergence_chain_mode="${CUFLYE_READ_ALIGNMENT_PREDIVERGENCE_CHAIN_MODE:-}"
 read_alignment_predivergence_chain_proof_fault="${CUFLYE_READ_ALIGNMENT_PREDIVERGENCE_CHAIN_PROOF_FAULT:-}"
+read_to_graph_source_pack_dir="${CUFLYE_READ_TO_GRAPH_SOURCE_PACK_DIR:-}"
+read_to_graph_source_pack_query_ids="${CUFLYE_READ_TO_GRAPH_SOURCE_PACK_QUERY_IDS:-}"
+read_to_graph_full_query_hit_worker_mode="${CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_MODE:-}"
+read_to_graph_full_query_hit_worker_bin="${CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_BIN:-}"
+read_to_graph_full_query_hit_worker_output_dir="${CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_OUTPUT_DIR:-}"
+read_to_graph_full_query_hit_worker_device="${CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_DEVICE:-}"
+read_to_graph_full_query_hit_worker_kernel_mode="${CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_KERNEL_MODE:-}"
+read_to_graph_full_query_hit_worker_memory_budget_bytes="${CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_MEMORY_BUDGET_BYTES:-}"
 overlap_replay_dump_dir="${CUFLYE_OVERLAP_REPLAY_DUMP_DIR:-}"
 overlap_replay_query_id="${CUFLYE_OVERLAP_REPLAY_QUERY_ID:-}"
 overlap_replay_query_ids="${CUFLYE_OVERLAP_REPLAY_QUERY_IDS:-}"
@@ -386,6 +410,38 @@ while [ "$#" -gt 0 ]; do
       ;;
     --read-alignment-predivergence-chain-proof-fault)
       read_alignment_predivergence_chain_proof_fault="$2"
+      shift 2
+      ;;
+    --read-to-graph-source-pack-dir)
+      read_to_graph_source_pack_dir="$2"
+      shift 2
+      ;;
+    --read-to-graph-source-pack-query-ids)
+      read_to_graph_source_pack_query_ids="$2"
+      shift 2
+      ;;
+    --read-to-graph-full-query-hit-worker-mode)
+      read_to_graph_full_query_hit_worker_mode="$2"
+      shift 2
+      ;;
+    --read-to-graph-full-query-hit-worker-bin)
+      read_to_graph_full_query_hit_worker_bin="$2"
+      shift 2
+      ;;
+    --read-to-graph-full-query-hit-worker-output-dir)
+      read_to_graph_full_query_hit_worker_output_dir="$2"
+      shift 2
+      ;;
+    --read-to-graph-full-query-hit-worker-device)
+      read_to_graph_full_query_hit_worker_device="$2"
+      shift 2
+      ;;
+    --read-to-graph-full-query-hit-worker-kernel-mode)
+      read_to_graph_full_query_hit_worker_kernel_mode="$2"
+      shift 2
+      ;;
+    --read-to-graph-full-query-hit-worker-memory-budget-bytes)
+      read_to_graph_full_query_hit_worker_memory_budget_bytes="$2"
       shift 2
       ;;
     --overlap-replay-dump-dir)
@@ -649,6 +705,14 @@ if [ -n "${read_alignment_worker_output_dir}" ]; then
   rm -rf "${read_alignment_worker_output_dir}"
   mkdir -p "${read_alignment_worker_output_dir}"
 fi
+if [ -n "${read_to_graph_source_pack_dir}" ]; then
+  rm -rf "${read_to_graph_source_pack_dir}"
+  mkdir -p "${read_to_graph_source_pack_dir}"
+fi
+if [ -n "${read_to_graph_full_query_hit_worker_output_dir}" ]; then
+  rm -rf "${read_to_graph_full_query_hit_worker_output_dir}"
+  mkdir -p "${read_to_graph_full_query_hit_worker_output_dir}"
+fi
 if [ -n "${overlap_replay_dump_dir}" ]; then
   rm -rf "${overlap_replay_dump_dir}"
   mkdir -p "${overlap_replay_dump_dir}"
@@ -782,6 +846,30 @@ if [ -n "${read_alignment_predivergence_chain_mode}" ]; then
 fi
 if [ -n "${read_alignment_predivergence_chain_proof_fault}" ]; then
   export CUFLYE_READ_ALIGNMENT_PREDIVERGENCE_CHAIN_PROOF_FAULT="${read_alignment_predivergence_chain_proof_fault}"
+fi
+if [ -n "${read_to_graph_source_pack_dir}" ]; then
+  export CUFLYE_READ_TO_GRAPH_SOURCE_PACK_DIR="${read_to_graph_source_pack_dir}"
+fi
+if [ -n "${read_to_graph_source_pack_query_ids}" ]; then
+  export CUFLYE_READ_TO_GRAPH_SOURCE_PACK_QUERY_IDS="${read_to_graph_source_pack_query_ids}"
+fi
+if [ -n "${read_to_graph_full_query_hit_worker_mode}" ]; then
+  export CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_MODE="${read_to_graph_full_query_hit_worker_mode}"
+fi
+if [ -n "${read_to_graph_full_query_hit_worker_bin}" ]; then
+  export CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_BIN="${read_to_graph_full_query_hit_worker_bin}"
+fi
+if [ -n "${read_to_graph_full_query_hit_worker_output_dir}" ]; then
+  export CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_OUTPUT_DIR="${read_to_graph_full_query_hit_worker_output_dir}"
+fi
+if [ -n "${read_to_graph_full_query_hit_worker_device}" ]; then
+  export CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_DEVICE="${read_to_graph_full_query_hit_worker_device}"
+fi
+if [ -n "${read_to_graph_full_query_hit_worker_kernel_mode}" ]; then
+  export CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_KERNEL_MODE="${read_to_graph_full_query_hit_worker_kernel_mode}"
+fi
+if [ -n "${read_to_graph_full_query_hit_worker_memory_budget_bytes}" ]; then
+  export CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_MEMORY_BUDGET_BYTES="${read_to_graph_full_query_hit_worker_memory_budget_bytes}"
 fi
 if [ -n "${overlap_replay_dump_dir}" ]; then
   export CUFLYE_OVERLAP_REPLAY_DUMP_DIR="${overlap_replay_dump_dir}"

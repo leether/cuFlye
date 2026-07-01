@@ -1,0 +1,668 @@
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -376,6 +376,62 @@
+ 		std::string error;
+ 	};
+ 
++	struct ReadToGraphRawOverlapRowKey
++	{
++		int64_t queryId = 0;
++		int64_t readId = 0;
++		int64_t readBegin = 0;
++		int64_t readEnd = 0;
++		int64_t readLen = 0;
++		int64_t edgeSeqId = 0;
++		int64_t edgeBegin = 0;
++		int64_t edgeEnd = 0;
++		int64_t edgeLen = 0;
++		int64_t score = 0;
++	};
++
++	struct ReadToGraphRawOverlapRowKeyDiff
++	{
++		bool matched = false;
++		bool orderedMatched = false;
++		size_t leftRecords = 0;
++		size_t rightRecords = 0;
++		size_t matchedRows = 0;
++		size_t missingRows = 0;
++		size_t extraRows = 0;
++		std::vector<std::string> missingExamples;
++		std::vector<std::string> extraExamples;
++	};
++
++	struct ReadToGraphFullQueryHitWorkerDryRunResult
++	{
++		std::string mode;
++		std::string status = "not-requested";
++		std::string decision = "disabled";
++		std::string sourcePackDir;
++		std::string workerOutputRoot;
++		std::string workerRequestJson;
++		std::string workerResponseJson;
++		std::string workerOutputTsv;
++		std::string stdoutLog;
++		std::string stderrLog;
++		std::string auditJson;
++		std::string workerCommand;
++		std::string error;
++		std::vector<int64_t> queryIds;
++		int workerExitStatus = 1;
++		double workerWallMs = 0.0;
++		bool attempted = false;
++		bool rowKeyMatched = false;
++		bool workerResponseOk = false;
++		bool workerOutputReadable = false;
++		bool failedClosed = false;
++		bool graphMutationConsumedWorkerOutput = false;
++		bool workerOutputConsumptionEligible = false;
++		size_t expectedOutputRecords = 0;
++		ReadToGraphRawOverlapRowKeyDiff diff;
++	};
++
+ 	typedef std::unordered_map<FastaRecord::Id,
+ 							   std::pair<GraphEdge*, EdgeSequence>>
+ 		ReadAlignmentSegmentIndex;
+@@ -2239,8 +2295,586 @@
+ 									 name);
+ 		}
+ 		return std::string(raw);
++	}
++
++	std::string readToGraphFullQueryHitWorkerMode()
++	{
++		static std::string mode = []()
++		{
++			const char* raw =
++				std::getenv("CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_MODE");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "full-query-hit-dry-run-v0")
++			{
++				throw std::runtime_error(
++					"Unsupported "
++					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_MODE: " +
++					selected);
++			}
++			return selected;
++		}();
++		return mode;
++	}
++
++	bool readToGraphFullQueryHitWorkerDryRunEnabled()
++	{
++		return !readToGraphFullQueryHitWorkerMode().empty();
++	}
++
++	std::string readToGraphFullQueryHitWorkerDevice()
++	{
++		std::string device = readAlignmentOptionalEnv(
++			"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_DEVICE", "");
++		if (!device.empty()) return device;
++		return readAlignmentOptionalEnv("CUFLYE_CUDA_DEVICE", "0");
++	}
++
++	std::string readToGraphFullQueryHitWorkerKernelMode()
++	{
++		std::string mode = readAlignmentOptionalEnv(
++			"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_KERNEL_MODE",
++			"parallel-score");
++		if (mode != "parallel-score")
++		{
++			throw std::runtime_error(
++				"Unsupported "
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_KERNEL_MODE: " +
++				mode);
++		}
++		return mode;
++	}
++
++	std::vector<int64_t> sortedReadToGraphSourcePackQueryIds()
++	{
++		std::vector<int64_t> queryIds;
++		for (auto queryId : readToGraphSourcePackQueryIds())
++		{
++			queryIds.push_back(queryId);
++		}
++		std::sort(queryIds.begin(), queryIds.end());
++		return queryIds;
++	}
++
++	void validateReadToGraphFullQueryHitWorkerConfig()
++	{
++		if (!readToGraphFullQueryHitWorkerDryRunEnabled()) return;
++		if (!readToGraphSourcePackEnabled())
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit worker dry-run requires "
++				"CUFLYE_READ_TO_GRAPH_SOURCE_PACK_DIR");
++		}
++		if (Parameters::get().numThreads != 1)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit worker dry-run requires "
++				"--threads 1");
++		}
++		(void)readToGraphSourcePackQueryIds();
++		(void)readToGraphFullQueryHitWorkerKernelMode();
++		(void)readAlignmentRequiredEnv(
++			"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_BIN");
++		(void)readAlignmentRequiredEnv(
++			"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_OUTPUT_DIR");
++	}
++
++	bool operator<(const ReadToGraphRawOverlapRowKey& left,
++				   const ReadToGraphRawOverlapRowKey& right)
++	{
++		if (left.queryId != right.queryId) return left.queryId < right.queryId;
++		if (left.readId != right.readId) return left.readId < right.readId;
++		if (left.readBegin != right.readBegin) return left.readBegin < right.readBegin;
++		if (left.readEnd != right.readEnd) return left.readEnd < right.readEnd;
++		if (left.readLen != right.readLen) return left.readLen < right.readLen;
++		if (left.edgeSeqId != right.edgeSeqId)
++			return left.edgeSeqId < right.edgeSeqId;
++		if (left.edgeBegin != right.edgeBegin)
++			return left.edgeBegin < right.edgeBegin;
++		if (left.edgeEnd != right.edgeEnd) return left.edgeEnd < right.edgeEnd;
++		if (left.edgeLen != right.edgeLen) return left.edgeLen < right.edgeLen;
++		return left.score < right.score;
++	}
++
++	bool operator==(const ReadToGraphRawOverlapRowKey& left,
++					const ReadToGraphRawOverlapRowKey& right)
++	{
++		return left.queryId == right.queryId &&
++			left.readId == right.readId &&
++			left.readBegin == right.readBegin &&
++			left.readEnd == right.readEnd &&
++			left.readLen == right.readLen &&
++			left.edgeSeqId == right.edgeSeqId &&
++			left.edgeBegin == right.edgeBegin &&
++			left.edgeEnd == right.edgeEnd &&
++			left.edgeLen == right.edgeLen &&
++			left.score == right.score;
++	}
++
++	std::string readToGraphRawOverlapRowKeyText(
++		const ReadToGraphRawOverlapRowKey& key)
++	{
++		std::ostringstream text;
++		text << key.queryId << "\t"
++			 << key.readId << "\t"
++			 << key.readBegin << "\t"
++			 << key.readEnd << "\t"
++			 << key.readLen << "\t"
++			 << key.edgeSeqId << "\t"
++			 << key.edgeBegin << "\t"
++			 << key.edgeEnd << "\t"
++			 << key.edgeLen << "\t"
++			 << key.score;
++		return text.str();
++	}
++
++	std::vector<std::string> readAlignmentSplitTab(const std::string& line)
++	{
++		std::vector<std::string> fields;
++		std::stringstream stream(line);
++		std::string field;
++		while (std::getline(stream, field, '\t')) fields.push_back(field);
++		return fields;
++	}
++
++	int64_t parseReadToGraphRawOverlapInt64(
++		const std::string& text, const std::string& fieldName,
++		const std::string& path, size_t lineNumber)
++	{
++		size_t parsedChars = 0;
++		int64_t value = std::stoll(text, &parsedChars);
++		if (parsedChars != text.size())
++		{
++			throw std::runtime_error(
++				path + ":" + std::to_string(lineNumber) + ": " + fieldName +
++				" must be a decimal integer");
++		}
++		return value;
++	}
++
++	ReadToGraphRawOverlapRowKey parseReadToGraphRawOverlapRowKey(
++		const std::vector<std::string>& fields,
++		const std::string& path,
++		size_t lineNumber)
++	{
++		if (fields.size() != 16)
++		{
++			throw std::runtime_error(
++				path + ":" + std::to_string(lineNumber) +
++				": raw-overlap row must have 16 fields");
++		}
++		ReadToGraphRawOverlapRowKey key;
++		key.queryId = parseReadToGraphRawOverlapInt64(
++			fields[0], "query_id", path, lineNumber);
++		key.readId = parseReadToGraphRawOverlapInt64(
++			fields[4], "read_id", path, lineNumber);
++		key.readBegin = parseReadToGraphRawOverlapInt64(
++			fields[5], "read_begin", path, lineNumber);
++		key.readEnd = parseReadToGraphRawOverlapInt64(
++			fields[6], "read_end", path, lineNumber);
++		key.readLen = parseReadToGraphRawOverlapInt64(
++			fields[7], "read_len", path, lineNumber);
++		key.edgeSeqId = parseReadToGraphRawOverlapInt64(
++			fields[8], "edge_seq_id", path, lineNumber);
++		key.edgeBegin = parseReadToGraphRawOverlapInt64(
++			fields[9], "edge_begin", path, lineNumber);
++		key.edgeEnd = parseReadToGraphRawOverlapInt64(
++			fields[10], "edge_end", path, lineNumber);
++		key.edgeLen = parseReadToGraphRawOverlapInt64(
++			fields[11], "edge_len", path, lineNumber);
++		key.score = parseReadToGraphRawOverlapInt64(
++			fields[13], "score", path, lineNumber);
++		return key;
++	}
++
++	std::vector<ReadToGraphRawOverlapRowKey> readToGraphRawOverlapRowKeys(
++		const std::string& path)
++	{
++		std::ifstream input(path);
++		if (!input)
++		{
++			throw std::runtime_error("Can't open read-to-graph raw-overlap TSV: " +
++									 path);
++		}
++		std::string schema;
++		std::string header;
++		if (!std::getline(input, schema) ||
++			schema != "# schema=cuflye-read-to-graph-raw-overlap-v0")
++		{
++			throw std::runtime_error(path + ": unexpected raw-overlap schema");
++		}
++		const char* expectedHeader =
++			"query_id\tsource_order\traw_overlap_count\tchain_input_count\t"
++			"read_id\tread_begin\tread_end\tread_len\tedge_seq_id\t"
++			"edge_begin\tedge_end\tedge_len\tedge_id\tscore\t"
++			"seq_divergence\tpasses_chain_input_filter";
++		if (!std::getline(input, header) || header != expectedHeader)
++		{
++			throw std::runtime_error(path + ": unexpected raw-overlap header");
++		}
++
++		std::vector<ReadToGraphRawOverlapRowKey> keys;
++		std::string line;
++		size_t lineNumber = 2;
++		while (std::getline(input, line))
++		{
++			++lineNumber;
++			if (!line.empty() && line.back() == '\r') line.pop_back();
++			if (line.empty()) continue;
++			keys.push_back(parseReadToGraphRawOverlapRowKey(
++				readAlignmentSplitTab(line), path, lineNumber));
++		}
++		return keys;
++	}
++
++	std::vector<ReadToGraphRawOverlapRowKey>
++	readToGraphOracleRawOverlapRowKeys(const std::vector<int64_t>& queryIds)
++	{
++		std::vector<ReadToGraphRawOverlapRowKey> keys;
++		for (auto queryId : queryIds)
++		{
++			std::string path = joinReplayPath(
++				readToGraphSourcePackQueryDir(queryId), "raw-overlaps.tsv");
++			auto queryKeys = readToGraphRawOverlapRowKeys(path);
++			keys.insert(keys.end(), queryKeys.begin(), queryKeys.end());
++		}
++		return keys;
++	}
++
++	ReadToGraphRawOverlapRowKeyDiff compareReadToGraphRawOverlapRowKeys(
++		const std::vector<ReadToGraphRawOverlapRowKey>& leftInput,
++		const std::vector<ReadToGraphRawOverlapRowKey>& rightInput)
++	{
++		ReadToGraphRawOverlapRowKeyDiff diff;
++		diff.leftRecords = leftInput.size();
++		diff.rightRecords = rightInput.size();
++		diff.orderedMatched = leftInput == rightInput;
++		std::vector<ReadToGraphRawOverlapRowKey> left = leftInput;
++		std::vector<ReadToGraphRawOverlapRowKey> right = rightInput;
++		std::sort(left.begin(), left.end());
++		std::sort(right.begin(), right.end());
++
++		size_t leftIdx = 0;
++		size_t rightIdx = 0;
++		while (leftIdx < left.size() || rightIdx < right.size())
++		{
++			if (leftIdx < left.size() && rightIdx < right.size() &&
++				left[leftIdx] == right[rightIdx])
++			{
++				++diff.matchedRows;
++				++leftIdx;
++				++rightIdx;
++			}
++			else if (rightIdx == right.size() ||
++					 (leftIdx < left.size() && left[leftIdx] < right[rightIdx]))
++			{
++				++diff.missingRows;
++				if (diff.missingExamples.size() < 5)
++				{
++					diff.missingExamples.push_back(
++						readToGraphRawOverlapRowKeyText(left[leftIdx]));
++				}
++				++leftIdx;
++			}
++			else
++			{
++				++diff.extraRows;
++				if (diff.extraExamples.size() < 5)
++				{
++					diff.extraExamples.push_back(
++						readToGraphRawOverlapRowKeyText(right[rightIdx]));
++				}
++				++rightIdx;
++			}
++		}
++		diff.matched = diff.missingRows == 0 &&
++			diff.extraRows == 0 &&
++			diff.leftRecords == diff.rightRecords;
++		return diff;
+ 	}
+ 
++	void writeReadToGraphFullQueryHitWorkerRequestJson(
++		const std::string& path,
++		const std::string& requestId,
++		const std::string& sourcePackDir,
++		const std::string& outputTsv,
++		const std::string& responseJson,
++		size_t expectedOutputRecords)
++	{
++		std::ostringstream json;
++		json << "{\n"
++			 << "  \"schema\": \"cuflye-full-query-hit-worker-request-v0\",\n"
++			 << "  \"request_id\": \""
++			 << readAlignmentJsonEscape(requestId) << "\",\n"
++			 << "  \"adapter_mode\": \"full-query-hit-replay-v0\",\n"
++			 << "  \"raw_overlap_abi\": "
++				"\"cuflye-read-to-graph-raw-overlap-v0\",\n"
++			 << "  \"backend\": \"cuda\",\n"
++			 << "  \"kernel_mode\": \""
++			 << readAlignmentJsonEscape(readToGraphFullQueryHitWorkerKernelMode())
++			 << "\",\n"
++			 << "  \"device\": "
++			 << readToGraphFullQueryHitWorkerDevice() << ",\n"
++			 << "  \"source_pack_dir\": \""
++			 << readAlignmentJsonEscape(sourcePackDir) << "\",\n"
++			 << "  \"output_tsv\": \""
++			 << readAlignmentJsonEscape(outputTsv) << "\",\n"
++			 << "  \"response_json\": \""
++			 << readAlignmentJsonEscape(responseJson) << "\",\n";
++		std::string memoryBudget = readAlignmentOptionalEnv(
++			"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_MEMORY_BUDGET_BYTES",
++			"");
++		if (!memoryBudget.empty())
++		{
++			json << "  \"memory_budget_bytes\": " << memoryBudget << ",\n";
++		}
++		json << "  \"expected_output_records\": "
++			 << expectedOutputRecords << "\n"
++			 << "}\n";
++		writeReadAlignmentTextFile(path, json.str());
++	}
++
++	bool readToGraphFullQueryHitWorkerResponseOk(const std::string& response)
++	{
++		return response.find(
++			"\"schema\": \"cuflye-full-query-hit-worker-response-v0\"") !=
++			std::string::npos &&
++			response.find("\"status\": \"ok\"") != std::string::npos;
++	}
++
++	void writeReadToGraphFullQueryHitWorkerDryRunJson(
++		const std::string& path,
++		const ReadToGraphFullQueryHitWorkerDryRunResult& result)
++	{
++		std::ostringstream json;
++		json << "{\n"
++			 << "  \"schema\": "
++				"\"cuflye-read-to-graph-full-query-hit-worker-dry-run-v0\",\n"
++			 << "  \"status\": \"" << readAlignmentJsonEscape(result.status)
++			 << "\",\n"
++			 << "  \"mode\": \"" << readAlignmentJsonEscape(result.mode)
++			 << "\",\n"
++			 << "  \"decision\": \"" << readAlignmentJsonEscape(result.decision)
++			 << "\",\n"
++			 << "  \"source_pack_dir\": \""
++			 << readAlignmentJsonEscape(result.sourcePackDir) << "\",\n"
++			 << "  \"worker_output_root\": \""
++			 << readAlignmentJsonEscape(result.workerOutputRoot) << "\",\n"
++			 << "  \"worker_request_json\": \""
++			 << readAlignmentJsonEscape(result.workerRequestJson) << "\",\n"
++			 << "  \"worker_response_json\": \""
++			 << readAlignmentJsonEscape(result.workerResponseJson) << "\",\n"
++			 << "  \"worker_output_tsv\": \""
++			 << readAlignmentJsonEscape(result.workerOutputTsv) << "\",\n"
++			 << "  \"stdout_log\": \"" << readAlignmentJsonEscape(result.stdoutLog)
++			 << "\",\n"
++			 << "  \"stderr_log\": \"" << readAlignmentJsonEscape(result.stderrLog)
++			 << "\",\n"
++			 << "  \"worker_command\": \""
++			 << readAlignmentJsonEscape(result.workerCommand) << "\",\n"
++			 << "  \"worker_exit_status\": " << result.workerExitStatus << ",\n"
++			 << "  \"worker_wall_ms\": " << result.workerWallMs << ",\n"
++			 << "  \"attempted\": " << readAlignmentBoolJson(result.attempted)
++			 << ",\n"
++			 << "  \"row_key_matched\": "
++			 << readAlignmentBoolJson(result.rowKeyMatched) << ",\n"
++			 << "  \"worker_response_ok\": "
++			 << readAlignmentBoolJson(result.workerResponseOk) << ",\n"
++			 << "  \"worker_output_readable\": "
++			 << readAlignmentBoolJson(result.workerOutputReadable) << ",\n"
++			 << "  \"worker_output_consumption_eligible\": "
++			 << readAlignmentBoolJson(result.workerOutputConsumptionEligible)
++			 << ",\n"
++			 << "  \"graph_mutation_consumed_worker_output\": "
++			 << readAlignmentBoolJson(result.graphMutationConsumedWorkerOutput)
++			 << ",\n"
++			 << "  \"failed_closed\": "
++			 << readAlignmentBoolJson(result.failedClosed) << ",\n"
++			 << "  \"expected_output_records\": "
++			 << result.expectedOutputRecords << ",\n"
++			 << "  \"query_ids\": [";
++		for (size_t idx = 0; idx < result.queryIds.size(); ++idx)
++		{
++			if (idx) json << ", ";
++			json << result.queryIds[idx];
++		}
++		json << "],\n"
++			 << "  \"row_key_diff\": {\n"
++			 << "    \"schema\": "
++				"\"cuflye-read-to-graph-raw-overlap-row-key-diff-v0\",\n"
++			 << "    \"status\": \""
++			 << (result.diff.matched ? "match" : "mismatch") << "\",\n"
++			 << "    \"left_records\": " << result.diff.leftRecords << ",\n"
++			 << "    \"right_records\": " << result.diff.rightRecords << ",\n"
++			 << "    \"ordered_match\": "
++			 << readAlignmentBoolJson(result.diff.orderedMatched) << ",\n"
++			 << "    \"matched_rows\": " << result.diff.matchedRows << ",\n"
++			 << "    \"missing_rows\": " << result.diff.missingRows << ",\n"
++			 << "    \"extra_rows\": " << result.diff.extraRows << ",\n"
++			 << "    \"missing_examples\": [";
++		for (size_t idx = 0; idx < result.diff.missingExamples.size(); ++idx)
++		{
++			if (idx) json << ", ";
++			json << "\"" << readAlignmentJsonEscape(
++				result.diff.missingExamples[idx]) << "\"";
++		}
++		json << "],\n"
++			 << "    \"extra_examples\": [";
++		for (size_t idx = 0; idx < result.diff.extraExamples.size(); ++idx)
++		{
++			if (idx) json << ", ";
++			json << "\"" << readAlignmentJsonEscape(
++				result.diff.extraExamples[idx]) << "\"";
++		}
++		json << "]\n"
++			 << "  }";
++		if (!result.error.empty())
++		{
++			json << ",\n"
++				 << "  \"error\": \""
++				 << readAlignmentJsonEscape(result.error) << "\"\n";
++		}
++		else
++		{
++			json << "\n";
++		}
++		json << "}\n";
++		writeReadAlignmentTextFile(path, json.str());
++	}
++
++	void markReadToGraphFullQueryHitWorkerDryRunFailed(
++		ReadToGraphFullQueryHitWorkerDryRunResult& result,
++		const std::string& error)
++	{
++		if (result.diff.leftRecords > 0 &&
++			result.diff.rightRecords == 0 &&
++			result.diff.matchedRows == 0 &&
++			result.diff.missingRows == 0)
++		{
++			result.diff.missingRows = result.diff.leftRecords;
++		}
++		result.status = "failed-before-graph-mutation";
++		result.decision = "fail-closed-before-graph-mutation";
++		result.failedClosed = true;
++		result.graphMutationConsumedWorkerOutput = false;
++		result.workerOutputConsumptionEligible = false;
++		result.error = error;
++	}
++
++	void runReadToGraphFullQueryHitWorkerDryRunSeam()
++	{
++		if (!readToGraphFullQueryHitWorkerDryRunEnabled()) return;
++
++		ReadToGraphFullQueryHitWorkerDryRunResult result;
++		result.mode = readToGraphFullQueryHitWorkerMode();
++		result.sourcePackDir = std::string(readToGraphSourcePackDir());
++		result.workerOutputRoot = readAlignmentRequiredEnv(
++			"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_OUTPUT_DIR");
++		result.workerRequestJson = joinReplayPath(
++			result.workerOutputRoot, "full-query-hit-worker-request.json");
++		result.workerResponseJson = joinReplayPath(
++			result.workerOutputRoot, "full-query-hit-worker-response.json");
++		result.workerOutputTsv = joinReplayPath(
++			result.workerOutputRoot, "full-query-hit-worker.raw-overlaps.tsv");
++		result.stdoutLog = joinReplayPath(
++			result.workerOutputRoot, "full-query-hit-worker-stdout.log");
++		result.stderrLog = joinReplayPath(
++			result.workerOutputRoot, "full-query-hit-worker-stderr.log");
++		result.auditJson = joinReplayPath(
++			result.workerOutputRoot,
++			"full-query-hit-worker-dry-run.json");
++		result.queryIds = sortedReadToGraphSourcePackQueryIds();
++		ensureReplayDirectory(result.workerOutputRoot);
++
++		try
++		{
++			auto oracleKeys =
++				readToGraphOracleRawOverlapRowKeys(result.queryIds);
++			result.expectedOutputRecords = oracleKeys.size();
++			result.diff.leftRecords = oracleKeys.size();
++			if (result.expectedOutputRecords == 0)
++			{
++				throw std::runtime_error(
++					"selected read-to-graph source pack has zero raw-overlap "
++					"oracle records");
++			}
++			writeReadToGraphFullQueryHitWorkerRequestJson(
++				result.workerRequestJson,
++				"read-to-graph-full-query-hit-dry-run",
++				result.sourcePackDir,
++				result.workerOutputTsv,
++				result.workerResponseJson,
++				result.expectedOutputRecords);
++
++			std::string workerBin = readAlignmentRequiredEnv(
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_BIN");
++			result.workerCommand = readAlignmentShellQuote(workerBin) +
++				" --worker-request-json " +
++				readAlignmentShellQuote(result.workerRequestJson) +
++				" > " + readAlignmentShellQuote(result.stdoutLog) +
++				" 2> " + readAlignmentShellQuote(result.stderrLog);
++			result.attempted = true;
++			auto workerStart = std::chrono::steady_clock::now();
++			result.workerExitStatus = std::system(result.workerCommand.c_str());
++			result.workerWallMs = readAlignmentElapsedMs(
++				workerStart, std::chrono::steady_clock::now());
++			if (result.workerExitStatus != 0)
++			{
++				throw std::runtime_error(
++					"CUDA full-query-hit worker failed with status " +
++					std::to_string(result.workerExitStatus));
++			}
++			result.workerResponseOk = readToGraphFullQueryHitWorkerResponseOk(
++				readAlignmentTextFile(result.workerResponseJson));
++			if (!result.workerResponseOk)
++			{
++				throw std::runtime_error(
++					"CUDA full-query-hit worker response did not report status ok");
++			}
++			result.workerOutputReadable = readableFile(result.workerOutputTsv);
++			if (!result.workerOutputReadable)
++			{
++				throw std::runtime_error(
++					"CUDA full-query-hit worker did not write raw-overlap TSV: " +
++					result.workerOutputTsv);
++			}
++
++			auto workerKeys =
++				readToGraphRawOverlapRowKeys(result.workerOutputTsv);
++			result.diff = compareReadToGraphRawOverlapRowKeys(
++				oracleKeys, workerKeys);
++			result.rowKeyMatched = result.diff.matched;
++			if (!result.rowKeyMatched)
++			{
++				throw std::runtime_error(
++					"CUDA full-query-hit worker raw-overlap row keys differ from "
++					"CPU oracle");
++			}
++			result.status = "passed";
++			result.decision = "stopped-before-graph-mutation";
++			result.failedClosed = false;
++			result.workerOutputConsumptionEligible = true;
++			result.graphMutationConsumedWorkerOutput = false;
++		}
++		catch (const std::exception& exc)
++		{
++			markReadToGraphFullQueryHitWorkerDryRunFailed(result, exc.what());
++		}
++
++		writeReadToGraphFullQueryHitWorkerDryRunJson(
++			result.auditJson, result);
++		if (result.status != "passed")
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit worker dry-run "
++				"fail-closed before graph mutation; audit_json=" +
++				result.auditJson);
++		}
++		throw std::runtime_error(
++			"cuFlye read-to-graph full-query-hit worker dry-run stopped before "
++			"graph mutation; audit_json=" + result.auditJson);
++	}
++
+ 	std::string readAlignmentWorkerLifecycleMode()
+ 	{
+ 		static std::string mode = []()
+@@ -4905,6 +5539,7 @@
+ 	validateReadAlignmentDumpConfig();
+ 	validateReadAlignmentInputBoundaryDumpConfig();
+ 	validateReadToGraphSourcePackConfig();
++	validateReadToGraphFullQueryHitWorkerConfig();
+ 	validateReadAlignmentReplayDumpConfig();
+ 	validateReadAlignmentWorkerConfig();
+ 	validateReadAlignmentPreDivergenceChainConfig();
+@@ -5446,6 +6081,7 @@
+ 		<< totalLength << " (" << (float)alignedLength / totalLength << ")";
+ 	readsOverlaps.overlapDivergenceStats(divergenceStats, MAX_DIVERGENCE);
+ 	dumpReadAlignmentRecords(_readAlignments);
++	runReadToGraphFullQueryHitWorkerDryRunSeam();
+ 	runReadAlignmentWorkerDryRunSeam(_graph, _readAlignments);
+ }
+ 

@@ -3135,3 +3135,79 @@ M6l: move the M6k full-query-hit worker boundary into a Flye-side dry-run seam
 so a real Flye run can request worker output, validate row-key parity, preserve
 canonical artifacts, and still stop before graph mutation.
 ```
+
+### M6l: Flye full-query-hit worker dry-run seam
+
+Status: complete.
+
+M6l adds `0042-cuflye-read-to-graph-full-query-hit-worker-dry-run-seam.patch`
+and ABI documentation in
+`docs/abi/flye-full-query-hit-worker-dry-run-seam-v0.md`. The Flye-side seam is
+enabled only by:
+
+```text
+CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_MODE=full-query-hit-dry-run-v0
+```
+
+It requires the read-to-graph source pack envs, emits an M6k worker request,
+validates the worker `raw-overlaps.tsv` by canonical row key, writes
+`full-query-hit-worker-dry-run.json`, and throws before graph mutation.
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m6l-proof-20260701T080708Z
+fixture=toy-hifi
+query_ids=5,6,7,8,9,10,11,12
+expected_output_records=36
+positive_status=passed
+positive_decision=stopped-before-graph-mutation
+worker_response_status=ok
+worker_wall_ms=480.644
+worker_kernel_ms=52.565552
+row_key_diff=match
+matched_rows=36
+missing_rows=0
+extra_rows=0
+graph_mutation_consumed_worker_output=false
+negative_status=failed-before-graph-mutation
+negative_error="required bytes exceed memory budget"
+negative_missing_rows=36
+negative_graph_mutation_consumed_worker_output=false
+default_cpu_artifact_hashes_match_m0=true
+```
+
+Allowed M6l claim:
+
+```text
+cuFlye can now have a real Flye run generate the selected read-to-graph source
+pack, call the CUDA full-query-hit worker through the M6k file protocol,
+validate 36/36 raw-overlap row keys against the CPU oracle, and stop before
+graph mutation.
+```
+
+Forbidden M6l claim:
+
+```text
+M6l does not prove whole-Flye speedup, graph consumption, default GPU mode,
+warm-worker Flye integration, or full non-key raw-overlap field parity.
+```
+
+Plain-language benefit:
+
+```text
+M6l turns the previous standalone worker result into a real Flye integration
+gate. It does not make Flye faster yet; in this proof the worker wall time is
+still cold-process dominated at about 480.644 ms while the kernel itself is
+about 52.566 ms. The value is safety and integration: Flye can now ask the GPU
+for output and reject it before graph mutation unless the CPU oracle row-key
+gate passes.
+```
+
+Next highest-ROI task:
+
+```text
+M6m: add a warm/persistent Flye-side full-query-hit worker lifecycle so the real
+Flye seam can reuse CUDA context and device buffers instead of paying cold
+worker startup for each dry-run proof.
+```
