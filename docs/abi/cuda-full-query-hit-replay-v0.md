@@ -232,3 +232,16 @@ M6h/M6i/M6j/M6k do not:
 - preserve direct CPU raw row order for equal-score ties;
 - consume CUDA output inside Flye;
 - prove whole-Flye speedup.
+
+## M8b Selected Quick-Overlap Target
+
+M8b reuses this ABI for the M8a selected 16-query quick-overlap target. The
+accepted DGX proof captures a full-query-hit source pack with `15,306` source
+match records, `47` source ext groups, `24` active CUDA ext groups, and `27`
+raw-overlap output records.
+
+The confirmed warm CUDA replay requests average `63.471744 ms` over `18`
+requests, below the matched Flye CPU quick-overlap baseline of `79.294112 ms`.
+This is a bounded hot-path replay advantage only. It still does not prove graph
+consumption, default GPU mode, full non-key raw-overlap field parity, or
+whole-Flye speedup.

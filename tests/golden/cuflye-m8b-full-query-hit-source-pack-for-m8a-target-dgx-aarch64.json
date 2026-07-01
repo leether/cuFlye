@@ -1,0 +1,324 @@
+{
+  "allowed_claim": "M8b proves a bounded hot-path CUDA advantage for the M8a selected full-query-hit replay boundary: CUDA row keys match CPU replay, capture preserves canonical Flye artifacts, and confirmed warm CUDA request mean time is below the same selected Flye quick-overlap baseline.",
+  "capture": {
+    "capture_vs_control_diff": {
+      "artifacts": [
+        {
+          "left_present": true,
+          "left_sha256": "f24373e93e70d4e2dc26fd4e035f6f319b5c4957eb79233d74c49e63d1099af6",
+          "path": "00-assembly/draft_assembly.fasta",
+          "right_present": true,
+          "right_sha256": "f24373e93e70d4e2dc26fd4e035f6f319b5c4957eb79233d74c49e63d1099af6",
+          "status": "match"
+        },
+        {
+          "left_present": true,
+          "left_sha256": "62952fa5ecbf84b4f5a5470da16d95f85a962e8cb722aa532610ba87431a56ef",
+          "path": "20-repeat/repeat_graph_dump",
+          "right_present": true,
+          "right_sha256": "62952fa5ecbf84b4f5a5470da16d95f85a962e8cb722aa532610ba87431a56ef",
+          "status": "match"
+        },
+        {
+          "left_present": true,
+          "left_sha256": "26740f1d782591fdcd5c5aef11f591d4559df353b7b31409b6f579caa17bffc5",
+          "path": "20-repeat/read_alignment_dump",
+          "right_present": true,
+          "right_sha256": "26740f1d782591fdcd5c5aef11f591d4559df353b7b31409b6f579caa17bffc5",
+          "status": "match"
+        },
+        {
+          "left_present": true,
+          "left_sha256": "ed90d197289573e3f83c2ebd038115d9371b74d465f903ec4649caa013b4b6d3",
+          "path": "20-repeat/repeat_graph_edges.fasta",
+          "right_present": true,
+          "right_sha256": "ed90d197289573e3f83c2ebd038115d9371b74d465f903ec4649caa013b4b6d3",
+          "status": "match"
+        },
+        {
+          "left_present": true,
+          "left_sha256": "faa40610465dc27b5a52d9ea892f61d4ad6ab5cb35ea83ab9430e63ca2084ff1",
+          "path": "30-contigger/graph_final.gfa",
+          "right_present": true,
+          "right_sha256": "faa40610465dc27b5a52d9ea892f61d4ad6ab5cb35ea83ab9430e63ca2084ff1",
+          "status": "match"
+        },
+        {
+          "left_present": true,
+          "left_sha256": "cc51357bbf92798b7c29574b809fb0926e7a4fba078183a8d40b3f919b5066b3",
+          "path": "30-contigger/graph_final.fasta",
+          "right_present": true,
+          "right_sha256": "cc51357bbf92798b7c29574b809fb0926e7a4fba078183a8d40b3f919b5066b3",
+          "status": "match"
+        },
+        {
+          "left_present": true,
+          "left_sha256": "59e1db047711152e2c70c03a8b7cfbdd3f2595a2dee81cd958b4ec6485158db7",
+          "path": "assembly.fasta",
+          "right_present": true,
+          "right_sha256": "59e1db047711152e2c70c03a8b7cfbdd3f2595a2dee81cd958b4ec6485158db7",
+          "status": "match"
+        },
+        {
+          "left_present": true,
+          "left_sha256": "5daa37903ecde55d19951c4f2f0f205dc1992abd59b59744e369998d07ee971f",
+          "path": "assembly_info.txt",
+          "right_present": true,
+          "right_sha256": "5daa37903ecde55d19951c4f2f0f205dc1992abd59b59744e369998d07ee971f",
+          "status": "match"
+        },
+        {
+          "left_present": true,
+          "left_sha256": "e0c4c0d4e0d6b65936eb911a7267bbba5c68f15b2ab28ff0e66f043de3b9e40c",
+          "path": "assembly_graph.gfa",
+          "right_present": true,
+          "right_sha256": "e0c4c0d4e0d6b65936eb911a7267bbba5c68f15b2ab28ff0e66f043de3b9e40c",
+          "status": "match"
+        }
+      ],
+      "left": "/tmp/cuflye-m7d-proof-20260701T190000Z/control/flye",
+      "right": "/tmp/cuflye-m8b-proof-20260701T210000Z/capture/flye",
+      "sort_fasta_records": false,
+      "status": "match"
+    },
+    "flye_out_dir": "/tmp/cuflye-m8b-proof-20260701T210000Z/capture/flye",
+    "input_boundary_dump": "/tmp/cuflye-m8b-proof-20260701T210000Z/input-boundary.tsv",
+    "input_boundary_summary": {
+      "abi": "read-to-graph-input-boundary-v0",
+      "canonical_timing_excluded": true,
+      "chain_input_records": 3814,
+      "path": "/tmp/cuflye-m8b-proof-20260701T210000Z/input-boundary.tsv",
+      "queries": 3577,
+      "queries_with_chain_input": 3576,
+      "queries_with_raw_overlap": 3577,
+      "query_summary_records": 3577,
+      "raw_overlap_records": 5092,
+      "records": 12483,
+      "total_cpu_chain_dp_wall_ms": 0.902006,
+      "total_cpu_divergence_filter_wall_ms": 169.540391,
+      "total_input_filter_sort_wall_ms": 0.614449,
+      "total_quick_overlap_wall_ms": 2136.973906
+    },
+    "source_pack_dir": "/tmp/cuflye-m8b-proof-20260701T210000Z/source-pack"
+  },
+  "checks": {
+    "capture_artifacts_match_control": true,
+    "cpu_replay_row_key_match": true,
+    "cuda_c_deterministic_against_d": true,
+    "cuda_c_row_key_match": true,
+    "cuda_d_row_key_match": true,
+    "hot_cuda_preferred_1_25x_gate_passed": false,
+    "hot_cuda_required_speed_gate_passed": true,
+    "m8a_chain_input_oracle_replay_match": true,
+    "no_default_or_whole_flye_speed_claim": true,
+    "source_pack_query_ids_match_m8a": true,
+    "source_pack_status_ok": true
+  },
+  "cpu_replay": {
+    "geometry_match": true,
+    "replay_raw_overlaps_sha256": "d7f61220e9d96371c2a2e2e1607b9bffafa28418e71acda890f48e652c14fbed",
+    "row_key_exact_match": true,
+    "status": "match",
+    "totals": {
+      "extra_rows": 0,
+      "geometry_extra_rows": 0,
+      "geometry_matched_rows": 27,
+      "geometry_missing_rows": 0,
+      "matched_rows": 27,
+      "missing_rows": 0,
+      "non_key_field_mismatch_rows": 27,
+      "oracle_raw_overlap_records": 27,
+      "replay_raw_overlap_records": 27,
+      "source_ext_groups": 47,
+      "source_match_records": 15306
+    },
+    "wall_ms": 254.6812379732728,
+    "wall_ms_note": "external Python replay wall time, not the Flye quick-overlap baseline"
+  },
+  "created_at_utc": "2026-07-01T14:37:37.619900Z",
+  "cuda_replay": {
+    "combined_warm_request_count": 18,
+    "combined_warm_request_total_best_ms": 63.469872,
+    "combined_warm_request_total_mean_ms": 63.471744111111114,
+    "combined_warm_request_total_median_ms": 63.471167,
+    "combined_warm_requests_below_m8a_quick_overlap": 18,
+    "confirm_runs": {
+      "cuda_c": {
+        "active_ext_groups": 24,
+        "json": "/tmp/cuflye-m8b-proof-20260701T210000Z/cuda-c.json",
+        "output_records": 27,
+        "query_count": 16,
+        "repeat_count": 12,
+        "required_bytes": 2727824,
+        "source_ext_groups": 47,
+        "source_match_records": 15306,
+        "status": "ok",
+        "warm_kernel_best_ms": 63.431151,
+        "warm_kernel_mean_ms": 63.43303872727273,
+        "warm_request_count": 11,
+        "warm_request_total_best_ms": 63.470223,
+        "warm_request_total_mean_ms": 63.47194363636363,
+        "warm_request_total_median_ms": 63.471167,
+        "warm_request_totals_ms": [
+          63.473167,
+          63.472239,
+          63.47059,
+          63.475151,
+          63.470847,
+          63.471167,
+          63.471167,
+          63.473567,
+          63.470223,
+          63.470847,
+          63.472415
+        ],
+        "warm_requests_below_m8a_quick_overlap": 11
+      },
+      "cuda_d": {
+        "active_ext_groups": 24,
+        "json": "/tmp/cuflye-m8b-proof-20260701T210000Z/cuda-d.json",
+        "output_records": 27,
+        "query_count": 16,
+        "repeat_count": 8,
+        "required_bytes": 2727824,
+        "source_ext_groups": 47,
+        "source_match_records": 15306,
+        "status": "ok",
+        "warm_kernel_best_ms": 63.430896,
+        "warm_kernel_mean_ms": 63.432335571428574,
+        "warm_request_count": 7,
+        "warm_request_total_best_ms": 63.469872,
+        "warm_request_total_mean_ms": 63.47143057142857,
+        "warm_request_total_median_ms": 63.470912,
+        "warm_request_totals_ms": [
+          63.473199,
+          63.469872,
+          63.470208,
+          63.470576,
+          63.471615,
+          63.470912,
+          63.473632
+        ],
+        "warm_requests_below_m8a_quick_overlap": 7
+      }
+    },
+    "kernel_mode": "parallel-score",
+    "speedup_vs_m8a_quick_overlap_best": 1.2493189209519753,
+    "speedup_vs_m8a_quick_overlap_mean": 1.2492820720538398,
+    "speedup_vs_m8a_quick_overlap_median": 1.2492934311417339
+  },
+  "fixture": "toy-hifi",
+  "forbidden_claim": "M8b does not prove default GPU mode, graph consumption, full non-key raw-overlap field parity, or whole-Flye speedup.",
+  "m8a_reference": {
+    "golden": "/tmp/cuflye-m8a-proof-20260701T203000Z/cuflye-m8a-read-to-graph-quick-overlap-minimizer-target-dgx-aarch64.json",
+    "oracle_pack_replay_match": true,
+    "selected_chain_input_records": 18,
+    "selected_query_ids": [
+      2145,
+      2160,
+      2146,
+      2152,
+      2161,
+      2167,
+      2148,
+      2154,
+      2157,
+      2163,
+      2165,
+      2149,
+      84,
+      2150,
+      5,
+      361
+    ],
+    "selected_quick_overlap_ms": 79.294112,
+    "selected_raw_overlap_records": 27
+  },
+  "next_recommended_step": "M8c: move the M8b selected source pack through the Flye-side full-query-hit worker/session seam and measure end-to-end seam overhead before any graph-consuming mutation canary.",
+  "plain_language_benefit": "For the M8a selected 16-query target, Flye spent 79.294112 ms in quick-overlap. The confirmed warm CUDA replay requests average 63.471744 ms over 18 requests, giving 1.249x bounded hot-path speedup while preserving row-key parity.",
+  "proof_root": "/tmp/cuflye-m8b-proof-20260701T210000Z",
+  "row_key_diffs": {
+    "cpu_vs_cuda_c": {
+      "extra_examples": [],
+      "extra_rows": 0,
+      "left": "/tmp/cuflye-m8b-proof-20260701T210000Z/cpu-replay/replay.raw-overlaps.tsv",
+      "left_records": 27,
+      "left_sha256": "23269fae3946c7c0d108652f962ad1ea3d61773cb1bb33ecdeb3557cb8e989aa",
+      "matched_rows": 27,
+      "missing_examples": [],
+      "missing_rows": 0,
+      "ordered_match": false,
+      "right": "/tmp/cuflye-m8b-proof-20260701T210000Z/cuda-c.raw-overlaps.tsv",
+      "right_records": 27,
+      "right_sha256": "23269fae3946c7c0d108652f962ad1ea3d61773cb1bb33ecdeb3557cb8e989aa",
+      "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+      "status": "match"
+    },
+    "cpu_vs_cuda_d": {
+      "extra_examples": [],
+      "extra_rows": 0,
+      "left": "/tmp/cuflye-m8b-proof-20260701T210000Z/cpu-replay/replay.raw-overlaps.tsv",
+      "left_records": 27,
+      "left_sha256": "23269fae3946c7c0d108652f962ad1ea3d61773cb1bb33ecdeb3557cb8e989aa",
+      "matched_rows": 27,
+      "missing_examples": [],
+      "missing_rows": 0,
+      "ordered_match": false,
+      "right": "/tmp/cuflye-m8b-proof-20260701T210000Z/cuda-d.raw-overlaps.tsv",
+      "right_records": 27,
+      "right_sha256": "23269fae3946c7c0d108652f962ad1ea3d61773cb1bb33ecdeb3557cb8e989aa",
+      "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+      "status": "match"
+    },
+    "cuda_c_vs_cuda_d": {
+      "extra_examples": [],
+      "extra_rows": 0,
+      "left": "/tmp/cuflye-m8b-proof-20260701T210000Z/cuda-c.raw-overlaps.tsv",
+      "left_records": 27,
+      "left_sha256": "23269fae3946c7c0d108652f962ad1ea3d61773cb1bb33ecdeb3557cb8e989aa",
+      "matched_rows": 27,
+      "missing_examples": [],
+      "missing_rows": 0,
+      "ordered_match": true,
+      "right": "/tmp/cuflye-m8b-proof-20260701T210000Z/cuda-d.raw-overlaps.tsv",
+      "right_records": 27,
+      "right_sha256": "23269fae3946c7c0d108652f962ad1ea3d61773cb1bb33ecdeb3557cb8e989aa",
+      "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+      "status": "match"
+    }
+  },
+  "schema": "cuflye-m8b-full-query-hit-source-pack-for-m8a-target-proof-v0",
+  "source_pack": {
+    "canonical_sha256": "5fb1df86185f3cdce0bc0c15087b7bead53db6d46b523740650d4092a89c25aa",
+    "query_count": 16,
+    "query_ids": [
+      5,
+      84,
+      361,
+      2145,
+      2146,
+      2148,
+      2149,
+      2150,
+      2152,
+      2154,
+      2157,
+      2160,
+      2161,
+      2163,
+      2165,
+      2167
+    ],
+    "replay_status": "missing-semantics-ledger",
+    "total_counts": {
+      "chain_input_records": 18,
+      "edge_sequence_records": 47,
+      "full_query_hit_records": 15306,
+      "index_bucket_records": 15159,
+      "query_minimizers": 17069,
+      "raw_overlap_records": 27
+    },
+    "validation_status": "ok"
+  },
+  "work_root": "/tmp/cuflye-m7b-work-uZhePGLL"
+}

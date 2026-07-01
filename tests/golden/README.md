@@ -235,3 +235,5 @@ M6 read-to-graph input-boundary proof:
   `cuflye-m7d-read-to-graph-selected-cpu-skip-timing-dgx-aarch64.json`
 - Read-to-graph quick-overlap/minimizer target manifest:
   `cuflye-m8a-read-to-graph-quick-overlap-minimizer-target-dgx-aarch64.json`
+- Full-query-hit source pack for M8a target manifest:
+  `cuflye-m8b-full-query-hit-source-pack-for-m8a-target-dgx-aarch64.json`

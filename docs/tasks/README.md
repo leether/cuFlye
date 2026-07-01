@@ -11,11 +11,18 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m8b-full-query-hit-source-pack-for-m8a-target.md`:
-  capture a full-query-hit source pack for the M8a selected query ids and run
-  the warm CUDA replay path against the same Flye quick-overlap baseline.
+- `2026-07-01-cuflye-m8c-flye-side-m8b-worker-session-seam.md`:
+  move the M8b selected source pack through the Flye-side worker/session seam
+  and measure whether seam overhead preserves the standalone hot-path
+  advantage.
 
 Completed cards:
+
+- `2026-07-01-cuflye-m8b-full-query-hit-source-pack-for-m8a-target.md`:
+  capture a full-query-hit source pack for the M8a selected query ids and run
+  the warm CUDA replay path against the same Flye quick-overlap baseline,
+  proving a bounded hot-path CUDA advantage of `63.471744 ms` versus
+  `79.294112 ms` while preserving raw-overlap row-key parity.
 
 - `2026-07-01-cuflye-m8a-read-to-graph-quick-overlap-minimizer-target.md`:
   move the performance target upstream to read-to-graph quick-overlap/minimizer

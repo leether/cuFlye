@@ -4843,3 +4843,90 @@ M8b: capture a full-query-hit source pack for the M8a selected queries and run
 the warm CUDA full-query-hit replay session against the same selected
 quick-overlap CPU baseline.
 ```
+
+## 2026-07-01 Update: M8b Full-Query-Hit Source Pack for M8a Target
+
+Status: completed.
+
+Task Card:
+
+- `docs/tasks/2026-07-01-cuflye-m8b-full-query-hit-source-pack-for-m8a-target.md`
+
+Golden proof:
+
+- `tests/golden/cuflye-m8b-full-query-hit-source-pack-for-m8a-target-dgx-aarch64.json`
+
+What changed:
+
+- Captured a full-query-hit source pack for the exact M8a selected query ids.
+- Replayed the pack with the CPU source-pack replay harness and the existing
+  CUDA full-query-hit replay `parallel-score` warm-session path.
+- Compared CPU replay versus CUDA C/D outputs through canonical row-key diff
+  gates.
+- Confirmed source-pack capture preserves Flye canonical artifacts against the
+  M7d control run.
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m8b-proof-20260701T210000Z
+fixture=toy-hifi
+selected_query_count=16
+selected_query_ids=2145,2160,2146,2152,2161,2167,2148,2154,2157,2163,2165,2149,84,2150,5,361
+m8a_selected_quick_overlap_ms=79.294112
+source_pack_status=ok
+source_pack_canonical_sha256=5fb1df86185f3cdce0bc0c15087b7bead53db6d46b523740650d4092a89c25aa
+source_pack_full_query_hit_records=15306
+source_pack_ext_groups=47
+source_pack_raw_overlap_records=27
+source_pack_chain_input_records=18
+cpu_replay_status=match
+cpu_replay_row_key_exact_match=true
+cpu_replay_wall_ms=254.6812379732728
+cuda_kernel_mode=parallel-score
+cuda_confirm_runs=cuda-c,cuda-d
+cuda_combined_warm_request_count=18
+cuda_combined_warm_request_mean_ms=63.471744111111114
+cuda_combined_warm_request_best_ms=63.469872
+cuda_combined_warm_requests_below_m8a_baseline=18/18
+cuda_speedup_vs_m8a_quick_overlap_mean=1.2492820720538398
+cuda_speedup_vs_m8a_quick_overlap_best=1.2493189209519753
+cpu_vs_cuda_c_row_key_diff=match
+cpu_vs_cuda_d_row_key_diff=match
+cuda_c_vs_cuda_d_row_key_diff=match
+capture_vs_control_canonical_artifacts=match
+required_hot_speed_gate_passed=true
+preferred_1_25x_gate_passed=false
+```
+
+Allowed M8b claim:
+
+```text
+M8b proves a bounded hot-path CUDA advantage for the M8a selected full-query-hit
+replay boundary: CUDA row keys match CPU replay, capture preserves canonical
+Flye artifacts, and confirmed warm CUDA request mean time is below the same
+selected Flye quick-overlap baseline.
+```
+
+Forbidden M8b claim:
+
+```text
+M8b does not prove default GPU mode, graph consumption, full non-key
+raw-overlap field parity, or whole-Flye speedup.
+```
+
+Plain-language benefit:
+
+```text
+For the M8a selected 16-query target, Flye spent 79.294112 ms in quick-overlap.
+The confirmed warm CUDA replay requests average 63.471744 ms over 18 requests,
+giving 1.249x bounded hot-path speedup while preserving row-key parity.
+```
+
+Next highest-ROI task:
+
+```text
+M8c: move the M8b selected source pack through the Flye-side full-query-hit
+worker/session seam and measure end-to-end seam overhead before any
+graph-consuming mutation canary.
+```
