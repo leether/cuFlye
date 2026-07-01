@@ -4,9 +4,11 @@ Status: active
 
 M6l connects the M6k `cuflye-full-query-hit-worker-request-v0` protocol to a
 real Flye read-to-graph run. M6m extends that seam with an optional JSONL
-lifecycle mode. It is intentionally a dry-run seam: Flye generates the selected
-source pack, calls the CUDA worker, validates raw-overlap row-key parity, writes
-audit metadata, and stops before graph mutation.
+lifecycle mode. M6n adds `session-file-v0`, a file-backed worker session that
+separate Flye seam invocations can attach to. It is intentionally a dry-run
+seam: Flye generates the selected source pack, calls the CUDA worker, validates
+raw-overlap row-key parity, writes audit metadata, and stops before graph
+mutation.
 
 ## Environment
 
@@ -26,13 +28,18 @@ Optional:
 CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_DEVICE=0
 CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_KERNEL_MODE=parallel-score
 CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_LIFECYCLE_MODE=jsonl-persistent-v0
+CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_SESSION_DIR=/path/to/session
+CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_SESSION_POLL_MS=2
+CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_SESSION_TIMEOUT_MS=600000
 CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_MEMORY_BUDGET_BYTES=<bytes>
 ```
 
 `parallel-score` is the only supported kernel mode. The mode requires
 `--threads 1` because the selected source-pack oracle must be deterministic.
-The lifecycle mode is empty by default; `jsonl-persistent-v0` is the only
-supported non-empty lifecycle mode.
+The lifecycle mode is empty by default; supported non-empty lifecycle modes are
+`jsonl-persistent-v0` and `session-file-v0`. In `session-file-v0`, Flye attaches
+to an already-running worker and does not require
+`CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_BIN`.
 
 ## Worker Request
 
@@ -156,9 +163,13 @@ correctness claim.
 M6m keeps the same row-key claim. It adds timing attribution for the actual
 warm request but does not expand correctness beyond the row key.
 
+M6n keeps the same row-key claim for `session-file-v0`. It adds session attach
+metadata and proves that a second separate Flye seam request can reuse the same
+worker process with `worker_cuda_context_warm=true`.
+
 ## Non-Goals
 
-M6l/M6m do not:
+M6l/M6m/M6n do not:
 
 - mutate Flye graph state with CUDA output;
 - make CUDA the default path;

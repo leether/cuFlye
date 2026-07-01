@@ -18,10 +18,14 @@
 #include <iterator>
 #include <limits>
 #include <map>
+#include <memory>
 #include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <sys/stat.h>
+#include <thread>
+#include <unistd.h>
 #include <vector>
 
 namespace
@@ -104,9 +108,13 @@ struct Options
 	std::string jsonOutput;
 	std::string workerRequestJson;
 	std::string workerRequestsJsonl;
+	std::string workerSessionDir;
 	std::string kernelMode = "serial";
 	int device = 0;
 	int repeatCount = 1;
+	uint32_t workerSessionMaxRequests = 1;
+	uint32_t workerSessionPollMs = 2;
+	uint32_t workerSessionTimeoutMs = 600000;
 	bool hasMemoryBudget = false;
 	unsigned long long memoryBudgetBytes = 0;
 };
@@ -233,6 +241,16 @@ int32_t parseI32(const std::string& text, const std::string& name)
 	return static_cast<int32_t>(value);
 }
 
+uint32_t parsePositiveU32(const std::string& text, const std::string& name)
+{
+	int64_t value = parseI64(text, name);
+	if (value <= 0 || value > std::numeric_limits<uint32_t>::max())
+	{
+		throw std::runtime_error(name + " must be a positive uint32 integer");
+	}
+	return static_cast<uint32_t>(value);
+}
+
 std::string joinPath(const std::string& left, const std::string& right)
 {
 	if (left.empty()) return right;
@@ -293,6 +311,36 @@ void writeTextFile(const std::string& path, const std::string& text)
 		throw std::runtime_error("can't write text file: " + path);
 	}
 	output << text;
+}
+
+void ensureDirectory(const std::string& path)
+{
+	if (::mkdir(path.c_str(), 0775) == 0) return;
+	if (errno == EEXIST) return;
+	throw std::runtime_error("can't create directory: " + path + ": " +
+							 std::strerror(errno));
+}
+
+bool hasSuffix(const std::string& value, const std::string& suffix)
+{
+	return value.size() >= suffix.size() &&
+		   value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
+std::string baseName(const std::string& path)
+{
+	size_t slash = path.find_last_of('/');
+	if (slash == std::string::npos) return path;
+	return path.substr(slash + 1);
+}
+
+void renameFile(const std::string& from, const std::string& to)
+{
+	if (::rename(from.c_str(), to.c_str()) != 0)
+	{
+		throw std::runtime_error("can't rename " + from + " to " + to +
+								 ": " + std::strerror(errno));
+	}
 }
 
 void skipJsonWhitespace(const std::string& text, size_t& offset)
@@ -755,10 +803,18 @@ Options parseOptions(int argc, char** argv)
 			options.workerRequestJson = requireValue(arg);
 		else if (arg == "--worker-requests-jsonl")
 			options.workerRequestsJsonl = requireValue(arg);
+		else if (arg == "--worker-session-dir")
+			options.workerSessionDir = requireValue(arg);
 		else if (arg == "--kernel-mode") options.kernelMode = requireValue(arg);
 		else if (arg == "--device") options.device = parseI32(requireValue(arg), arg);
 		else if (arg == "--repeat-count")
 			options.repeatCount = parseI32(requireValue(arg), arg);
+		else if (arg == "--worker-session-max-requests")
+			options.workerSessionMaxRequests = parsePositiveU32(requireValue(arg), arg);
+		else if (arg == "--worker-session-poll-ms")
+			options.workerSessionPollMs = parsePositiveU32(requireValue(arg), arg);
+		else if (arg == "--worker-session-timeout-ms")
+			options.workerSessionTimeoutMs = parsePositiveU32(requireValue(arg), arg);
 		else if (arg == "--memory-budget-bytes")
 		{
 			options.hasMemoryBudget = true;
@@ -772,8 +828,12 @@ Options parseOptions(int argc, char** argv)
 					  << "[--json-output PATH] "
 					  << "or --worker-request-json PATH "
 					  << "or --worker-requests-jsonl PATH "
+					  << "or --worker-session-dir DIR "
 					  << "[--kernel-mode serial|parallel-score] [--device ID] "
 					  << "[--repeat-count N] "
+					  << "[--worker-session-max-requests N] "
+					  << "[--worker-session-poll-ms N] "
+					  << "[--worker-session-timeout-ms N] "
 					  << "[--memory-budget-bytes N]\n";
 			std::exit(0);
 		}
@@ -783,10 +843,15 @@ Options parseOptions(int argc, char** argv)
 		}
 	}
 	bool workerMode = !options.workerRequestJson.empty() ||
-					  !options.workerRequestsJsonl.empty();
+					  !options.workerRequestsJsonl.empty() ||
+					  !options.workerSessionDir.empty();
 	if (workerMode)
 	{
-		if (!options.workerRequestJson.empty() && !options.workerRequestsJsonl.empty())
+		int workerInputs = 0;
+		if (!options.workerRequestJson.empty()) ++workerInputs;
+		if (!options.workerRequestsJsonl.empty()) ++workerInputs;
+		if (!options.workerSessionDir.empty()) ++workerInputs;
+		if (workerInputs != 1)
 		{
 			throw std::runtime_error("set exactly one worker request input");
 		}
@@ -1965,8 +2030,232 @@ bool executeWorkerRequest(const WorkerRequest& request,
 	}
 }
 
+std::string sessionInboxDir(const Options& options)
+{
+	return joinPath(options.workerSessionDir, "inbox");
+}
+
+std::string sessionProcessingDir(const Options& options)
+{
+	return joinPath(options.workerSessionDir, "processing");
+}
+
+std::string sessionDoneDir(const Options& options)
+{
+	return joinPath(options.workerSessionDir, "done");
+}
+
+std::vector<std::string> listSessionReadyFiles(const std::string& inbox)
+{
+	std::vector<std::string> readyFiles;
+	std::unique_ptr<DIR, int(*)(DIR*)> dir(::opendir(inbox.c_str()), ::closedir);
+	if (!dir)
+	{
+		if (errno == ENOENT) return readyFiles;
+		throw std::runtime_error("can't read full query-hit worker session inbox: " +
+								 inbox + ": " + std::strerror(errno));
+	}
+	while (dirent* entry = ::readdir(dir.get()))
+	{
+		std::string name = entry->d_name;
+		if (name == "." || name == "..") continue;
+		if (!hasSuffix(name, ".ready")) continue;
+		readyFiles.push_back(joinPath(inbox, name));
+	}
+	std::sort(readyFiles.begin(), readyFiles.end());
+	return readyFiles;
+}
+
+double initializeWorkerDeviceContext(const Options& options,
+									 std::string& deviceName,
+									 size_t& freeBytes,
+									 size_t& totalBytes)
+{
+	auto contextStart = Clock::now();
+	cuflye::cuda_raii::checkCuda(cudaSetDevice(options.device),
+								 "set full query-hit worker device");
+	cudaDeviceProp props{};
+	cuflye::cuda_raii::checkCuda(
+		cudaGetDeviceProperties(&props, options.device),
+		"get full query-hit worker device properties");
+	deviceName = props.name;
+	cuflye::cuda_raii::checkCuda(cudaMemGetInfo(&freeBytes, &totalBytes),
+								 "query full query-hit worker memory");
+	return elapsedMs(contextStart, Clock::now());
+}
+
+void writeWorkerSessionStateJson(const std::string& path,
+								 const Options& options,
+								 const std::string& status,
+								 size_t processedRequests,
+								 double workerContextSetupMs,
+								 const std::string& deviceName,
+								 size_t freeBytes,
+								 size_t totalBytes,
+								 const ReplaySession& session)
+{
+	std::ostringstream json;
+	json << std::fixed << std::setprecision(6);
+	json << "{\n"
+		 << "  \"schema\": \"cuflye-full-query-hit-worker-session-v0\",\n"
+		 << "  \"status\": \"" << jsonEscape(status) << "\",\n"
+		 << "  \"worker_session_dir\": \""
+		 << jsonEscape(options.workerSessionDir) << "\",\n"
+		 << "  \"worker_session_max_requests\": "
+		 << options.workerSessionMaxRequests << ",\n"
+		 << "  \"worker_session_processed_requests\": "
+		 << processedRequests << ",\n"
+		 << "  \"worker_session_poll_ms\": "
+		 << options.workerSessionPollMs << ",\n"
+		 << "  \"worker_session_timeout_ms\": "
+		 << options.workerSessionTimeoutMs << ",\n"
+		 << "  \"worker_context_setup_ms\": " << workerContextSetupMs << ",\n"
+		 << "  \"worker_replay_session_initialized\": "
+		 << (session.initialized ? "true" : "false") << ",\n"
+		 << "  \"worker_device_arena_enabled\": true,\n"
+		 << "  \"worker_device_arena_capacity_bytes\": "
+		 << (session.initialized ? session.requiredBytes : 0) << ",\n"
+		 << "  \"device\": " << options.device << ",\n"
+		 << "  \"device_name\": \"" << jsonEscape(deviceName) << "\",\n"
+		 << "  \"free_bytes\": " << freeBytes << ",\n"
+		 << "  \"total_bytes\": " << totalBytes << ",\n"
+		 << "  \"pid\": " << static_cast<long long>(::getpid()) << "\n"
+		 << "}\n";
+	writeTextFile(path, json.str());
+}
+
+int runWorkerSessionMain(const Options& cliOptions)
+{
+	ensureDirectory(cliOptions.workerSessionDir);
+	ensureDirectory(sessionInboxDir(cliOptions));
+	ensureDirectory(sessionProcessingDir(cliOptions));
+	ensureDirectory(sessionDoneDir(cliOptions));
+
+	ReplaySession session;
+	double workerContextSetupMs = 0.0;
+	auto workerStart = Clock::now();
+	std::string deviceName;
+	size_t freeBytes = 0;
+	size_t totalBytes = 0;
+	double cudaContextSetupMs = initializeWorkerDeviceContext(
+		cliOptions, deviceName, freeBytes, totalBytes);
+	writeWorkerSessionStateJson(
+		joinPath(cliOptions.workerSessionDir, "session-ready.json"),
+		cliOptions, "ready", 0, cudaContextSetupMs, deviceName, freeBytes,
+		totalBytes, session);
+
+	size_t processedRequests = 0;
+	auto idleStart = Clock::now();
+	while (processedRequests < cliOptions.workerSessionMaxRequests)
+	{
+		std::vector<std::string> readyFiles =
+			listSessionReadyFiles(sessionInboxDir(cliOptions));
+		if (readyFiles.empty())
+		{
+			double idleMs = elapsedMs(idleStart, Clock::now());
+			if (idleMs > static_cast<double>(cliOptions.workerSessionTimeoutMs))
+			{
+				writeWorkerSessionStateJson(
+					joinPath(cliOptions.workerSessionDir, "session-error.json"),
+					cliOptions, "timeout", processedRequests,
+					workerContextSetupMs > 0.0 ? workerContextSetupMs :
+												  cudaContextSetupMs,
+					deviceName, freeBytes, totalBytes, session);
+				return 1;
+			}
+			std::this_thread::sleep_for(
+				std::chrono::milliseconds(cliOptions.workerSessionPollMs));
+			continue;
+		}
+
+		idleStart = Clock::now();
+		std::string readyPath = readyFiles.front();
+		std::string readyName = baseName(readyPath);
+		std::string processingPath =
+			joinPath(sessionProcessingDir(cliOptions), readyName + ".processing");
+		std::string donePath =
+			joinPath(sessionDoneDir(cliOptions), readyName + ".done");
+		renameFile(readyPath, processingPath);
+		std::string requestJsonPath = trim(readFile(processingPath));
+		if (requestJsonPath.empty())
+		{
+			writeTextFile(donePath, "status=error\nerror=empty request path\n");
+			writeWorkerSessionStateJson(
+				joinPath(cliOptions.workerSessionDir, "session-error.json"),
+				cliOptions, "error", processedRequests,
+				workerContextSetupMs > 0.0 ? workerContextSetupMs :
+											  cudaContextSetupMs,
+				deviceName, freeBytes, totalBytes, session);
+			return 1;
+		}
+
+		WorkerRequest request;
+		try
+		{
+			request = parseWorkerRequestObject(readFile(requestJsonPath));
+		}
+		catch (const std::exception& exc)
+		{
+			writeTextFile(donePath, "status=error\nrequest_json=" +
+								  requestJsonPath + "\nerror=" + exc.what() + "\n");
+			writeWorkerSessionStateJson(
+				joinPath(cliOptions.workerSessionDir, "session-error.json"),
+				cliOptions, "error", processedRequests,
+				workerContextSetupMs > 0.0 ? workerContextSetupMs :
+											  cudaContextSetupMs,
+				deviceName, freeBytes, totalBytes, session);
+			return 1;
+		}
+
+		++processedRequests;
+		if (request.options.device != cliOptions.device)
+		{
+			std::string message =
+				"full query-hit worker session request device does not match "
+				"session device";
+			writeTextFile(request.responseJson,
+						  buildWorkerErrorJson(request, processedRequests, message));
+			writeTextFile(donePath, "status=error\nrequest_json=" +
+								  requestJsonPath + "\nerror=" + message + "\n");
+			writeWorkerSessionStateJson(
+				joinPath(cliOptions.workerSessionDir, "session-error.json"),
+				cliOptions, "error", processedRequests,
+				workerContextSetupMs > 0.0 ? workerContextSetupMs :
+											  cudaContextSetupMs,
+				deviceName, freeBytes, totalBytes, session);
+			return 1;
+		}
+
+		bool ok = executeWorkerRequest(request, processedRequests, workerStart,
+									   session, workerContextSetupMs);
+		writeTextFile(donePath, std::string("status=") + (ok ? "ok" : "error") +
+							  "\nrequest_json=" + requestJsonPath + "\n");
+		if (!ok)
+		{
+			writeWorkerSessionStateJson(
+				joinPath(cliOptions.workerSessionDir, "session-error.json"),
+				cliOptions, "error", processedRequests,
+				workerContextSetupMs > 0.0 ? workerContextSetupMs :
+											  cudaContextSetupMs,
+				deviceName, freeBytes, totalBytes, session);
+			return 1;
+		}
+	}
+
+	writeWorkerSessionStateJson(
+		joinPath(cliOptions.workerSessionDir, "session-complete.json"),
+		cliOptions, "complete", processedRequests,
+		workerContextSetupMs > 0.0 ? workerContextSetupMs : cudaContextSetupMs,
+		deviceName, freeBytes, totalBytes, session);
+	return 0;
+}
+
 int runWorkerMain(const Options& cliOptions)
 {
+	if (!cliOptions.workerSessionDir.empty())
+	{
+		return runWorkerSessionMain(cliOptions);
+	}
 	std::vector<WorkerRequest> requests = loadWorkerRequests(cliOptions);
 	ReplaySession session;
 	double workerContextSetupMs = 0.0;
@@ -1996,7 +2285,8 @@ int main(int argc, char** argv)
 	{
 		options = parseOptions(argc, argv);
 		if (!options.workerRequestJson.empty() ||
-			!options.workerRequestsJsonl.empty())
+			!options.workerRequestsJsonl.empty() ||
+			!options.workerSessionDir.empty())
 		{
 			return runWorkerMain(options);
 		}

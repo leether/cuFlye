@@ -1,0 +1,672 @@
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -411,6 +411,10 @@
+ 		std::string sourcePackDir;
+ 		std::string workerOutputRoot;
+ 		std::string workerLifecycleMode;
++		std::string workerSessionDir;
++		std::string workerSessionReadyJson;
++		std::string workerSessionSubmitPath;
++		std::string workerSessionDonePath;
+ 		std::string workerRequestJson;
+ 		std::string workerRequestsJsonl;
+ 		std::string workerWarmupRequestJson;
+@@ -426,6 +430,7 @@
+ 		std::vector<int64_t> queryIds;
+ 		int workerExitStatus = 1;
+ 		double workerWallMs = 0.0;
++		double workerSessionSubmitMs = 0.0;
+ 		bool attempted = false;
+ 		bool rowKeyMatched = false;
+ 		bool workerResponseOk = false;
+@@ -868,8 +873,9 @@
+ 		return quoted;
+ 	}
+ 
+-	std::string readAlignmentWorkerFileSessionDir();
+-	std::string readAlignmentCompactBinaryExpectedSha256();
++		std::string readAlignmentWorkerFileSessionDir();
++		std::string readToGraphFullQueryHitWorkerFileSessionDir();
++		std::string readAlignmentCompactBinaryExpectedSha256();
+ 
+ 	void writeReadAlignmentTextFile(const std::string& path,
+ 									const std::string& text)
+@@ -1263,14 +1269,60 @@
+ 		return joinReplayPath(readAlignmentWorkerFileSessionDir(), "inbox");
+ 	}
+ 
+-	std::string readAlignmentWorkerFileSessionDoneDir()
+-	{
+-		return joinReplayPath(readAlignmentWorkerFileSessionDir(), "done");
+-	}
++		std::string readAlignmentWorkerFileSessionDoneDir()
++		{
++			return joinReplayPath(readAlignmentWorkerFileSessionDir(), "done");
++		}
+ 
+-	void submitReadAlignmentWorkerFileSessionRequest(
+-		const std::string& requestId,
+-		const std::string& requestJson,
++		std::string readToGraphFullQueryHitWorkerFileSessionInboxDir()
++		{
++			return joinReplayPath(readToGraphFullQueryHitWorkerFileSessionDir(),
++								  "inbox");
++		}
++
++		std::string readToGraphFullQueryHitWorkerFileSessionDoneDir()
++		{
++			return joinReplayPath(readToGraphFullQueryHitWorkerFileSessionDir(),
++								  "done");
++		}
++
++		void submitReadToGraphFullQueryHitWorkerFileSessionRequest(
++			const std::string& requestId,
++			const std::string& requestJson,
++			const std::string& sessionSubmitPath,
++			std::string& readyPath,
++			std::string& donePath)
++		{
++			std::string readyName = requestId + ".ready";
++			std::string pendingPath = joinReplayPath(
++				readToGraphFullQueryHitWorkerFileSessionInboxDir(),
++				readyName + ".pending");
++			readyPath = joinReplayPath(
++				readToGraphFullQueryHitWorkerFileSessionInboxDir(), readyName);
++			donePath = joinReplayPath(
++				readToGraphFullQueryHitWorkerFileSessionDoneDir(),
++				readyName + ".done");
++			if (readableFile(pendingPath) || readableFile(readyPath) ||
++				readableFile(donePath))
++			{
++				throw std::runtime_error(
++					"cuFlye read-to-graph full-query-hit worker session found "
++					"stale request file for " + requestId);
++			}
++			writeReadAlignmentTextFile(pendingPath, requestJson + "\n");
++			renameReadAlignmentPath(pendingPath, readyPath);
++			writeReadAlignmentTextFile(
++				sessionSubmitPath,
++				"schema=cuflye-full-query-hit-worker-session-submit-v0\n"
++				"request_id=" + requestId + "\n"
++				"request_json=" + requestJson + "\n"
++				"ready_file=" + readyPath + "\n"
++				"done_file=" + donePath + "\n");
++		}
++
++		void submitReadAlignmentWorkerFileSessionRequest(
++			const std::string& requestId,
++			const std::string& requestJson,
+ 		const std::string& sessionSubmitPath,
+ 		std::string& readyPath,
+ 		std::string& donePath)
+@@ -2339,14 +2391,15 @@
+ 	{
+ 		static std::string mode = []()
+ 		{
+-			const char* raw = std::getenv(
+-				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_LIFECYCLE_MODE");
+-			if (!raw || !raw[0]) return std::string();
+-			std::string selected(raw);
+-			if (selected != "jsonl-persistent-v0")
+-			{
+-				throw std::runtime_error(
+-					"Unsupported "
++				const char* raw = std::getenv(
++					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_LIFECYCLE_MODE");
++				if (!raw || !raw[0]) return std::string();
++				std::string selected(raw);
++				if (selected != "jsonl-persistent-v0" &&
++					selected != "session-file-v0")
++				{
++					throw std::runtime_error(
++						"Unsupported "
+ 					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_LIFECYCLE_MODE: " +
+ 					selected);
+ 			}
+@@ -2355,12 +2408,68 @@
+ 		return mode;
+ 	}
+ 
+-	bool readToGraphFullQueryHitWorkerJsonlPersistentEnabled()
+-	{
+-		return readToGraphFullQueryHitWorkerLifecycleMode() ==
+-			"jsonl-persistent-v0";
+-	}
++		bool readToGraphFullQueryHitWorkerJsonlPersistentEnabled()
++		{
++			return readToGraphFullQueryHitWorkerLifecycleMode() ==
++				"jsonl-persistent-v0";
++		}
++
++		bool readToGraphFullQueryHitWorkerFileSessionEnabled()
++		{
++			return readToGraphFullQueryHitWorkerLifecycleMode() ==
++				"session-file-v0";
++		}
++
++		std::string readToGraphFullQueryHitWorkerFileSessionDir()
++		{
++			if (!readToGraphFullQueryHitWorkerFileSessionEnabled())
++			{
++				return std::string();
++			}
++			return readAlignmentRequiredEnv(
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_SESSION_DIR");
++		}
++
++		unsigned long parsePositiveReadToGraphFullQueryHitWorkerEnv(
++			const char* name,
++			unsigned long fallback)
++		{
++			const char* raw = std::getenv(name);
++			if (!raw || !raw[0]) return fallback;
++			std::string text(raw);
++			size_t parsedChars = 0;
++			if (!std::isdigit(static_cast<unsigned char>(text[0])))
++			{
++				throw std::runtime_error(std::string("Unsupported ") + name +
++										 ": expected positive integer, got " + text);
++			}
++			unsigned long parsed = std::stoul(text, &parsedChars);
++			if (parsedChars != text.size() || parsed == 0)
++			{
++				throw std::runtime_error(std::string("Unsupported ") + name +
++										 ": expected positive integer, got " + text);
++			}
++			return parsed;
++		}
++
++		unsigned long readToGraphFullQueryHitWorkerFileSessionPollMs()
++		{
++			static unsigned long pollMs =
++				parsePositiveReadToGraphFullQueryHitWorkerEnv(
++					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_SESSION_POLL_MS",
++					2);
++			return pollMs;
++		}
+ 
++		unsigned long readToGraphFullQueryHitWorkerFileSessionTimeoutMs()
++		{
++			static unsigned long timeoutMs =
++				parsePositiveReadToGraphFullQueryHitWorkerEnv(
++					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_SESSION_TIMEOUT_MS",
++					600000);
++			return timeoutMs;
++		}
++
+ 	std::string readToGraphFullQueryHitWorkerDevice()
+ 	{
+ 		std::string device = readAlignmentOptionalEnv(
+@@ -2410,14 +2519,23 @@
+ 				"cuFlye read-to-graph full-query-hit worker dry-run requires "
+ 				"--threads 1");
+ 		}
+-		(void)readToGraphSourcePackQueryIds();
+-		(void)readToGraphFullQueryHitWorkerLifecycleMode();
+-		(void)readToGraphFullQueryHitWorkerKernelMode();
+-		(void)readAlignmentRequiredEnv(
+-			"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_BIN");
+-		(void)readAlignmentRequiredEnv(
+-			"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_OUTPUT_DIR");
+-	}
++			(void)readToGraphSourcePackQueryIds();
++			(void)readToGraphFullQueryHitWorkerLifecycleMode();
++			(void)readToGraphFullQueryHitWorkerKernelMode();
++			if (readToGraphFullQueryHitWorkerFileSessionEnabled())
++			{
++				(void)readToGraphFullQueryHitWorkerFileSessionDir();
++				(void)readToGraphFullQueryHitWorkerFileSessionPollMs();
++				(void)readToGraphFullQueryHitWorkerFileSessionTimeoutMs();
++			}
++			else
++			{
++				(void)readAlignmentRequiredEnv(
++					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_BIN");
++			}
++			(void)readAlignmentRequiredEnv(
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_OUTPUT_DIR");
++		}
+ 
+ 	bool operator<(const ReadToGraphRawOverlapRowKey& left,
+ 				   const ReadToGraphRawOverlapRowKey& right)
+@@ -2581,10 +2699,10 @@
+ 		return keys;
+ 	}
+ 
+-	ReadToGraphRawOverlapRowKeyDiff compareReadToGraphRawOverlapRowKeys(
+-		const std::vector<ReadToGraphRawOverlapRowKey>& leftInput,
+-		const std::vector<ReadToGraphRawOverlapRowKey>& rightInput)
+-	{
++		ReadToGraphRawOverlapRowKeyDiff compareReadToGraphRawOverlapRowKeys(
++			const std::vector<ReadToGraphRawOverlapRowKey>& leftInput,
++			const std::vector<ReadToGraphRawOverlapRowKey>& rightInput)
++		{
+ 		ReadToGraphRawOverlapRowKeyDiff diff;
+ 		diff.leftRecords = leftInput.size();
+ 		diff.rightRecords = rightInput.size();
+@@ -2630,12 +2748,61 @@
+ 		diff.matched = diff.missingRows == 0 &&
+ 			diff.extraRows == 0 &&
+ 			diff.leftRecords == diff.rightRecords;
+-		return diff;
+-	}
++			return diff;
++		}
+ 
+-	std::string readToGraphFullQueryHitWorkerRequestJsonText(
+-		const std::string& requestId,
+-		const std::string& sourcePackDir,
++		std::string readToGraphFullQueryHitWorkerSafeFileStem(
++			const std::string& path)
++		{
++			std::vector<std::string> components;
++			size_t end = path.size();
++			while (end > 0)
++			{
++				while (end > 0 && path[end - 1] == '/') --end;
++				if (end == 0) break;
++				size_t begin = path.find_last_of('/', end - 1);
++				size_t componentBegin =
++					begin == std::string::npos ? 0 : begin + 1;
++				components.push_back(path.substr(componentBegin,
++												  end - componentBegin));
++				if (begin == std::string::npos) break;
++				end = begin;
++				if (components.size() == 3) break;
++			}
++			std::string stem;
++			for (auto component = components.rbegin();
++				 component != components.rend(); ++component)
++			{
++				if (!stem.empty()) stem.push_back('_');
++				for (char rawCh : *component)
++				{
++					unsigned char ch = static_cast<unsigned char>(rawCh);
++					if (std::isalnum(ch) || rawCh == '-' || rawCh == '_' ||
++						rawCh == '.')
++					{
++						stem.push_back(rawCh);
++					}
++					else
++					{
++						stem.push_back('_');
++					}
++				}
++			}
++			if (stem.empty()) return "actual";
++			return stem;
++		}
++
++		std::string readToGraphFullQueryHitWorkerSessionRequestId(
++			const ReadToGraphFullQueryHitWorkerDryRunResult& result)
++		{
++			return "read-to-graph-full-query-hit-session-" +
++				readToGraphFullQueryHitWorkerSafeFileStem(
++					result.workerOutputRoot);
++		}
++
++		std::string readToGraphFullQueryHitWorkerRequestJsonText(
++			const std::string& requestId,
++			const std::string& sourcePackDir,
+ 		const std::string& outputTsv,
+ 		const std::string& responseJson,
+ 		size_t expectedOutputRecords,
+@@ -2909,12 +3076,20 @@
+ 			 << "\",\n"
+ 			 << "  \"source_pack_dir\": \""
+ 			 << readAlignmentJsonEscape(result.sourcePackDir) << "\",\n"
+-			 << "  \"worker_output_root\": \""
+-			 << readAlignmentJsonEscape(result.workerOutputRoot) << "\",\n"
+-			 << "  \"worker_lifecycle_mode\": \""
+-			 << readAlignmentJsonEscape(result.workerLifecycleMode) << "\",\n"
+-			 << "  \"worker_request_json\": \""
+-			 << readAlignmentJsonEscape(result.workerRequestJson) << "\",\n"
++				 << "  \"worker_output_root\": \""
++				 << readAlignmentJsonEscape(result.workerOutputRoot) << "\",\n"
++				 << "  \"worker_lifecycle_mode\": \""
++				 << readAlignmentJsonEscape(result.workerLifecycleMode) << "\",\n"
++				 << "  \"worker_session_dir\": \""
++				 << readAlignmentJsonEscape(result.workerSessionDir) << "\",\n"
++				 << "  \"worker_session_ready_json\": \""
++				 << readAlignmentJsonEscape(result.workerSessionReadyJson) << "\",\n"
++				 << "  \"worker_session_submit_path\": \""
++				 << readAlignmentJsonEscape(result.workerSessionSubmitPath) << "\",\n"
++				 << "  \"worker_session_done_path\": \""
++				 << readAlignmentJsonEscape(result.workerSessionDonePath) << "\",\n"
++				 << "  \"worker_request_json\": \""
++				 << readAlignmentJsonEscape(result.workerRequestJson) << "\",\n"
+ 			 << "  \"worker_requests_jsonl\": \""
+ 			 << readAlignmentJsonEscape(result.workerRequestsJsonl) << "\",\n"
+ 			 << "  \"worker_warmup_request_json\": \""
+@@ -2933,9 +3108,11 @@
+ 			 << "\",\n"
+ 			 << "  \"worker_command\": \""
+ 			 << readAlignmentJsonEscape(result.workerCommand) << "\",\n"
+-			 << "  \"worker_exit_status\": " << result.workerExitStatus << ",\n"
+-			 << "  \"worker_wall_ms\": " << result.workerWallMs << ",\n"
+-			 << "  \"attempted\": " << readAlignmentBoolJson(result.attempted)
++				 << "  \"worker_exit_status\": " << result.workerExitStatus << ",\n"
++				 << "  \"worker_wall_ms\": " << result.workerWallMs << ",\n"
++				 << "  \"worker_session_submit_ms\": "
++				 << result.workerSessionSubmitMs << ",\n"
++				 << "  \"attempted\": " << readAlignmentBoolJson(result.attempted)
+ 			 << ",\n"
+ 			 << "  \"row_key_matched\": "
+ 				 << readAlignmentBoolJson(result.rowKeyMatched) << ",\n"
+@@ -3042,17 +3219,24 @@
+ 	{
+ 		if (!readToGraphFullQueryHitWorkerDryRunEnabled()) return;
+ 
+-		ReadToGraphFullQueryHitWorkerDryRunResult result;
+-		result.mode = readToGraphFullQueryHitWorkerMode();
+-		result.sourcePackDir = std::string(readToGraphSourcePackDir());
+-		result.workerOutputRoot = readAlignmentRequiredEnv(
+-			"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_OUTPUT_DIR");
+-		result.workerLifecycleMode =
+-			readToGraphFullQueryHitWorkerLifecycleMode();
+-		result.workerRequestJson = joinReplayPath(
+-			result.workerOutputRoot, "full-query-hit-worker-request.json");
+-		result.workerRequestsJsonl = joinReplayPath(
+-			result.workerOutputRoot, "full-query-hit-worker-requests.jsonl");
++			ReadToGraphFullQueryHitWorkerDryRunResult result;
++			result.mode = readToGraphFullQueryHitWorkerMode();
++			result.sourcePackDir = std::string(readToGraphSourcePackDir());
++			result.workerOutputRoot = readAlignmentRequiredEnv(
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_OUTPUT_DIR");
++			result.workerLifecycleMode =
++				readToGraphFullQueryHitWorkerLifecycleMode();
++			if (readToGraphFullQueryHitWorkerFileSessionEnabled())
++			{
++				result.workerSessionDir =
++					readToGraphFullQueryHitWorkerFileSessionDir();
++				result.workerSessionReadyJson = joinReplayPath(
++					result.workerSessionDir, "session-ready.json");
++			}
++			result.workerRequestJson = joinReplayPath(
++				result.workerOutputRoot, "full-query-hit-worker-request.json");
++			result.workerRequestsJsonl = joinReplayPath(
++				result.workerOutputRoot, "full-query-hit-worker-requests.jsonl");
+ 		result.workerWarmupRequestJson = joinReplayPath(
+ 			result.workerOutputRoot, "full-query-hit-worker-warmup-request.json");
+ 		result.workerResponseJson = joinReplayPath(
+@@ -3064,15 +3248,17 @@
+ 		result.workerWarmupOutputTsv = joinReplayPath(
+ 			result.workerOutputRoot,
+ 			"full-query-hit-worker-warmup.raw-overlaps.tsv");
+-		result.stdoutLog = joinReplayPath(
+-			result.workerOutputRoot, "full-query-hit-worker-stdout.log");
+-		result.stderrLog = joinReplayPath(
+-			result.workerOutputRoot, "full-query-hit-worker-stderr.log");
+-		result.auditJson = joinReplayPath(
+-			result.workerOutputRoot,
+-			"full-query-hit-worker-dry-run.json");
+-		result.queryIds = sortedReadToGraphSourcePackQueryIds();
+-		ensureReplayDirectory(result.workerOutputRoot);
++			result.stdoutLog = joinReplayPath(
++				result.workerOutputRoot, "full-query-hit-worker-stdout.log");
++			result.stderrLog = joinReplayPath(
++				result.workerOutputRoot, "full-query-hit-worker-stderr.log");
++			result.auditJson = joinReplayPath(
++				result.workerOutputRoot,
++				"full-query-hit-worker-dry-run.json");
++			result.workerSessionSubmitPath = joinReplayPath(
++				result.workerOutputRoot, "full-query-hit-worker-session-submit.txt");
++			result.queryIds = sortedReadToGraphSourcePackQueryIds();
++			ensureReplayDirectory(result.workerOutputRoot);
+ 
+ 		try
+ 		{
+@@ -3086,100 +3272,177 @@
+ 					"selected read-to-graph source pack has zero raw-overlap "
+ 					"oracle records");
+ 			}
+-			std::string workerBin = readAlignmentRequiredEnv(
+-				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_BIN");
+-			if (readToGraphFullQueryHitWorkerJsonlPersistentEnabled())
++			if (readToGraphFullQueryHitWorkerFileSessionEnabled())
+ 			{
++				waitForReadAlignmentReadableFile(
++					result.workerSessionReadyJson,
++					"full query-hit worker session ready JSON",
++					readToGraphFullQueryHitWorkerFileSessionTimeoutMs(),
++					readToGraphFullQueryHitWorkerFileSessionPollMs());
++				if (readableFile(result.workerResponseJson) ||
++					readableFile(result.workerOutputTsv))
++				{
++					throw std::runtime_error(
++						"cuFlye read-to-graph full-query-hit worker session "
++						"found stale actual output in " + result.workerOutputRoot);
++				}
++				std::string requestId =
++					readToGraphFullQueryHitWorkerSessionRequestId(result);
+ 				writeReadToGraphFullQueryHitWorkerRequestJson(
+-					result.workerWarmupRequestJson,
+-					"read-to-graph-full-query-hit-warmup",
+-					result.sourcePackDir,
+-					result.workerWarmupOutputTsv,
+-					result.workerWarmupResponseJson,
+-					result.expectedOutputRecords);
+-				writeReadToGraphFullQueryHitWorkerRequestJson(
+ 					result.workerRequestJson,
+-					"read-to-graph-full-query-hit-actual",
++					requestId,
+ 					result.sourcePackDir,
+ 					result.workerOutputTsv,
+ 					result.workerResponseJson,
+ 					result.expectedOutputRecords);
+-				writeReadToGraphFullQueryHitWorkerRequestsJsonl(
+-					result.workerRequestsJsonl, result);
+-				result.workerCommand = readAlignmentShellQuote(workerBin) +
+-					" --worker-requests-jsonl " +
+-					readAlignmentShellQuote(result.workerRequestsJsonl) +
+-					" > " + readAlignmentShellQuote(result.stdoutLog) +
+-					" 2> " + readAlignmentShellQuote(result.stderrLog);
+-			}
+-			else
+-			{
+-				writeReadToGraphFullQueryHitWorkerRequestJson(
++				result.workerCommand = "session-file-v0";
++				result.attempted = true;
++				auto workerStart = std::chrono::steady_clock::now();
++				std::string readyPath;
++				submitReadToGraphFullQueryHitWorkerFileSessionRequest(
++					requestId,
+ 					result.workerRequestJson,
+-					"read-to-graph-full-query-hit-dry-run",
+-					result.sourcePackDir,
+-					result.workerOutputTsv,
+-					result.workerResponseJson,
+-					result.expectedOutputRecords);
+-				result.workerCommand = readAlignmentShellQuote(workerBin) +
+-					" --worker-request-json " +
+-					readAlignmentShellQuote(result.workerRequestJson) +
+-					" > " + readAlignmentShellQuote(result.stdoutLog) +
+-					" 2> " + readAlignmentShellQuote(result.stderrLog);
+-			}
+-			result.attempted = true;
+-			auto workerStart = std::chrono::steady_clock::now();
+-			result.workerExitStatus = std::system(result.workerCommand.c_str());
+-			result.workerWallMs = readAlignmentElapsedMs(
+-				workerStart, std::chrono::steady_clock::now());
+-			if (result.workerExitStatus != 0)
+-			{
+-				std::string workerErrorMessage;
+-				if (readToGraphFullQueryHitWorkerJsonlPersistentEnabled() &&
+-					readableFile(result.workerWarmupResponseJson))
++					result.workerSessionSubmitPath,
++					readyPath,
++					result.workerSessionDonePath);
++				waitForReadAlignmentReadableFile(
++					result.workerSessionDonePath,
++					"full query-hit worker session done file",
++					readToGraphFullQueryHitWorkerFileSessionTimeoutMs(),
++					readToGraphFullQueryHitWorkerFileSessionPollMs());
++				result.workerWallMs = readAlignmentElapsedMs(
++					workerStart, std::chrono::steady_clock::now());
++				result.workerSessionSubmitMs = result.workerWallMs;
++				std::string doneText =
++					readAlignmentTextFile(result.workerSessionDonePath);
++				if (doneText.find("status=ok\n") != 0)
+ 				{
+-					std::string warmupResponse =
+-						readAlignmentTextFile(result.workerWarmupResponseJson);
+-					result.workerWarmupResponseOk =
+-						readToGraphFullQueryHitWorkerResponseOk(warmupResponse);
+-					workerErrorMessage =
+-						readToGraphFullQueryHitWorkerErrorMessage(warmupResponse);
+-				}
+-				if (readableFile(result.workerResponseJson))
+-				{
+-					std::string actualResponse =
+-						readAlignmentTextFile(result.workerResponseJson);
+-					captureReadToGraphFullQueryHitWorkerActualResponse(
+-						result, actualResponse);
+-					if (workerErrorMessage.empty())
++					std::string workerErrorMessage;
++					if (readableFile(result.workerResponseJson))
+ 					{
++						std::string actualResponse =
++							readAlignmentTextFile(result.workerResponseJson);
++						captureReadToGraphFullQueryHitWorkerActualResponse(
++							result, actualResponse);
+ 						workerErrorMessage =
+ 							readToGraphFullQueryHitWorkerErrorMessage(actualResponse);
+ 					}
++					std::string error =
++						"CUDA full-query-hit worker session request failed";
++					if (!workerErrorMessage.empty())
++					{
++						error += ": " + workerErrorMessage;
++					}
++					throw std::runtime_error(error);
+ 				}
+-				std::string error =
+-					"CUDA full-query-hit worker failed with status " +
+-					std::to_string(result.workerExitStatus);
+-				if (!workerErrorMessage.empty())
+-				{
+-					error += ": " + workerErrorMessage;
+-				}
+-				throw std::runtime_error(error);
++				waitForReadAlignmentReadableFile(
++					result.workerResponseJson,
++					"full query-hit worker session response JSON",
++					readToGraphFullQueryHitWorkerFileSessionTimeoutMs(),
++					readToGraphFullQueryHitWorkerFileSessionPollMs());
++				result.workerExitStatus = 0;
+ 			}
+-			if (readToGraphFullQueryHitWorkerJsonlPersistentEnabled())
++			else
+ 			{
+-				result.workerWarmupResponseOk =
+-					readToGraphFullQueryHitWorkerResponseOk(
+-						readAlignmentTextFile(result.workerWarmupResponseJson));
+-				if (!result.workerWarmupResponseOk)
++				if (readToGraphFullQueryHitWorkerJsonlPersistentEnabled())
+ 				{
+-					throw std::runtime_error(
+-						"CUDA full-query-hit worker warmup response did not "
+-						"report status ok");
++					std::string workerBin = readAlignmentRequiredEnv(
++						"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_BIN");
++					writeReadToGraphFullQueryHitWorkerRequestJson(
++						result.workerWarmupRequestJson,
++						"read-to-graph-full-query-hit-warmup",
++						result.sourcePackDir,
++						result.workerWarmupOutputTsv,
++						result.workerWarmupResponseJson,
++						result.expectedOutputRecords);
++					writeReadToGraphFullQueryHitWorkerRequestJson(
++						result.workerRequestJson,
++						"read-to-graph-full-query-hit-actual",
++						result.sourcePackDir,
++						result.workerOutputTsv,
++						result.workerResponseJson,
++						result.expectedOutputRecords);
++					writeReadToGraphFullQueryHitWorkerRequestsJsonl(
++						result.workerRequestsJsonl, result);
++					result.workerCommand = readAlignmentShellQuote(workerBin) +
++						" --worker-requests-jsonl " +
++						readAlignmentShellQuote(result.workerRequestsJsonl) +
++						" > " + readAlignmentShellQuote(result.stdoutLog) +
++						" 2> " + readAlignmentShellQuote(result.stderrLog);
+ 				}
+-			}
+-			captureReadToGraphFullQueryHitWorkerActualResponse(
+-				result, readAlignmentTextFile(result.workerResponseJson));
++				else
++				{
++					std::string workerBin = readAlignmentRequiredEnv(
++						"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_BIN");
++					writeReadToGraphFullQueryHitWorkerRequestJson(
++						result.workerRequestJson,
++						"read-to-graph-full-query-hit-dry-run",
++						result.sourcePackDir,
++						result.workerOutputTsv,
++						result.workerResponseJson,
++						result.expectedOutputRecords);
++					result.workerCommand = readAlignmentShellQuote(workerBin) +
++						" --worker-request-json " +
++						readAlignmentShellQuote(result.workerRequestJson) +
++						" > " + readAlignmentShellQuote(result.stdoutLog) +
++						" 2> " + readAlignmentShellQuote(result.stderrLog);
++				}
++				result.attempted = true;
++				auto workerStart = std::chrono::steady_clock::now();
++				result.workerExitStatus =
++					std::system(result.workerCommand.c_str());
++				result.workerWallMs = readAlignmentElapsedMs(
++					workerStart, std::chrono::steady_clock::now());
++				if (result.workerExitStatus != 0)
++				{
++					std::string workerErrorMessage;
++					if (readToGraphFullQueryHitWorkerJsonlPersistentEnabled() &&
++						readableFile(result.workerWarmupResponseJson))
++					{
++						std::string warmupResponse =
++							readAlignmentTextFile(result.workerWarmupResponseJson);
++						result.workerWarmupResponseOk =
++							readToGraphFullQueryHitWorkerResponseOk(warmupResponse);
++						workerErrorMessage =
++							readToGraphFullQueryHitWorkerErrorMessage(warmupResponse);
++					}
++					if (readableFile(result.workerResponseJson))
++					{
++						std::string actualResponse =
++							readAlignmentTextFile(result.workerResponseJson);
++						captureReadToGraphFullQueryHitWorkerActualResponse(
++							result, actualResponse);
++						if (workerErrorMessage.empty())
++						{
++							workerErrorMessage =
++								readToGraphFullQueryHitWorkerErrorMessage(
++									actualResponse);
++						}
++					}
++					std::string error =
++						"CUDA full-query-hit worker failed with status " +
++						std::to_string(result.workerExitStatus);
++					if (!workerErrorMessage.empty())
++					{
++						error += ": " + workerErrorMessage;
++					}
++					throw std::runtime_error(error);
++				}
++				}
++				if (readToGraphFullQueryHitWorkerJsonlPersistentEnabled())
++				{
++					result.workerWarmupResponseOk =
++						readToGraphFullQueryHitWorkerResponseOk(
++							readAlignmentTextFile(result.workerWarmupResponseJson));
++					if (!result.workerWarmupResponseOk)
++					{
++						throw std::runtime_error(
++							"CUDA full-query-hit worker warmup response did not "
++							"report status ok");
++					}
++				}
++				captureReadToGraphFullQueryHitWorkerActualResponse(
++					result, readAlignmentTextFile(result.workerResponseJson));
+ 			if (!result.workerResponseOk)
+ 			{
+ 				throw std::runtime_error(

@@ -38,6 +38,7 @@ Worker mode:
 ```text
 cuflye-cuda-full-query-hit-replay --worker-request-json PATH
 cuflye-cuda-full-query-hit-replay --worker-requests-jsonl PATH
+cuflye-cuda-full-query-hit-replay --worker-session-dir DIR
 ```
 
 Worker mode is mutually exclusive with direct replay options.
@@ -85,6 +86,11 @@ future worker boundary, not a long-lived JSONL worker.
 The first compatible request initializes the source pack, CUDA context, and
 device buffers; later compatible requests reuse that session and report
 `worker_cuda_context_warm=true`.
+
+`--worker-session-dir` starts the M6n file-backed session protocol documented
+in `docs/abi/full-query-hit-worker-session-v0.md`. It creates `inbox`,
+`processing`, and `done` directories, accepts `*.ready` request files, and lets
+separate Flye seam invocations attach to one already-running CUDA worker.
 
 ## Output TSV
 

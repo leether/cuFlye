@@ -3292,3 +3292,87 @@ worker session/daemon lifecycle so separate Flye seam calls can reuse one
 already-running CUDA worker process, then measure whether end-to-end worker
 wall time improves beyond this intra-process warm request proof.
 ```
+
+### M6n: File-backed full-query-hit worker session
+
+Status: complete.
+
+M6n adds
+`0044-cuflye-read-to-graph-full-query-hit-worker-session-file.patch` and
+`docs/abi/full-query-hit-worker-session-v0.md`. The Flye dry-run seam now
+supports:
+
+```text
+CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_LIFECYCLE_MODE=session-file-v0
+CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_SESSION_DIR=/path/to/session
+```
+
+In this mode an external `cuflye-cuda-full-query-hit-replay` process owns the
+CUDA context and polls `SESSION_DIR/inbox/*.ready`. Separate Flye seam calls
+write normal worker request JSON, submit a ready file, wait for the matching
+done file, validate row-key parity, and stop before graph mutation.
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m6n-proof-20260701T085823Z
+fixture=toy-hifi
+query_ids=5,6,7,8,9,10,11,12
+positive_session_processed_requests=2
+first_request_id=read-to-graph-full-query-hit-session-cuflye-m6n-proof-20260701T085823Z_positive-first_worker
+second_request_id=read-to-graph-full-query-hit-session-cuflye-m6n-proof-20260701T085823Z_positive-second_worker
+first_status=passed
+first_worker_cuda_context_warm=false
+first_worker_wall_ms=100.728
+first_request_total_ms=98.495
+second_status=passed
+second_worker_cuda_context_warm=true
+second_worker_wall_ms=55.4038
+second_request_total_ms=52.735775
+second_parse_ms=0.0
+second_device_allocation_ms=0.0
+second_host_to_device_ms=0.0
+first_row_key_diff=match
+second_row_key_diff=match
+negative_status=failed-before-graph-mutation
+negative_error="CUDA full-query-hit worker session request failed: required bytes exceed memory budget"
+negative_graph_mutation_consumed_worker_output=false
+default_cpu_artifact_hashes_match_m0=true
+```
+
+Allowed M6n claim:
+
+```text
+cuFlye can now have separate Flye dry-run seam submissions attach to one live
+file-backed CUDA full-query-hit worker session, validate row-key parity for
+each actual request, and keep the second request warm without relaunching the
+worker process.
+```
+
+Forbidden M6n claim:
+
+```text
+M6n does not prove whole-Flye speedup, graph consumption, default GPU mode,
+full non-key raw-overlap field parity, or daemon lifecycle management beyond a
+bounded worker session.
+```
+
+Plain-language benefit:
+
+```text
+M6n is the first proof that the advantage survives across separate Flye seam
+calls, not only inside one worker invocation. The first session request costs
+about 100.728 ms wall / 98.495 ms request time; the second request reuses the
+same live CUDA worker and costs about 55.404 ms wall / 52.736 ms request time,
+with parse, device allocation, and host-to-device copy all reported as 0 ms.
+This is still a dry-run proof, but it is a real integration benefit.
+```
+
+Next highest-ROI task:
+
+```text
+M6o: add a session-scale/performance gate that submits several selected
+full-query-hit windows through one file-backed worker session, records
+amortized cold-vs-warm timing, and decides whether the next guarded
+graph-consumption step has enough ROI to proceed.
+```

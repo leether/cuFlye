@@ -82,6 +82,12 @@ Options:
                        Set CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_BIN
   --read-to-graph-full-query-hit-worker-output-dir PATH
                        Set CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_OUTPUT_DIR
+  --read-to-graph-full-query-hit-worker-session-dir PATH
+                       Set CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_SESSION_DIR
+  --read-to-graph-full-query-hit-worker-session-poll-ms N
+                       Set CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_SESSION_POLL_MS
+  --read-to-graph-full-query-hit-worker-session-timeout-ms N
+                       Set CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_SESSION_TIMEOUT_MS
   --read-to-graph-full-query-hit-worker-device ID
                        Set CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_DEVICE
   --read-to-graph-full-query-hit-worker-kernel-mode MODE
@@ -227,6 +233,9 @@ read_to_graph_full_query_hit_worker_mode="${CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_
 read_to_graph_full_query_hit_worker_lifecycle_mode="${CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_LIFECYCLE_MODE:-}"
 read_to_graph_full_query_hit_worker_bin="${CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_BIN:-}"
 read_to_graph_full_query_hit_worker_output_dir="${CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_OUTPUT_DIR:-}"
+read_to_graph_full_query_hit_worker_session_dir="${CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_SESSION_DIR:-}"
+read_to_graph_full_query_hit_worker_session_poll_ms="${CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_SESSION_POLL_MS:-}"
+read_to_graph_full_query_hit_worker_session_timeout_ms="${CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_SESSION_TIMEOUT_MS:-}"
 read_to_graph_full_query_hit_worker_device="${CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_DEVICE:-}"
 read_to_graph_full_query_hit_worker_kernel_mode="${CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_KERNEL_MODE:-}"
 read_to_graph_full_query_hit_worker_memory_budget_bytes="${CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_MEMORY_BUDGET_BYTES:-}"
@@ -437,6 +446,18 @@ while [ "$#" -gt 0 ]; do
       ;;
     --read-to-graph-full-query-hit-worker-output-dir)
       read_to_graph_full_query_hit_worker_output_dir="$2"
+      shift 2
+      ;;
+    --read-to-graph-full-query-hit-worker-session-dir)
+      read_to_graph_full_query_hit_worker_session_dir="$2"
+      shift 2
+      ;;
+    --read-to-graph-full-query-hit-worker-session-poll-ms)
+      read_to_graph_full_query_hit_worker_session_poll_ms="$2"
+      shift 2
+      ;;
+    --read-to-graph-full-query-hit-worker-session-timeout-ms)
+      read_to_graph_full_query_hit_worker_session_timeout_ms="$2"
       shift 2
       ;;
     --read-to-graph-full-query-hit-worker-device)
@@ -871,6 +892,15 @@ if [ -n "${read_to_graph_full_query_hit_worker_bin}" ]; then
 fi
 if [ -n "${read_to_graph_full_query_hit_worker_output_dir}" ]; then
   export CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_OUTPUT_DIR="${read_to_graph_full_query_hit_worker_output_dir}"
+fi
+if [ -n "${read_to_graph_full_query_hit_worker_session_dir}" ]; then
+  export CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_SESSION_DIR="${read_to_graph_full_query_hit_worker_session_dir}"
+fi
+if [ -n "${read_to_graph_full_query_hit_worker_session_poll_ms}" ]; then
+  export CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_SESSION_POLL_MS="${read_to_graph_full_query_hit_worker_session_poll_ms}"
+fi
+if [ -n "${read_to_graph_full_query_hit_worker_session_timeout_ms}" ]; then
+  export CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_SESSION_TIMEOUT_MS="${read_to_graph_full_query_hit_worker_session_timeout_ms}"
 fi
 if [ -n "${read_to_graph_full_query_hit_worker_device}" ]; then
   export CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_DEVICE="${read_to_graph_full_query_hit_worker_device}"
