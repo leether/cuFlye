@@ -11,13 +11,17 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m5x-read-alignment-selected-cpu-bypass.md`:
-  turn the M5w full3546 guarded substitution proof into an audited selected-read
-  CPU-bypass experiment, preserving exact artifacts while measuring whether CPU
-  chain DP work is actually avoided.
+- `2026-07-01-cuflye-m5y-read-alignment-post-bypass-attribution.md`:
+  attribute the remaining Flye wall time after M5x selected CPU-bypass and
+  choose the next CUDA boundary from measured evidence.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m5x-read-alignment-selected-cpu-bypass.md`:
+  run an opt-in selected-read CPU-bypass mode for the full3546 selected set,
+  skip selected CPU pre-divergence chain DP, consume verified compact-binary
+  CUDA goodChains, preserve exact artifacts, and fail closed on corrupted
+  compact binary payloads before graph mutation.
 - `2026-07-01-cuflye-m5w-read-alignment-compact-binary-substitution-scaleup.md`:
   scale the M5v compact-binary vector-substitution proof from selected batch64
   to the full3546 selected read-alignment fixture set, preserve exact artifacts,

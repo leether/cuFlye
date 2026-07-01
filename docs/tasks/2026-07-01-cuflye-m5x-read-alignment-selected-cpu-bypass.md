@@ -1,6 +1,6 @@
 # Task Card: cuFlye M5x Read Alignment Selected CPU Bypass
 
-Status: proposed
+Status: accepted
 
 Created: 2026-07-01
 
@@ -64,18 +64,77 @@ substitution issue?
 
 ## Acceptance Gates
 
-- [ ] Patch series applies and patched Flye builds on DGX.
-- [ ] CUDA worker builds on DGX.
-- [ ] Positive selected CPU-bypass mode consumes verified compact-binary
+- [x] Patch series applies and patched Flye builds on DGX.
+- [x] CUDA worker builds on DGX.
+- [x] Positive selected CPU-bypass mode consumes verified compact-binary
       CUDA-derived goodChains for the full3546 selected set.
-- [ ] Positive proof records that selected CPU chain DP was skipped rather
+- [x] Positive proof records that selected CPU chain DP was skipped rather
       than computed and then replaced.
-- [ ] Canonical Flye artifacts match CPU.
-- [ ] Negative mismatch/corruption case fails closed before graph mutation.
-- [ ] Timing summary separates CUDA request time, Flye seam time, avoided CPU
+- [x] Canonical Flye artifacts match CPU.
+- [x] Negative mismatch/corruption case fails closed before graph mutation.
+- [x] Timing summary separates CUDA request time, Flye seam time, avoided CPU
       work, and full Flye elapsed time.
-- [ ] Local and DGX syntax/style gates pass.
+- [x] Local and DGX syntax/style gates pass.
 
 ## Completion Notes
 
-Pending implementation.
+Accepted on DGX with proof root:
+
+```text
+/tmp/cuflye-m5x-proof-20260701T050004Z
+```
+
+Positive selected CPU-bypass proof:
+
+```text
+fixture_count=3546
+selected_cpu_bypass_mode=verified-goodchains-v0
+selected_cpu_bypass_enabled=true
+total_cpu_bypassed_reads=3546
+total_cpu_predivergence_chains=0
+total_cpu_good_chains=0
+total_cpu_bypass_inserted_chains=3546
+total_worker_records=3616
+total_substituted_chains=3546
+graph_mutation_consumed_worker_output=true
+canonical_diff=match
+worker_actual_wall_ms=4.145493
+worker_request_total_ms=2.128259
+worker_kernel_ms=0.042353
+full_flye_elapsed_seconds=20.741208213
+```
+
+Negative truncation proof:
+
+```text
+proof_fault=truncate-compact-binary-payload
+status=failed
+decision=failed-closed-before-graph-mutation
+flye_exit_status=1
+selected_cpu_bypass_enabled=true
+total_cpu_bypassed_reads=3546
+total_cpu_predivergence_chains=0
+graph_mutation_consumed_worker_output=false
+total_worker_records=0
+total_substituted_chains=0
+worker_request_total_ms=1.670786
+full_flye_elapsed_seconds=13.921030998
+```
+
+Golden manifest:
+
+```text
+tests/golden/cuflye-m5x-read-alignment-selected-cpu-bypass-dgx-aarch64.json
+```
+
+Plain-language benefit:
+
+```text
+M5x is the first real CPU-bypass milestone for read alignment: for the full3546
+selected set, Flye no longer calculates CPU pre-divergence chains and then
+replaces them; it leaves audited placeholders, consumes verified CUDA
+goodChains, and still produces byte-equivalent canonical artifacts. The
+measurable whole-toy Flye gain is tiny, about 0.024 seconds, so the honest
+claim is local correctness plus a small scoped speed win, not a meaningful
+end-to-end GPU Flye speedup.
+```

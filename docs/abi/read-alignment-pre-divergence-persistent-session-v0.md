@@ -191,6 +191,22 @@ replace the selected `_readAlignments` slice with the verified GPU-derived
 `goodChains`. The replacement is built in a temporary vector and swapped into
 place only after all selected query chain counts line up.
 
+M5x selected CPU-bypass adds:
+
+```text
+CUFLYE_READ_ALIGNMENT_SELECTED_CPU_BYPASS_MODE=verified-goodchains-v0
+```
+
+This mode is valid only with `batch-dry-run-v0`,
+`CUFLYE_READ_ALIGNMENT_COMPACT_BINARY_MODE=rehydrate-v0`, and
+`CUFLYE_READ_ALIGNMENT_COMPACT_BINARY_VECTOR_SUBSTITUTION_MODE=verified-goodchains-v0`.
+For selected reads, Flye still computes overlap inputs and writes replay
+fixture inputs, but it skips CPU `chainReadAlignments()` and CPU goodChain
+filtering. It leaves audited placeholders in `_readAlignments`, consumes
+validated CUDA-derived `goodChains`, inserts forward and complement chains back
+at those placeholder offsets, and records the skipped CPU work in the batch
+audit JSON.
+
 ## Response JSON
 
 Response schema:
@@ -287,3 +303,20 @@ set harvested in M5h/M5t. Positive scale-up proofs must additionally record:
 Corrupted full3546 payload proofs must still report
 `decision=failed-closed-before-graph-mutation`,
 `graph_mutation_consumed_worker_output=false`, and zero substituted chains.
+
+## M5x CPU-Bypass Proof Shape
+
+Positive selected CPU-bypass proofs must record:
+
+- `selected_cpu_bypass_mode=verified-goodchains-v0`;
+- `selected_cpu_bypass_enabled=true`;
+- `total_cpu_bypassed_reads=3546`;
+- `total_cpu_predivergence_chains=0`;
+- `total_cpu_good_chains=0`;
+- `total_cpu_bypass_inserted_chains=3546`;
+- `total_substituted_chains=3546`;
+- canonical Flye artifact diff `status=match`.
+
+Corrupted payload proofs must keep
+`graph_mutation_consumed_worker_output=false`, `total_substituted_chains=0`,
+and a nonzero Flye exit status.

@@ -225,7 +225,7 @@ Completed:
   `98.134393%` versus the M4u cold batch-run worker process, but the full
   toy-raw run was still slower than CPU (`88s` vs `82s`) because the proof still
   pays for one synthetic warmup request inside the same Flye run.
-- M5a-M5w: cuFlye now has a deterministic read-to-graph alignment oracle,
+- M5a-M5x: cuFlye now has a deterministic read-to-graph alignment oracle,
   bounded replay fixtures, a CUDA chain replay prototype, real multi-read
   batching, heterogeneous shape grouping, and a persistent per-shape CUDA arena.
   The M5h proof expands the toy-hifi replay harvest to `3546` valid fixtures
@@ -262,7 +262,12 @@ Completed:
   substitution from batch64 to the full3546 selected fixture set: all selected
   chains are replaced by verified CUDA-derived `goodChains`, canonical Flye
   artifacts still match CPU, and corrupted compact binary payloads still stop
-  before graph mutation.
+  before graph mutation. M5x turns that into the first audited selected CPU
+  bypass: selected reads skip CPU pre-divergence chain DP, GPU-derived
+  `goodChains` are inserted back through audited placeholders, and canonical
+  artifacts still match CPU. On toy-hifi this avoids `3546` selected CPU
+  pre-divergence chains, but whole-Flye wall time improves by only about
+  `0.024` seconds.
 
 Current allowed performance claim:
 
@@ -395,6 +400,12 @@ full3546 selected read-alignment fixture set inside Flye. This proves the
 payload, validation, and selected-slice consumption path holds at the full
 selected toy-hifi scale, but it is still not a whole-Flye speed claim because
 the seam intentionally keeps CPU `goodChains` as the live verifier.
+
+cuFlye can now run an opt-in selected-read CPU-bypass mode for that same
+full3546 set. This is the first read-alignment proof where selected CPU
+pre-divergence chain DP is not computed before GPU consumption. It is a local
+GPU-mode advantage, not a meaningful whole-Flye speedup: the toy-hifi full run
+only improves from `20.765673444s` to `20.741208213s`.
 ```
 
 Current forbidden claim:
@@ -2590,4 +2601,84 @@ M5x: run an audited selected-read CPU-bypass experiment for compact-binary-v0
 CUDA goodChains. The point is to stop paying CPU chain DP for the explicit
 selected allowlist, preserve exact canonical artifacts, and keep the same
 fail-closed behavior before making any default GPU-mode claim.
+```
+
+M5x accepted result:
+
+```text
+cuFlye can run an opt-in selected-read CPU-bypass mode for the full3546
+read-alignment fixture set: Flye skips selected CPU pre-divergence chain DP,
+consumes verified compact-binary CUDA-derived goodChains, preserves exact
+canonical artifacts, and fails closed before graph mutation on corrupted
+compact binary payloads.
+```
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m5x-proof-20260701T050004Z
+golden=tests/golden/cuflye-m5x-read-alignment-selected-cpu-bypass-dgx-aarch64.json
+fixture_count=3546
+selected_cpu_bypass_mode=verified-goodchains-v0
+selected_cpu_bypass_enabled=true
+positive_status=passed
+positive_canonical_diff=match
+positive_total_cpu_bypassed_reads=3546
+positive_total_cpu_predivergence_chains=0
+positive_total_cpu_good_chains=0
+positive_total_cpu_bypass_inserted_chains=3546
+positive_total_worker_records=3616
+positive_total_substituted_chains=3546
+positive_graph_mutation_consumed_worker_output=true
+positive_worker_actual_wall_ms=4.145493
+positive_worker_request_total_ms=2.128259
+positive_worker_kernel_ms=0.042353
+positive_full_flye_elapsed_seconds=20.741208213
+m5w_full_flye_elapsed_seconds=20.765673444
+m5x_full_flye_speedup_vs_m5w=1.001179547
+m5x_full_flye_wall_seconds_saved_vs_m5w=0.024465231
+negative_truncate_status=failed
+negative_truncate_flye_exit_status=1
+negative_truncate_selected_cpu_bypass_enabled=true
+negative_truncate_total_cpu_bypassed_reads=3546
+negative_truncate_graph_mutation_consumed_worker_output=false
+negative_truncate_total_substituted_chains=0
+```
+
+Allowed M5x claim:
+
+```text
+cuFlye can skip selected CPU pre-divergence read-alignment chain DP for the
+full3546 selected toy-hifi set, consume verified CUDA goodChains, preserve
+exact artifacts, and show a small local request-time and tiny full-toy wall-time
+improvement versus M5w.
+```
+
+Forbidden M5x claim:
+
+```text
+M5x does not prove default GPU mode, meaningful whole-Flye acceleration,
+unbounded _readAlignments replacement, CUDA minimizer overlap discovery, or CPU
+overlap-detection bypass.
+```
+
+Plain-language benefit:
+
+```text
+M5x is the first real CPU-bypass milestone for read alignment: for the full3546
+selected set, Flye no longer calculates CPU pre-divergence chains and then
+replaces them; it leaves audited placeholders, consumes verified CUDA
+goodChains, and still produces byte-equivalent canonical artifacts. The
+measurable whole-toy Flye gain is tiny, about 0.024 seconds, so the honest
+claim is local correctness plus a small scoped speed win, not a meaningful
+end-to-end GPU Flye speedup.
+```
+
+Next highest-ROI task:
+
+```text
+M5y: attribute the remaining Flye wall time after M5x selected CPU-bypass and
+decide whether to keep optimizing read alignment, move earlier to
+overlap/minimizer discovery, or test the same bypass on a larger approved DGX
+sample before making stronger GPU-mode performance claims.
 ```

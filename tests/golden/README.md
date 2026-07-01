@@ -166,3 +166,5 @@ M5 read-to-graph alignment proof:
   `cuflye-m5v-read-alignment-compact-binary-vector-substitution-smoke-dgx-aarch64.json`
 - Read alignment compact binary substitution scale-up manifest:
   `cuflye-m5w-read-alignment-compact-binary-substitution-scaleup-dgx-aarch64.json`
+- Read alignment selected CPU-bypass manifest:
+  `cuflye-m5x-read-alignment-selected-cpu-bypass-dgx-aarch64.json`

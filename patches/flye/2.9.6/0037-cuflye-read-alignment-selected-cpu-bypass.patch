@@ -1,0 +1,445 @@
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -215,6 +215,9 @@
+ 	{
+ 		int64_t queryId = 0;
+ 		std::vector<GraphAlignment> chains;
++		bool cpuBypassed = false;
++		bool placeholderInserted = false;
++		size_t placeholderOffset = 0;
+ 	};
+ 
+ 	struct ReadAlignmentVectorSubstitutionResult
+@@ -284,6 +287,9 @@
+ 		bool workerTsvReadable = false;
+ 		bool workerBinaryReadable = false;
+ 		bool vectorSubstitutionConsumed = false;
++		bool cpuBypassed = false;
++		bool cpuBypassPlaceholderInserted = false;
++		size_t cpuBypassPlaceholderOffset = 0;
+ 		size_t cpuPreDivergenceChains = 0;
+ 		size_t gpuPreDivergenceChains = 0;
+ 		size_t cpuGoodChains = 0;
+@@ -292,6 +298,7 @@
+ 		size_t gpuGoodRecords = 0;
+ 		size_t workerRecords = 0;
+ 		size_t substitutedChains = 0;
++		size_t cpuBypassInsertedChains = 0;
+ 		std::vector<ReadAlignmentDumpRecord> cpuGoodRecordsCanonical;
+ 		std::vector<GraphAlignment> gpuGoodChainsObject;
+ 		std::string error;
+@@ -324,6 +331,7 @@
+ 		std::string workerCompactBinaryValidationStatus = "not-run";
+ 		std::string vectorSubstitutionMode;
+ 		std::string vectorSubstitutionStatus = "not-run";
++		std::string selectedCpuBypassMode;
+ 		std::string workerSessionSubmitPath;
+ 		std::string workerSessionDonePath;
+ 		std::string workerWarmupSessionSubmitPath;
+@@ -339,9 +347,12 @@
+ 		bool failedClosed = false;
+ 		bool proofFaultApplied = false;
+ 		bool graphMutationConsumedWorkerOutput = false;
++		bool selectedCpuBypassEnabled = false;
+ 		size_t fixtureCount = 0;
+ 		size_t matchedFixtureCount = 0;
+ 		size_t mismatchedFixtureCount = 0;
++		size_t totalCpuBypassedReads = 0;
++		size_t totalCpuBypassInsertedChains = 0;
+ 		size_t totalCpuPreDivergenceChains = 0;
+ 		size_t totalGpuPreDivergenceChains = 0;
+ 		size_t totalCpuGoodChains = 0;
+@@ -1629,8 +1640,33 @@
+ 	{
+ 		return readAlignmentCompactBinaryVectorSubstitutionMode() ==
+ 			"verified-goodchains-v0";
++	}
++
++	std::string readAlignmentSelectedCpuBypassMode()
++	{
++		static std::string mode = []()
++		{
++			const char* raw = std::getenv(
++				"CUFLYE_READ_ALIGNMENT_SELECTED_CPU_BYPASS_MODE");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "verified-goodchains-v0")
++			{
++				throw std::runtime_error(
++					"Unsupported "
++					"CUFLYE_READ_ALIGNMENT_SELECTED_CPU_BYPASS_MODE: " +
++					selected);
++			}
++			return selected;
++		}();
++		return mode;
+ 	}
+ 
++	bool readAlignmentSelectedCpuBypassEnabled()
++	{
++		return readAlignmentSelectedCpuBypassMode() == "verified-goodchains-v0";
++	}
++
+ 	std::string readAlignmentCompactBinaryExpectedSha256()
+ 	{
+ 		const char* raw = std::getenv(
+@@ -1801,6 +1837,7 @@
+ 		(void)readAlignmentWorkerLifecycleMode();
+ 		(void)readAlignmentCompactBinaryMode();
+ 		(void)readAlignmentCompactBinaryVectorSubstitutionMode();
++		(void)readAlignmentSelectedCpuBypassMode();
+ 		if (readAlignmentCompactBinaryEnabled() &&
+ 			!readAlignmentPreDivergenceBatchDryRunEnabled())
+ 		{
+@@ -1814,6 +1851,23 @@
+ 			throw std::runtime_error(
+ 				"cuFlye read alignment compact binary vector substitution requires "
+ 				"CUFLYE_READ_ALIGNMENT_COMPACT_BINARY_MODE=rehydrate-v0");
++		}
++		if (readAlignmentSelectedCpuBypassEnabled())
++		{
++			if (!readAlignmentPreDivergenceBatchDryRunEnabled())
++			{
++				throw std::runtime_error(
++					"cuFlye read alignment selected CPU bypass requires "
++					"CUFLYE_READ_ALIGNMENT_PREDIVERGENCE_CHAIN_MODE=batch-dry-run-v0");
++			}
++			if (!readAlignmentCompactBinaryEnabled() ||
++				!readAlignmentCompactBinaryVectorSubstitutionEnabled())
++			{
++				throw std::runtime_error(
++					"cuFlye read alignment selected CPU bypass requires "
++					"compact binary rehydration and verified-goodchains "
++					"vector substitution");
++			}
+ 		}
+ 		(void)readAlignmentCompactBinaryExpectedSha256();
+ 		if (readAlignmentPreDivergenceBatchDryRunEnabled() &&
+@@ -3109,7 +3163,11 @@
+ 
+ 	void substituteReadAlignmentPreDivergenceBatchGoodChains(
+ 		ReadAlignmentPreDivergenceBatchDryRunResult& result,
+-		std::vector<GraphAlignment>& alignments)
++		RepeatGraph& graph,
++		std::vector<GraphAlignment>& alignments,
++		int& numAligned,
++		int& alignedInFull,
++		int64_t& alignedLength)
+ 	{
+ 		result.vectorSubstitutionMode =
+ 			readAlignmentCompactBinaryVectorSubstitutionMode();
+@@ -3148,6 +3206,11 @@
+ 			ReadAlignmentQueryReplacement replacement;
+ 			replacement.queryId = fixture.queryId;
+ 			replacement.chains = fixture.gpuGoodChainsObject;
++			replacement.cpuBypassed = fixture.cpuBypassed;
++			replacement.placeholderInserted =
++				fixture.cpuBypassPlaceholderInserted;
++			replacement.placeholderOffset =
++				fixture.cpuBypassPlaceholderOffset;
+ 			replacements.push_back(replacement);
+ 		}
+ 
+@@ -3160,6 +3223,7 @@
+ 			int64_t queryId = chain.front().overlap.curId.signedId();
+ 			for (size_t index = 0; index < replacements.size(); ++index)
+ 			{
++				if (replacements[index].cpuBypassed) continue;
+ 				if (replacements[index].queryId != queryId) continue;
+ 				size_t& offset = replacementOffsets[index];
+ 				if (offset >= replacements[index].chains.size())
+@@ -3176,13 +3240,80 @@
+ 		}
+ 		for (size_t index = 0; index < replacements.size(); ++index)
+ 		{
++			if (replacements[index].cpuBypassed) continue;
+ 			if (replacementOffsets[index] != replacements[index].chains.size())
+ 			{
+ 				throw std::runtime_error(
+ 					"compact binary vector substitution did not find every CPU "
+ 					"chain for query " +
+ 					std::to_string(replacements[index].queryId));
++			}
++		}
++		long long placeholderShift = 0;
++		for (const auto& replacement : replacements)
++		{
++			if (!replacement.cpuBypassed) continue;
++			if (!replacement.placeholderInserted)
++			{
++				throw std::runtime_error(
++					"selected CPU bypass missing _readAlignments placeholder "
++					"for query " + std::to_string(replacement.queryId));
+ 			}
++			long long adjustedOffset =
++				static_cast<long long>(replacement.placeholderOffset) +
++				placeholderShift;
++			if (adjustedOffset < 0 ||
++				adjustedOffset >=
++					static_cast<long long>(substitutedAlignments.size()) ||
++				!substitutedAlignments[static_cast<size_t>(adjustedOffset)].empty())
++			{
++				throw std::runtime_error(
++					"selected CPU bypass placeholder mismatch for query " +
++					std::to_string(replacement.queryId));
++			}
++
++			std::vector<GraphAlignment> insertedChains(replacement.chains);
++			for (auto& chain : insertedChains)
++			{
++				chain.shrink_to_fit();
++			}
++			std::vector<GraphAlignment> complChains(replacement.chains);
++			for (auto& chain : complChains)
++			{
++				for (auto& aln : chain)
++				{
++					aln.edge = graph.complementEdge(aln.edge);
++					aln.overlap = aln.overlap.complement();
++				}
++				std::reverse(chain.begin(), chain.end());
++				chain.shrink_to_fit();
++			}
++
++			size_t offset = static_cast<size_t>(adjustedOffset);
++			substitutedAlignments.erase(substitutedAlignments.begin() + offset);
++			substitutedAlignments.insert(substitutedAlignments.begin() + offset,
++										 insertedChains.begin(),
++										 insertedChains.end());
++			substitutedAlignments.insert(
++				substitutedAlignments.begin() + offset + insertedChains.size(),
++				complChains.begin(), complChains.end());
++			long long insertedTotal =
++				static_cast<long long>(insertedChains.size() + complChains.size());
++			placeholderShift += insertedTotal - 1;
++
++			if (!replacement.chains.empty())
++			{
++				++numAligned;
++				if (replacement.chains.size() == 1) ++alignedInFull;
++			}
++			for (const auto& chain : replacement.chains)
++			{
++				if (chain.empty()) continue;
++				alignedLength += chain.back().overlap.curEnd -
++								 chain.front().overlap.curBegin;
++			}
++			substitutedChains += replacement.chains.size();
++			result.totalCpuBypassInsertedChains += replacement.chains.size();
+ 		}
+ 		for (auto& fixture : result.fixtures)
+ 		{
+@@ -3191,6 +3322,11 @@
+ 				if (replacement.queryId == fixture.queryId)
+ 				{
+ 					fixture.substitutedChains = replacement.chains.size();
++					if (fixture.cpuBypassed)
++					{
++						fixture.cpuBypassInsertedChains =
++							replacement.chains.size();
++					}
+ 					fixture.vectorSubstitutionStatus = "consumed";
+ 					fixture.vectorSubstitutionConsumed = true;
+ 				}
+@@ -3272,6 +3408,10 @@
+ 			 << readAlignmentJsonEscape(result.vectorSubstitutionMode) << "\",\n"
+ 			 << "  \"vector_substitution_status\": \""
+ 			 << readAlignmentJsonEscape(result.vectorSubstitutionStatus) << "\",\n"
++			 << "  \"selected_cpu_bypass_mode\": \""
++			 << readAlignmentJsonEscape(result.selectedCpuBypassMode) << "\",\n"
++			 << "  \"selected_cpu_bypass_enabled\": "
++			 << readAlignmentBoolJson(result.selectedCpuBypassEnabled) << ",\n"
+ 			 << "  \"worker_session_submit_path\": \""
+ 			 << readAlignmentJsonEscape(result.workerSessionSubmitPath) << "\",\n"
+ 			 << "  \"worker_session_done_path\": \""
+@@ -3309,6 +3449,10 @@
+ 			 << result.matchedFixtureCount << ",\n"
+ 			 << "  \"mismatched_fixture_count\": "
+ 			 << result.mismatchedFixtureCount << ",\n"
++			 << "  \"total_cpu_bypassed_reads\": "
++			 << result.totalCpuBypassedReads << ",\n"
++			 << "  \"total_cpu_bypass_inserted_chains\": "
++			 << result.totalCpuBypassInsertedChains << ",\n"
+ 			 << "  \"total_cpu_predivergence_chains\": "
+ 			 << result.totalCpuPreDivergenceChains << ",\n"
+ 			 << "  \"total_gpu_predivergence_chains\": "
+@@ -3352,6 +3496,15 @@
+ 				 << "      \"vector_substitution_consumed\": "
+ 				 << readAlignmentBoolJson(fixture.vectorSubstitutionConsumed)
+ 				 << ",\n"
++				 << "      \"cpu_bypassed\": "
++				 << readAlignmentBoolJson(fixture.cpuBypassed) << ",\n"
++				 << "      \"cpu_bypass_placeholder_inserted\": "
++				 << readAlignmentBoolJson(
++					fixture.cpuBypassPlaceholderInserted) << ",\n"
++				 << "      \"cpu_bypass_placeholder_offset\": "
++				 << fixture.cpuBypassPlaceholderOffset << ",\n"
++				 << "      \"cpu_bypass_inserted_chains\": "
++				 << fixture.cpuBypassInsertedChains << ",\n"
+ 				 << "      \"proof_fault_applied\": "
+ 				 << readAlignmentBoolJson(fixture.proofFaultApplied) << ",\n"
+ 				 << "      \"worker_tsv_readable\": "
+@@ -3410,6 +3563,9 @@
+ 			readAlignmentCompactBinaryVectorSubstitutionEnabled()
+ 				? "pending"
+ 				: "disabled";
++		result.selectedCpuBypassMode = readAlignmentSelectedCpuBypassMode();
++		result.selectedCpuBypassEnabled =
++			readAlignmentSelectedCpuBypassEnabled();
+ 		if (readAlignmentWorkerFileSessionLifecycleEnabled())
+ 		{
+ 			result.workerSessionDir = readAlignmentWorkerFileSessionDir();
+@@ -3477,6 +3633,10 @@
+ 				"read-alignment.tsv");
+ 			fixture.workerBinary = result.workerCompactBinary;
+ 			fixture.status = "pending";
++			if (fixture.cpuBypassed)
++			{
++				++result.totalCpuBypassedReads;
++			}
+ 			result.totalCpuPreDivergenceChains +=
+ 				fixture.cpuPreDivergenceChains;
+ 			result.totalCpuGoodChains += fixture.cpuGoodChains;
+@@ -4272,29 +4432,55 @@
+ 		std::sort(alignments.begin(), alignments.end(),
+ 		  [](const EdgeAlignment& e1, const EdgeAlignment& e2)
+ 			{return e1.overlap.curBegin < e2.overlap.curBegin;});
+-		auto readChains = this->chainReadAlignments(alignments);
+ 
+-		//check divergence once the chain is formed
++		bool selectedForPreDivergence =
++			readAlignmentPreDivergenceChainSelected(seqId);
++		bool selectedCpuBypass = selectedForPreDivergence &&
++			readAlignmentSelectedCpuBypassEnabled();
++		std::vector<GraphAlignment> readChains;
+ 		std::vector<GraphAlignment> goodChains;
+ 		std::vector<float> chainDivergences;
+-		for (auto& chain : readChains)
++		if (!selectedCpuBypass)
+ 		{
+-			float chainDivergence = 
+-				this->getChainBaseDivergence(chain, (bool)Config::get("reads_base_alignment"));
+-			chainDivergences.push_back(chainDivergence);
+-			divergenceStats.add(chainDivergence);
+-			if (chainDivergence < MAX_DIVERGENCE)
++			readChains = this->chainReadAlignments(alignments);
++
++			//check divergence once the chain is formed
++			for (auto& chain : readChains)
+ 			{
+-				goodChains.push_back(chain);
++				float chainDivergence =
++					this->getChainBaseDivergence(
++						chain, (bool)Config::get("reads_base_alignment"));
++				chainDivergences.push_back(chainDivergence);
++				divergenceStats.add(chainDivergence);
++				if (chainDivergence < MAX_DIVERGENCE)
++				{
++					goodChains.push_back(chain);
++				}
+ 			}
+ 		}
+ 		dumpReadAlignmentReplayFixture(seqId, alignments, readChains,
+ 									   chainDivergences, goodChains, _readSeqs,
+ 									   _graph.edgeSequences());
+ 
+-		if (readAlignmentPreDivergenceChainSelected(seqId))
++		if (selectedForPreDivergence)
+ 		{
+-			if (readAlignmentPreDivergenceSelectedReadDryRunEnabled())
++			if (selectedCpuBypass)
++			{
++				ReadAlignmentPreDivergenceBatchFixture fixture;
++				fixture.queryId = seqId.signedId();
++				fixture.fixtureDir =
++					readAlignmentFixtureDirForQuery(seqId.signedId());
++				fixture.cpuBypassed = true;
++				fixture.status = "captured";
++				indexMutex.lock();
++				fixture.cpuBypassPlaceholderOffset = _readAlignments.size();
++				fixture.cpuBypassPlaceholderInserted = true;
++				_readAlignments.emplace_back();
++				preDivergenceBatchFixtures.push_back(fixture);
++				indexMutex.unlock();
++				return;
++			}
++			else if (readAlignmentPreDivergenceSelectedReadDryRunEnabled())
+ 			{
+ 				ReadAlignmentPreDivergenceDryRunResult dryRun;
+ 				try
+@@ -4513,6 +4699,10 @@
+ 					{
+ 						float chainDivergence = this->getChainBaseDivergence(
+ 							chain, (bool)Config::get("reads_base_alignment"));
++						if (fixture.cpuBypassed)
++						{
++							divergenceStats.add(chainDivergence);
++						}
+ 						if (chainDivergence < MAX_DIVERGENCE)
+ 						{
+ 							gpuGoodChains.push_back(chain);
+@@ -4526,22 +4716,41 @@
+ 						fixture.proofFaultApplied = true;
+ 						batchDryRun.proofFaultApplied = true;
+ 						faultApplied = true;
+-						}
+-						fixture.gpuGoodChains = gpuGoodChains.size();
+-						fixture.gpuGoodChainsObject = gpuGoodChains;
+-						auto gpuGoodRecords =
+-							canonicalReadAlignmentRecordsFromGraphAlignments(
+-								gpuGoodChains);
++					}
++					fixture.gpuGoodChains = gpuGoodChains.size();
++					fixture.gpuGoodChainsObject = gpuGoodChains;
++					auto gpuGoodRecords =
++						canonicalReadAlignmentRecordsFromGraphAlignments(
++							gpuGoodChains);
+ 					fixture.gpuGoodRecords = gpuGoodRecords.size();
+-					fixture.matched =
+-						fixture.cpuGoodRecordsCanonical == gpuGoodRecords;
+-					fixture.status = fixture.matched ? "passed" : "failed";
+-					if (!fixture.matched)
++					if (fixture.cpuBypassed)
+ 					{
+-						fixture.error =
+-							"GPU-filtered batch goodChains differ from CPU "
+-							"goodChains";
++						if (fixture.proofFaultApplied)
++						{
++							fixture.matched = false;
++							fixture.status = "failed";
++							fixture.error =
++								"selected CPU bypass cannot verify injected "
++								"goodChain mismatch without CPU goodChains";
++						}
++						else
++						{
++							fixture.matched = true;
++							fixture.status = "passed";
++						}
+ 					}
++					else
++					{
++						fixture.matched =
++							fixture.cpuGoodRecordsCanonical == gpuGoodRecords;
++						fixture.status = fixture.matched ? "passed" : "failed";
++						if (!fixture.matched)
++						{
++							fixture.error =
++								"GPU-filtered batch goodChains differ from CPU "
++								"goodChains";
++						}
++					}
+ 				}
+ 				catch (const std::exception& exc)
+ 				{
+@@ -4574,7 +4783,8 @@
+ 					batchDryRun.failedClosed = false;
+ 					batchDryRun.graphMutationConsumedWorkerOutput = false;
+ 					substituteReadAlignmentPreDivergenceBatchGoodChains(
+-						batchDryRun, _readAlignments);
++						batchDryRun, _graph, _readAlignments, numAligned,
++						alignedInFull, alignedLength);
+ 				}
+ 				else
+ 			{
