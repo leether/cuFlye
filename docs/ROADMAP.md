@@ -4151,3 +4151,93 @@ rows as actually bypassed in dry-run state, keep residual rows CPU-owned,
 account for all CPU raw-overlap rows in a merged ledger, and fail closed before
 graph mutation on a corrupted selected bypass payload.
 ```
+
+## 2026-07-01 Update: M6x Full Query-Hit Selected Bypass Dry-Run
+
+Status: completed.
+
+Task Card:
+
+- `docs/tasks/2026-07-01-cuflye-m6x-full-query-hit-selected-bypass-dry-run.md`
+
+Golden proof:
+
+- `tests/golden/cuflye-m6x-full-query-hit-selected-bypass-dry-run-dgx-aarch64.json`
+
+What changed:
+
+- Added Flye patch `0052` with an opt-in selected bypass dry-run after the M6w
+  selected bypass-plan audit.
+- Added ABI notes for
+  `cuflye-read-to-graph-full-query-hit-selected-bypass-dry-run-v0`.
+- Extended `scripts/run_flye_fixture.sh` so proof runs can enable selected
+  bypass dry-run mode and inject a selected bypass payload proof fault.
+- Kept graph mutation disabled and audited as not consumed.
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m6x-proof-20260701T123000Z
+fixture=toy-hifi
+query_ids=5,6,7,8,9,10,11,12
+baseline_artifact_hashes_match_golden=true
+positive_status=passed
+positive_bypass_plan_status=passed
+positive_selected_bypass_dry_run_status=passed
+positive_selected_bypassed_rows=8
+positive_bypass_plan_ledger_rows=8
+positive_cpu_owned_residual_rows=28
+positive_merged_ledger_rows=36
+positive_total_cpu_raw_overlap_rows=36
+positive_selected_bypass_missing_rows=0
+positive_selected_bypass_unexpected_rows=0
+positive_row_key_diff_status=match
+positive_ordered_row_key_matched=true
+positive_selected_bypass_checks=17/17
+negative_status=selected-bypass-dry-run-failed-before-graph-mutation
+negative_bypass_plan_status=passed
+negative_selected_bypass_dry_run_status=failed
+negative_proof_fault=drop-first-selected-bypass-row
+negative_proof_fault_applied=true
+negative_selected_bypassed_rows=7
+negative_bypass_plan_ledger_rows=8
+negative_cpu_owned_residual_rows=28
+negative_merged_ledger_rows=36
+negative_selected_bypass_missing_rows=1
+negative_row_key_diff_status=mismatch
+summary_checks=28/28
+```
+
+Allowed M6x claim:
+
+```text
+cuFlye can mark the 8 M6w-selected full-query-hit rows as actually bypassed in
+dry-run state, preserve 28 CPU-owned residual rows, account for all 36 CPU
+raw-overlap rows in a merged ledger, and fail closed before graph mutation when
+the selected bypass payload is corrupted.
+```
+
+Forbidden M6x claim:
+
+```text
+M6x does not prove whole-Flye speedup, default GPU mode, real graph mutation,
+or GPU-computed chain-input filtering/edge identity.
+```
+
+Plain-language benefit:
+
+```text
+M6x still does not make full Flye faster. It is the first step where selected
+rows are no longer only "eligible" on paper: they are marked as bypassed in a
+dry-run execution ledger, while the rest remains CPU-owned and the graph is
+still protected.
+```
+
+Next highest-ROI task:
+
+```text
+M6y: add a selected CPU-bypass smoke after M6x. It should record selected CPU
+handoff rows as skipped, supply those rows from the CUDA-derived selected
+bypass payload, preserve CPU-owned residual rows, and still fail closed before
+graph mutation on a skipped-row leak or missing selected bypass row.
+```

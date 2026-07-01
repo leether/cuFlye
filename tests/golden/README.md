@@ -219,3 +219,5 @@ M6 read-to-graph input-boundary proof:
   `cuflye-m6v-full-query-hit-verified-substitution-smoke-dgx-aarch64.json`
 - Full query-hit selected bypass-plan manifest:
   `cuflye-m6w-full-query-hit-selected-bypass-plan-dgx-aarch64.json`
+- Full query-hit selected bypass dry-run manifest:
+  `cuflye-m6x-full-query-hit-selected-bypass-dry-run-dgx-aarch64.json`

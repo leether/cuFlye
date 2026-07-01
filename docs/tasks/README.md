@@ -11,13 +11,17 @@ Active cards:
 
 Proposed cards:
 
+- `2026-07-01-cuflye-m6y-full-query-hit-selected-cpu-bypass-smoke.md`:
+  prove the next selected full-query-hit boundary by marking selected CPU
+  handoff rows as skipped, supplying them from CUDA-derived bypass rows,
+  preserving CPU-owned residual rows, and still blocking graph mutation.
+
+Completed cards:
+
 - `2026-07-01-cuflye-m6x-full-query-hit-selected-bypass-dry-run.md`:
   exercise the M6w selected bypass plan as an opt-in dry-run handoff where
   selected rows are marked actually bypassed, residual rows stay CPU-owned, and
   graph mutation remains blocked.
-
-Completed cards:
-
 - `2026-07-01-cuflye-m6w-full-query-hit-selected-substitution-bypass-plan.md`:
   convert the M6v verified would-substitute ledger into a selected CPU-bypass
   decision ledger while keeping non-selected rows CPU-owned and graph mutation
