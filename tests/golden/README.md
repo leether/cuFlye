@@ -181,3 +181,5 @@ M6 read-to-graph input-boundary proof:
   `cuflye-m6c-cuda-raw-overlap-filter-sort-replay-dgx-aarch64.json`
 - Read-to-graph minimizer source-pack manifest:
   `cuflye-m6d-read-to-graph-minimizer-source-pack-dgx-aarch64.json`
+- Minimizer source replay gap-closure manifest:
+  `cuflye-m6e-minimizer-source-replay-gap-closure-dgx-aarch64.json`

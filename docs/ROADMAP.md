@@ -316,6 +316,16 @@ Completed:
   `match`. M6d still records `missing-semantics-ledger`, so it is not a CUDA or
   speed claim; it moves the next work from raw-overlap replay toward external
   reconstruction of Flye `quickSeqOverlaps` semantics.
+- M6e: the M6d source pack now has an external CPU replay harness for selected
+  read-to-graph queries. The DGX proof replayed source-pack A/B
+  deterministically with SHA-256
+  `d6bcac19ab5fdd3ba2cd37f2c677a744104c093ae6e508c0225ebf9eec5d626b` and
+  status `gap-ledger`. The replay reconstructed KmerMatch-like records,
+  Flye-style chain DP, `overlapTest`, primary-overlap filtering, and the
+  read-to-graph divergence gate. It exactly matched `14/36` raw-overlap rows
+  and geometrically matched `26/36`, proving the next blocker is not CUDA
+  mechanics but source completeness: M6d captures query minimizer hits while
+  Flye's CPU path iterates all query k-mers through `IterKmers`.
 
 Current allowed performance claim:
 
@@ -2732,7 +2742,7 @@ end-to-end GPU Flye speedup.
 Next highest-ROI task:
 
 ```text
-M6e: consume the M6d minimizer-source pack with an external CPU replay harness,
-close or narrow the remaining `quickSeqOverlaps` missing-semantics ledger, and
-only then promote the replayed minimizer-source path to a CUDA consumer.
+M6f: extend read-to-graph source capture from query minimizer hits to Flye's
+full `IterKmers` query-hit stream, then rerun M6e replay toward exact
+raw-overlap equality before CUDA consumer work resumes.
 ```

@@ -105,3 +105,34 @@ M6d does not:
 The next CUDA-facing milestone should consume the source pack only after a CPU
 replay checker either reproduces the selected raw-overlap oracle or narrows the
 missing-semantics ledger to the exact remaining Flye operations.
+
+## M6e Replay Contract
+
+`tools/replay_read_to_graph_source_pack.py` consumes this pack without a live
+Flye process and emits:
+
+- `replay.raw-overlaps.tsv`;
+- `replay.summary.json`;
+- `replay.groups.json`.
+
+The replay reconstructs these Flye `OverlapDetector::getSeqOverlaps` semantics
+for the read-to-graph detector shape:
+
+- materialize `KmerMatch`-like records from captured `VertexIndex` bucket hits;
+- group matches by Flye `FastaRecord::Id` order;
+- run Flye-style gap-aware chain DP for each target edge sequence;
+- apply `overlapTest`;
+- apply primary-overlap containment filtering for `onlyMaxExt=false`;
+- apply the read-to-graph detector divergence gate with `maxDivergence=1.0`.
+
+The M6e status is `match` only when replayed raw-overlap rows match the oracle
+exactly. Otherwise it is `gap-ledger`: the replay is deterministic and records
+the exact row-level differences plus the narrowed missing-semantics ledger.
+
+For the accepted M6e proof, the main remaining gap is source completeness:
+M6d captures minimizer bucket hits, while Flye's CPU path iterates all query
+k-mers through `IterKmers` and keeps any non-repetitive k-mer that exists in
+the minimizer-built `VertexIndex`. Those non-minimizer query hits can change
+chain score, divergence, and in some cases coordinates. A CUDA replacement must
+therefore either capture/recompute the full query-hit stream or prove the
+minimizer-only stream is sufficient for a narrower supported shape.

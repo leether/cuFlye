@@ -1,0 +1,586 @@
+{
+  "allowed_claim": "cuFlye can replay the M6d minimizer source pack outside Flye through a deterministic CPU KmerMatch/chain-DP/overlapTest harness and shrink the quickSeqOverlaps gap into a concrete row-level ledger.",
+  "architecture": "aarch64",
+  "fixture": "toy-hifi",
+  "flye_artifact_diff": {
+    "artifact_count": 9,
+    "baseline_vs_source_a_status": "match",
+    "baseline_vs_source_b_status": "match"
+  },
+  "forbidden_claim": "M6e does not implement CUDA minimizer discovery, exactly reproduce all Flye raw-overlap rows, replace quickSeqOverlaps, feed replayed records into Flye graph logic, or prove whole-Flye acceleration.",
+  "host": "dgx",
+  "hostname": "edgexpert-45d2",
+  "milestone": "M6e-minimizer-source-replay-gap-closure",
+  "next_recommended_step": "M6f: extend the read-to-graph source capture to include the full query IterKmers hit stream, not only query minimizer hits, then rerun M6e replay to target exact raw-overlap equality.",
+  "remote_proof_dir": "/tmp/cuflye-m6e-proof-20260701T063514Z",
+  "replay": {
+    "deterministic_diff_status": "match",
+    "exact_match": false,
+    "geometry_match": false,
+    "mismatch_examples": [
+      {
+        "exact_matched_rows": 0,
+        "extra_examples": [
+          {
+            "chain_input_count": 1,
+            "chain_length": 1309,
+            "edge_begin": 77749,
+            "edge_end": 82419,
+            "edge_id": 0,
+            "edge_len": 88208,
+            "edge_seq_id": -3586,
+            "passes_chain_input_filter": 0,
+            "query_id": 5,
+            "raw_overlap_count": 1,
+            "read_begin": 13,
+            "read_end": 4695,
+            "read_id": 5,
+            "read_len": 4697,
+            "score": 4490,
+            "seq_divergence": 0.07496834600829154,
+            "source_order": 0
+          }
+        ],
+        "geometry_matched_rows": 1,
+        "geometry_missing_examples": [],
+        "geometry_missing_rows": 0,
+        "missing_examples": [
+          {
+            "chain_input_count": 1,
+            "edge_begin": 77749,
+            "edge_end": 82419,
+            "edge_id": -8,
+            "edge_len": 88208,
+            "edge_seq_id": -3586,
+            "passes_chain_input_filter": 1,
+            "query_id": 5,
+            "raw_overlap_count": 1,
+            "read_begin": 13,
+            "read_end": 4695,
+            "read_id": 5,
+            "read_len": 4697,
+            "score": 4509,
+            "seq_divergence": 0.00990766846,
+            "source_order": 0
+          }
+        ],
+        "oracle_raw_overlap_records": 1,
+        "query_id": 5,
+        "replay_raw_overlap_records": 1
+      },
+      {
+        "exact_matched_rows": 2,
+        "extra_examples": [
+          {
+            "chain_input_count": 1,
+            "chain_length": 1223,
+            "edge_begin": 31609,
+            "edge_end": 35886,
+            "edge_id": 0,
+            "edge_len": 75226,
+            "edge_seq_id": 3587,
+            "passes_chain_input_filter": 0,
+            "query_id": 6,
+            "raw_overlap_count": 4,
+            "read_begin": 2,
+            "read_end": 4290,
+            "read_id": 6,
+            "read_len": 4297,
+            "score": 4132,
+            "seq_divergence": 0.07379491570961562,
+            "source_order": 0
+          },
+          {
+            "chain_input_count": 1,
+            "chain_length": 19,
+            "edge_begin": 51597,
+            "edge_end": 51859,
+            "edge_id": 0,
+            "edge_len": 75226,
+            "edge_seq_id": 3587,
+            "passes_chain_input_filter": 0,
+            "query_id": 6,
+            "raw_overlap_count": 4,
+            "read_begin": 2349,
+            "read_end": 2625,
+            "read_id": 6,
+            "read_len": 4297,
+            "score": 111,
+            "seq_divergence": 0.15740952273827705,
+            "source_order": 1
+          }
+        ],
+        "geometry_matched_rows": 3,
+        "geometry_missing_examples": [
+          {
+            "chain_input_count": 1,
+            "edge_begin": 51595,
+            "edge_end": 51859,
+            "edge_id": 9,
+            "edge_len": 75226,
+            "edge_seq_id": 3587,
+            "passes_chain_input_filter": 0,
+            "query_id": 6,
+            "raw_overlap_count": 4,
+            "read_begin": 2347,
+            "read_end": 2625,
+            "read_id": 6,
+            "read_len": 4297,
+            "score": 113,
+            "seq_divergence": 0.0873339698,
+            "source_order": 1
+          }
+        ],
+        "geometry_missing_rows": 1,
+        "missing_examples": [
+          {
+            "chain_input_count": 1,
+            "edge_begin": 31609,
+            "edge_end": 35886,
+            "edge_id": 9,
+            "edge_len": 75226,
+            "edge_seq_id": 3587,
+            "passes_chain_input_filter": 1,
+            "query_id": 6,
+            "raw_overlap_count": 4,
+            "read_begin": 2,
+            "read_end": 4290,
+            "read_id": 6,
+            "read_len": 4297,
+            "score": 4151,
+            "seq_divergence": 0.00855993479,
+            "source_order": 0
+          },
+          {
+            "chain_input_count": 1,
+            "edge_begin": 51595,
+            "edge_end": 51859,
+            "edge_id": 9,
+            "edge_len": 75226,
+            "edge_seq_id": 3587,
+            "passes_chain_input_filter": 0,
+            "query_id": 6,
+            "raw_overlap_count": 4,
+            "read_begin": 2347,
+            "read_end": 2625,
+            "read_id": 6,
+            "read_len": 4297,
+            "score": 113,
+            "seq_divergence": 0.0873339698,
+            "source_order": 1
+          }
+        ],
+        "oracle_raw_overlap_records": 4,
+        "query_id": 6,
+        "replay_raw_overlap_records": 4
+      },
+      {
+        "exact_matched_rows": 0,
+        "extra_examples": [
+          {
+            "chain_input_count": 1,
+            "chain_length": 584,
+            "edge_begin": 21556,
+            "edge_end": 23618,
+            "edge_id": 0,
+            "edge_len": 46357,
+            "edge_seq_id": 3589,
+            "passes_chain_input_filter": 0,
+            "query_id": 7,
+            "raw_overlap_count": 1,
+            "read_begin": 5,
+            "read_end": 2078,
+            "read_id": 7,
+            "read_len": 2080,
+            "score": 1961,
+            "seq_divergence": 0.0745206546827972,
+            "source_order": 0
+          }
+        ],
+        "geometry_matched_rows": 1,
+        "geometry_missing_examples": [],
+        "geometry_missing_rows": 0,
+        "missing_examples": [
+          {
+            "chain_input_count": 1,
+            "edge_begin": 21556,
+            "edge_end": 23618,
+            "edge_id": 11,
+            "edge_len": 46357,
+            "edge_seq_id": 3589,
+            "passes_chain_input_filter": 1,
+            "query_id": 7,
+            "raw_overlap_count": 1,
+            "read_begin": 5,
+            "read_end": 2078,
+            "read_id": 7,
+            "read_len": 2080,
+            "score": 1963,
+            "seq_divergence": 0.00980699901,
+            "source_order": 0
+          }
+        ],
+        "oracle_raw_overlap_records": 1,
+        "query_id": 7,
+        "replay_raw_overlap_records": 1
+      },
+      {
+        "exact_matched_rows": 0,
+        "extra_examples": [
+          {
+            "chain_input_count": 1,
+            "chain_length": 771,
+            "edge_begin": 52113,
+            "edge_end": 54890,
+            "edge_id": 0,
+            "edge_len": 88208,
+            "edge_seq_id": 3586,
+            "passes_chain_input_filter": 0,
+            "query_id": 8,
+            "raw_overlap_count": 1,
+            "read_begin": 5,
+            "read_end": 2796,
+            "read_id": 8,
+            "read_len": 2799,
+            "score": 2662,
+            "seq_divergence": 0.07567452117488192,
+            "source_order": 0
+          }
+        ],
+        "geometry_matched_rows": 0,
+        "geometry_missing_examples": [
+          {
+            "chain_input_count": 1,
+            "edge_begin": 52113,
+            "edge_end": 54891,
+            "edge_id": 8,
+            "edge_len": 88208,
+            "edge_seq_id": 3586,
+            "passes_chain_input_filter": 1,
+            "query_id": 8,
+            "raw_overlap_count": 1,
+            "read_begin": 5,
+            "read_end": 2797,
+            "read_id": 8,
+            "read_len": 2799,
+            "score": 2675,
+            "seq_divergence": 0.0103999004,
+            "source_order": 0
+          }
+        ],
+        "geometry_missing_rows": 1,
+        "missing_examples": [
+          {
+            "chain_input_count": 1,
+            "edge_begin": 52113,
+            "edge_end": 54891,
+            "edge_id": 8,
+            "edge_len": 88208,
+            "edge_seq_id": 3586,
+            "passes_chain_input_filter": 1,
+            "query_id": 8,
+            "raw_overlap_count": 1,
+            "read_begin": 5,
+            "read_end": 2797,
+            "read_id": 8,
+            "read_len": 2799,
+            "score": 2675,
+            "seq_divergence": 0.0103999004,
+            "source_order": 0
+          }
+        ],
+        "oracle_raw_overlap_records": 1,
+        "query_id": 8,
+        "replay_raw_overlap_records": 1
+      },
+      {
+        "exact_matched_rows": 0,
+        "extra_examples": [
+          {
+            "chain_input_count": 1,
+            "chain_length": 484,
+            "edge_begin": 76258,
+            "edge_end": 77861,
+            "edge_id": 0,
+            "edge_len": 88208,
+            "edge_seq_id": 3586,
+            "passes_chain_input_filter": 0,
+            "query_id": 10,
+            "raw_overlap_count": 1,
+            "read_begin": 6,
+            "read_end": 1608,
+            "read_id": 10,
+            "read_len": 1612,
+            "score": 1577,
+            "seq_divergence": 0.07044395564076007,
+            "source_order": 0
+          }
+        ],
+        "geometry_matched_rows": 1,
+        "geometry_missing_examples": [],
+        "geometry_missing_rows": 0,
+        "missing_examples": [
+          {
+            "chain_input_count": 1,
+            "edge_begin": 76258,
+            "edge_end": 77861,
+            "edge_id": 8,
+            "edge_len": 88208,
+            "edge_seq_id": 3586,
+            "passes_chain_input_filter": 1,
+            "query_id": 10,
+            "raw_overlap_count": 1,
+            "read_begin": 6,
+            "read_end": 1608,
+            "read_id": 10,
+            "read_len": 1612,
+            "score": 1586,
+            "seq_divergence": 0.00534679275,
+            "source_order": 0
+          }
+        ],
+        "oracle_raw_overlap_records": 1,
+        "query_id": 10,
+        "replay_raw_overlap_records": 1
+      },
+      {
+        "exact_matched_rows": 9,
+        "extra_examples": [
+          {
+            "chain_input_count": 1,
+            "chain_length": 9,
+            "edge_begin": 66118,
+            "edge_end": 66315,
+            "edge_id": 0,
+            "edge_len": 88208,
+            "edge_seq_id": 3586,
+            "passes_chain_input_filter": 0,
+            "query_id": 11,
+            "raw_overlap_count": 22,
+            "read_begin": 1035,
+            "read_end": 1232,
+            "read_id": 11,
+            "read_len": 2479,
+            "score": 84,
+            "seq_divergence": 0.18152818537657464,
+            "source_order": 4
+          },
+          {
+            "chain_input_count": 1,
+            "chain_length": 10,
+            "edge_begin": 66116,
+            "edge_end": 66310,
+            "edge_id": 0,
+            "edge_len": 88208,
+            "edge_seq_id": 3586,
+            "passes_chain_input_filter": 0,
+            "query_id": 11,
+            "raw_overlap_count": 22,
+            "read_begin": 1235,
+            "read_end": 1430,
+            "read_id": 11,
+            "read_len": 2479,
+            "score": 83,
+            "seq_divergence": 0.17473026268057065,
+            "source_order": 5
+          }
+        ],
+        "geometry_matched_rows": 16,
+        "geometry_missing_examples": [
+          {
+            "chain_input_count": 1,
+            "edge_begin": 14181,
+            "edge_end": 14297,
+            "edge_id": 9,
+            "edge_len": 75226,
+            "edge_seq_id": 3587,
+            "passes_chain_input_filter": 0,
+            "query_id": 11,
+            "raw_overlap_count": 24,
+            "read_begin": 1331,
+            "read_end": 1449,
+            "read_id": 11,
+            "read_len": 2479,
+            "score": 71,
+            "seq_divergence": 0.121342674,
+            "source_order": 10
+          },
+          {
+            "chain_input_count": 1,
+            "edge_begin": 36940,
+            "edge_end": 37072,
+            "edge_id": 9,
+            "edge_len": 75226,
+            "edge_seq_id": 3587,
+            "passes_chain_input_filter": 0,
+            "query_id": 11,
+            "raw_overlap_count": 24,
+            "read_begin": 1187,
+            "read_end": 1326,
+            "read_id": 11,
+            "read_len": 2479,
+            "score": 47,
+            "seq_divergence": 0.161025897,
+            "source_order": 11
+          }
+        ],
+        "geometry_missing_rows": 8,
+        "missing_examples": [
+          {
+            "chain_input_count": 1,
+            "edge_begin": 66118,
+            "edge_end": 66315,
+            "edge_id": 8,
+            "edge_len": 88208,
+            "edge_seq_id": 3586,
+            "passes_chain_input_filter": 0,
+            "query_id": 11,
+            "raw_overlap_count": 24,
+            "read_begin": 1035,
+            "read_end": 1232,
+            "read_id": 11,
+            "read_len": 2479,
+            "score": 86,
+            "seq_divergence": 0.110717498,
+            "source_order": 4
+          },
+          {
+            "chain_input_count": 1,
+            "edge_begin": 66116,
+            "edge_end": 66310,
+            "edge_id": 8,
+            "edge_len": 88208,
+            "edge_seq_id": 3586,
+            "passes_chain_input_filter": 0,
+            "query_id": 11,
+            "raw_overlap_count": 24,
+            "read_begin": 1235,
+            "read_end": 1430,
+            "read_id": 11,
+            "read_len": 2479,
+            "score": 86,
+            "seq_divergence": 0.104510769,
+            "source_order": 5
+          }
+        ],
+        "oracle_raw_overlap_records": 24,
+        "query_id": 11,
+        "replay_raw_overlap_records": 22
+      },
+      {
+        "exact_matched_rows": 0,
+        "extra_examples": [
+          {
+            "chain_input_count": 1,
+            "chain_length": 1259,
+            "edge_begin": 49903,
+            "edge_end": 54267,
+            "edge_id": 0,
+            "edge_len": 77829,
+            "edge_seq_id": -3588,
+            "passes_chain_input_filter": 0,
+            "query_id": 12,
+            "raw_overlap_count": 1,
+            "read_begin": 7,
+            "read_end": 4387,
+            "read_id": 12,
+            "read_len": 4391,
+            "score": 4254,
+            "seq_divergence": 0.0733371158427144,
+            "source_order": 0
+          }
+        ],
+        "geometry_matched_rows": 1,
+        "geometry_missing_examples": [],
+        "geometry_missing_rows": 0,
+        "missing_examples": [
+          {
+            "chain_input_count": 1,
+            "edge_begin": 49903,
+            "edge_end": 54267,
+            "edge_id": -10,
+            "edge_len": 77829,
+            "edge_seq_id": -3588,
+            "passes_chain_input_filter": 1,
+            "query_id": 12,
+            "raw_overlap_count": 1,
+            "read_begin": 7,
+            "read_end": 4387,
+            "read_id": 12,
+            "read_len": 4391,
+            "score": 4267,
+            "seq_divergence": 0.00816609245,
+            "source_order": 0
+          }
+        ],
+        "oracle_raw_overlap_records": 1,
+        "query_id": 12,
+        "replay_raw_overlap_records": 1
+      }
+    ],
+    "remaining_semantics": [
+      "M6d source pack captures minimizer bucket hits, but selected queries still diverge from Flye raw-overlap oracle geometry",
+      "non-minimizer query k-mer hits from OverlapDetector::IterKmers are not captured in M6d and can change chain coordinates, score, and divergence",
+      "C++ std::sort tie ordering must be resolved for equal-key match groups that still diverge",
+      "edge_id mapping and downstream chain-input filtering are validated by existing oracle rows, not recomputed in this replay"
+    ],
+    "replay_raw_overlaps_sha256": "d6bcac19ab5fdd3ba2cd37f2c677a744104c093ae6e508c0225ebf9eec5d626b",
+    "reproduced_semantics": [
+      "materialize KmerMatch-like records from captured VertexIndex bucket hits",
+      "group KmerMatch records by Flye FastaRecord::Id order",
+      "run Flye-style gap-aware chain DP for each ext sequence",
+      "apply Flye overlapTest for the read-to-graph detector shape",
+      "apply primary-overlap containment filtering for onlyMaxExt=false",
+      "apply read-to-graph detector divergence gate with maxDivergence=1.0"
+    ],
+    "schema": "cuflye-read-to-graph-minimizer-source-replay-v0",
+    "second_replay_raw_overlaps_sha256": "d6bcac19ab5fdd3ba2cd37f2c677a744104c093ae6e508c0225ebf9eec5d626b",
+    "status": "gap-ledger",
+    "totals": {
+      "extra_rows": 20,
+      "geometry_extra_rows": 8,
+      "geometry_matched_rows": 26,
+      "geometry_missing_rows": 10,
+      "matched_rows": 14,
+      "missing_rows": 22,
+      "oracle_raw_overlap_records": 36,
+      "replay_raw_overlap_records": 34,
+      "source_ext_groups": 33,
+      "source_match_records": 7640
+    }
+  },
+  "source_pack": {
+    "canonical_sha256": "4b38ac5dfc40e6e4ac7308b24c1286494241954a872eac8de33a25f5ccff5e87",
+    "deterministic_diff_status": "match",
+    "query_count": 8,
+    "query_ids": [
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "total_counts": {
+      "chain_input_records": 8,
+      "edge_sequence_records": 33,
+      "index_bucket_records": 7640,
+      "query_minimizers": 7725,
+      "raw_overlap_records": 36
+    },
+    "validation_status": "ok"
+  },
+  "validation": {
+    "dgx_commands": [
+      "tools/validate_read_to_graph_source_pack.py source-pack-a/source-pack-b",
+      "tools/diff_read_to_graph_source_packs.py source-pack-a source-pack-b",
+      "tools/replay_read_to_graph_source_pack.py source-pack-a/source-pack-b",
+      "replay-diff.json compares replay SHA and totals",
+      "tools/diff_flye_runs.py baseline source-a/source-b"
+    ],
+    "local_syntax": "python3 -m py_compile tools/replay_read_to_graph_source_pack.py tools/validate_read_to_graph_source_pack.py tools/diff_read_to_graph_source_packs.py",
+    "ownership_scan": "no direct new/delete/malloc/free or CUDA resource APIs in M6e code"
+  }
+}

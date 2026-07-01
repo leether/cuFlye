@@ -11,13 +11,18 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m6e-minimizer-source-replay-gap-closure.md`:
-  consume the M6d source pack with an external CPU replay harness, reproduce or
-  narrow the remaining `quickSeqOverlaps` semantics, and prepare the first CUDA
-  minimizer-source replay consumer.
+- `2026-07-01-cuflye-m6f-full-query-hit-source-pack.md`:
+  extend source capture from query minimizer hits to the full Flye
+  `IterKmers` query-hit stream so M6e replay can target exact raw-overlap
+  equality before CUDA consumer work resumes.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m6e-minimizer-source-replay-gap-closure.md`:
+  consume the M6d source pack with an external CPU replay harness, reproduce
+  deterministic KmerMatch grouping, chain DP, overlapTest, and primary-overlap
+  filtering, and narrow the remaining gap to missing full query-hit source
+  data with row-level examples.
 - `2026-07-01-cuflye-m6d-read-to-graph-minimizer-source-pack.md`:
   capture deterministic read-to-graph minimizer source packs with query
   sequence, graph edge sequences, VertexIndex buckets, raw-overlap oracle rows,
