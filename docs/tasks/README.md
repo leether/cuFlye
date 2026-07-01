@@ -11,12 +11,18 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m8e-selected-graph-facing-binding-object-proof.md`:
-  keep the same M8 selected source pack, enable the next guarded
-  graph-facing binding or object-vector proof, and measure whether that next
-  gate preserves the M8d no-mutation seam advantage.
+- `2026-07-01-cuflye-m8f-selected-object-vector-handoff-contract.md`:
+  turn the M8e selected object-vector smoke rows into a tighter no-mutation
+  graph-facing handoff contract, with deterministic accounting and a
+  fail-closed handoff proof fault.
 
 Completed cards:
+
+- `2026-07-01-cuflye-m8e-selected-graph-facing-binding-object-proof.md`:
+  enable graph-edge binding and object-vector smoke for the M8 selected source
+  pack, prove `18` live `GraphEdge`-bound object rows, and keep warm
+  no-mutation seam total below the matched CPU quick-overlap baseline at
+  `66.499267 ms` versus `79.294112 ms`.
 
 - `2026-07-01-cuflye-m8d-m8c-guarded-rehydration-shadow-consumption.md`:
   add graph-facing timing fields plus an M8d proof runner, pass the M8b/M8c

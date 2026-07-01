@@ -241,3 +241,5 @@ M6 read-to-graph input-boundary proof:
   `cuflye-m8c-flye-side-m8b-worker-session-seam-dgx-aarch64.json`
 - M8c guarded rehydration/shadow consumption manifest:
   `cuflye-m8d-m8c-guarded-rehydration-shadow-consumption-dgx-aarch64.json`
+- M8e selected graph binding/object proof manifest:
+  `cuflye-m8e-selected-graph-binding-object-proof-dgx-aarch64.json`

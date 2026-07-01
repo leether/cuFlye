@@ -1,0 +1,66 @@
+diff --git a/src/repeat_graph/read_aligner.cpp b/src/repeat_graph/read_aligner.cpp
+index 6b79f05..593304a 100644
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -1119,6 +1119,8 @@ namespace
+ 		double rowKeyDiffMs = 0.0;
+ 		double rawOverlapRehydrationMs = 0.0;
+ 		double rawOverlapShadowLedgerMs = 0.0;
++		double rawOverlapGraphEdgeBindingMs = 0.0;
++		double rawOverlapObjectVectorSmokeMs = 0.0;
+ 		double graphFacingValidationMs = 0.0;
+ 		double noMutationSeamTotalMs = 0.0;
+ 		ReadToGraphRawOverlapRowKeyDiff diff;
+@@ -9606,6 +9608,10 @@ namespace
+ 				 << result.rawOverlapRehydrationMs << ",\n"
+ 				 << "    \"raw_overlap_shadow_ledger\": "
+ 				 << result.rawOverlapShadowLedgerMs << ",\n"
++				 << "    \"raw_overlap_graph_edge_binding\": "
++				 << result.rawOverlapGraphEdgeBindingMs << ",\n"
++				 << "    \"raw_overlap_object_vector_smoke\": "
++				 << result.rawOverlapObjectVectorSmokeMs << ",\n"
+ 				 << "    \"graph_facing_validation_total\": "
+ 				 << result.graphFacingValidationMs << ",\n"
+ 				 << "    \"no_mutation_seam_total\": "
+@@ -10154,6 +10160,7 @@ namespace
+ 							ledgerStart, std::chrono::steady_clock::now());
+ 						if (readToGraphFullQueryHitGraphEdgeBindingEnabled())
+ 						{
++							auto bindingStart = std::chrono::steady_clock::now();
+ 							auto binding =
+ 								evaluateReadToGraphFullQueryHitGraphEdgeBinding(
+ 									result, rehydration, ledger, graph);
+@@ -10161,8 +10168,12 @@ namespace
+ 								result, binding);
+ 							writeReadToGraphFullQueryHitGraphEdgeBindingJson(
+ 								result.rawOverlapGraphEdgeBindingJson, binding);
++							result.rawOverlapGraphEdgeBindingMs =
++								readAlignmentElapsedMs(
++									bindingStart, std::chrono::steady_clock::now());
+ 							if (readToGraphFullQueryHitObjectVectorSmokeEnabled())
+ 							{
++								auto smokeStart = std::chrono::steady_clock::now();
+ 								auto smoke =
+ 									evaluateReadToGraphFullQueryHitObjectVectorSmoke(
+ 										result, binding, graph);
+@@ -10171,6 +10182,9 @@ namespace
+ 								writeReadToGraphFullQueryHitObjectVectorSmokeJson(
+ 									result.rawOverlapObjectVectorSmokeJson,
+ 									smoke);
++								result.rawOverlapObjectVectorSmokeMs =
++									readAlignmentElapsedMs(
++										smokeStart, std::chrono::steady_clock::now());
+ 								if (readToGraphFullQueryHitSubstitutionGuardEnabled())
+ 								{
+ 									auto guard =
+@@ -10486,7 +10500,9 @@ namespace
+ 				}
+ 				result.graphFacingValidationMs = result.rowKeyDiffMs +
+ 					result.rawOverlapRehydrationMs +
+-					result.rawOverlapShadowLedgerMs;
++					result.rawOverlapShadowLedgerMs +
++					result.rawOverlapGraphEdgeBindingMs +
++					result.rawOverlapObjectVectorSmokeMs;
+ 				result.noMutationSeamTotalMs = result.workerWallMs +
+ 					result.graphFacingValidationMs;
+ 			}

@@ -87,3 +87,23 @@ Required summary fields:
 
 M6s does not prove whole-Flye speedup, GPU-computed chain-input filtering,
 GPU-computed edge identity, graph mutation, or a default GPU mode.
+
+## M8e Selected Proof
+
+M8e reused this graph-edge binding gate for the M8 selected source pack. The
+selected CUDA worker output produced `27` rehydrated raw-overlap rows and `18`
+chain-input-positive rows. All `18` binding rows had nonzero `edge_id` values
+and resolved to live Flye `GraphEdge` objects.
+
+Timing in the M8e DGX proof:
+
+```text
+warm_graph_edge_binding_avg_ms=0.05335466666666666
+warm_object_vector_smoke_avg_ms=0.061664
+warm_graph_facing_validation_total_avg_ms=0.313323
+warm_no_mutation_seam_total_avg_ms=66.49926666666666
+```
+
+The binding gate remains non-consuming: it proves live graph-edge identity for
+the selected rows, then passes the checked rows to the object-vector smoke gate
+without feeding worker output into graph mutation.

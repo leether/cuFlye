@@ -129,11 +129,13 @@ The positive path records:
     "host_to_device": 0
   },
   "graph_facing_validation_timing_ms": {
-    "row_key_diff": 0.032,
-    "raw_overlap_rehydration": 0.097,
-    "raw_overlap_shadow_ledger": 0.080,
-    "graph_facing_validation_total": 0.210,
-    "no_mutation_seam_total": 66.103
+    "row_key_diff": 0.028,
+    "raw_overlap_rehydration": 0.113,
+    "raw_overlap_shadow_ledger": 0.057,
+    "raw_overlap_graph_edge_binding": 0.053,
+    "raw_overlap_object_vector_smoke": 0.062,
+    "graph_facing_validation_total": 0.313,
+    "no_mutation_seam_total": 66.499
   },
   "row_key_matched": true,
   "worker_output_consumption_eligible": true,
@@ -178,6 +180,11 @@ M8d adds `graph_facing_validation_timing_ms` when raw-overlap rehydration or
 shadow-ledger modes are enabled. The fields separate row-key diff,
 rehydration, shadow-ledger accounting, their validation total, and the
 no-mutation seam total used for bounded M8 performance claims.
+
+M8e extends the same timing object with `raw_overlap_graph_edge_binding` and
+`raw_overlap_object_vector_smoke`. These fields measure the next graph-facing
+gates separately from worker wall time, row-key diff, rehydration, and
+shadow-ledger accounting.
 
 ## Non-Goals
 

@@ -5113,3 +5113,104 @@ M8e: move from shadow ledger to the next guarded selected graph-facing
 binding/object proof only if the M8d warm no-mutation seam remains below the
 matched CPU quick-overlap baseline.
 ```
+
+## 2026-07-01 Update: M8e Selected Graph Binding/Object Proof
+
+Status: completed.
+
+Task Card:
+
+- `docs/tasks/2026-07-01-cuflye-m8e-selected-graph-facing-binding-object-proof.md`
+
+Golden proof:
+
+- `tests/golden/cuflye-m8e-selected-graph-binding-object-proof-dgx-aarch64.json`
+
+What changed:
+
+- Added `0059-cuflye-read-to-graph-full-query-hit-binding-object-timing.patch`
+  so Flye dry-run audits separately time graph-edge binding and object-vector
+  smoke gates.
+- Added `scripts/run_m8e_selected_graph_binding_object_proof.sh` to run the M8
+  selected pack through `session-file-v0`, row-key diff, raw-overlap
+  rehydration, shadow ledger, graph-edge binding, and object-vector smoke.
+- Added an object-vector proof-fault negative where object accounting is
+  corrupted after binding passes, proving fail-closed behavior before graph
+  mutation.
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m8e-proof-20260701T170000Z
+fixture=toy-hifi
+selected_query_count=16
+m8a_selected_quick_overlap_ms=79.294112
+m8b_source_pack_sha256=5fb1df86185f3cdce0bc0c15087b7bead53db6d46b523740650d4092a89c25aa
+source_pack_full_query_hit_records=15306
+source_pack_index_bucket_records=15159
+source_pack_query_minimizers=17069
+source_pack_edge_sequence_records=47
+source_pack_raw_overlap_records=27
+source_pack_chain_input_records=18
+file_session_request_count=4
+positive_graph_edge_binding_rows=18
+positive_graph_edge_binding_live_edge_rows=18
+positive_object_vector_smoke_rows=18
+positive_object_vector_accounting_rows=18
+warm_worker_wall_avg_ms=66.1859
+warm_request_total_avg_ms=63.948712
+warm_kernel_avg_ms=63.74210300000001
+warm_row_key_diff_avg_ms=0.028058666666666666
+warm_raw_overlap_rehydration_avg_ms=0.11347766666666666
+warm_raw_overlap_shadow_ledger_avg_ms=0.056768000000000006
+warm_raw_overlap_graph_edge_binding_avg_ms=0.05335466666666666
+warm_raw_overlap_object_vector_smoke_avg_ms=0.061664
+warm_graph_facing_validation_total_avg_ms=0.313323
+warm_no_mutation_seam_total_avg_ms=66.49926666666666
+warm_no_mutation_seam_speedup_vs_m8a=1.1924058109913995
+all_no_mutation_seam_speedup_vs_m8a=1.1518149986745154
+m8a_chain_input_oracle_replay=match
+default_cpu_artifacts=match
+negative_memory_status=failed-before-graph-mutation
+negative_object_status=object-vector-smoke-failed-before-graph-mutation
+negative_object_rehydration_status=passed
+negative_object_shadow_status=passed
+negative_object_binding_status=passed
+negative_object_smoke_status=failed
+negative_object_graph_mutation_consumed_worker_output=false
+summary_checks_passed=25/25
+```
+
+Allowed M8e claim:
+
+```text
+M8e proves the M8c worker/session seam can also pass guarded graph-edge binding
+and object-vector smoke gates for the M8 selected pack while preserving a
+bounded selected no-mutation advantage.
+```
+
+Forbidden M8e claim:
+
+```text
+M8e does not prove default GPU mode, unguarded graph mutation, object-vector
+substitution, full non-key raw-overlap field parity, or whole-Flye speedup.
+```
+
+Plain-language benefit:
+
+```text
+M8e shows that CUDA-derived selected rows can survive the next Flye-facing
+object gate: 18 rows bind to live GraphEdge objects and become 18 checked
+object-vector smoke rows. The added warm gate cost is about 0.115 ms
+(0.053 ms binding + 0.062 ms object smoke), and the warm no-mutation seam
+remains faster than the matched CPU quick-overlap baseline: 66.499267 ms vs
+79.294112 ms, or 1.192x.
+```
+
+Next highest-ROI task:
+
+```text
+M8f: turn the selected object-vector smoke result into a tighter no-mutation
+graph-facing handoff contract, still guarded by the same source-pack, row-key,
+rehydration, ledger, binding, and object-vector gates.
+```

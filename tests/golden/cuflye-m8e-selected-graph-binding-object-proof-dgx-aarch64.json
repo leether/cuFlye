@@ -1,0 +1,4603 @@
+{
+  "allowed_claim": "M8e proves the M8c worker/session seam can also pass guarded graph-edge binding and object-vector smoke gates for the M8 selected pack while preserving a bounded selected no-mutation advantage.",
+  "checks": {
+    "all_graph_edge_bindings_passed": true,
+    "all_object_vector_smokes_passed": true,
+    "all_rehydration_passed": true,
+    "all_shadow_ledgers_passed": true,
+    "all_worker_row_key_diffs_match": true,
+    "binding_rows_are_nonzero": true,
+    "binding_rows_have_live_graph_edges": true,
+    "binding_rows_match_chain_input_rows": true,
+    "default_cpu_artifacts_unchanged": true,
+    "graph_facing_timing_separates_binding_and_object": true,
+    "m8a_chain_input_oracle_replay_match": true,
+    "negative_memory_fails_closed_before_graph_mutation": true,
+    "negative_object_fails_closed_before_graph_mutation": true,
+    "negative_object_source_pack_matches_m8b_sha": true,
+    "object_accounting_rows_match_object_rows": true,
+    "object_rows_match_binding_rows": true,
+    "rehydrated_rows_match_worker_rows": true,
+    "selected_cpu_oracle_shape_matches": true,
+    "session_processed_four_requests": true,
+    "shadow_rows_match_rehydrated_rows": true,
+    "source_pack_matches_m8b_sha": true,
+    "source_pack_query_ids_match_selected": true,
+    "source_pack_status_ok": true,
+    "warm_no_mutation_seam_below_m8a_quick_overlap": true,
+    "warm_requests_report_cuda_context_warm": true
+  },
+  "default_cpu_artifacts": {
+    "artifact_hashes_match_m0_golden": true,
+    "comparison": {
+      "current_records": 9,
+      "extra": [],
+      "golden_records": 9,
+      "mismatch": {},
+      "missing": [],
+      "status": "match"
+    }
+  },
+  "fixture": "toy-hifi",
+  "forbidden_claim": "M8e does not prove default GPU mode, unguarded graph mutation, object-vector substitution, full non-key raw-overlap field parity, or whole-Flye speedup.",
+  "m8a_baseline": {
+    "selected_query_ids": [
+      2145,
+      2160,
+      2146,
+      2152,
+      2161,
+      2167,
+      2148,
+      2154,
+      2157,
+      2163,
+      2165,
+      2149,
+      84,
+      2150,
+      5,
+      361
+    ],
+    "selected_quick_overlap_ms": 79.294112
+  },
+  "m8a_chain_input_oracle_replay": {
+    "oracle_chain_input_records": 18,
+    "oracle_chain_input_sha256": "29c55787d424486c60036a892390d6d403724d44a5878ce4091976d8c324c992",
+    "pack_dir": "/tmp/cuflye-m8a-proof-20260701T203000Z/oracle-pack",
+    "pack_schema": "cuflye-read-to-graph-input-boundary-replay-pack-v0",
+    "raw_overlap_records": 27,
+    "replay_contract": {
+      "filter": "passes_chain_input_filter == 1",
+      "requires_unique_chain_input_read_begin": true,
+      "sort_key": [
+        "query_id",
+        "read_begin"
+      ]
+    },
+    "replayed_chain_input_records": 18,
+    "replayed_chain_input_sha256": "29c55787d424486c60036a892390d6d403724d44a5878ce4091976d8c324c992",
+    "schema": "cuflye-read-to-graph-input-boundary-replay-result-v0",
+    "selected_query_count": 16,
+    "selected_query_ids": [
+      5,
+      84,
+      361,
+      2145,
+      2146,
+      2148,
+      2149,
+      2150,
+      2152,
+      2154,
+      2157,
+      2160,
+      2161,
+      2163,
+      2165,
+      2167
+    ],
+    "status": "match"
+  },
+  "m8b_reference": {
+    "source_pack_canonical_sha256": "5fb1df86185f3cdce0bc0c15087b7bead53db6d46b523740650d4092a89c25aa"
+  },
+  "negative_memory_fail_closed": {
+    "audit": {
+      "decision": "fail-closed-before-graph-mutation",
+      "error": "CUDA full-query-hit worker session request failed: required bytes exceed memory budget",
+      "failed_closed": true,
+      "graph_mutation_consumed_worker_output": false,
+      "status": "failed-before-graph-mutation",
+      "worker_output_consumption_eligible": false
+    },
+    "response": {
+      "error_code": "request-failed",
+      "error_message": "required bytes exceed memory budget",
+      "request_id": "read-to-graph-full-query-hit-session-cuflye-m8e-proof-20260701T170000Z_negative-memory_worker",
+      "request_ordinal": 1,
+      "schema": "cuflye-full-query-hit-worker-response-v0",
+      "status": "error"
+    },
+    "session_error": {
+      "device": 0,
+      "device_name": "NVIDIA GB10",
+      "free_bytes": 112495788032,
+      "pid": 3543407,
+      "schema": "cuflye-full-query-hit-worker-session-v0",
+      "status": "error",
+      "total_bytes": 130594660352,
+      "worker_context_setup_ms": 245.786506,
+      "worker_device_arena_capacity_bytes": 0,
+      "worker_device_arena_enabled": true,
+      "worker_replay_session_initialized": false,
+      "worker_session_dir": "/tmp/cuflye-m8e-proof-20260701T170000Z/negative-memory-session",
+      "worker_session_max_requests": 1,
+      "worker_session_poll_ms": 2,
+      "worker_session_processed_requests": 1,
+      "worker_session_timeout_ms": 600000
+    }
+  },
+  "negative_object_vector_fail_closed": {
+    "audit": {
+      "decision": "fail-closed-before-graph-mutation",
+      "error": "CUDA full-query-hit object-vector smoke failed",
+      "graph_facing_validation_timing_ms": {
+        "graph_facing_validation_total": 0.308337,
+        "no_mutation_seam_total": 75.0982,
+        "raw_overlap_graph_edge_binding": 0.053632,
+        "raw_overlap_object_vector_smoke": 0.064016,
+        "raw_overlap_rehydration": 0.11128,
+        "raw_overlap_shadow_ledger": 0.053921,
+        "row_key_diff": 0.025488
+      },
+      "graph_mutation_consumed_worker_output": false,
+      "raw_overlap_graph_edge_binding_rows": 18,
+      "raw_overlap_graph_edge_binding_status": "passed",
+      "raw_overlap_object_vector_smoke_accounting_rows": 17,
+      "raw_overlap_object_vector_smoke_rows": 18,
+      "raw_overlap_object_vector_smoke_status": "failed",
+      "raw_overlap_rehydrated_records": 27,
+      "raw_overlap_rehydration_status": "passed",
+      "raw_overlap_shadow_ledger_rows": 27,
+      "raw_overlap_shadow_ledger_status": "passed",
+      "row_key_matched": true,
+      "status": "object-vector-smoke-failed-before-graph-mutation"
+    },
+    "graph_edge_binding": {
+      "binding_rows": 18,
+      "chain_input_filter_rows": 18,
+      "checks": [
+        {
+          "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_GRAPH_EDGE_BINDING_MODE=graph-edge-binding-dry-run-v0",
+          "name": "explicit_graph_edge_binding_mode",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "M6p raw-overlap rehydration must pass before graph-edge binding",
+          "name": "rehydration_passed",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "M6q shadow ledger must pass before graph-edge binding",
+          "name": "shadow_ledger_passed",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "graph-edge binding requires chain-input-positive rows",
+          "name": "chain_input_rows_present",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "validated worker raw-overlap TSV must be readable",
+          "name": "worker_output_readable",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "graph-edge binding audit JSON path must be available",
+          "name": "audit_metadata_available",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "worker output must not have reached graph mutation",
+          "name": "graph_not_mutated",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "binding rows must match M6q chain-input-positive rows",
+          "name": "binding_count_matches_chain_input",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "every binding row must have a resolved nonzero edge_id",
+          "name": "binding_rows_have_resolved_edge_ids",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "every binding row edge_id must map to a live GraphEdge",
+          "name": "binding_rows_have_live_graph_edges",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "graph-edge binding audit must not mutate graph state",
+          "name": "graph_not_mutated_after_binding",
+          "passed": true,
+          "required": true
+        }
+      ],
+      "consumed": false,
+      "decision": "graph-edge-binding-audited-not-consumed",
+      "eligible": true,
+      "failed_closed": false,
+      "graph_mutation_consumed_worker_output": false,
+      "ledger_rows": 27,
+      "ledger_status": "passed",
+      "live_graph_edge_rows": 18,
+      "missing_graph_edge_rows": 0,
+      "mode": "graph-edge-binding-dry-run-v0",
+      "not_consumed": true,
+      "proof_fault": "",
+      "proof_fault_applied": false,
+      "queries": [
+        {
+          "chain_input_rows": 1,
+          "live_graph_edge_rows": 1,
+          "missing_graph_edge_rows": 0,
+          "query_id": 5,
+          "resolved_edge_id_rows": 1
+        },
+        {
+          "chain_input_rows": 1,
+          "live_graph_edge_rows": 1,
+          "missing_graph_edge_rows": 0,
+          "query_id": 84,
+          "resolved_edge_id_rows": 1
+        },
+        {
+          "chain_input_rows": 1,
+          "live_graph_edge_rows": 1,
+          "missing_graph_edge_rows": 0,
+          "query_id": 361,
+          "resolved_edge_id_rows": 1
+        },
+        {
+          "chain_input_rows": 1,
+          "live_graph_edge_rows": 1,
+          "missing_graph_edge_rows": 0,
+          "query_id": 2145,
+          "resolved_edge_id_rows": 1
+        },
+        {
+          "chain_input_rows": 1,
+          "live_graph_edge_rows": 1,
+          "missing_graph_edge_rows": 0,
+          "query_id": 2146,
+          "resolved_edge_id_rows": 1
+        },
+        {
+          "chain_input_rows": 1,
+          "live_graph_edge_rows": 1,
+          "missing_graph_edge_rows": 0,
+          "query_id": 2148,
+          "resolved_edge_id_rows": 1
+        },
+        {
+          "chain_input_rows": 1,
+          "live_graph_edge_rows": 1,
+          "missing_graph_edge_rows": 0,
+          "query_id": 2149,
+          "resolved_edge_id_rows": 1
+        },
+        {
+          "chain_input_rows": 1,
+          "live_graph_edge_rows": 1,
+          "missing_graph_edge_rows": 0,
+          "query_id": 2150,
+          "resolved_edge_id_rows": 1
+        },
+        {
+          "chain_input_rows": 1,
+          "live_graph_edge_rows": 1,
+          "missing_graph_edge_rows": 0,
+          "query_id": 2152,
+          "resolved_edge_id_rows": 1
+        },
+        {
+          "chain_input_rows": 1,
+          "live_graph_edge_rows": 1,
+          "missing_graph_edge_rows": 0,
+          "query_id": 2154,
+          "resolved_edge_id_rows": 1
+        },
+        {
+          "chain_input_rows": 3,
+          "live_graph_edge_rows": 3,
+          "missing_graph_edge_rows": 0,
+          "query_id": 2157,
+          "resolved_edge_id_rows": 3
+        },
+        {
+          "chain_input_rows": 1,
+          "live_graph_edge_rows": 1,
+          "missing_graph_edge_rows": 0,
+          "query_id": 2160,
+          "resolved_edge_id_rows": 1
+        },
+        {
+          "chain_input_rows": 1,
+          "live_graph_edge_rows": 1,
+          "missing_graph_edge_rows": 0,
+          "query_id": 2161,
+          "resolved_edge_id_rows": 1
+        },
+        {
+          "chain_input_rows": 1,
+          "live_graph_edge_rows": 1,
+          "missing_graph_edge_rows": 0,
+          "query_id": 2163,
+          "resolved_edge_id_rows": 1
+        },
+        {
+          "chain_input_rows": 1,
+          "live_graph_edge_rows": 1,
+          "missing_graph_edge_rows": 0,
+          "query_id": 2165,
+          "resolved_edge_id_rows": 1
+        },
+        {
+          "chain_input_rows": 1,
+          "live_graph_edge_rows": 1,
+          "missing_graph_edge_rows": 0,
+          "query_id": 2167,
+          "resolved_edge_id_rows": 1
+        }
+      ],
+      "resolved_edge_id_rows": 18,
+      "schema": "cuflye-read-to-graph-full-query-hit-graph-edge-binding-dry-run-v0",
+      "state": "not-consumed",
+      "status": "passed",
+      "worker_tsv": "/tmp/cuflye-m8e-proof-20260701T170000Z/negative-object/worker/full-query-hit-worker.raw-overlaps.tsv"
+    },
+    "object_vector_smoke": {
+      "binding_rows": 18,
+      "binding_status": "passed",
+      "chain_input_filter_rows": 18,
+      "checks": [
+        {
+          "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_OBJECT_VECTOR_SMOKE_MODE=object-vector-smoke-v0",
+          "name": "explicit_object_vector_smoke_mode",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "M6s graph-edge binding must pass before object-vector smoke",
+          "name": "graph_edge_binding_passed",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "object-vector smoke requires nonzero bound rows",
+          "name": "binding_rows_present",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "validated worker raw-overlap TSV must be readable",
+          "name": "worker_output_readable",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "object-vector smoke audit JSON path must be available",
+          "name": "audit_metadata_available",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "worker output must not have reached graph mutation",
+          "name": "graph_not_mutated",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "constructed object count must match M6s binding rows",
+          "name": "constructed_objects_match_binding_rows",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "every constructed object must have a live GraphEdge",
+          "name": "constructed_objects_have_live_graph_edges",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "accounting must cover every constructed object",
+          "name": "accounting_rows_match_constructed_objects",
+          "passed": false,
+          "required": true
+        },
+        {
+          "detail": "query accounting rows must sum to constructed objects",
+          "name": "query_accounting_covers_objects",
+          "passed": false,
+          "required": true
+        },
+        {
+          "detail": "edge accounting rows must sum to constructed objects",
+          "name": "edge_accounting_covers_objects",
+          "passed": false,
+          "required": true
+        },
+        {
+          "detail": "query-edge accounting rows must sum to constructed objects",
+          "name": "query_edge_accounting_covers_objects",
+          "passed": false,
+          "required": true
+        },
+        {
+          "detail": "object-vector smoke must not mutate graph state",
+          "name": "graph_not_mutated_after_object_vector",
+          "passed": true,
+          "required": true
+        }
+      ],
+      "consumed": false,
+      "decision": "failed-closed-before-graph-mutation",
+      "edge_accounted_rows": 17,
+      "edge_summary_rows": 10,
+      "edges": [
+        {
+          "edge_id": -12,
+          "object_rows": 1
+        },
+        {
+          "edge_id": -11,
+          "object_rows": 1
+        },
+        {
+          "edge_id": -10,
+          "object_rows": 2
+        },
+        {
+          "edge_id": -9,
+          "object_rows": 1
+        },
+        {
+          "edge_id": -8,
+          "object_rows": 4
+        },
+        {
+          "edge_id": -6,
+          "object_rows": 1
+        },
+        {
+          "edge_id": 8,
+          "object_rows": 3
+        },
+        {
+          "edge_id": 10,
+          "object_rows": 2
+        },
+        {
+          "edge_id": 11,
+          "object_rows": 1
+        },
+        {
+          "edge_id": 12,
+          "object_rows": 1
+        }
+      ],
+      "eligible": false,
+      "error": "object-vector smoke accounting differs from bound rows",
+      "failed_closed": true,
+      "graph_mutation_consumed_worker_output": false,
+      "missing_graph_edge_rows": 0,
+      "mode": "object-vector-smoke-v0",
+      "not_consumed": false,
+      "object_accounting_rows": 17,
+      "object_rows": 18,
+      "proof_fault": "drop-first-object-accounting-row",
+      "proof_fault_applied": true,
+      "queries": [
+        {
+          "object_rows": 1,
+          "query_id": 84
+        },
+        {
+          "object_rows": 1,
+          "query_id": 361
+        },
+        {
+          "object_rows": 1,
+          "query_id": 2145
+        },
+        {
+          "object_rows": 1,
+          "query_id": 2146
+        },
+        {
+          "object_rows": 1,
+          "query_id": 2148
+        },
+        {
+          "object_rows": 1,
+          "query_id": 2149
+        },
+        {
+          "object_rows": 1,
+          "query_id": 2150
+        },
+        {
+          "object_rows": 1,
+          "query_id": 2152
+        },
+        {
+          "object_rows": 1,
+          "query_id": 2154
+        },
+        {
+          "object_rows": 3,
+          "query_id": 2157
+        },
+        {
+          "object_rows": 1,
+          "query_id": 2160
+        },
+        {
+          "object_rows": 1,
+          "query_id": 2161
+        },
+        {
+          "object_rows": 1,
+          "query_id": 2163
+        },
+        {
+          "object_rows": 1,
+          "query_id": 2165
+        },
+        {
+          "object_rows": 1,
+          "query_id": 2167
+        }
+      ],
+      "query_accounted_rows": 17,
+      "query_edge_accounted_rows": 17,
+      "query_edge_summary_rows": 16,
+      "query_edges": [
+        {
+          "edge_id": -10,
+          "object_rows": 1,
+          "query_id": 84
+        },
+        {
+          "edge_id": -8,
+          "object_rows": 1,
+          "query_id": 361
+        },
+        {
+          "edge_id": -8,
+          "object_rows": 1,
+          "query_id": 2145
+        },
+        {
+          "edge_id": -11,
+          "object_rows": 1,
+          "query_id": 2146
+        },
+        {
+          "edge_id": -10,
+          "object_rows": 1,
+          "query_id": 2148
+        },
+        {
+          "edge_id": -6,
+          "object_rows": 1,
+          "query_id": 2149
+        },
+        {
+          "edge_id": -12,
+          "object_rows": 1,
+          "query_id": 2150
+        },
+        {
+          "edge_id": 8,
+          "object_rows": 1,
+          "query_id": 2152
+        },
+        {
+          "edge_id": 8,
+          "object_rows": 1,
+          "query_id": 2154
+        },
+        {
+          "edge_id": -8,
+          "object_rows": 2,
+          "query_id": 2157
+        },
+        {
+          "edge_id": 10,
+          "object_rows": 1,
+          "query_id": 2157
+        },
+        {
+          "edge_id": 8,
+          "object_rows": 1,
+          "query_id": 2160
+        },
+        {
+          "edge_id": 12,
+          "object_rows": 1,
+          "query_id": 2161
+        },
+        {
+          "edge_id": -9,
+          "object_rows": 1,
+          "query_id": 2163
+        },
+        {
+          "edge_id": 10,
+          "object_rows": 1,
+          "query_id": 2165
+        },
+        {
+          "edge_id": 11,
+          "object_rows": 1,
+          "query_id": 2167
+        }
+      ],
+      "query_summary_rows": 15,
+      "schema": "cuflye-read-to-graph-full-query-hit-object-vector-smoke-v0",
+      "state": "failed-closed",
+      "status": "failed",
+      "worker_tsv": "/tmp/cuflye-m8e-proof-20260701T170000Z/negative-object/worker/full-query-hit-worker.raw-overlaps.tsv"
+    },
+    "rehydration": {
+      "checks": [
+        {
+          "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_REHYDRATION_MODE=raw-overlap-vector-dry-run-v0",
+          "name": "explicit_rehydration_mode",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "M6l/M6n full-query-hit worker row-key diff must pass first",
+          "name": "worker_row_key_parity_passed",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "validated worker raw-overlap TSV must be readable",
+          "name": "worker_output_readable",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "raw-overlap rehydration audit JSON path must be available",
+          "name": "audit_metadata_available",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "worker output must not have reached graph mutation",
+          "name": "graph_not_mutated",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "rehydrated record count must match validated worker row count",
+          "name": "rehydrated_count_matches_worker",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "rehydrated Flye-side row keys must match validated worker row keys",
+          "name": "typed_row_keys_match_worker",
+          "passed": true,
+          "required": true
+        }
+      ],
+      "consumed": false,
+      "decision": "raw-overlap-vector-match-not-consumed",
+      "eligible": true,
+      "failed_closed": false,
+      "graph_mutation_consumed_worker_output": false,
+      "mode": "raw-overlap-vector-dry-run-v0",
+      "not_consumed": true,
+      "parsed_records": 27,
+      "proof_fault": "",
+      "proof_fault_applied": false,
+      "rehydrated_records": 27,
+      "schema": "cuflye-read-to-graph-full-query-hit-raw-overlap-rehydration-dry-run-v0",
+      "state": "not-consumed",
+      "status": "passed",
+      "typed_representation": "raw-overlap-vector-dry-run-v0",
+      "typed_row_key_diff": {
+        "extra_examples": [],
+        "extra_rows": 0,
+        "left_records": 27,
+        "matched_rows": 27,
+        "missing_examples": [],
+        "missing_rows": 0,
+        "ordered_match": true,
+        "right_records": 27,
+        "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+        "status": "match"
+      },
+      "worker_records": 27,
+      "worker_tsv": "/tmp/cuflye-m8e-proof-20260701T170000Z/negative-object/worker/full-query-hit-worker.raw-overlaps.tsv"
+    },
+    "response": {
+      "active_ext_groups": 24,
+      "adapter_mode": "full-query-hit-replay-v0",
+      "device": 0,
+      "device_name": "NVIDIA GB10",
+      "kernel_mode": "parallel-score",
+      "output_records": 27,
+      "output_tsv": "/tmp/cuflye-m8e-proof-20260701T170000Z/negative-object/worker/full-query-hit-worker.raw-overlaps.tsv",
+      "parallel_threads": 128,
+      "query_count": 16,
+      "raw_overlap_abi": "cuflye-read-to-graph-raw-overlap-v0",
+      "request_id": "read-to-graph-full-query-hit-session-cuflye-m8e-proof-20260701T170000Z_negative-object_worker",
+      "request_ordinal": 1,
+      "required_bytes": 2727824,
+      "schema": "cuflye-full-query-hit-worker-response-v0",
+      "source_ext_groups": 47,
+      "source_match_records": 15306,
+      "source_pack_dir": "/tmp/cuflye-m8e-proof-20260701T170000Z/negative-object/source-pack",
+      "status": "ok",
+      "timing_ms": {
+        "device_allocation": 0.395905,
+        "device_to_host": 0.041889,
+        "host_pack": 0.856786,
+        "host_to_device": 0.151312,
+        "kernel": 63.925267,
+        "parse": 7.412671,
+        "request_total": 72.946086,
+        "worker_uptime": 12830.748154,
+        "write_output": 0.081776
+      },
+      "worker_context_setup_ms": 8.886706,
+      "worker_cuda_context_warm": false
+    },
+    "shadow_ledger": {
+      "chain_input_filter_rows": 18,
+      "checks": [
+        {
+          "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SHADOW_LEDGER_MODE=raw-overlap-chain-input-shadow-v0",
+          "name": "explicit_shadow_ledger_mode",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "M6p raw-overlap rehydration must pass before shadow ledger",
+          "name": "rehydration_passed",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "validated worker raw-overlap TSV must be readable",
+          "name": "worker_output_readable",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "shadow ledger audit JSON path must be available",
+          "name": "audit_metadata_available",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "worker output must not have reached graph mutation",
+          "name": "graph_not_mutated",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "ledger row count must match M6p rehydrated record count",
+          "name": "ledger_count_matches_rehydration",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "every ledger row must be counted as unresolved or resolved edge_id",
+          "name": "edge_id_rows_accounted",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "M6q records shadow eligibility but exposes no graph edge consumption candidates",
+          "name": "graph_edge_consumption_candidates_blocked",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "ledger evaluation must not mutate graph state",
+          "name": "graph_not_mutated_after_ledger",
+          "passed": true,
+          "required": true
+        }
+      ],
+      "consumed": false,
+      "decision": "shadow-ledger-written-not-consumed",
+      "eligible": true,
+      "failed_closed": false,
+      "future_chain_input_shadow_rows": 18,
+      "future_raw_overlap_shadow_rows": 27,
+      "graph_edge_consumption_candidate_rows": 0,
+      "graph_mutation_consumed_worker_output": false,
+      "ledger_rows": 27,
+      "mode": "raw-overlap-chain-input-shadow-v0",
+      "not_consumed": true,
+      "proof_fault": "",
+      "proof_fault_applied": false,
+      "queries": [
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 1,
+          "query_id": 5,
+          "resolved_edge_id_rows": 1,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 1,
+          "query_id": 84,
+          "resolved_edge_id_rows": 1,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 1,
+          "query_id": 361,
+          "resolved_edge_id_rows": 1,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 1,
+          "query_id": 2145,
+          "resolved_edge_id_rows": 1,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 1,
+          "query_id": 2146,
+          "resolved_edge_id_rows": 1,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 1,
+          "query_id": 2148,
+          "resolved_edge_id_rows": 1,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 8,
+          "query_id": 2149,
+          "resolved_edge_id_rows": 8,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 1,
+          "query_id": 2150,
+          "resolved_edge_id_rows": 1,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 1,
+          "query_id": 2152,
+          "resolved_edge_id_rows": 1,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 1,
+          "query_id": 2154,
+          "resolved_edge_id_rows": 1,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 3,
+          "ledger_rows": 3,
+          "query_id": 2157,
+          "resolved_edge_id_rows": 3,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 1,
+          "query_id": 2160,
+          "resolved_edge_id_rows": 1,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 1,
+          "query_id": 2161,
+          "resolved_edge_id_rows": 1,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 1,
+          "query_id": 2163,
+          "resolved_edge_id_rows": 1,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 3,
+          "query_id": 2165,
+          "resolved_edge_id_rows": 3,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 1,
+          "query_id": 2167,
+          "resolved_edge_id_rows": 1,
+          "unresolved_edge_id_zero_rows": 0
+        }
+      ],
+      "rehydrated_records": 27,
+      "rehydration_status": "passed",
+      "resolved_edge_id_rows": 27,
+      "schema": "cuflye-read-to-graph-full-query-hit-shadow-consumption-ledger-v0",
+      "state": "not-consumed",
+      "status": "passed",
+      "unresolved_edge_id_zero_rows": 0,
+      "worker_records": 27,
+      "worker_tsv": "/tmp/cuflye-m8e-proof-20260701T170000Z/negative-object/worker/full-query-hit-worker.raw-overlaps.tsv"
+    },
+    "source_pack": {
+      "canonical_sha256": "5fb1df86185f3cdce0bc0c15087b7bead53db6d46b523740650d4092a89c25aa",
+      "validation_status": "ok"
+    }
+  },
+  "next_recommended_step": "M8f: turn the selected object-vector smoke result into a tighter non-mutating graph-facing handoff contract, still guarded by the same source-pack, row-key, rehydration, ledger, binding, and object gates.",
+  "plain_language_benefit": "M8e shows the selected CUDA path can build and validate live GraphEdge-bound object-vector smoke rows without erasing the selected advantage: warm no-mutation seam total averages 66.499267 ms versus the matched CPU quick-overlap baseline 79.294112 ms, or 1.192x faster.",
+  "positive_file_session": {
+    "request_count": 4,
+    "requests": [
+      {
+        "audit": {
+          "actual_request_timing_ms": {
+            "device_allocation": 0.410417,
+            "host_to_device": 0.151184,
+            "kernel": 63.6511,
+            "parse": 7.33243,
+            "request_total": 72.5831
+          },
+          "actual_worker_cuda_context_warm": false,
+          "decision": "stopped-before-graph-mutation",
+          "graph_facing_validation_timing_ms": {
+            "graph_facing_validation_total": 0.317761,
+            "no_mutation_seam_total": 75.8732,
+            "raw_overlap_graph_edge_binding": 0.054064,
+            "raw_overlap_object_vector_smoke": 0.057392,
+            "raw_overlap_rehydration": 0.117185,
+            "raw_overlap_shadow_ledger": 0.05504,
+            "row_key_diff": 0.03408
+          },
+          "graph_mutation_consumed_worker_output": false,
+          "raw_overlap_graph_edge_binding_chain_input_rows": 18,
+          "raw_overlap_graph_edge_binding_live_edge_rows": 18,
+          "raw_overlap_graph_edge_binding_missing_edge_rows": 0,
+          "raw_overlap_graph_edge_binding_resolved_edge_id_rows": 18,
+          "raw_overlap_graph_edge_binding_rows": 18,
+          "raw_overlap_graph_edge_binding_status": "passed",
+          "raw_overlap_object_vector_smoke_accounting_rows": 18,
+          "raw_overlap_object_vector_smoke_edge_summary_rows": 10,
+          "raw_overlap_object_vector_smoke_query_edge_summary_rows": 17,
+          "raw_overlap_object_vector_smoke_query_summary_rows": 16,
+          "raw_overlap_object_vector_smoke_rows": 18,
+          "raw_overlap_object_vector_smoke_status": "passed",
+          "raw_overlap_rehydrated_records": 27,
+          "raw_overlap_rehydration_status": "passed",
+          "raw_overlap_shadow_chain_input_filter_rows": 18,
+          "raw_overlap_shadow_graph_edge_consumption_candidate_rows": 0,
+          "raw_overlap_shadow_ledger_rows": 27,
+          "raw_overlap_shadow_ledger_status": "passed",
+          "raw_overlap_shadow_resolved_edge_id_rows": 27,
+          "raw_overlap_shadow_unresolved_edge_id_zero_rows": 0,
+          "row_key_diff": {
+            "extra_examples": [],
+            "extra_rows": 0,
+            "left_records": 27,
+            "matched_rows": 27,
+            "missing_examples": [],
+            "missing_rows": 0,
+            "ordered_match": false,
+            "right_records": 27,
+            "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+            "status": "match"
+          },
+          "row_key_matched": true,
+          "status": "passed",
+          "worker_session_submit_ms": 75.5554,
+          "worker_wall_ms": 75.5554
+        },
+        "external_row_key_diff": {
+          "extra_examples": [],
+          "extra_rows": 0,
+          "left": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/oracle.raw-overlaps.tsv",
+          "left_records": 27,
+          "left_sha256": "23269fae3946c7c0d108652f962ad1ea3d61773cb1bb33ecdeb3557cb8e989aa",
+          "matched_rows": 27,
+          "missing_examples": [],
+          "missing_rows": 0,
+          "ordered_match": false,
+          "right": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/request-01/worker/full-query-hit-worker.raw-overlaps.tsv",
+          "right_records": 27,
+          "right_sha256": "23269fae3946c7c0d108652f962ad1ea3d61773cb1bb33ecdeb3557cb8e989aa",
+          "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+          "status": "match"
+        },
+        "graph_edge_binding": {
+          "binding_rows": 18,
+          "chain_input_filter_rows": 18,
+          "checks": [
+            {
+              "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_GRAPH_EDGE_BINDING_MODE=graph-edge-binding-dry-run-v0",
+              "name": "explicit_graph_edge_binding_mode",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6p raw-overlap rehydration must pass before graph-edge binding",
+              "name": "rehydration_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6q shadow ledger must pass before graph-edge binding",
+              "name": "shadow_ledger_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "graph-edge binding requires chain-input-positive rows",
+              "name": "chain_input_rows_present",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "validated worker raw-overlap TSV must be readable",
+              "name": "worker_output_readable",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "graph-edge binding audit JSON path must be available",
+              "name": "audit_metadata_available",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "worker output must not have reached graph mutation",
+              "name": "graph_not_mutated",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "binding rows must match M6q chain-input-positive rows",
+              "name": "binding_count_matches_chain_input",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "every binding row must have a resolved nonzero edge_id",
+              "name": "binding_rows_have_resolved_edge_ids",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "every binding row edge_id must map to a live GraphEdge",
+              "name": "binding_rows_have_live_graph_edges",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "graph-edge binding audit must not mutate graph state",
+              "name": "graph_not_mutated_after_binding",
+              "passed": true,
+              "required": true
+            }
+          ],
+          "consumed": false,
+          "decision": "graph-edge-binding-audited-not-consumed",
+          "eligible": true,
+          "failed_closed": false,
+          "graph_mutation_consumed_worker_output": false,
+          "ledger_rows": 27,
+          "ledger_status": "passed",
+          "live_graph_edge_rows": 18,
+          "missing_graph_edge_rows": 0,
+          "mode": "graph-edge-binding-dry-run-v0",
+          "not_consumed": true,
+          "proof_fault": "",
+          "proof_fault_applied": false,
+          "queries": [
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 5,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 84,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 361,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2145,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2146,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2148,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2149,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2150,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2152,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2154,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 3,
+              "live_graph_edge_rows": 3,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2157,
+              "resolved_edge_id_rows": 3
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2160,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2161,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2163,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2165,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2167,
+              "resolved_edge_id_rows": 1
+            }
+          ],
+          "resolved_edge_id_rows": 18,
+          "schema": "cuflye-read-to-graph-full-query-hit-graph-edge-binding-dry-run-v0",
+          "state": "not-consumed",
+          "status": "passed",
+          "worker_tsv": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/request-01/worker/full-query-hit-worker.raw-overlaps.tsv"
+        },
+        "index": 1,
+        "name": "request-01",
+        "object_vector_smoke": {
+          "binding_rows": 18,
+          "binding_status": "passed",
+          "chain_input_filter_rows": 18,
+          "checks": [
+            {
+              "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_OBJECT_VECTOR_SMOKE_MODE=object-vector-smoke-v0",
+              "name": "explicit_object_vector_smoke_mode",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6s graph-edge binding must pass before object-vector smoke",
+              "name": "graph_edge_binding_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "object-vector smoke requires nonzero bound rows",
+              "name": "binding_rows_present",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "validated worker raw-overlap TSV must be readable",
+              "name": "worker_output_readable",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "object-vector smoke audit JSON path must be available",
+              "name": "audit_metadata_available",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "worker output must not have reached graph mutation",
+              "name": "graph_not_mutated",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "constructed object count must match M6s binding rows",
+              "name": "constructed_objects_match_binding_rows",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "every constructed object must have a live GraphEdge",
+              "name": "constructed_objects_have_live_graph_edges",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "accounting must cover every constructed object",
+              "name": "accounting_rows_match_constructed_objects",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "query accounting rows must sum to constructed objects",
+              "name": "query_accounting_covers_objects",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "edge accounting rows must sum to constructed objects",
+              "name": "edge_accounting_covers_objects",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "query-edge accounting rows must sum to constructed objects",
+              "name": "query_edge_accounting_covers_objects",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "object-vector smoke must not mutate graph state",
+              "name": "graph_not_mutated_after_object_vector",
+              "passed": true,
+              "required": true
+            }
+          ],
+          "consumed": false,
+          "decision": "object-vector-smoke-audited-not-consumed",
+          "edge_accounted_rows": 18,
+          "edge_summary_rows": 10,
+          "edges": [
+            {
+              "edge_id": -12,
+              "object_rows": 1
+            },
+            {
+              "edge_id": -11,
+              "object_rows": 1
+            },
+            {
+              "edge_id": -10,
+              "object_rows": 2
+            },
+            {
+              "edge_id": -9,
+              "object_rows": 1
+            },
+            {
+              "edge_id": -8,
+              "object_rows": 5
+            },
+            {
+              "edge_id": -6,
+              "object_rows": 1
+            },
+            {
+              "edge_id": 8,
+              "object_rows": 3
+            },
+            {
+              "edge_id": 10,
+              "object_rows": 2
+            },
+            {
+              "edge_id": 11,
+              "object_rows": 1
+            },
+            {
+              "edge_id": 12,
+              "object_rows": 1
+            }
+          ],
+          "eligible": true,
+          "failed_closed": false,
+          "graph_mutation_consumed_worker_output": false,
+          "missing_graph_edge_rows": 0,
+          "mode": "object-vector-smoke-v0",
+          "not_consumed": true,
+          "object_accounting_rows": 18,
+          "object_rows": 18,
+          "proof_fault": "",
+          "proof_fault_applied": false,
+          "queries": [
+            {
+              "object_rows": 1,
+              "query_id": 5
+            },
+            {
+              "object_rows": 1,
+              "query_id": 84
+            },
+            {
+              "object_rows": 1,
+              "query_id": 361
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2145
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2146
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2148
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2149
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2150
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2152
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2154
+            },
+            {
+              "object_rows": 3,
+              "query_id": 2157
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2160
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2161
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2163
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2165
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2167
+            }
+          ],
+          "query_accounted_rows": 18,
+          "query_edge_accounted_rows": 18,
+          "query_edge_summary_rows": 17,
+          "query_edges": [
+            {
+              "edge_id": -8,
+              "object_rows": 1,
+              "query_id": 5
+            },
+            {
+              "edge_id": -10,
+              "object_rows": 1,
+              "query_id": 84
+            },
+            {
+              "edge_id": -8,
+              "object_rows": 1,
+              "query_id": 361
+            },
+            {
+              "edge_id": -8,
+              "object_rows": 1,
+              "query_id": 2145
+            },
+            {
+              "edge_id": -11,
+              "object_rows": 1,
+              "query_id": 2146
+            },
+            {
+              "edge_id": -10,
+              "object_rows": 1,
+              "query_id": 2148
+            },
+            {
+              "edge_id": -6,
+              "object_rows": 1,
+              "query_id": 2149
+            },
+            {
+              "edge_id": -12,
+              "object_rows": 1,
+              "query_id": 2150
+            },
+            {
+              "edge_id": 8,
+              "object_rows": 1,
+              "query_id": 2152
+            },
+            {
+              "edge_id": 8,
+              "object_rows": 1,
+              "query_id": 2154
+            },
+            {
+              "edge_id": -8,
+              "object_rows": 2,
+              "query_id": 2157
+            },
+            {
+              "edge_id": 10,
+              "object_rows": 1,
+              "query_id": 2157
+            },
+            {
+              "edge_id": 8,
+              "object_rows": 1,
+              "query_id": 2160
+            },
+            {
+              "edge_id": 12,
+              "object_rows": 1,
+              "query_id": 2161
+            },
+            {
+              "edge_id": -9,
+              "object_rows": 1,
+              "query_id": 2163
+            },
+            {
+              "edge_id": 10,
+              "object_rows": 1,
+              "query_id": 2165
+            },
+            {
+              "edge_id": 11,
+              "object_rows": 1,
+              "query_id": 2167
+            }
+          ],
+          "query_summary_rows": 16,
+          "schema": "cuflye-read-to-graph-full-query-hit-object-vector-smoke-v0",
+          "state": "not-consumed",
+          "status": "passed",
+          "worker_tsv": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/request-01/worker/full-query-hit-worker.raw-overlaps.tsv"
+        },
+        "rehydration": {
+          "checks": [
+            {
+              "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_REHYDRATION_MODE=raw-overlap-vector-dry-run-v0",
+              "name": "explicit_rehydration_mode",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6l/M6n full-query-hit worker row-key diff must pass first",
+              "name": "worker_row_key_parity_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "validated worker raw-overlap TSV must be readable",
+              "name": "worker_output_readable",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "raw-overlap rehydration audit JSON path must be available",
+              "name": "audit_metadata_available",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "worker output must not have reached graph mutation",
+              "name": "graph_not_mutated",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "rehydrated record count must match validated worker row count",
+              "name": "rehydrated_count_matches_worker",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "rehydrated Flye-side row keys must match validated worker row keys",
+              "name": "typed_row_keys_match_worker",
+              "passed": true,
+              "required": true
+            }
+          ],
+          "consumed": false,
+          "decision": "raw-overlap-vector-match-not-consumed",
+          "eligible": true,
+          "failed_closed": false,
+          "graph_mutation_consumed_worker_output": false,
+          "mode": "raw-overlap-vector-dry-run-v0",
+          "not_consumed": true,
+          "parsed_records": 27,
+          "proof_fault": "",
+          "proof_fault_applied": false,
+          "rehydrated_records": 27,
+          "schema": "cuflye-read-to-graph-full-query-hit-raw-overlap-rehydration-dry-run-v0",
+          "state": "not-consumed",
+          "status": "passed",
+          "typed_representation": "raw-overlap-vector-dry-run-v0",
+          "typed_row_key_diff": {
+            "extra_examples": [],
+            "extra_rows": 0,
+            "left_records": 27,
+            "matched_rows": 27,
+            "missing_examples": [],
+            "missing_rows": 0,
+            "ordered_match": true,
+            "right_records": 27,
+            "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+            "status": "match"
+          },
+          "worker_records": 27,
+          "worker_tsv": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/request-01/worker/full-query-hit-worker.raw-overlaps.tsv"
+        },
+        "response": {
+          "active_ext_groups": 24,
+          "adapter_mode": "full-query-hit-replay-v0",
+          "device": 0,
+          "device_name": "NVIDIA GB10",
+          "kernel_mode": "parallel-score",
+          "output_records": 27,
+          "output_tsv": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/request-01/worker/full-query-hit-worker.raw-overlaps.tsv",
+          "parallel_threads": 128,
+          "query_count": 16,
+          "raw_overlap_abi": "cuflye-read-to-graph-raw-overlap-v0",
+          "request_id": "read-to-graph-full-query-hit-session-positive_request-01_worker",
+          "request_ordinal": 1,
+          "required_bytes": 2727824,
+          "schema": "cuflye-full-query-hit-worker-response-v0",
+          "source_ext_groups": 47,
+          "source_match_records": 15306,
+          "source_pack_dir": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/source-pack",
+          "status": "ok",
+          "timing_ms": {
+            "device_allocation": 0.410417,
+            "device_to_host": 0.039776,
+            "host_pack": 0.836209,
+            "host_to_device": 0.151184,
+            "kernel": 63.651096,
+            "parse": 7.33243,
+            "request_total": 72.583129,
+            "worker_uptime": 12944.783683,
+            "write_output": 0.077824
+          },
+          "worker_context_setup_ms": 8.80336,
+          "worker_cuda_context_warm": false
+        },
+        "shadow_ledger": {
+          "chain_input_filter_rows": 18,
+          "checks": [
+            {
+              "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SHADOW_LEDGER_MODE=raw-overlap-chain-input-shadow-v0",
+              "name": "explicit_shadow_ledger_mode",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6p raw-overlap rehydration must pass before shadow ledger",
+              "name": "rehydration_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "validated worker raw-overlap TSV must be readable",
+              "name": "worker_output_readable",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "shadow ledger audit JSON path must be available",
+              "name": "audit_metadata_available",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "worker output must not have reached graph mutation",
+              "name": "graph_not_mutated",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "ledger row count must match M6p rehydrated record count",
+              "name": "ledger_count_matches_rehydration",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "every ledger row must be counted as unresolved or resolved edge_id",
+              "name": "edge_id_rows_accounted",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6q records shadow eligibility but exposes no graph edge consumption candidates",
+              "name": "graph_edge_consumption_candidates_blocked",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "ledger evaluation must not mutate graph state",
+              "name": "graph_not_mutated_after_ledger",
+              "passed": true,
+              "required": true
+            }
+          ],
+          "consumed": false,
+          "decision": "shadow-ledger-written-not-consumed",
+          "eligible": true,
+          "failed_closed": false,
+          "future_chain_input_shadow_rows": 18,
+          "future_raw_overlap_shadow_rows": 27,
+          "graph_edge_consumption_candidate_rows": 0,
+          "graph_mutation_consumed_worker_output": false,
+          "ledger_rows": 27,
+          "mode": "raw-overlap-chain-input-shadow-v0",
+          "not_consumed": true,
+          "proof_fault": "",
+          "proof_fault_applied": false,
+          "queries": [
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 5,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 84,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 361,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2145,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2146,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2148,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 8,
+              "query_id": 2149,
+              "resolved_edge_id_rows": 8,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2150,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2152,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2154,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 3,
+              "ledger_rows": 3,
+              "query_id": 2157,
+              "resolved_edge_id_rows": 3,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2160,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2161,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2163,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 3,
+              "query_id": 2165,
+              "resolved_edge_id_rows": 3,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2167,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            }
+          ],
+          "rehydrated_records": 27,
+          "rehydration_status": "passed",
+          "resolved_edge_id_rows": 27,
+          "schema": "cuflye-read-to-graph-full-query-hit-shadow-consumption-ledger-v0",
+          "state": "not-consumed",
+          "status": "passed",
+          "unresolved_edge_id_zero_rows": 0,
+          "worker_records": 27,
+          "worker_tsv": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/request-01/worker/full-query-hit-worker.raw-overlaps.tsv"
+        }
+      },
+      {
+        "audit": {
+          "actual_request_timing_ms": {
+            "device_allocation": 0,
+            "host_to_device": 0,
+            "kernel": 63.6527,
+            "parse": 0,
+            "request_total": 63.8629
+          },
+          "actual_worker_cuda_context_warm": true,
+          "decision": "stopped-before-graph-mutation",
+          "graph_facing_validation_timing_ms": {
+            "graph_facing_validation_total": 0.304848,
+            "no_mutation_seam_total": 66.3427,
+            "raw_overlap_graph_edge_binding": 0.053808,
+            "raw_overlap_object_vector_smoke": 0.058192,
+            "raw_overlap_rehydration": 0.111168,
+            "raw_overlap_shadow_ledger": 0.055312,
+            "row_key_diff": 0.026368
+          },
+          "graph_mutation_consumed_worker_output": false,
+          "raw_overlap_graph_edge_binding_chain_input_rows": 18,
+          "raw_overlap_graph_edge_binding_live_edge_rows": 18,
+          "raw_overlap_graph_edge_binding_missing_edge_rows": 0,
+          "raw_overlap_graph_edge_binding_resolved_edge_id_rows": 18,
+          "raw_overlap_graph_edge_binding_rows": 18,
+          "raw_overlap_graph_edge_binding_status": "passed",
+          "raw_overlap_object_vector_smoke_accounting_rows": 18,
+          "raw_overlap_object_vector_smoke_edge_summary_rows": 10,
+          "raw_overlap_object_vector_smoke_query_edge_summary_rows": 17,
+          "raw_overlap_object_vector_smoke_query_summary_rows": 16,
+          "raw_overlap_object_vector_smoke_rows": 18,
+          "raw_overlap_object_vector_smoke_status": "passed",
+          "raw_overlap_rehydrated_records": 27,
+          "raw_overlap_rehydration_status": "passed",
+          "raw_overlap_shadow_chain_input_filter_rows": 18,
+          "raw_overlap_shadow_graph_edge_consumption_candidate_rows": 0,
+          "raw_overlap_shadow_ledger_rows": 27,
+          "raw_overlap_shadow_ledger_status": "passed",
+          "raw_overlap_shadow_resolved_edge_id_rows": 27,
+          "raw_overlap_shadow_unresolved_edge_id_zero_rows": 0,
+          "row_key_diff": {
+            "extra_examples": [],
+            "extra_rows": 0,
+            "left_records": 27,
+            "matched_rows": 27,
+            "missing_examples": [],
+            "missing_rows": 0,
+            "ordered_match": false,
+            "right_records": 27,
+            "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+            "status": "match"
+          },
+          "row_key_matched": true,
+          "status": "passed",
+          "worker_session_submit_ms": 66.0378,
+          "worker_wall_ms": 66.0378
+        },
+        "external_row_key_diff": {
+          "extra_examples": [],
+          "extra_rows": 0,
+          "left": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/oracle.raw-overlaps.tsv",
+          "left_records": 27,
+          "left_sha256": "23269fae3946c7c0d108652f962ad1ea3d61773cb1bb33ecdeb3557cb8e989aa",
+          "matched_rows": 27,
+          "missing_examples": [],
+          "missing_rows": 0,
+          "ordered_match": false,
+          "right": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/request-02/worker/full-query-hit-worker.raw-overlaps.tsv",
+          "right_records": 27,
+          "right_sha256": "23269fae3946c7c0d108652f962ad1ea3d61773cb1bb33ecdeb3557cb8e989aa",
+          "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+          "status": "match"
+        },
+        "graph_edge_binding": {
+          "binding_rows": 18,
+          "chain_input_filter_rows": 18,
+          "checks": [
+            {
+              "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_GRAPH_EDGE_BINDING_MODE=graph-edge-binding-dry-run-v0",
+              "name": "explicit_graph_edge_binding_mode",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6p raw-overlap rehydration must pass before graph-edge binding",
+              "name": "rehydration_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6q shadow ledger must pass before graph-edge binding",
+              "name": "shadow_ledger_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "graph-edge binding requires chain-input-positive rows",
+              "name": "chain_input_rows_present",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "validated worker raw-overlap TSV must be readable",
+              "name": "worker_output_readable",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "graph-edge binding audit JSON path must be available",
+              "name": "audit_metadata_available",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "worker output must not have reached graph mutation",
+              "name": "graph_not_mutated",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "binding rows must match M6q chain-input-positive rows",
+              "name": "binding_count_matches_chain_input",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "every binding row must have a resolved nonzero edge_id",
+              "name": "binding_rows_have_resolved_edge_ids",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "every binding row edge_id must map to a live GraphEdge",
+              "name": "binding_rows_have_live_graph_edges",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "graph-edge binding audit must not mutate graph state",
+              "name": "graph_not_mutated_after_binding",
+              "passed": true,
+              "required": true
+            }
+          ],
+          "consumed": false,
+          "decision": "graph-edge-binding-audited-not-consumed",
+          "eligible": true,
+          "failed_closed": false,
+          "graph_mutation_consumed_worker_output": false,
+          "ledger_rows": 27,
+          "ledger_status": "passed",
+          "live_graph_edge_rows": 18,
+          "missing_graph_edge_rows": 0,
+          "mode": "graph-edge-binding-dry-run-v0",
+          "not_consumed": true,
+          "proof_fault": "",
+          "proof_fault_applied": false,
+          "queries": [
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 5,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 84,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 361,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2145,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2146,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2148,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2149,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2150,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2152,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2154,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 3,
+              "live_graph_edge_rows": 3,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2157,
+              "resolved_edge_id_rows": 3
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2160,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2161,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2163,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2165,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2167,
+              "resolved_edge_id_rows": 1
+            }
+          ],
+          "resolved_edge_id_rows": 18,
+          "schema": "cuflye-read-to-graph-full-query-hit-graph-edge-binding-dry-run-v0",
+          "state": "not-consumed",
+          "status": "passed",
+          "worker_tsv": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/request-02/worker/full-query-hit-worker.raw-overlaps.tsv"
+        },
+        "index": 2,
+        "name": "request-02",
+        "object_vector_smoke": {
+          "binding_rows": 18,
+          "binding_status": "passed",
+          "chain_input_filter_rows": 18,
+          "checks": [
+            {
+              "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_OBJECT_VECTOR_SMOKE_MODE=object-vector-smoke-v0",
+              "name": "explicit_object_vector_smoke_mode",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6s graph-edge binding must pass before object-vector smoke",
+              "name": "graph_edge_binding_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "object-vector smoke requires nonzero bound rows",
+              "name": "binding_rows_present",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "validated worker raw-overlap TSV must be readable",
+              "name": "worker_output_readable",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "object-vector smoke audit JSON path must be available",
+              "name": "audit_metadata_available",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "worker output must not have reached graph mutation",
+              "name": "graph_not_mutated",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "constructed object count must match M6s binding rows",
+              "name": "constructed_objects_match_binding_rows",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "every constructed object must have a live GraphEdge",
+              "name": "constructed_objects_have_live_graph_edges",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "accounting must cover every constructed object",
+              "name": "accounting_rows_match_constructed_objects",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "query accounting rows must sum to constructed objects",
+              "name": "query_accounting_covers_objects",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "edge accounting rows must sum to constructed objects",
+              "name": "edge_accounting_covers_objects",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "query-edge accounting rows must sum to constructed objects",
+              "name": "query_edge_accounting_covers_objects",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "object-vector smoke must not mutate graph state",
+              "name": "graph_not_mutated_after_object_vector",
+              "passed": true,
+              "required": true
+            }
+          ],
+          "consumed": false,
+          "decision": "object-vector-smoke-audited-not-consumed",
+          "edge_accounted_rows": 18,
+          "edge_summary_rows": 10,
+          "edges": [
+            {
+              "edge_id": -12,
+              "object_rows": 1
+            },
+            {
+              "edge_id": -11,
+              "object_rows": 1
+            },
+            {
+              "edge_id": -10,
+              "object_rows": 2
+            },
+            {
+              "edge_id": -9,
+              "object_rows": 1
+            },
+            {
+              "edge_id": -8,
+              "object_rows": 5
+            },
+            {
+              "edge_id": -6,
+              "object_rows": 1
+            },
+            {
+              "edge_id": 8,
+              "object_rows": 3
+            },
+            {
+              "edge_id": 10,
+              "object_rows": 2
+            },
+            {
+              "edge_id": 11,
+              "object_rows": 1
+            },
+            {
+              "edge_id": 12,
+              "object_rows": 1
+            }
+          ],
+          "eligible": true,
+          "failed_closed": false,
+          "graph_mutation_consumed_worker_output": false,
+          "missing_graph_edge_rows": 0,
+          "mode": "object-vector-smoke-v0",
+          "not_consumed": true,
+          "object_accounting_rows": 18,
+          "object_rows": 18,
+          "proof_fault": "",
+          "proof_fault_applied": false,
+          "queries": [
+            {
+              "object_rows": 1,
+              "query_id": 5
+            },
+            {
+              "object_rows": 1,
+              "query_id": 84
+            },
+            {
+              "object_rows": 1,
+              "query_id": 361
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2145
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2146
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2148
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2149
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2150
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2152
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2154
+            },
+            {
+              "object_rows": 3,
+              "query_id": 2157
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2160
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2161
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2163
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2165
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2167
+            }
+          ],
+          "query_accounted_rows": 18,
+          "query_edge_accounted_rows": 18,
+          "query_edge_summary_rows": 17,
+          "query_edges": [
+            {
+              "edge_id": -8,
+              "object_rows": 1,
+              "query_id": 5
+            },
+            {
+              "edge_id": -10,
+              "object_rows": 1,
+              "query_id": 84
+            },
+            {
+              "edge_id": -8,
+              "object_rows": 1,
+              "query_id": 361
+            },
+            {
+              "edge_id": -8,
+              "object_rows": 1,
+              "query_id": 2145
+            },
+            {
+              "edge_id": -11,
+              "object_rows": 1,
+              "query_id": 2146
+            },
+            {
+              "edge_id": -10,
+              "object_rows": 1,
+              "query_id": 2148
+            },
+            {
+              "edge_id": -6,
+              "object_rows": 1,
+              "query_id": 2149
+            },
+            {
+              "edge_id": -12,
+              "object_rows": 1,
+              "query_id": 2150
+            },
+            {
+              "edge_id": 8,
+              "object_rows": 1,
+              "query_id": 2152
+            },
+            {
+              "edge_id": 8,
+              "object_rows": 1,
+              "query_id": 2154
+            },
+            {
+              "edge_id": -8,
+              "object_rows": 2,
+              "query_id": 2157
+            },
+            {
+              "edge_id": 10,
+              "object_rows": 1,
+              "query_id": 2157
+            },
+            {
+              "edge_id": 8,
+              "object_rows": 1,
+              "query_id": 2160
+            },
+            {
+              "edge_id": 12,
+              "object_rows": 1,
+              "query_id": 2161
+            },
+            {
+              "edge_id": -9,
+              "object_rows": 1,
+              "query_id": 2163
+            },
+            {
+              "edge_id": 10,
+              "object_rows": 1,
+              "query_id": 2165
+            },
+            {
+              "edge_id": 11,
+              "object_rows": 1,
+              "query_id": 2167
+            }
+          ],
+          "query_summary_rows": 16,
+          "schema": "cuflye-read-to-graph-full-query-hit-object-vector-smoke-v0",
+          "state": "not-consumed",
+          "status": "passed",
+          "worker_tsv": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/request-02/worker/full-query-hit-worker.raw-overlaps.tsv"
+        },
+        "rehydration": {
+          "checks": [
+            {
+              "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_REHYDRATION_MODE=raw-overlap-vector-dry-run-v0",
+              "name": "explicit_rehydration_mode",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6l/M6n full-query-hit worker row-key diff must pass first",
+              "name": "worker_row_key_parity_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "validated worker raw-overlap TSV must be readable",
+              "name": "worker_output_readable",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "raw-overlap rehydration audit JSON path must be available",
+              "name": "audit_metadata_available",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "worker output must not have reached graph mutation",
+              "name": "graph_not_mutated",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "rehydrated record count must match validated worker row count",
+              "name": "rehydrated_count_matches_worker",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "rehydrated Flye-side row keys must match validated worker row keys",
+              "name": "typed_row_keys_match_worker",
+              "passed": true,
+              "required": true
+            }
+          ],
+          "consumed": false,
+          "decision": "raw-overlap-vector-match-not-consumed",
+          "eligible": true,
+          "failed_closed": false,
+          "graph_mutation_consumed_worker_output": false,
+          "mode": "raw-overlap-vector-dry-run-v0",
+          "not_consumed": true,
+          "parsed_records": 27,
+          "proof_fault": "",
+          "proof_fault_applied": false,
+          "rehydrated_records": 27,
+          "schema": "cuflye-read-to-graph-full-query-hit-raw-overlap-rehydration-dry-run-v0",
+          "state": "not-consumed",
+          "status": "passed",
+          "typed_representation": "raw-overlap-vector-dry-run-v0",
+          "typed_row_key_diff": {
+            "extra_examples": [],
+            "extra_rows": 0,
+            "left_records": 27,
+            "matched_rows": 27,
+            "missing_examples": [],
+            "missing_rows": 0,
+            "ordered_match": true,
+            "right_records": 27,
+            "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+            "status": "match"
+          },
+          "worker_records": 27,
+          "worker_tsv": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/request-02/worker/full-query-hit-worker.raw-overlaps.tsv"
+        },
+        "response": {
+          "active_ext_groups": 24,
+          "adapter_mode": "full-query-hit-replay-v0",
+          "device": 0,
+          "device_name": "NVIDIA GB10",
+          "kernel_mode": "parallel-score",
+          "output_records": 27,
+          "output_tsv": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/request-02/worker/full-query-hit-worker.raw-overlaps.tsv",
+          "parallel_threads": 128,
+          "query_count": 16,
+          "raw_overlap_abi": "cuflye-read-to-graph-raw-overlap-v0",
+          "request_id": "read-to-graph-full-query-hit-session-positive_request-02_worker",
+          "request_ordinal": 2,
+          "required_bytes": 2727824,
+          "schema": "cuflye-full-query-hit-worker-response-v0",
+          "source_ext_groups": 47,
+          "source_match_records": 15306,
+          "source_pack_dir": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/source-pack",
+          "status": "ok",
+          "timing_ms": {
+            "device_allocation": 0.0,
+            "device_to_host": 0.05824,
+            "host_pack": 0.0,
+            "host_to_device": 0.0,
+            "kernel": 63.652746,
+            "parse": 0.0,
+            "request_total": 63.862891,
+            "worker_uptime": 26090.837159,
+            "write_output": 0.108448
+          },
+          "worker_context_setup_ms": 8.80336,
+          "worker_cuda_context_warm": true
+        },
+        "shadow_ledger": {
+          "chain_input_filter_rows": 18,
+          "checks": [
+            {
+              "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SHADOW_LEDGER_MODE=raw-overlap-chain-input-shadow-v0",
+              "name": "explicit_shadow_ledger_mode",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6p raw-overlap rehydration must pass before shadow ledger",
+              "name": "rehydration_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "validated worker raw-overlap TSV must be readable",
+              "name": "worker_output_readable",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "shadow ledger audit JSON path must be available",
+              "name": "audit_metadata_available",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "worker output must not have reached graph mutation",
+              "name": "graph_not_mutated",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "ledger row count must match M6p rehydrated record count",
+              "name": "ledger_count_matches_rehydration",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "every ledger row must be counted as unresolved or resolved edge_id",
+              "name": "edge_id_rows_accounted",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6q records shadow eligibility but exposes no graph edge consumption candidates",
+              "name": "graph_edge_consumption_candidates_blocked",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "ledger evaluation must not mutate graph state",
+              "name": "graph_not_mutated_after_ledger",
+              "passed": true,
+              "required": true
+            }
+          ],
+          "consumed": false,
+          "decision": "shadow-ledger-written-not-consumed",
+          "eligible": true,
+          "failed_closed": false,
+          "future_chain_input_shadow_rows": 18,
+          "future_raw_overlap_shadow_rows": 27,
+          "graph_edge_consumption_candidate_rows": 0,
+          "graph_mutation_consumed_worker_output": false,
+          "ledger_rows": 27,
+          "mode": "raw-overlap-chain-input-shadow-v0",
+          "not_consumed": true,
+          "proof_fault": "",
+          "proof_fault_applied": false,
+          "queries": [
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 5,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 84,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 361,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2145,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2146,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2148,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 8,
+              "query_id": 2149,
+              "resolved_edge_id_rows": 8,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2150,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2152,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2154,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 3,
+              "ledger_rows": 3,
+              "query_id": 2157,
+              "resolved_edge_id_rows": 3,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2160,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2161,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2163,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 3,
+              "query_id": 2165,
+              "resolved_edge_id_rows": 3,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2167,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            }
+          ],
+          "rehydrated_records": 27,
+          "rehydration_status": "passed",
+          "resolved_edge_id_rows": 27,
+          "schema": "cuflye-read-to-graph-full-query-hit-shadow-consumption-ledger-v0",
+          "state": "not-consumed",
+          "status": "passed",
+          "unresolved_edge_id_zero_rows": 0,
+          "worker_records": 27,
+          "worker_tsv": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/request-02/worker/full-query-hit-worker.raw-overlaps.tsv"
+        }
+      },
+      {
+        "audit": {
+          "actual_request_timing_ms": {
+            "device_allocation": 0,
+            "host_to_device": 0,
+            "kernel": 63.652,
+            "parse": 0,
+            "request_total": 63.8671
+          },
+          "actual_worker_cuda_context_warm": true,
+          "decision": "stopped-before-graph-mutation",
+          "graph_facing_validation_timing_ms": {
+            "graph_facing_validation_total": 0.364753,
+            "no_mutation_seam_total": 66.9101,
+            "raw_overlap_graph_edge_binding": 0.053888,
+            "raw_overlap_object_vector_smoke": 0.06672,
+            "raw_overlap_rehydration": 0.155425,
+            "raw_overlap_shadow_ledger": 0.054768,
+            "row_key_diff": 0.033952
+          },
+          "graph_mutation_consumed_worker_output": false,
+          "raw_overlap_graph_edge_binding_chain_input_rows": 18,
+          "raw_overlap_graph_edge_binding_live_edge_rows": 18,
+          "raw_overlap_graph_edge_binding_missing_edge_rows": 0,
+          "raw_overlap_graph_edge_binding_resolved_edge_id_rows": 18,
+          "raw_overlap_graph_edge_binding_rows": 18,
+          "raw_overlap_graph_edge_binding_status": "passed",
+          "raw_overlap_object_vector_smoke_accounting_rows": 18,
+          "raw_overlap_object_vector_smoke_edge_summary_rows": 10,
+          "raw_overlap_object_vector_smoke_query_edge_summary_rows": 17,
+          "raw_overlap_object_vector_smoke_query_summary_rows": 16,
+          "raw_overlap_object_vector_smoke_rows": 18,
+          "raw_overlap_object_vector_smoke_status": "passed",
+          "raw_overlap_rehydrated_records": 27,
+          "raw_overlap_rehydration_status": "passed",
+          "raw_overlap_shadow_chain_input_filter_rows": 18,
+          "raw_overlap_shadow_graph_edge_consumption_candidate_rows": 0,
+          "raw_overlap_shadow_ledger_rows": 27,
+          "raw_overlap_shadow_ledger_status": "passed",
+          "raw_overlap_shadow_resolved_edge_id_rows": 27,
+          "raw_overlap_shadow_unresolved_edge_id_zero_rows": 0,
+          "row_key_diff": {
+            "extra_examples": [],
+            "extra_rows": 0,
+            "left_records": 27,
+            "matched_rows": 27,
+            "missing_examples": [],
+            "missing_rows": 0,
+            "ordered_match": false,
+            "right_records": 27,
+            "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+            "status": "match"
+          },
+          "row_key_matched": true,
+          "status": "passed",
+          "worker_session_submit_ms": 66.5453,
+          "worker_wall_ms": 66.5453
+        },
+        "external_row_key_diff": {
+          "extra_examples": [],
+          "extra_rows": 0,
+          "left": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/oracle.raw-overlaps.tsv",
+          "left_records": 27,
+          "left_sha256": "23269fae3946c7c0d108652f962ad1ea3d61773cb1bb33ecdeb3557cb8e989aa",
+          "matched_rows": 27,
+          "missing_examples": [],
+          "missing_rows": 0,
+          "ordered_match": false,
+          "right": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/request-03/worker/full-query-hit-worker.raw-overlaps.tsv",
+          "right_records": 27,
+          "right_sha256": "23269fae3946c7c0d108652f962ad1ea3d61773cb1bb33ecdeb3557cb8e989aa",
+          "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+          "status": "match"
+        },
+        "graph_edge_binding": {
+          "binding_rows": 18,
+          "chain_input_filter_rows": 18,
+          "checks": [
+            {
+              "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_GRAPH_EDGE_BINDING_MODE=graph-edge-binding-dry-run-v0",
+              "name": "explicit_graph_edge_binding_mode",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6p raw-overlap rehydration must pass before graph-edge binding",
+              "name": "rehydration_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6q shadow ledger must pass before graph-edge binding",
+              "name": "shadow_ledger_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "graph-edge binding requires chain-input-positive rows",
+              "name": "chain_input_rows_present",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "validated worker raw-overlap TSV must be readable",
+              "name": "worker_output_readable",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "graph-edge binding audit JSON path must be available",
+              "name": "audit_metadata_available",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "worker output must not have reached graph mutation",
+              "name": "graph_not_mutated",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "binding rows must match M6q chain-input-positive rows",
+              "name": "binding_count_matches_chain_input",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "every binding row must have a resolved nonzero edge_id",
+              "name": "binding_rows_have_resolved_edge_ids",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "every binding row edge_id must map to a live GraphEdge",
+              "name": "binding_rows_have_live_graph_edges",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "graph-edge binding audit must not mutate graph state",
+              "name": "graph_not_mutated_after_binding",
+              "passed": true,
+              "required": true
+            }
+          ],
+          "consumed": false,
+          "decision": "graph-edge-binding-audited-not-consumed",
+          "eligible": true,
+          "failed_closed": false,
+          "graph_mutation_consumed_worker_output": false,
+          "ledger_rows": 27,
+          "ledger_status": "passed",
+          "live_graph_edge_rows": 18,
+          "missing_graph_edge_rows": 0,
+          "mode": "graph-edge-binding-dry-run-v0",
+          "not_consumed": true,
+          "proof_fault": "",
+          "proof_fault_applied": false,
+          "queries": [
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 5,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 84,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 361,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2145,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2146,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2148,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2149,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2150,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2152,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2154,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 3,
+              "live_graph_edge_rows": 3,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2157,
+              "resolved_edge_id_rows": 3
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2160,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2161,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2163,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2165,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2167,
+              "resolved_edge_id_rows": 1
+            }
+          ],
+          "resolved_edge_id_rows": 18,
+          "schema": "cuflye-read-to-graph-full-query-hit-graph-edge-binding-dry-run-v0",
+          "state": "not-consumed",
+          "status": "passed",
+          "worker_tsv": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/request-03/worker/full-query-hit-worker.raw-overlaps.tsv"
+        },
+        "index": 3,
+        "name": "request-03",
+        "object_vector_smoke": {
+          "binding_rows": 18,
+          "binding_status": "passed",
+          "chain_input_filter_rows": 18,
+          "checks": [
+            {
+              "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_OBJECT_VECTOR_SMOKE_MODE=object-vector-smoke-v0",
+              "name": "explicit_object_vector_smoke_mode",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6s graph-edge binding must pass before object-vector smoke",
+              "name": "graph_edge_binding_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "object-vector smoke requires nonzero bound rows",
+              "name": "binding_rows_present",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "validated worker raw-overlap TSV must be readable",
+              "name": "worker_output_readable",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "object-vector smoke audit JSON path must be available",
+              "name": "audit_metadata_available",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "worker output must not have reached graph mutation",
+              "name": "graph_not_mutated",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "constructed object count must match M6s binding rows",
+              "name": "constructed_objects_match_binding_rows",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "every constructed object must have a live GraphEdge",
+              "name": "constructed_objects_have_live_graph_edges",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "accounting must cover every constructed object",
+              "name": "accounting_rows_match_constructed_objects",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "query accounting rows must sum to constructed objects",
+              "name": "query_accounting_covers_objects",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "edge accounting rows must sum to constructed objects",
+              "name": "edge_accounting_covers_objects",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "query-edge accounting rows must sum to constructed objects",
+              "name": "query_edge_accounting_covers_objects",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "object-vector smoke must not mutate graph state",
+              "name": "graph_not_mutated_after_object_vector",
+              "passed": true,
+              "required": true
+            }
+          ],
+          "consumed": false,
+          "decision": "object-vector-smoke-audited-not-consumed",
+          "edge_accounted_rows": 18,
+          "edge_summary_rows": 10,
+          "edges": [
+            {
+              "edge_id": -12,
+              "object_rows": 1
+            },
+            {
+              "edge_id": -11,
+              "object_rows": 1
+            },
+            {
+              "edge_id": -10,
+              "object_rows": 2
+            },
+            {
+              "edge_id": -9,
+              "object_rows": 1
+            },
+            {
+              "edge_id": -8,
+              "object_rows": 5
+            },
+            {
+              "edge_id": -6,
+              "object_rows": 1
+            },
+            {
+              "edge_id": 8,
+              "object_rows": 3
+            },
+            {
+              "edge_id": 10,
+              "object_rows": 2
+            },
+            {
+              "edge_id": 11,
+              "object_rows": 1
+            },
+            {
+              "edge_id": 12,
+              "object_rows": 1
+            }
+          ],
+          "eligible": true,
+          "failed_closed": false,
+          "graph_mutation_consumed_worker_output": false,
+          "missing_graph_edge_rows": 0,
+          "mode": "object-vector-smoke-v0",
+          "not_consumed": true,
+          "object_accounting_rows": 18,
+          "object_rows": 18,
+          "proof_fault": "",
+          "proof_fault_applied": false,
+          "queries": [
+            {
+              "object_rows": 1,
+              "query_id": 5
+            },
+            {
+              "object_rows": 1,
+              "query_id": 84
+            },
+            {
+              "object_rows": 1,
+              "query_id": 361
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2145
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2146
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2148
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2149
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2150
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2152
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2154
+            },
+            {
+              "object_rows": 3,
+              "query_id": 2157
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2160
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2161
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2163
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2165
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2167
+            }
+          ],
+          "query_accounted_rows": 18,
+          "query_edge_accounted_rows": 18,
+          "query_edge_summary_rows": 17,
+          "query_edges": [
+            {
+              "edge_id": -8,
+              "object_rows": 1,
+              "query_id": 5
+            },
+            {
+              "edge_id": -10,
+              "object_rows": 1,
+              "query_id": 84
+            },
+            {
+              "edge_id": -8,
+              "object_rows": 1,
+              "query_id": 361
+            },
+            {
+              "edge_id": -8,
+              "object_rows": 1,
+              "query_id": 2145
+            },
+            {
+              "edge_id": -11,
+              "object_rows": 1,
+              "query_id": 2146
+            },
+            {
+              "edge_id": -10,
+              "object_rows": 1,
+              "query_id": 2148
+            },
+            {
+              "edge_id": -6,
+              "object_rows": 1,
+              "query_id": 2149
+            },
+            {
+              "edge_id": -12,
+              "object_rows": 1,
+              "query_id": 2150
+            },
+            {
+              "edge_id": 8,
+              "object_rows": 1,
+              "query_id": 2152
+            },
+            {
+              "edge_id": 8,
+              "object_rows": 1,
+              "query_id": 2154
+            },
+            {
+              "edge_id": -8,
+              "object_rows": 2,
+              "query_id": 2157
+            },
+            {
+              "edge_id": 10,
+              "object_rows": 1,
+              "query_id": 2157
+            },
+            {
+              "edge_id": 8,
+              "object_rows": 1,
+              "query_id": 2160
+            },
+            {
+              "edge_id": 12,
+              "object_rows": 1,
+              "query_id": 2161
+            },
+            {
+              "edge_id": -9,
+              "object_rows": 1,
+              "query_id": 2163
+            },
+            {
+              "edge_id": 10,
+              "object_rows": 1,
+              "query_id": 2165
+            },
+            {
+              "edge_id": 11,
+              "object_rows": 1,
+              "query_id": 2167
+            }
+          ],
+          "query_summary_rows": 16,
+          "schema": "cuflye-read-to-graph-full-query-hit-object-vector-smoke-v0",
+          "state": "not-consumed",
+          "status": "passed",
+          "worker_tsv": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/request-03/worker/full-query-hit-worker.raw-overlaps.tsv"
+        },
+        "rehydration": {
+          "checks": [
+            {
+              "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_REHYDRATION_MODE=raw-overlap-vector-dry-run-v0",
+              "name": "explicit_rehydration_mode",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6l/M6n full-query-hit worker row-key diff must pass first",
+              "name": "worker_row_key_parity_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "validated worker raw-overlap TSV must be readable",
+              "name": "worker_output_readable",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "raw-overlap rehydration audit JSON path must be available",
+              "name": "audit_metadata_available",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "worker output must not have reached graph mutation",
+              "name": "graph_not_mutated",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "rehydrated record count must match validated worker row count",
+              "name": "rehydrated_count_matches_worker",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "rehydrated Flye-side row keys must match validated worker row keys",
+              "name": "typed_row_keys_match_worker",
+              "passed": true,
+              "required": true
+            }
+          ],
+          "consumed": false,
+          "decision": "raw-overlap-vector-match-not-consumed",
+          "eligible": true,
+          "failed_closed": false,
+          "graph_mutation_consumed_worker_output": false,
+          "mode": "raw-overlap-vector-dry-run-v0",
+          "not_consumed": true,
+          "parsed_records": 27,
+          "proof_fault": "",
+          "proof_fault_applied": false,
+          "rehydrated_records": 27,
+          "schema": "cuflye-read-to-graph-full-query-hit-raw-overlap-rehydration-dry-run-v0",
+          "state": "not-consumed",
+          "status": "passed",
+          "typed_representation": "raw-overlap-vector-dry-run-v0",
+          "typed_row_key_diff": {
+            "extra_examples": [],
+            "extra_rows": 0,
+            "left_records": 27,
+            "matched_rows": 27,
+            "missing_examples": [],
+            "missing_rows": 0,
+            "ordered_match": true,
+            "right_records": 27,
+            "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+            "status": "match"
+          },
+          "worker_records": 27,
+          "worker_tsv": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/request-03/worker/full-query-hit-worker.raw-overlaps.tsv"
+        },
+        "response": {
+          "active_ext_groups": 24,
+          "adapter_mode": "full-query-hit-replay-v0",
+          "device": 0,
+          "device_name": "NVIDIA GB10",
+          "kernel_mode": "parallel-score",
+          "output_records": 27,
+          "output_tsv": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/request-03/worker/full-query-hit-worker.raw-overlaps.tsv",
+          "parallel_threads": 128,
+          "query_count": 16,
+          "raw_overlap_abi": "cuflye-read-to-graph-raw-overlap-v0",
+          "request_id": "read-to-graph-full-query-hit-session-positive_request-03_worker",
+          "request_ordinal": 3,
+          "required_bytes": 2727824,
+          "schema": "cuflye-full-query-hit-worker-response-v0",
+          "source_ext_groups": 47,
+          "source_match_records": 15306,
+          "source_pack_dir": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/source-pack",
+          "status": "ok",
+          "timing_ms": {
+            "device_allocation": 0.0,
+            "device_to_host": 0.050497,
+            "host_pack": 0.0,
+            "host_to_device": 0.0,
+            "kernel": 63.652028,
+            "parse": 0.0,
+            "request_total": 63.867101,
+            "worker_uptime": 39676.605591,
+            "write_output": 0.11904
+          },
+          "worker_context_setup_ms": 8.80336,
+          "worker_cuda_context_warm": true
+        },
+        "shadow_ledger": {
+          "chain_input_filter_rows": 18,
+          "checks": [
+            {
+              "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SHADOW_LEDGER_MODE=raw-overlap-chain-input-shadow-v0",
+              "name": "explicit_shadow_ledger_mode",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6p raw-overlap rehydration must pass before shadow ledger",
+              "name": "rehydration_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "validated worker raw-overlap TSV must be readable",
+              "name": "worker_output_readable",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "shadow ledger audit JSON path must be available",
+              "name": "audit_metadata_available",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "worker output must not have reached graph mutation",
+              "name": "graph_not_mutated",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "ledger row count must match M6p rehydrated record count",
+              "name": "ledger_count_matches_rehydration",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "every ledger row must be counted as unresolved or resolved edge_id",
+              "name": "edge_id_rows_accounted",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6q records shadow eligibility but exposes no graph edge consumption candidates",
+              "name": "graph_edge_consumption_candidates_blocked",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "ledger evaluation must not mutate graph state",
+              "name": "graph_not_mutated_after_ledger",
+              "passed": true,
+              "required": true
+            }
+          ],
+          "consumed": false,
+          "decision": "shadow-ledger-written-not-consumed",
+          "eligible": true,
+          "failed_closed": false,
+          "future_chain_input_shadow_rows": 18,
+          "future_raw_overlap_shadow_rows": 27,
+          "graph_edge_consumption_candidate_rows": 0,
+          "graph_mutation_consumed_worker_output": false,
+          "ledger_rows": 27,
+          "mode": "raw-overlap-chain-input-shadow-v0",
+          "not_consumed": true,
+          "proof_fault": "",
+          "proof_fault_applied": false,
+          "queries": [
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 5,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 84,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 361,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2145,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2146,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2148,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 8,
+              "query_id": 2149,
+              "resolved_edge_id_rows": 8,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2150,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2152,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2154,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 3,
+              "ledger_rows": 3,
+              "query_id": 2157,
+              "resolved_edge_id_rows": 3,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2160,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2161,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2163,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 3,
+              "query_id": 2165,
+              "resolved_edge_id_rows": 3,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2167,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            }
+          ],
+          "rehydrated_records": 27,
+          "rehydration_status": "passed",
+          "resolved_edge_id_rows": 27,
+          "schema": "cuflye-read-to-graph-full-query-hit-shadow-consumption-ledger-v0",
+          "state": "not-consumed",
+          "status": "passed",
+          "unresolved_edge_id_zero_rows": 0,
+          "worker_records": 27,
+          "worker_tsv": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/request-03/worker/full-query-hit-worker.raw-overlaps.tsv"
+        }
+      },
+      {
+        "audit": {
+          "actual_request_timing_ms": {
+            "device_allocation": 0,
+            "host_to_device": 0,
+            "kernel": 63.9215,
+            "parse": 0,
+            "request_total": 64.1161
+          },
+          "actual_worker_cuda_context_warm": true,
+          "decision": "stopped-before-graph-mutation",
+          "graph_facing_validation_timing_ms": {
+            "graph_facing_validation_total": 0.270368,
+            "no_mutation_seam_total": 66.245,
+            "raw_overlap_graph_edge_binding": 0.052368,
+            "raw_overlap_object_vector_smoke": 0.06008,
+            "raw_overlap_rehydration": 0.07384,
+            "raw_overlap_shadow_ledger": 0.060224,
+            "row_key_diff": 0.023856
+          },
+          "graph_mutation_consumed_worker_output": false,
+          "raw_overlap_graph_edge_binding_chain_input_rows": 18,
+          "raw_overlap_graph_edge_binding_live_edge_rows": 18,
+          "raw_overlap_graph_edge_binding_missing_edge_rows": 0,
+          "raw_overlap_graph_edge_binding_resolved_edge_id_rows": 18,
+          "raw_overlap_graph_edge_binding_rows": 18,
+          "raw_overlap_graph_edge_binding_status": "passed",
+          "raw_overlap_object_vector_smoke_accounting_rows": 18,
+          "raw_overlap_object_vector_smoke_edge_summary_rows": 10,
+          "raw_overlap_object_vector_smoke_query_edge_summary_rows": 17,
+          "raw_overlap_object_vector_smoke_query_summary_rows": 16,
+          "raw_overlap_object_vector_smoke_rows": 18,
+          "raw_overlap_object_vector_smoke_status": "passed",
+          "raw_overlap_rehydrated_records": 27,
+          "raw_overlap_rehydration_status": "passed",
+          "raw_overlap_shadow_chain_input_filter_rows": 18,
+          "raw_overlap_shadow_graph_edge_consumption_candidate_rows": 0,
+          "raw_overlap_shadow_ledger_rows": 27,
+          "raw_overlap_shadow_ledger_status": "passed",
+          "raw_overlap_shadow_resolved_edge_id_rows": 27,
+          "raw_overlap_shadow_unresolved_edge_id_zero_rows": 0,
+          "row_key_diff": {
+            "extra_examples": [],
+            "extra_rows": 0,
+            "left_records": 27,
+            "matched_rows": 27,
+            "missing_examples": [],
+            "missing_rows": 0,
+            "ordered_match": false,
+            "right_records": 27,
+            "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+            "status": "match"
+          },
+          "row_key_matched": true,
+          "status": "passed",
+          "worker_session_submit_ms": 65.9746,
+          "worker_wall_ms": 65.9746
+        },
+        "external_row_key_diff": {
+          "extra_examples": [],
+          "extra_rows": 0,
+          "left": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/oracle.raw-overlaps.tsv",
+          "left_records": 27,
+          "left_sha256": "23269fae3946c7c0d108652f962ad1ea3d61773cb1bb33ecdeb3557cb8e989aa",
+          "matched_rows": 27,
+          "missing_examples": [],
+          "missing_rows": 0,
+          "ordered_match": false,
+          "right": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/request-04/worker/full-query-hit-worker.raw-overlaps.tsv",
+          "right_records": 27,
+          "right_sha256": "23269fae3946c7c0d108652f962ad1ea3d61773cb1bb33ecdeb3557cb8e989aa",
+          "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+          "status": "match"
+        },
+        "graph_edge_binding": {
+          "binding_rows": 18,
+          "chain_input_filter_rows": 18,
+          "checks": [
+            {
+              "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_GRAPH_EDGE_BINDING_MODE=graph-edge-binding-dry-run-v0",
+              "name": "explicit_graph_edge_binding_mode",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6p raw-overlap rehydration must pass before graph-edge binding",
+              "name": "rehydration_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6q shadow ledger must pass before graph-edge binding",
+              "name": "shadow_ledger_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "graph-edge binding requires chain-input-positive rows",
+              "name": "chain_input_rows_present",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "validated worker raw-overlap TSV must be readable",
+              "name": "worker_output_readable",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "graph-edge binding audit JSON path must be available",
+              "name": "audit_metadata_available",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "worker output must not have reached graph mutation",
+              "name": "graph_not_mutated",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "binding rows must match M6q chain-input-positive rows",
+              "name": "binding_count_matches_chain_input",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "every binding row must have a resolved nonzero edge_id",
+              "name": "binding_rows_have_resolved_edge_ids",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "every binding row edge_id must map to a live GraphEdge",
+              "name": "binding_rows_have_live_graph_edges",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "graph-edge binding audit must not mutate graph state",
+              "name": "graph_not_mutated_after_binding",
+              "passed": true,
+              "required": true
+            }
+          ],
+          "consumed": false,
+          "decision": "graph-edge-binding-audited-not-consumed",
+          "eligible": true,
+          "failed_closed": false,
+          "graph_mutation_consumed_worker_output": false,
+          "ledger_rows": 27,
+          "ledger_status": "passed",
+          "live_graph_edge_rows": 18,
+          "missing_graph_edge_rows": 0,
+          "mode": "graph-edge-binding-dry-run-v0",
+          "not_consumed": true,
+          "proof_fault": "",
+          "proof_fault_applied": false,
+          "queries": [
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 5,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 84,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 361,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2145,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2146,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2148,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2149,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2150,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2152,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2154,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 3,
+              "live_graph_edge_rows": 3,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2157,
+              "resolved_edge_id_rows": 3
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2160,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2161,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2163,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2165,
+              "resolved_edge_id_rows": 1
+            },
+            {
+              "chain_input_rows": 1,
+              "live_graph_edge_rows": 1,
+              "missing_graph_edge_rows": 0,
+              "query_id": 2167,
+              "resolved_edge_id_rows": 1
+            }
+          ],
+          "resolved_edge_id_rows": 18,
+          "schema": "cuflye-read-to-graph-full-query-hit-graph-edge-binding-dry-run-v0",
+          "state": "not-consumed",
+          "status": "passed",
+          "worker_tsv": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/request-04/worker/full-query-hit-worker.raw-overlaps.tsv"
+        },
+        "index": 4,
+        "name": "request-04",
+        "object_vector_smoke": {
+          "binding_rows": 18,
+          "binding_status": "passed",
+          "chain_input_filter_rows": 18,
+          "checks": [
+            {
+              "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_OBJECT_VECTOR_SMOKE_MODE=object-vector-smoke-v0",
+              "name": "explicit_object_vector_smoke_mode",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6s graph-edge binding must pass before object-vector smoke",
+              "name": "graph_edge_binding_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "object-vector smoke requires nonzero bound rows",
+              "name": "binding_rows_present",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "validated worker raw-overlap TSV must be readable",
+              "name": "worker_output_readable",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "object-vector smoke audit JSON path must be available",
+              "name": "audit_metadata_available",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "worker output must not have reached graph mutation",
+              "name": "graph_not_mutated",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "constructed object count must match M6s binding rows",
+              "name": "constructed_objects_match_binding_rows",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "every constructed object must have a live GraphEdge",
+              "name": "constructed_objects_have_live_graph_edges",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "accounting must cover every constructed object",
+              "name": "accounting_rows_match_constructed_objects",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "query accounting rows must sum to constructed objects",
+              "name": "query_accounting_covers_objects",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "edge accounting rows must sum to constructed objects",
+              "name": "edge_accounting_covers_objects",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "query-edge accounting rows must sum to constructed objects",
+              "name": "query_edge_accounting_covers_objects",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "object-vector smoke must not mutate graph state",
+              "name": "graph_not_mutated_after_object_vector",
+              "passed": true,
+              "required": true
+            }
+          ],
+          "consumed": false,
+          "decision": "object-vector-smoke-audited-not-consumed",
+          "edge_accounted_rows": 18,
+          "edge_summary_rows": 10,
+          "edges": [
+            {
+              "edge_id": -12,
+              "object_rows": 1
+            },
+            {
+              "edge_id": -11,
+              "object_rows": 1
+            },
+            {
+              "edge_id": -10,
+              "object_rows": 2
+            },
+            {
+              "edge_id": -9,
+              "object_rows": 1
+            },
+            {
+              "edge_id": -8,
+              "object_rows": 5
+            },
+            {
+              "edge_id": -6,
+              "object_rows": 1
+            },
+            {
+              "edge_id": 8,
+              "object_rows": 3
+            },
+            {
+              "edge_id": 10,
+              "object_rows": 2
+            },
+            {
+              "edge_id": 11,
+              "object_rows": 1
+            },
+            {
+              "edge_id": 12,
+              "object_rows": 1
+            }
+          ],
+          "eligible": true,
+          "failed_closed": false,
+          "graph_mutation_consumed_worker_output": false,
+          "missing_graph_edge_rows": 0,
+          "mode": "object-vector-smoke-v0",
+          "not_consumed": true,
+          "object_accounting_rows": 18,
+          "object_rows": 18,
+          "proof_fault": "",
+          "proof_fault_applied": false,
+          "queries": [
+            {
+              "object_rows": 1,
+              "query_id": 5
+            },
+            {
+              "object_rows": 1,
+              "query_id": 84
+            },
+            {
+              "object_rows": 1,
+              "query_id": 361
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2145
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2146
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2148
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2149
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2150
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2152
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2154
+            },
+            {
+              "object_rows": 3,
+              "query_id": 2157
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2160
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2161
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2163
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2165
+            },
+            {
+              "object_rows": 1,
+              "query_id": 2167
+            }
+          ],
+          "query_accounted_rows": 18,
+          "query_edge_accounted_rows": 18,
+          "query_edge_summary_rows": 17,
+          "query_edges": [
+            {
+              "edge_id": -8,
+              "object_rows": 1,
+              "query_id": 5
+            },
+            {
+              "edge_id": -10,
+              "object_rows": 1,
+              "query_id": 84
+            },
+            {
+              "edge_id": -8,
+              "object_rows": 1,
+              "query_id": 361
+            },
+            {
+              "edge_id": -8,
+              "object_rows": 1,
+              "query_id": 2145
+            },
+            {
+              "edge_id": -11,
+              "object_rows": 1,
+              "query_id": 2146
+            },
+            {
+              "edge_id": -10,
+              "object_rows": 1,
+              "query_id": 2148
+            },
+            {
+              "edge_id": -6,
+              "object_rows": 1,
+              "query_id": 2149
+            },
+            {
+              "edge_id": -12,
+              "object_rows": 1,
+              "query_id": 2150
+            },
+            {
+              "edge_id": 8,
+              "object_rows": 1,
+              "query_id": 2152
+            },
+            {
+              "edge_id": 8,
+              "object_rows": 1,
+              "query_id": 2154
+            },
+            {
+              "edge_id": -8,
+              "object_rows": 2,
+              "query_id": 2157
+            },
+            {
+              "edge_id": 10,
+              "object_rows": 1,
+              "query_id": 2157
+            },
+            {
+              "edge_id": 8,
+              "object_rows": 1,
+              "query_id": 2160
+            },
+            {
+              "edge_id": 12,
+              "object_rows": 1,
+              "query_id": 2161
+            },
+            {
+              "edge_id": -9,
+              "object_rows": 1,
+              "query_id": 2163
+            },
+            {
+              "edge_id": 10,
+              "object_rows": 1,
+              "query_id": 2165
+            },
+            {
+              "edge_id": 11,
+              "object_rows": 1,
+              "query_id": 2167
+            }
+          ],
+          "query_summary_rows": 16,
+          "schema": "cuflye-read-to-graph-full-query-hit-object-vector-smoke-v0",
+          "state": "not-consumed",
+          "status": "passed",
+          "worker_tsv": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/request-04/worker/full-query-hit-worker.raw-overlaps.tsv"
+        },
+        "rehydration": {
+          "checks": [
+            {
+              "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_REHYDRATION_MODE=raw-overlap-vector-dry-run-v0",
+              "name": "explicit_rehydration_mode",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6l/M6n full-query-hit worker row-key diff must pass first",
+              "name": "worker_row_key_parity_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "validated worker raw-overlap TSV must be readable",
+              "name": "worker_output_readable",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "raw-overlap rehydration audit JSON path must be available",
+              "name": "audit_metadata_available",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "worker output must not have reached graph mutation",
+              "name": "graph_not_mutated",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "rehydrated record count must match validated worker row count",
+              "name": "rehydrated_count_matches_worker",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "rehydrated Flye-side row keys must match validated worker row keys",
+              "name": "typed_row_keys_match_worker",
+              "passed": true,
+              "required": true
+            }
+          ],
+          "consumed": false,
+          "decision": "raw-overlap-vector-match-not-consumed",
+          "eligible": true,
+          "failed_closed": false,
+          "graph_mutation_consumed_worker_output": false,
+          "mode": "raw-overlap-vector-dry-run-v0",
+          "not_consumed": true,
+          "parsed_records": 27,
+          "proof_fault": "",
+          "proof_fault_applied": false,
+          "rehydrated_records": 27,
+          "schema": "cuflye-read-to-graph-full-query-hit-raw-overlap-rehydration-dry-run-v0",
+          "state": "not-consumed",
+          "status": "passed",
+          "typed_representation": "raw-overlap-vector-dry-run-v0",
+          "typed_row_key_diff": {
+            "extra_examples": [],
+            "extra_rows": 0,
+            "left_records": 27,
+            "matched_rows": 27,
+            "missing_examples": [],
+            "missing_rows": 0,
+            "ordered_match": true,
+            "right_records": 27,
+            "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+            "status": "match"
+          },
+          "worker_records": 27,
+          "worker_tsv": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/request-04/worker/full-query-hit-worker.raw-overlaps.tsv"
+        },
+        "response": {
+          "active_ext_groups": 24,
+          "adapter_mode": "full-query-hit-replay-v0",
+          "device": 0,
+          "device_name": "NVIDIA GB10",
+          "kernel_mode": "parallel-score",
+          "output_records": 27,
+          "output_tsv": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/request-04/worker/full-query-hit-worker.raw-overlaps.tsv",
+          "parallel_threads": 128,
+          "query_count": 16,
+          "raw_overlap_abi": "cuflye-read-to-graph-raw-overlap-v0",
+          "request_id": "read-to-graph-full-query-hit-session-positive_request-04_worker",
+          "request_ordinal": 4,
+          "required_bytes": 2727824,
+          "schema": "cuflye-full-query-hit-worker-response-v0",
+          "source_ext_groups": 47,
+          "source_match_records": 15306,
+          "source_pack_dir": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/source-pack",
+          "status": "ok",
+          "timing_ms": {
+            "device_allocation": 0.0,
+            "device_to_host": 0.05424,
+            "host_pack": 0.0,
+            "host_to_device": 0.0,
+            "kernel": 63.921535,
+            "parse": 0.0,
+            "request_total": 64.116144,
+            "worker_uptime": 53173.083301,
+            "write_output": 0.097121
+          },
+          "worker_context_setup_ms": 8.80336,
+          "worker_cuda_context_warm": true
+        },
+        "shadow_ledger": {
+          "chain_input_filter_rows": 18,
+          "checks": [
+            {
+              "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SHADOW_LEDGER_MODE=raw-overlap-chain-input-shadow-v0",
+              "name": "explicit_shadow_ledger_mode",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6p raw-overlap rehydration must pass before shadow ledger",
+              "name": "rehydration_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "validated worker raw-overlap TSV must be readable",
+              "name": "worker_output_readable",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "shadow ledger audit JSON path must be available",
+              "name": "audit_metadata_available",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "worker output must not have reached graph mutation",
+              "name": "graph_not_mutated",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "ledger row count must match M6p rehydrated record count",
+              "name": "ledger_count_matches_rehydration",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "every ledger row must be counted as unresolved or resolved edge_id",
+              "name": "edge_id_rows_accounted",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6q records shadow eligibility but exposes no graph edge consumption candidates",
+              "name": "graph_edge_consumption_candidates_blocked",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "ledger evaluation must not mutate graph state",
+              "name": "graph_not_mutated_after_ledger",
+              "passed": true,
+              "required": true
+            }
+          ],
+          "consumed": false,
+          "decision": "shadow-ledger-written-not-consumed",
+          "eligible": true,
+          "failed_closed": false,
+          "future_chain_input_shadow_rows": 18,
+          "future_raw_overlap_shadow_rows": 27,
+          "graph_edge_consumption_candidate_rows": 0,
+          "graph_mutation_consumed_worker_output": false,
+          "ledger_rows": 27,
+          "mode": "raw-overlap-chain-input-shadow-v0",
+          "not_consumed": true,
+          "proof_fault": "",
+          "proof_fault_applied": false,
+          "queries": [
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 5,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 84,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 361,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2145,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2146,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2148,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 8,
+              "query_id": 2149,
+              "resolved_edge_id_rows": 8,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2150,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2152,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2154,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 3,
+              "ledger_rows": 3,
+              "query_id": 2157,
+              "resolved_edge_id_rows": 3,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2160,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2161,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2163,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 3,
+              "query_id": 2165,
+              "resolved_edge_id_rows": 3,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2167,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            }
+          ],
+          "rehydrated_records": 27,
+          "rehydration_status": "passed",
+          "resolved_edge_id_rows": 27,
+          "schema": "cuflye-read-to-graph-full-query-hit-shadow-consumption-ledger-v0",
+          "state": "not-consumed",
+          "status": "passed",
+          "unresolved_edge_id_zero_rows": 0,
+          "worker_records": 27,
+          "worker_tsv": "/tmp/cuflye-m8e-proof-20260701T170000Z/positive/request-04/worker/full-query-hit-worker.raw-overlaps.tsv"
+        }
+      }
+    ],
+    "session_complete": {
+      "device": 0,
+      "device_name": "NVIDIA GB10",
+      "free_bytes": 112409243648,
+      "pid": 3541052,
+      "schema": "cuflye-full-query-hit-worker-session-v0",
+      "status": "complete",
+      "total_bytes": 130594660352,
+      "worker_context_setup_ms": 8.80336,
+      "worker_device_arena_capacity_bytes": 2727824,
+      "worker_device_arena_enabled": true,
+      "worker_replay_session_initialized": true,
+      "worker_session_dir": "/tmp/cuflye-m8e-proof-20260701T170000Z/session",
+      "worker_session_max_requests": 4,
+      "worker_session_poll_ms": 2,
+      "worker_session_processed_requests": 4,
+      "worker_session_timeout_ms": 600000
+    },
+    "speedup_vs_m8a_quick_overlap": {
+      "all_no_mutation_seam_total_avg": 1.1518149986745154,
+      "warm_no_mutation_seam_total_avg": 1.1924058109913995,
+      "warm_request_total_avg": 1.2399641762917757,
+      "warm_worker_wall_avg": 1.1980514278720995
+    },
+    "timing_summary_ms": {
+      "all_no_mutation_seam_total_avg": 68.84275,
+      "all_request_total_avg": 66.10731625,
+      "all_worker_wall_avg": 68.52827500000001,
+      "cold_no_mutation_seam_total": 75.8732,
+      "cold_request_total": 72.583129,
+      "cold_worker_wall": 75.5554,
+      "warm_graph_facing_validation_total_avg": 0.313323,
+      "warm_kernel_avg": 63.74210300000001,
+      "warm_no_mutation_seam_total_avg": 66.49926666666666,
+      "warm_raw_overlap_graph_edge_binding_avg": 0.05335466666666666,
+      "warm_raw_overlap_object_vector_smoke_avg": 0.061664,
+      "warm_raw_overlap_rehydration_avg": 0.11347766666666666,
+      "warm_raw_overlap_shadow_ledger_avg": 0.056768000000000006,
+      "warm_request_total_avg": 63.948712,
+      "warm_row_key_diff_avg": 0.028058666666666666,
+      "warm_worker_wall_avg": 66.1859
+    },
+    "worker_lifecycle_mode": "session-file-v0"
+  },
+  "proof_root": "/tmp/cuflye-m8e-proof-20260701T170000Z",
+  "schema": "cuflye-m8e-selected-graph-binding-object-proof-v0",
+  "source_pack": {
+    "canonical_sha256": "5fb1df86185f3cdce0bc0c15087b7bead53db6d46b523740650d4092a89c25aa",
+    "query_count": 16,
+    "query_ids": [
+      5,
+      84,
+      361,
+      2145,
+      2146,
+      2148,
+      2149,
+      2150,
+      2152,
+      2154,
+      2157,
+      2160,
+      2161,
+      2163,
+      2165,
+      2167
+    ],
+    "total_counts": {
+      "chain_input_records": 18,
+      "edge_sequence_records": 47,
+      "full_query_hit_records": 15306,
+      "index_bucket_records": 15159,
+      "query_minimizers": 17069,
+      "raw_overlap_records": 27
+    },
+    "validation_status": "ok"
+  },
+  "summary_checks_passed": 25,
+  "summary_checks_required": 25,
+  "work_root": "/tmp/cuflye-m8e-work-local-20260701T165631Z/cuFlye"
+}

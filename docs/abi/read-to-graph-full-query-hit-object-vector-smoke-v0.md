@@ -104,3 +104,34 @@ Required summary fields:
 
 M6t does not prove whole-Flye speedup, graph mutation, object substitution,
 default GPU mode, or GPU-computed chain-input filtering/edge identity.
+
+## M8e Selected Proof
+
+M8e reused this object-vector smoke gate for the M8 selected source pack after
+`session-file-v0`, row-key diff, raw-overlap rehydration, shadow-ledger
+accounting, and graph-edge binding all passed.
+
+The DGX proof records:
+
+```text
+schema=cuflye-m8e-selected-graph-binding-object-proof-v0
+source_pack_sha256=5fb1df86185f3cdce0bc0c15087b7bead53db6d46b523740650d4092a89c25aa
+raw_overlap_records=27
+chain_input_records=18
+graph_edge_binding_rows=18
+live_graph_edge_rows=18
+object_vector_smoke_rows=18
+object_accounting_rows=18
+warm_graph_edge_binding_avg_ms=0.05335466666666666
+warm_object_vector_smoke_avg_ms=0.061664
+warm_graph_facing_validation_total_avg_ms=0.313323
+warm_no_mutation_seam_total_avg_ms=66.49926666666666
+warm_no_mutation_seam_speedup_vs_m8a=1.1924058109913995
+summary_checks_passed=25/25
+```
+
+The M8e negative proof applies
+`CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_OBJECT_VECTOR_SMOKE_PROOF_FAULT=drop-first-object-accounting-row`.
+Rehydration, shadow ledger, and graph-edge binding still pass; object-vector
+smoke fails because `18` constructed rows become `17` accounting rows, and Flye
+exits before any graph mutation consumes worker output.
