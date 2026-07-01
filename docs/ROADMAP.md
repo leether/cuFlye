@@ -4930,3 +4930,94 @@ M8c: move the M8b selected source pack through the Flye-side full-query-hit
 worker/session seam and measure end-to-end seam overhead before any
 graph-consuming mutation canary.
 ```
+
+## 2026-07-01 Update: M8c Flye-Side M8b Worker Session Seam
+
+Status: completed.
+
+Task Card:
+
+- `docs/tasks/2026-07-01-cuflye-m8c-flye-side-m8b-worker-session-seam.md`
+
+Golden proof:
+
+- `tests/golden/cuflye-m8c-flye-side-m8b-worker-session-seam-dgx-aarch64.json`
+
+What changed:
+
+- Reused the exact M8b selected source pack and query ids through the
+  Flye-side `session-file-v0` full-query-hit worker seam.
+- Measured cold, warm, kernel, request-total, worker-wall, and seam overhead
+  for a four-request file-backed session.
+- Replayed the M8a chain-input oracle pack and compared the M8c source pack
+  against the M8b canonical SHA.
+- Preserved default CPU Flye artifacts and kept the memory-budget negative
+  proof fail-closed before graph mutation.
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m8c-proof-20260701T220000Z
+fixture=toy-hifi
+selected_query_count=16
+selected_query_ids=2145,2160,2146,2152,2161,2167,2148,2154,2157,2163,2165,2149,84,2150,5,361
+m8a_selected_quick_overlap_ms=79.294112
+m8b_source_pack_sha256=5fb1df86185f3cdce0bc0c15087b7bead53db6d46b523740650d4092a89c25aa
+m8c_source_pack_diff_vs_m8b=match
+source_pack_full_query_hit_records=15306
+source_pack_index_bucket_records=15159
+source_pack_query_minimizers=17069
+source_pack_edge_sequence_records=47
+source_pack_raw_overlap_records=27
+source_pack_chain_input_records=18
+file_session_request_count=4
+cold_worker_wall_ms=80.882
+cold_request_total_ms=80.066843
+warm_worker_wall_avg_ms=65.99733333333333
+warm_request_total_avg_ms=64.10740700000001
+warm_kernel_avg_ms=63.89005699999999
+worker_wall_minus_request_total_avg_ms=1.8899263333333184
+request_total_minus_kernel_avg_ms=0.21735000000002036
+warm_worker_wall_speedup_vs_m8a_quick_overlap=1.201474483817528
+warm_request_total_speedup_vs_m8a_quick_overlap=1.2368947007948705
+amortized_worker_wall_speedup_vs_m8a_quick_overlap=1.1373467874380543
+m8a_chain_input_oracle_replay=match
+default_cpu_artifacts=match
+negative_status=failed-before-graph-mutation
+negative_error="CUDA full-query-hit worker session request failed: required bytes exceed memory budget"
+negative_graph_mutation_consumed_worker_output=false
+summary_checks_passed=14/14
+```
+
+Allowed M8c claim:
+
+```text
+M8c proves the M8b selected full-query-hit worker/session seam preserves the
+bounded hot-path CUDA advantage in Flye-side dry-run mode: warm worker wall
+time remains below the matched Flye quick-overlap baseline, row-key parity
+holds, and negative memory-budget output fails closed before graph mutation.
+```
+
+Forbidden M8c claim:
+
+```text
+M8c does not prove graph mutation, default GPU mode, full non-key raw-overlap
+field parity, production daemon lifecycle, or whole-Flye speedup.
+```
+
+Plain-language benefit:
+
+```text
+M8c shows the standalone M8b CUDA advantage survives the Flye-side session
+seam. Warm Flye seam wall time averages 65.997333 ms versus the matched CPU
+quick-overlap baseline 79.294112 ms, or 1.201x faster, while still stopping
+before graph mutation.
+```
+
+Next highest-ROI task:
+
+```text
+M8d: add an M8b/M8c-specific guarded rehydration or shadow-consumption proof
+that keeps the same selected source pack and measures whether graph-facing
+validation overhead preserves the seam advantage.
+```

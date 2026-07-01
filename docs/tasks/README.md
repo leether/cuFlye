@@ -11,12 +11,18 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m8c-flye-side-m8b-worker-session-seam.md`:
-  move the M8b selected source pack through the Flye-side worker/session seam
-  and measure whether seam overhead preserves the standalone hot-path
-  advantage.
+- `2026-07-01-cuflye-m8d-m8c-guarded-rehydration-shadow-consumption.md`:
+  keep the same M8b/M8c selected source pack, add guarded rehydration or
+  shadow consumption, and measure whether graph-facing validation overhead
+  preserves the bounded seam advantage.
 
 Completed cards:
+
+- `2026-07-01-cuflye-m8c-flye-side-m8b-worker-session-seam.md`:
+  move the M8b selected source pack through the Flye-side worker/session seam,
+  prove row-key parity and fail-closed behavior, and show warm seam wall time
+  stays below the matched Flye quick-overlap baseline at `65.997333 ms`
+  versus `79.294112 ms`.
 
 - `2026-07-01-cuflye-m8b-full-query-hit-source-pack-for-m8a-target.md`:
   capture a full-query-hit source pack for the M8a selected query ids and run

@@ -196,6 +196,32 @@ query_id, read_id, read_begin, read_end, read_len,
 edge_seq_id, edge_begin, edge_end, edge_len, score
 ```
 
+## M8c Selected M8b Seam Proof
+
+M8c reused the M8b selected full-query-hit source pack through the
+`session-file-v0` Flye-side dry-run seam:
+
+```text
+proof_root=/tmp/cuflye-m8c-proof-20260701T220000Z
+source_pack_sha256=5fb1df86185f3cdce0bc0c15087b7bead53db6d46b523740650d4092a89c25aa
+selected_query_count=16
+full_query_hit_records=15306
+raw_overlap_records=27
+chain_input_records=18
+m8a_selected_quick_overlap_ms=79.294112
+m8c_warm_worker_wall_avg_ms=65.99733333333333
+m8c_warm_request_total_avg_ms=64.10740700000001
+m8c_warm_kernel_avg_ms=63.89005699999999
+m8c_warm_worker_wall_speedup_vs_m8a=1.201474483817528
+```
+
+The proof requires row-key diff `match`, default CPU artifact parity, M8a
+chain-input replay `match`, and a memory-budget negative request that fails
+closed before graph mutation.
+
+M8c is still a dry-run seam proof. It does not make CUDA the default path and
+does not authorize graph mutation from worker output.
+
 ## Non-Goals
 
 M6n does not:
