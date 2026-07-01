@@ -239,3 +239,5 @@ M6 read-to-graph input-boundary proof:
   `cuflye-m8b-full-query-hit-source-pack-for-m8a-target-dgx-aarch64.json`
 - Flye-side M8b worker session seam manifest:
   `cuflye-m8c-flye-side-m8b-worker-session-seam-dgx-aarch64.json`
+- M8c guarded rehydration/shadow consumption manifest:
+  `cuflye-m8d-m8c-guarded-rehydration-shadow-consumption-dgx-aarch64.json`

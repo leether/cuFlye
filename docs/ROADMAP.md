@@ -5021,3 +5021,95 @@ M8d: add an M8b/M8c-specific guarded rehydration or shadow-consumption proof
 that keeps the same selected source pack and measures whether graph-facing
 validation overhead preserves the seam advantage.
 ```
+
+## 2026-07-01 Update: M8d Guarded Rehydration Shadow Consumption
+
+Status: completed.
+
+Task Card:
+
+- `docs/tasks/2026-07-01-cuflye-m8d-m8c-guarded-rehydration-shadow-consumption.md`
+
+Golden proof:
+
+- `tests/golden/cuflye-m8d-m8c-guarded-rehydration-shadow-consumption-dgx-aarch64.json`
+
+What changed:
+
+- Added `0058-cuflye-read-to-graph-full-query-hit-graph-facing-timing.patch`
+  so Flye dry-run audits separate row-key diff, raw-overlap rehydration,
+  shadow-ledger accounting, validation total, and no-mutation seam total.
+- Added `scripts/run_m8d_guarded_shadow_proof.sh` to run the M8 selected pack
+  through `session-file-v0`, M6p raw-overlap rehydration, and M6q shadow-ledger
+  gates.
+- Added both a memory-budget fail-closed negative and a shadow-ledger proof
+  fault negative.
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m8d-proof-20260701T231500Z
+fixture=toy-hifi
+selected_query_count=16
+selected_query_ids=2145,2160,2146,2152,2161,2167,2148,2154,2157,2163,2165,2149,84,2150,5,361
+m8a_selected_quick_overlap_ms=79.294112
+m8b_source_pack_sha256=5fb1df86185f3cdce0bc0c15087b7bead53db6d46b523740650d4092a89c25aa
+source_pack_full_query_hit_records=15306
+source_pack_index_bucket_records=15159
+source_pack_query_minimizers=17069
+source_pack_edge_sequence_records=47
+source_pack_raw_overlap_records=27
+source_pack_chain_input_records=18
+file_session_request_count=4
+warm_worker_wall_avg_ms=65.8929
+warm_request_total_avg_ms=64.05510933333333
+warm_kernel_avg_ms=63.799129666666666
+warm_row_key_diff_avg_ms=0.03248033333333333
+warm_raw_overlap_rehydration_avg_ms=0.09726966666666666
+warm_raw_overlap_shadow_ledger_avg_ms=0.07991
+warm_graph_facing_validation_total_avg_ms=0.20966000000000004
+warm_no_mutation_seam_total_avg_ms=66.1026
+warm_no_mutation_seam_speedup_vs_m8a=1.1995611670342772
+all_no_mutation_seam_speedup_vs_m8a=1.163573227464275
+m8a_chain_input_oracle_replay=match
+default_cpu_artifacts=match
+negative_memory_status=failed-before-graph-mutation
+negative_ledger_status=shadow-ledger-failed-before-graph-mutation
+negative_ledger_rehydration_status=passed
+negative_ledger_shadow_status=failed
+negative_graph_mutation_consumed_worker_output=false
+summary_checks_passed=17/17
+```
+
+Allowed M8d claim:
+
+```text
+M8d proves the M8c worker/session seam can also pass guarded raw-overlap
+rehydration and shadow-ledger accounting while preserving the bounded selected
+hot-path CUDA advantage in no-mutation mode.
+```
+
+Forbidden M8d claim:
+
+```text
+M8d does not prove default GPU mode, unguarded graph mutation, GraphEdge
+object-vector consumption, full non-key raw-overlap field parity, or
+whole-Flye speedup.
+```
+
+Plain-language benefit:
+
+```text
+M8d shows the graph-facing validation layer does not erase the M8c CUDA
+advantage on the selected pack: warm no-mutation seam total averages
+66.102600 ms versus the matched CPU quick-overlap baseline 79.294112 ms, or
+1.200x faster.
+```
+
+Next highest-ROI task:
+
+```text
+M8e: move from shadow ledger to the next guarded selected graph-facing
+binding/object proof only if the M8d warm no-mutation seam remains below the
+matched CPU quick-overlap baseline.
+```

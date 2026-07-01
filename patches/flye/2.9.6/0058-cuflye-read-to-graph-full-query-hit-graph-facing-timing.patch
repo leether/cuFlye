@@ -1,0 +1,89 @@
+diff --git a/src/repeat_graph/read_aligner.cpp b/src/repeat_graph/read_aligner.cpp
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -546,6 +546,11 @@ namespace
+ 		double actualParseMs = 0.0;
+ 		double actualDeviceAllocationMs = 0.0;
+ 		double actualHostToDeviceMs = 0.0;
++		double rowKeyDiffMs = 0.0;
++		double rawOverlapRehydrationMs = 0.0;
++		double rawOverlapShadowLedgerMs = 0.0;
++		double graphFacingValidationMs = 0.0;
++		double noMutationSeamTotalMs = 0.0;
+ 		ReadToGraphRawOverlapRowKeyDiff diff;
+ 	};
+ 
+@@ -4145,6 +4150,17 @@ namespace
+ 			 << "    \"host_to_device\": "
+ 			 << result.actualHostToDeviceMs << "\n"
+ 			 << "  },\n"
++				 << "  \"graph_facing_validation_timing_ms\": {\n"
++				 << "    \"row_key_diff\": " << result.rowKeyDiffMs << ",\n"
++				 << "    \"raw_overlap_rehydration\": "
++				 << result.rawOverlapRehydrationMs << ",\n"
++				 << "    \"raw_overlap_shadow_ledger\": "
++				 << result.rawOverlapShadowLedgerMs << ",\n"
++				 << "    \"graph_facing_validation_total\": "
++				 << result.graphFacingValidationMs << ",\n"
++				 << "    \"no_mutation_seam_total\": "
++				 << result.noMutationSeamTotalMs << "\n"
++				 << "  },\n"
+ 				 << "  \"expected_output_records\": "
+ 				 << result.expectedOutputRecords << ",\n"
+ 				 << "  \"raw_overlap_rehydrated_records\": "
+@@ -4490,10 +4507,13 @@ namespace
+ 					result.workerOutputTsv);
+ 			}
+ 
+-			auto workerKeys =
+-				readToGraphRawOverlapRowKeys(result.workerOutputTsv);
+-			result.diff = compareReadToGraphRawOverlapRowKeys(
+-				oracleKeys, workerKeys);
++				auto rowKeyDiffStart = std::chrono::steady_clock::now();
++				auto workerKeys =
++					readToGraphRawOverlapRowKeys(result.workerOutputTsv);
++				result.diff = compareReadToGraphRawOverlapRowKeys(
++					oracleKeys, workerKeys);
++				result.rowKeyDiffMs = readAlignmentElapsedMs(
++					rowKeyDiffStart, std::chrono::steady_clock::now());
+ 			result.rowKeyMatched = result.diff.matched;
+ 				if (!result.rowKeyMatched)
+ 				{
+@@ -4506,19 +4526,25 @@ namespace
+ 				result.workerOutputConsumptionEligible = true;
+ 				if (readToGraphFullQueryHitRawOverlapRehydrationEnabled())
+ 				{
++					auto rehydrationStart = std::chrono::steady_clock::now();
+ 					auto rehydration = evaluateReadToGraphRawOverlapRehydration(
+ 						result, workerKeys);
+ 					captureReadToGraphRawOverlapRehydrationResult(
+ 						result, rehydration);
+ 					writeReadToGraphRawOverlapRehydrationJson(
+ 						result.rawOverlapRehydrationJson, rehydration);
++					result.rawOverlapRehydrationMs = readAlignmentElapsedMs(
++						rehydrationStart, std::chrono::steady_clock::now());
+ 					if (readToGraphFullQueryHitShadowLedgerEnabled())
+ 					{
++						auto ledgerStart = std::chrono::steady_clock::now();
+ 						auto ledger = evaluateReadToGraphFullQueryHitShadowLedger(
+ 							result, rehydration);
+ 						captureReadToGraphFullQueryHitShadowLedgerResult(
+ 							result, ledger);
+ 						writeReadToGraphFullQueryHitShadowLedgerJson(
+ 							result.rawOverlapShadowLedgerJson, ledger);
++						result.rawOverlapShadowLedgerMs = readAlignmentElapsedMs(
++							ledgerStart, std::chrono::steady_clock::now());
+ 						if (readToGraphFullQueryHitGraphEdgeBindingEnabled())
+ 						{
+@@ -4565,6 +4592,11 @@ namespace
+ 					result.failedClosed = false;
+ 					result.graphMutationConsumedWorkerOutput = false;
+ 				}
++				result.graphFacingValidationMs = result.rowKeyDiffMs +
++					result.rawOverlapRehydrationMs +
++					result.rawOverlapShadowLedgerMs;
++				result.noMutationSeamTotalMs = result.workerWallMs +
++					result.graphFacingValidationMs;
+ 			}
+ 			catch (const std::exception& exc)
+ 			{

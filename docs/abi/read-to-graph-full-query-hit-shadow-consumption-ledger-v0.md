@@ -115,3 +115,26 @@ shows that the current CUDA full-query-hit rows are good enough for future
 raw-overlap shadowing, but the selected proof exposes zero chain-input rows and
 zero graph-edge consumption candidates. The next blocker is therefore a narrower
 chain-input or graph-edge identity gate, not row-key parity or typed parsing.
+
+## M8d Selected Seam Timing
+
+M8d reused the M8b/M8c selected source pack with `session-file-v0`,
+raw-overlap rehydration, and the shadow ledger enabled. The Flye dry-run audit
+records:
+
+```json
+{
+  "graph_facing_validation_timing_ms": {
+    "row_key_diff": 0.03248033333333333,
+    "raw_overlap_rehydration": 0.09726966666666666,
+    "raw_overlap_shadow_ledger": 0.07991,
+    "graph_facing_validation_total": 0.20966000000000004,
+    "no_mutation_seam_total": 66.1026
+  }
+}
+```
+
+The M8d DGX proof records `27` rehydrated rows, `27` shadow-ledger rows, and
+`18` chain-input-filter rows for the selected pack. A shadow-ledger proof fault
+drops one ledger row after rehydration passes and fails closed before graph
+mutation.

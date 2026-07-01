@@ -128,6 +128,13 @@ The positive path records:
     "device_allocation": 0,
     "host_to_device": 0
   },
+  "graph_facing_validation_timing_ms": {
+    "row_key_diff": 0.032,
+    "raw_overlap_rehydration": 0.097,
+    "raw_overlap_shadow_ledger": 0.080,
+    "graph_facing_validation_total": 0.210,
+    "no_mutation_seam_total": 66.103
+  },
   "row_key_matched": true,
   "worker_output_consumption_eligible": true,
   "graph_mutation_consumed_worker_output": false
@@ -166,6 +173,11 @@ warm request but does not expand correctness beyond the row key.
 M6n keeps the same row-key claim for `session-file-v0`. It adds session attach
 metadata and proves that a second separate Flye seam request can reuse the same
 worker process with `worker_cuda_context_warm=true`.
+
+M8d adds `graph_facing_validation_timing_ms` when raw-overlap rehydration or
+shadow-ledger modes are enabled. The fields separate row-key diff,
+rehydration, shadow-ledger accounting, their validation total, and the
+no-mutation seam total used for bounded M8 performance claims.
 
 ## Non-Goals
 

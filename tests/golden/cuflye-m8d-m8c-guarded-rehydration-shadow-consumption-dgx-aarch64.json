@@ -1,0 +1,2002 @@
+{
+  "allowed_claim": "M8d proves the M8c worker/session seam can also pass guarded raw-overlap rehydration and shadow-ledger accounting while preserving the bounded selected hot-path advantage in no-mutation mode.",
+  "checks": {
+    "all_rehydration_passed": true,
+    "all_shadow_ledgers_passed": true,
+    "all_worker_row_key_diffs_match": true,
+    "default_cpu_artifacts_unchanged": true,
+    "m8a_chain_input_oracle_replay_match": true,
+    "negative_ledger_fails_closed_before_graph_mutation": true,
+    "negative_ledger_source_pack_matches_m8b_sha": true,
+    "negative_memory_fails_closed_before_graph_mutation": true,
+    "rehydrated_rows_match_worker_rows": true,
+    "selected_cpu_oracle_shape_matches": true,
+    "session_processed_four_requests": true,
+    "shadow_rows_match_rehydrated_rows": true,
+    "source_pack_matches_m8b_sha": true,
+    "source_pack_query_ids_match_selected": true,
+    "source_pack_status_ok": true,
+    "warm_no_mutation_seam_below_m8a_quick_overlap": true,
+    "warm_requests_report_cuda_context_warm": true
+  },
+  "default_cpu_artifacts": {
+    "artifact_hashes_match_m0_golden": true,
+    "comparison": {
+      "current_records": 9,
+      "extra": [],
+      "golden_records": 9,
+      "mismatch": {},
+      "missing": [],
+      "status": "match"
+    }
+  },
+  "fixture": "toy-hifi",
+  "forbidden_claim": "M8d does not prove default GPU mode, unguarded graph mutation, GraphEdge object-vector consumption, full non-key raw-overlap field parity, or whole-Flye speedup.",
+  "m8a_baseline": {
+    "selected_query_ids": [
+      2145,
+      2160,
+      2146,
+      2152,
+      2161,
+      2167,
+      2148,
+      2154,
+      2157,
+      2163,
+      2165,
+      2149,
+      84,
+      2150,
+      5,
+      361
+    ],
+    "selected_quick_overlap_ms": 79.294112
+  },
+  "m8a_chain_input_oracle_replay": {
+    "oracle_chain_input_records": 18,
+    "oracle_chain_input_sha256": "29c55787d424486c60036a892390d6d403724d44a5878ce4091976d8c324c992",
+    "pack_dir": "/tmp/cuflye-m8a-proof-20260701T203000Z/oracle-pack",
+    "pack_schema": "cuflye-read-to-graph-input-boundary-replay-pack-v0",
+    "raw_overlap_records": 27,
+    "replay_contract": {
+      "filter": "passes_chain_input_filter == 1",
+      "requires_unique_chain_input_read_begin": true,
+      "sort_key": [
+        "query_id",
+        "read_begin"
+      ]
+    },
+    "replayed_chain_input_records": 18,
+    "replayed_chain_input_sha256": "29c55787d424486c60036a892390d6d403724d44a5878ce4091976d8c324c992",
+    "schema": "cuflye-read-to-graph-input-boundary-replay-result-v0",
+    "selected_query_count": 16,
+    "selected_query_ids": [
+      5,
+      84,
+      361,
+      2145,
+      2146,
+      2148,
+      2149,
+      2150,
+      2152,
+      2154,
+      2157,
+      2160,
+      2161,
+      2163,
+      2165,
+      2167
+    ],
+    "status": "match"
+  },
+  "m8b_reference": {
+    "source_pack_canonical_sha256": "5fb1df86185f3cdce0bc0c15087b7bead53db6d46b523740650d4092a89c25aa"
+  },
+  "negative_memory_fail_closed": {
+    "audit": {
+      "decision": "fail-closed-before-graph-mutation",
+      "error": "CUDA full-query-hit worker session request failed: required bytes exceed memory budget",
+      "failed_closed": true,
+      "graph_mutation_consumed_worker_output": false,
+      "status": "failed-before-graph-mutation",
+      "worker_output_consumption_eligible": false
+    },
+    "response": {
+      "error_code": "request-failed",
+      "error_message": "required bytes exceed memory budget",
+      "request_id": "read-to-graph-full-query-hit-session-cuflye-m8d-proof-20260701T231500Z_negative-memory_worker",
+      "request_ordinal": 1,
+      "schema": "cuflye-full-query-hit-worker-response-v0",
+      "status": "error"
+    },
+    "session_error": {
+      "device": 0,
+      "device_name": "NVIDIA GB10",
+      "free_bytes": 67254136832,
+      "pid": 3379086,
+      "schema": "cuflye-full-query-hit-worker-session-v0",
+      "status": "error",
+      "total_bytes": 130594660352,
+      "worker_context_setup_ms": 314.817182,
+      "worker_device_arena_capacity_bytes": 0,
+      "worker_device_arena_enabled": true,
+      "worker_replay_session_initialized": false,
+      "worker_session_dir": "/tmp/cuflye-m8d-proof-20260701T231500Z/negative-memory-session",
+      "worker_session_max_requests": 1,
+      "worker_session_poll_ms": 2,
+      "worker_session_processed_requests": 1,
+      "worker_session_timeout_ms": 600000
+    }
+  },
+  "negative_shadow_ledger_fail_closed": {
+    "audit": {
+      "decision": "fail-closed-before-graph-mutation",
+      "error": "CUDA full-query-hit shadow ledger failed",
+      "graph_facing_validation_timing_ms": {
+        "graph_facing_validation_total": 0.293426,
+        "no_mutation_seam_total": 83.3956,
+        "raw_overlap_rehydration": 0.142512,
+        "raw_overlap_shadow_ledger": 0.107713,
+        "row_key_diff": 0.043201
+      },
+      "graph_mutation_consumed_worker_output": false,
+      "raw_overlap_rehydrated_records": 27,
+      "raw_overlap_rehydration_status": "passed",
+      "raw_overlap_shadow_ledger_rows": 26,
+      "raw_overlap_shadow_ledger_status": "failed",
+      "row_key_matched": true,
+      "status": "shadow-ledger-failed-before-graph-mutation"
+    },
+    "rehydration": {
+      "checks": [
+        {
+          "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_REHYDRATION_MODE=raw-overlap-vector-dry-run-v0",
+          "name": "explicit_rehydration_mode",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "M6l/M6n full-query-hit worker row-key diff must pass first",
+          "name": "worker_row_key_parity_passed",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "validated worker raw-overlap TSV must be readable",
+          "name": "worker_output_readable",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "raw-overlap rehydration audit JSON path must be available",
+          "name": "audit_metadata_available",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "worker output must not have reached graph mutation",
+          "name": "graph_not_mutated",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "rehydrated record count must match validated worker row count",
+          "name": "rehydrated_count_matches_worker",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "rehydrated Flye-side row keys must match validated worker row keys",
+          "name": "typed_row_keys_match_worker",
+          "passed": true,
+          "required": true
+        }
+      ],
+      "consumed": false,
+      "decision": "raw-overlap-vector-match-not-consumed",
+      "eligible": true,
+      "failed_closed": false,
+      "graph_mutation_consumed_worker_output": false,
+      "mode": "raw-overlap-vector-dry-run-v0",
+      "not_consumed": true,
+      "parsed_records": 27,
+      "proof_fault": "",
+      "proof_fault_applied": false,
+      "rehydrated_records": 27,
+      "schema": "cuflye-read-to-graph-full-query-hit-raw-overlap-rehydration-dry-run-v0",
+      "state": "not-consumed",
+      "status": "passed",
+      "typed_representation": "raw-overlap-vector-dry-run-v0",
+      "typed_row_key_diff": {
+        "extra_examples": [],
+        "extra_rows": 0,
+        "left_records": 27,
+        "matched_rows": 27,
+        "missing_examples": [],
+        "missing_rows": 0,
+        "ordered_match": true,
+        "right_records": 27,
+        "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+        "status": "match"
+      },
+      "worker_records": 27,
+      "worker_tsv": "/tmp/cuflye-m8d-proof-20260701T231500Z/negative-ledger/worker/full-query-hit-worker.raw-overlaps.tsv"
+    },
+    "response": {
+      "active_ext_groups": 24,
+      "adapter_mode": "full-query-hit-replay-v0",
+      "device": 0,
+      "device_name": "NVIDIA GB10",
+      "kernel_mode": "parallel-score",
+      "output_records": 27,
+      "output_tsv": "/tmp/cuflye-m8d-proof-20260701T231500Z/negative-ledger/worker/full-query-hit-worker.raw-overlaps.tsv",
+      "parallel_threads": 128,
+      "query_count": 16,
+      "raw_overlap_abi": "cuflye-read-to-graph-raw-overlap-v0",
+      "request_id": "read-to-graph-full-query-hit-session-cuflye-m8d-proof-20260701T231500Z_negative-ledger_worker",
+      "request_ordinal": 1,
+      "required_bytes": 2727824,
+      "schema": "cuflye-full-query-hit-worker-response-v0",
+      "source_ext_groups": 47,
+      "source_match_records": 15306,
+      "source_pack_dir": "/tmp/cuflye-m8d-proof-20260701T231500Z/negative-ledger/source-pack",
+      "status": "ok",
+      "timing_ms": {
+        "device_allocation": 0.460466,
+        "device_to_host": 0.062352,
+        "host_pack": 0.696467,
+        "host_to_device": 0.158737,
+        "kernel": 63.812274,
+        "parse": 14.300964,
+        "request_total": 79.761407,
+        "worker_uptime": 14384.524819,
+        "write_output": 0.171297
+      },
+      "worker_context_setup_ms": 15.698892,
+      "worker_cuda_context_warm": false
+    },
+    "shadow_ledger": {
+      "chain_input_filter_rows": 17,
+      "checks": [
+        {
+          "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SHADOW_LEDGER_MODE=raw-overlap-chain-input-shadow-v0",
+          "name": "explicit_shadow_ledger_mode",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "M6p raw-overlap rehydration must pass before shadow ledger",
+          "name": "rehydration_passed",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "validated worker raw-overlap TSV must be readable",
+          "name": "worker_output_readable",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "shadow ledger audit JSON path must be available",
+          "name": "audit_metadata_available",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "worker output must not have reached graph mutation",
+          "name": "graph_not_mutated",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "ledger row count must match M6p rehydrated record count",
+          "name": "ledger_count_matches_rehydration",
+          "passed": false,
+          "required": true
+        },
+        {
+          "detail": "every ledger row must be counted as unresolved or resolved edge_id",
+          "name": "edge_id_rows_accounted",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "M6q records shadow eligibility but exposes no graph edge consumption candidates",
+          "name": "graph_edge_consumption_candidates_blocked",
+          "passed": true,
+          "required": true
+        },
+        {
+          "detail": "ledger evaluation must not mutate graph state",
+          "name": "graph_not_mutated_after_ledger",
+          "passed": true,
+          "required": true
+        }
+      ],
+      "consumed": false,
+      "decision": "failed-closed-before-graph-mutation",
+      "eligible": false,
+      "error": "shadow ledger rows differ from rehydrated raw-overlap rows",
+      "failed_closed": true,
+      "future_chain_input_shadow_rows": 17,
+      "future_raw_overlap_shadow_rows": 26,
+      "graph_edge_consumption_candidate_rows": 0,
+      "graph_mutation_consumed_worker_output": false,
+      "ledger_rows": 26,
+      "mode": "raw-overlap-chain-input-shadow-v0",
+      "not_consumed": false,
+      "proof_fault": "drop-first-ledger-row",
+      "proof_fault_applied": true,
+      "queries": [
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 1,
+          "query_id": 84,
+          "resolved_edge_id_rows": 1,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 1,
+          "query_id": 361,
+          "resolved_edge_id_rows": 1,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 1,
+          "query_id": 2145,
+          "resolved_edge_id_rows": 1,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 1,
+          "query_id": 2146,
+          "resolved_edge_id_rows": 1,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 1,
+          "query_id": 2148,
+          "resolved_edge_id_rows": 1,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 8,
+          "query_id": 2149,
+          "resolved_edge_id_rows": 8,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 1,
+          "query_id": 2150,
+          "resolved_edge_id_rows": 1,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 1,
+          "query_id": 2152,
+          "resolved_edge_id_rows": 1,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 1,
+          "query_id": 2154,
+          "resolved_edge_id_rows": 1,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 3,
+          "ledger_rows": 3,
+          "query_id": 2157,
+          "resolved_edge_id_rows": 3,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 1,
+          "query_id": 2160,
+          "resolved_edge_id_rows": 1,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 1,
+          "query_id": 2161,
+          "resolved_edge_id_rows": 1,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 1,
+          "query_id": 2163,
+          "resolved_edge_id_rows": 1,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 3,
+          "query_id": 2165,
+          "resolved_edge_id_rows": 3,
+          "unresolved_edge_id_zero_rows": 0
+        },
+        {
+          "chain_input_filter_rows": 1,
+          "ledger_rows": 1,
+          "query_id": 2167,
+          "resolved_edge_id_rows": 1,
+          "unresolved_edge_id_zero_rows": 0
+        }
+      ],
+      "rehydrated_records": 27,
+      "rehydration_status": "passed",
+      "resolved_edge_id_rows": 26,
+      "schema": "cuflye-read-to-graph-full-query-hit-shadow-consumption-ledger-v0",
+      "state": "failed-closed",
+      "status": "failed",
+      "unresolved_edge_id_zero_rows": 0,
+      "worker_records": 27,
+      "worker_tsv": "/tmp/cuflye-m8d-proof-20260701T231500Z/negative-ledger/worker/full-query-hit-worker.raw-overlaps.tsv"
+    },
+    "source_pack": {
+      "canonical_sha256": "5fb1df86185f3cdce0bc0c15087b7bead53db6d46b523740650d4092a89c25aa",
+      "validation_status": "ok"
+    }
+  },
+  "next_recommended_step": "M8e: move from shadow ledger to the next guarded selected graph-facing object/binding proof only if M8d warm no-mutation seam remains below the matched CPU quick-overlap baseline.",
+  "plain_language_benefit": "M8d shows the graph-facing validation layer does not erase the M8c CUDA advantage on the selected pack: warm no-mutation seam total averages 66.102600 ms versus the matched CPU quick-overlap baseline 79.294112 ms, or 1.200x faster.",
+  "positive_file_session": {
+    "request_count": 4,
+    "requests": [
+      {
+        "audit": {
+          "actual_request_timing_ms": {
+            "device_allocation": 0.425794,
+            "host_to_device": 0.154145,
+            "kernel": 63.815,
+            "parse": 7.30029,
+            "request_total": 72.7053
+          },
+          "actual_worker_cuda_context_warm": false,
+          "decision": "stopped-before-graph-mutation",
+          "graph_facing_validation_timing_ms": {
+            "graph_facing_validation_total": 0.181729,
+            "no_mutation_seam_total": 74.2805,
+            "raw_overlap_rehydration": 0.100737,
+            "raw_overlap_shadow_ledger": 0.055552,
+            "row_key_diff": 0.02544
+          },
+          "graph_mutation_consumed_worker_output": false,
+          "raw_overlap_rehydrated_records": 27,
+          "raw_overlap_rehydration_status": "passed",
+          "raw_overlap_shadow_chain_input_filter_rows": 18,
+          "raw_overlap_shadow_graph_edge_consumption_candidate_rows": 0,
+          "raw_overlap_shadow_ledger_rows": 27,
+          "raw_overlap_shadow_ledger_status": "passed",
+          "raw_overlap_shadow_resolved_edge_id_rows": 27,
+          "raw_overlap_shadow_unresolved_edge_id_zero_rows": 0,
+          "row_key_diff": {
+            "extra_examples": [],
+            "extra_rows": 0,
+            "left_records": 27,
+            "matched_rows": 27,
+            "missing_examples": [],
+            "missing_rows": 0,
+            "ordered_match": false,
+            "right_records": 27,
+            "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+            "status": "match"
+          },
+          "row_key_matched": true,
+          "status": "passed",
+          "worker_session_submit_ms": 74.0987,
+          "worker_wall_ms": 74.0987
+        },
+        "external_row_key_diff": {
+          "extra_examples": [],
+          "extra_rows": 0,
+          "left": "/tmp/cuflye-m8d-proof-20260701T231500Z/positive/oracle.raw-overlaps.tsv",
+          "left_records": 27,
+          "left_sha256": "23269fae3946c7c0d108652f962ad1ea3d61773cb1bb33ecdeb3557cb8e989aa",
+          "matched_rows": 27,
+          "missing_examples": [],
+          "missing_rows": 0,
+          "ordered_match": false,
+          "right": "/tmp/cuflye-m8d-proof-20260701T231500Z/positive/request-01/worker/full-query-hit-worker.raw-overlaps.tsv",
+          "right_records": 27,
+          "right_sha256": "23269fae3946c7c0d108652f962ad1ea3d61773cb1bb33ecdeb3557cb8e989aa",
+          "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+          "status": "match"
+        },
+        "index": 1,
+        "name": "request-01",
+        "rehydration": {
+          "checks": [
+            {
+              "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_REHYDRATION_MODE=raw-overlap-vector-dry-run-v0",
+              "name": "explicit_rehydration_mode",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6l/M6n full-query-hit worker row-key diff must pass first",
+              "name": "worker_row_key_parity_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "validated worker raw-overlap TSV must be readable",
+              "name": "worker_output_readable",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "raw-overlap rehydration audit JSON path must be available",
+              "name": "audit_metadata_available",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "worker output must not have reached graph mutation",
+              "name": "graph_not_mutated",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "rehydrated record count must match validated worker row count",
+              "name": "rehydrated_count_matches_worker",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "rehydrated Flye-side row keys must match validated worker row keys",
+              "name": "typed_row_keys_match_worker",
+              "passed": true,
+              "required": true
+            }
+          ],
+          "consumed": false,
+          "decision": "raw-overlap-vector-match-not-consumed",
+          "eligible": true,
+          "failed_closed": false,
+          "graph_mutation_consumed_worker_output": false,
+          "mode": "raw-overlap-vector-dry-run-v0",
+          "not_consumed": true,
+          "parsed_records": 27,
+          "proof_fault": "",
+          "proof_fault_applied": false,
+          "rehydrated_records": 27,
+          "schema": "cuflye-read-to-graph-full-query-hit-raw-overlap-rehydration-dry-run-v0",
+          "state": "not-consumed",
+          "status": "passed",
+          "typed_representation": "raw-overlap-vector-dry-run-v0",
+          "typed_row_key_diff": {
+            "extra_examples": [],
+            "extra_rows": 0,
+            "left_records": 27,
+            "matched_rows": 27,
+            "missing_examples": [],
+            "missing_rows": 0,
+            "ordered_match": true,
+            "right_records": 27,
+            "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+            "status": "match"
+          },
+          "worker_records": 27,
+          "worker_tsv": "/tmp/cuflye-m8d-proof-20260701T231500Z/positive/request-01/worker/full-query-hit-worker.raw-overlaps.tsv"
+        },
+        "response": {
+          "active_ext_groups": 24,
+          "adapter_mode": "full-query-hit-replay-v0",
+          "device": 0,
+          "device_name": "NVIDIA GB10",
+          "kernel_mode": "parallel-score",
+          "output_records": 27,
+          "output_tsv": "/tmp/cuflye-m8d-proof-20260701T231500Z/positive/request-01/worker/full-query-hit-worker.raw-overlaps.tsv",
+          "parallel_threads": 128,
+          "query_count": 16,
+          "raw_overlap_abi": "cuflye-read-to-graph-raw-overlap-v0",
+          "request_id": "read-to-graph-full-query-hit-session-positive_request-01_worker",
+          "request_ordinal": 1,
+          "required_bytes": 2727824,
+          "schema": "cuflye-full-query-hit-worker-response-v0",
+          "source_ext_groups": 47,
+          "source_match_records": 15306,
+          "source_pack_dir": "/tmp/cuflye-m8d-proof-20260701T231500Z/positive/source-pack",
+          "status": "ok",
+          "timing_ms": {
+            "device_allocation": 0.425794,
+            "device_to_host": 0.042128,
+            "host_pack": 0.753844,
+            "host_to_device": 0.154145,
+            "kernel": 63.815046,
+            "parse": 7.300291,
+            "request_total": 72.705297,
+            "worker_uptime": 16083.548163,
+            "write_output": 0.120449
+          },
+          "worker_context_setup_ms": 8.715274,
+          "worker_cuda_context_warm": false
+        },
+        "shadow_ledger": {
+          "chain_input_filter_rows": 18,
+          "checks": [
+            {
+              "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SHADOW_LEDGER_MODE=raw-overlap-chain-input-shadow-v0",
+              "name": "explicit_shadow_ledger_mode",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6p raw-overlap rehydration must pass before shadow ledger",
+              "name": "rehydration_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "validated worker raw-overlap TSV must be readable",
+              "name": "worker_output_readable",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "shadow ledger audit JSON path must be available",
+              "name": "audit_metadata_available",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "worker output must not have reached graph mutation",
+              "name": "graph_not_mutated",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "ledger row count must match M6p rehydrated record count",
+              "name": "ledger_count_matches_rehydration",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "every ledger row must be counted as unresolved or resolved edge_id",
+              "name": "edge_id_rows_accounted",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6q records shadow eligibility but exposes no graph edge consumption candidates",
+              "name": "graph_edge_consumption_candidates_blocked",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "ledger evaluation must not mutate graph state",
+              "name": "graph_not_mutated_after_ledger",
+              "passed": true,
+              "required": true
+            }
+          ],
+          "consumed": false,
+          "decision": "shadow-ledger-written-not-consumed",
+          "eligible": true,
+          "failed_closed": false,
+          "future_chain_input_shadow_rows": 18,
+          "future_raw_overlap_shadow_rows": 27,
+          "graph_edge_consumption_candidate_rows": 0,
+          "graph_mutation_consumed_worker_output": false,
+          "ledger_rows": 27,
+          "mode": "raw-overlap-chain-input-shadow-v0",
+          "not_consumed": true,
+          "proof_fault": "",
+          "proof_fault_applied": false,
+          "queries": [
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 5,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 84,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 361,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2145,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2146,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2148,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 8,
+              "query_id": 2149,
+              "resolved_edge_id_rows": 8,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2150,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2152,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2154,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 3,
+              "ledger_rows": 3,
+              "query_id": 2157,
+              "resolved_edge_id_rows": 3,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2160,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2161,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2163,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 3,
+              "query_id": 2165,
+              "resolved_edge_id_rows": 3,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2167,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            }
+          ],
+          "rehydrated_records": 27,
+          "rehydration_status": "passed",
+          "resolved_edge_id_rows": 27,
+          "schema": "cuflye-read-to-graph-full-query-hit-shadow-consumption-ledger-v0",
+          "state": "not-consumed",
+          "status": "passed",
+          "unresolved_edge_id_zero_rows": 0,
+          "worker_records": 27,
+          "worker_tsv": "/tmp/cuflye-m8d-proof-20260701T231500Z/positive/request-01/worker/full-query-hit-worker.raw-overlaps.tsv"
+        }
+      },
+      {
+        "audit": {
+          "actual_request_timing_ms": {
+            "device_allocation": 0,
+            "host_to_device": 0,
+            "kernel": 63.8008,
+            "parse": 0,
+            "request_total": 64.0689
+          },
+          "actual_worker_cuda_context_warm": true,
+          "decision": "stopped-before-graph-mutation",
+          "graph_facing_validation_timing_ms": {
+            "graph_facing_validation_total": 0.284274,
+            "no_mutation_seam_total": 65.4317,
+            "raw_overlap_rehydration": 0.119217,
+            "raw_overlap_shadow_ledger": 0.123329,
+            "row_key_diff": 0.041728
+          },
+          "graph_mutation_consumed_worker_output": false,
+          "raw_overlap_rehydrated_records": 27,
+          "raw_overlap_rehydration_status": "passed",
+          "raw_overlap_shadow_chain_input_filter_rows": 18,
+          "raw_overlap_shadow_graph_edge_consumption_candidate_rows": 0,
+          "raw_overlap_shadow_ledger_rows": 27,
+          "raw_overlap_shadow_ledger_status": "passed",
+          "raw_overlap_shadow_resolved_edge_id_rows": 27,
+          "raw_overlap_shadow_unresolved_edge_id_zero_rows": 0,
+          "row_key_diff": {
+            "extra_examples": [],
+            "extra_rows": 0,
+            "left_records": 27,
+            "matched_rows": 27,
+            "missing_examples": [],
+            "missing_rows": 0,
+            "ordered_match": false,
+            "right_records": 27,
+            "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+            "status": "match"
+          },
+          "row_key_matched": true,
+          "status": "passed",
+          "worker_session_submit_ms": 65.1474,
+          "worker_wall_ms": 65.1474
+        },
+        "external_row_key_diff": {
+          "extra_examples": [],
+          "extra_rows": 0,
+          "left": "/tmp/cuflye-m8d-proof-20260701T231500Z/positive/oracle.raw-overlaps.tsv",
+          "left_records": 27,
+          "left_sha256": "23269fae3946c7c0d108652f962ad1ea3d61773cb1bb33ecdeb3557cb8e989aa",
+          "matched_rows": 27,
+          "missing_examples": [],
+          "missing_rows": 0,
+          "ordered_match": false,
+          "right": "/tmp/cuflye-m8d-proof-20260701T231500Z/positive/request-02/worker/full-query-hit-worker.raw-overlaps.tsv",
+          "right_records": 27,
+          "right_sha256": "23269fae3946c7c0d108652f962ad1ea3d61773cb1bb33ecdeb3557cb8e989aa",
+          "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+          "status": "match"
+        },
+        "index": 2,
+        "name": "request-02",
+        "rehydration": {
+          "checks": [
+            {
+              "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_REHYDRATION_MODE=raw-overlap-vector-dry-run-v0",
+              "name": "explicit_rehydration_mode",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6l/M6n full-query-hit worker row-key diff must pass first",
+              "name": "worker_row_key_parity_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "validated worker raw-overlap TSV must be readable",
+              "name": "worker_output_readable",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "raw-overlap rehydration audit JSON path must be available",
+              "name": "audit_metadata_available",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "worker output must not have reached graph mutation",
+              "name": "graph_not_mutated",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "rehydrated record count must match validated worker row count",
+              "name": "rehydrated_count_matches_worker",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "rehydrated Flye-side row keys must match validated worker row keys",
+              "name": "typed_row_keys_match_worker",
+              "passed": true,
+              "required": true
+            }
+          ],
+          "consumed": false,
+          "decision": "raw-overlap-vector-match-not-consumed",
+          "eligible": true,
+          "failed_closed": false,
+          "graph_mutation_consumed_worker_output": false,
+          "mode": "raw-overlap-vector-dry-run-v0",
+          "not_consumed": true,
+          "parsed_records": 27,
+          "proof_fault": "",
+          "proof_fault_applied": false,
+          "rehydrated_records": 27,
+          "schema": "cuflye-read-to-graph-full-query-hit-raw-overlap-rehydration-dry-run-v0",
+          "state": "not-consumed",
+          "status": "passed",
+          "typed_representation": "raw-overlap-vector-dry-run-v0",
+          "typed_row_key_diff": {
+            "extra_examples": [],
+            "extra_rows": 0,
+            "left_records": 27,
+            "matched_rows": 27,
+            "missing_examples": [],
+            "missing_rows": 0,
+            "ordered_match": true,
+            "right_records": 27,
+            "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+            "status": "match"
+          },
+          "worker_records": 27,
+          "worker_tsv": "/tmp/cuflye-m8d-proof-20260701T231500Z/positive/request-02/worker/full-query-hit-worker.raw-overlaps.tsv"
+        },
+        "response": {
+          "active_ext_groups": 24,
+          "adapter_mode": "full-query-hit-replay-v0",
+          "device": 0,
+          "device_name": "NVIDIA GB10",
+          "kernel_mode": "parallel-score",
+          "output_records": 27,
+          "output_tsv": "/tmp/cuflye-m8d-proof-20260701T231500Z/positive/request-02/worker/full-query-hit-worker.raw-overlaps.tsv",
+          "parallel_threads": 128,
+          "query_count": 16,
+          "raw_overlap_abi": "cuflye-read-to-graph-raw-overlap-v0",
+          "request_id": "read-to-graph-full-query-hit-session-positive_request-02_worker",
+          "request_ordinal": 2,
+          "required_bytes": 2727824,
+          "schema": "cuflye-full-query-hit-worker-response-v0",
+          "source_ext_groups": 47,
+          "source_match_records": 15306,
+          "source_pack_dir": "/tmp/cuflye-m8d-proof-20260701T231500Z/positive/source-pack",
+          "status": "ok",
+          "timing_ms": {
+            "device_allocation": 0.0,
+            "device_to_host": 0.064976,
+            "host_pack": 0.0,
+            "host_to_device": 0.0,
+            "kernel": 63.800757,
+            "parse": 0.0,
+            "request_total": 64.068886,
+            "worker_uptime": 33864.503667,
+            "write_output": 0.153121
+          },
+          "worker_context_setup_ms": 8.715274,
+          "worker_cuda_context_warm": true
+        },
+        "shadow_ledger": {
+          "chain_input_filter_rows": 18,
+          "checks": [
+            {
+              "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SHADOW_LEDGER_MODE=raw-overlap-chain-input-shadow-v0",
+              "name": "explicit_shadow_ledger_mode",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6p raw-overlap rehydration must pass before shadow ledger",
+              "name": "rehydration_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "validated worker raw-overlap TSV must be readable",
+              "name": "worker_output_readable",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "shadow ledger audit JSON path must be available",
+              "name": "audit_metadata_available",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "worker output must not have reached graph mutation",
+              "name": "graph_not_mutated",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "ledger row count must match M6p rehydrated record count",
+              "name": "ledger_count_matches_rehydration",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "every ledger row must be counted as unresolved or resolved edge_id",
+              "name": "edge_id_rows_accounted",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6q records shadow eligibility but exposes no graph edge consumption candidates",
+              "name": "graph_edge_consumption_candidates_blocked",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "ledger evaluation must not mutate graph state",
+              "name": "graph_not_mutated_after_ledger",
+              "passed": true,
+              "required": true
+            }
+          ],
+          "consumed": false,
+          "decision": "shadow-ledger-written-not-consumed",
+          "eligible": true,
+          "failed_closed": false,
+          "future_chain_input_shadow_rows": 18,
+          "future_raw_overlap_shadow_rows": 27,
+          "graph_edge_consumption_candidate_rows": 0,
+          "graph_mutation_consumed_worker_output": false,
+          "ledger_rows": 27,
+          "mode": "raw-overlap-chain-input-shadow-v0",
+          "not_consumed": true,
+          "proof_fault": "",
+          "proof_fault_applied": false,
+          "queries": [
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 5,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 84,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 361,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2145,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2146,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2148,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 8,
+              "query_id": 2149,
+              "resolved_edge_id_rows": 8,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2150,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2152,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2154,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 3,
+              "ledger_rows": 3,
+              "query_id": 2157,
+              "resolved_edge_id_rows": 3,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2160,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2161,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2163,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 3,
+              "query_id": 2165,
+              "resolved_edge_id_rows": 3,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2167,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            }
+          ],
+          "rehydrated_records": 27,
+          "rehydration_status": "passed",
+          "resolved_edge_id_rows": 27,
+          "schema": "cuflye-read-to-graph-full-query-hit-shadow-consumption-ledger-v0",
+          "state": "not-consumed",
+          "status": "passed",
+          "unresolved_edge_id_zero_rows": 0,
+          "worker_records": 27,
+          "worker_tsv": "/tmp/cuflye-m8d-proof-20260701T231500Z/positive/request-02/worker/full-query-hit-worker.raw-overlaps.tsv"
+        }
+      },
+      {
+        "audit": {
+          "actual_request_timing_ms": {
+            "device_allocation": 0,
+            "host_to_device": 0,
+            "kernel": 63.7918,
+            "parse": 0,
+            "request_total": 63.977
+          },
+          "actual_worker_cuda_context_warm": true,
+          "decision": "stopped-before-graph-mutation",
+          "graph_facing_validation_timing_ms": {
+            "graph_facing_validation_total": 0.188593,
+            "no_mutation_seam_total": 67.3671,
+            "raw_overlap_rehydration": 0.103248,
+            "raw_overlap_shadow_ledger": 0.057808,
+            "row_key_diff": 0.027537
+          },
+          "graph_mutation_consumed_worker_output": false,
+          "raw_overlap_rehydrated_records": 27,
+          "raw_overlap_rehydration_status": "passed",
+          "raw_overlap_shadow_chain_input_filter_rows": 18,
+          "raw_overlap_shadow_graph_edge_consumption_candidate_rows": 0,
+          "raw_overlap_shadow_ledger_rows": 27,
+          "raw_overlap_shadow_ledger_status": "passed",
+          "raw_overlap_shadow_resolved_edge_id_rows": 27,
+          "raw_overlap_shadow_unresolved_edge_id_zero_rows": 0,
+          "row_key_diff": {
+            "extra_examples": [],
+            "extra_rows": 0,
+            "left_records": 27,
+            "matched_rows": 27,
+            "missing_examples": [],
+            "missing_rows": 0,
+            "ordered_match": false,
+            "right_records": 27,
+            "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+            "status": "match"
+          },
+          "row_key_matched": true,
+          "status": "passed",
+          "worker_session_submit_ms": 67.1785,
+          "worker_wall_ms": 67.1785
+        },
+        "external_row_key_diff": {
+          "extra_examples": [],
+          "extra_rows": 0,
+          "left": "/tmp/cuflye-m8d-proof-20260701T231500Z/positive/oracle.raw-overlaps.tsv",
+          "left_records": 27,
+          "left_sha256": "23269fae3946c7c0d108652f962ad1ea3d61773cb1bb33ecdeb3557cb8e989aa",
+          "matched_rows": 27,
+          "missing_examples": [],
+          "missing_rows": 0,
+          "ordered_match": false,
+          "right": "/tmp/cuflye-m8d-proof-20260701T231500Z/positive/request-03/worker/full-query-hit-worker.raw-overlaps.tsv",
+          "right_records": 27,
+          "right_sha256": "23269fae3946c7c0d108652f962ad1ea3d61773cb1bb33ecdeb3557cb8e989aa",
+          "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+          "status": "match"
+        },
+        "index": 3,
+        "name": "request-03",
+        "rehydration": {
+          "checks": [
+            {
+              "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_REHYDRATION_MODE=raw-overlap-vector-dry-run-v0",
+              "name": "explicit_rehydration_mode",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6l/M6n full-query-hit worker row-key diff must pass first",
+              "name": "worker_row_key_parity_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "validated worker raw-overlap TSV must be readable",
+              "name": "worker_output_readable",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "raw-overlap rehydration audit JSON path must be available",
+              "name": "audit_metadata_available",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "worker output must not have reached graph mutation",
+              "name": "graph_not_mutated",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "rehydrated record count must match validated worker row count",
+              "name": "rehydrated_count_matches_worker",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "rehydrated Flye-side row keys must match validated worker row keys",
+              "name": "typed_row_keys_match_worker",
+              "passed": true,
+              "required": true
+            }
+          ],
+          "consumed": false,
+          "decision": "raw-overlap-vector-match-not-consumed",
+          "eligible": true,
+          "failed_closed": false,
+          "graph_mutation_consumed_worker_output": false,
+          "mode": "raw-overlap-vector-dry-run-v0",
+          "not_consumed": true,
+          "parsed_records": 27,
+          "proof_fault": "",
+          "proof_fault_applied": false,
+          "rehydrated_records": 27,
+          "schema": "cuflye-read-to-graph-full-query-hit-raw-overlap-rehydration-dry-run-v0",
+          "state": "not-consumed",
+          "status": "passed",
+          "typed_representation": "raw-overlap-vector-dry-run-v0",
+          "typed_row_key_diff": {
+            "extra_examples": [],
+            "extra_rows": 0,
+            "left_records": 27,
+            "matched_rows": 27,
+            "missing_examples": [],
+            "missing_rows": 0,
+            "ordered_match": true,
+            "right_records": 27,
+            "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+            "status": "match"
+          },
+          "worker_records": 27,
+          "worker_tsv": "/tmp/cuflye-m8d-proof-20260701T231500Z/positive/request-03/worker/full-query-hit-worker.raw-overlaps.tsv"
+        },
+        "response": {
+          "active_ext_groups": 24,
+          "adapter_mode": "full-query-hit-replay-v0",
+          "device": 0,
+          "device_name": "NVIDIA GB10",
+          "kernel_mode": "parallel-score",
+          "output_records": 27,
+          "output_tsv": "/tmp/cuflye-m8d-proof-20260701T231500Z/positive/request-03/worker/full-query-hit-worker.raw-overlaps.tsv",
+          "parallel_threads": 128,
+          "query_count": 16,
+          "raw_overlap_abi": "cuflye-read-to-graph-raw-overlap-v0",
+          "request_id": "read-to-graph-full-query-hit-session-positive_request-03_worker",
+          "request_ordinal": 3,
+          "required_bytes": 2727824,
+          "schema": "cuflye-full-query-hit-worker-response-v0",
+          "source_ext_groups": 47,
+          "source_match_records": 15306,
+          "source_pack_dir": "/tmp/cuflye-m8d-proof-20260701T231500Z/positive/source-pack",
+          "status": "ok",
+          "timing_ms": {
+            "device_allocation": 0.0,
+            "device_to_host": 0.051345,
+            "host_pack": 0.0,
+            "host_to_device": 0.0,
+            "kernel": 63.791764,
+            "parse": 0.0,
+            "request_total": 63.977013,
+            "worker_uptime": 48837.629432,
+            "write_output": 0.091952
+          },
+          "worker_context_setup_ms": 8.715274,
+          "worker_cuda_context_warm": true
+        },
+        "shadow_ledger": {
+          "chain_input_filter_rows": 18,
+          "checks": [
+            {
+              "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SHADOW_LEDGER_MODE=raw-overlap-chain-input-shadow-v0",
+              "name": "explicit_shadow_ledger_mode",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6p raw-overlap rehydration must pass before shadow ledger",
+              "name": "rehydration_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "validated worker raw-overlap TSV must be readable",
+              "name": "worker_output_readable",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "shadow ledger audit JSON path must be available",
+              "name": "audit_metadata_available",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "worker output must not have reached graph mutation",
+              "name": "graph_not_mutated",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "ledger row count must match M6p rehydrated record count",
+              "name": "ledger_count_matches_rehydration",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "every ledger row must be counted as unresolved or resolved edge_id",
+              "name": "edge_id_rows_accounted",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6q records shadow eligibility but exposes no graph edge consumption candidates",
+              "name": "graph_edge_consumption_candidates_blocked",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "ledger evaluation must not mutate graph state",
+              "name": "graph_not_mutated_after_ledger",
+              "passed": true,
+              "required": true
+            }
+          ],
+          "consumed": false,
+          "decision": "shadow-ledger-written-not-consumed",
+          "eligible": true,
+          "failed_closed": false,
+          "future_chain_input_shadow_rows": 18,
+          "future_raw_overlap_shadow_rows": 27,
+          "graph_edge_consumption_candidate_rows": 0,
+          "graph_mutation_consumed_worker_output": false,
+          "ledger_rows": 27,
+          "mode": "raw-overlap-chain-input-shadow-v0",
+          "not_consumed": true,
+          "proof_fault": "",
+          "proof_fault_applied": false,
+          "queries": [
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 5,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 84,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 361,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2145,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2146,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2148,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 8,
+              "query_id": 2149,
+              "resolved_edge_id_rows": 8,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2150,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2152,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2154,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 3,
+              "ledger_rows": 3,
+              "query_id": 2157,
+              "resolved_edge_id_rows": 3,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2160,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2161,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2163,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 3,
+              "query_id": 2165,
+              "resolved_edge_id_rows": 3,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2167,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            }
+          ],
+          "rehydrated_records": 27,
+          "rehydration_status": "passed",
+          "resolved_edge_id_rows": 27,
+          "schema": "cuflye-read-to-graph-full-query-hit-shadow-consumption-ledger-v0",
+          "state": "not-consumed",
+          "status": "passed",
+          "unresolved_edge_id_zero_rows": 0,
+          "worker_records": 27,
+          "worker_tsv": "/tmp/cuflye-m8d-proof-20260701T231500Z/positive/request-03/worker/full-query-hit-worker.raw-overlaps.tsv"
+        }
+      },
+      {
+        "audit": {
+          "actual_request_timing_ms": {
+            "device_allocation": 0,
+            "host_to_device": 0,
+            "kernel": 63.8049,
+            "parse": 0,
+            "request_total": 64.1194
+          },
+          "actual_worker_cuda_context_warm": true,
+          "decision": "stopped-before-graph-mutation",
+          "graph_facing_validation_timing_ms": {
+            "graph_facing_validation_total": 0.156113,
+            "no_mutation_seam_total": 65.509,
+            "raw_overlap_rehydration": 0.069344,
+            "raw_overlap_shadow_ledger": 0.058593,
+            "row_key_diff": 0.028176
+          },
+          "graph_mutation_consumed_worker_output": false,
+          "raw_overlap_rehydrated_records": 27,
+          "raw_overlap_rehydration_status": "passed",
+          "raw_overlap_shadow_chain_input_filter_rows": 18,
+          "raw_overlap_shadow_graph_edge_consumption_candidate_rows": 0,
+          "raw_overlap_shadow_ledger_rows": 27,
+          "raw_overlap_shadow_ledger_status": "passed",
+          "raw_overlap_shadow_resolved_edge_id_rows": 27,
+          "raw_overlap_shadow_unresolved_edge_id_zero_rows": 0,
+          "row_key_diff": {
+            "extra_examples": [],
+            "extra_rows": 0,
+            "left_records": 27,
+            "matched_rows": 27,
+            "missing_examples": [],
+            "missing_rows": 0,
+            "ordered_match": false,
+            "right_records": 27,
+            "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+            "status": "match"
+          },
+          "row_key_matched": true,
+          "status": "passed",
+          "worker_session_submit_ms": 65.3528,
+          "worker_wall_ms": 65.3528
+        },
+        "external_row_key_diff": {
+          "extra_examples": [],
+          "extra_rows": 0,
+          "left": "/tmp/cuflye-m8d-proof-20260701T231500Z/positive/oracle.raw-overlaps.tsv",
+          "left_records": 27,
+          "left_sha256": "23269fae3946c7c0d108652f962ad1ea3d61773cb1bb33ecdeb3557cb8e989aa",
+          "matched_rows": 27,
+          "missing_examples": [],
+          "missing_rows": 0,
+          "ordered_match": false,
+          "right": "/tmp/cuflye-m8d-proof-20260701T231500Z/positive/request-04/worker/full-query-hit-worker.raw-overlaps.tsv",
+          "right_records": 27,
+          "right_sha256": "23269fae3946c7c0d108652f962ad1ea3d61773cb1bb33ecdeb3557cb8e989aa",
+          "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+          "status": "match"
+        },
+        "index": 4,
+        "name": "request-04",
+        "rehydration": {
+          "checks": [
+            {
+              "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_REHYDRATION_MODE=raw-overlap-vector-dry-run-v0",
+              "name": "explicit_rehydration_mode",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6l/M6n full-query-hit worker row-key diff must pass first",
+              "name": "worker_row_key_parity_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "validated worker raw-overlap TSV must be readable",
+              "name": "worker_output_readable",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "raw-overlap rehydration audit JSON path must be available",
+              "name": "audit_metadata_available",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "worker output must not have reached graph mutation",
+              "name": "graph_not_mutated",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "rehydrated record count must match validated worker row count",
+              "name": "rehydrated_count_matches_worker",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "rehydrated Flye-side row keys must match validated worker row keys",
+              "name": "typed_row_keys_match_worker",
+              "passed": true,
+              "required": true
+            }
+          ],
+          "consumed": false,
+          "decision": "raw-overlap-vector-match-not-consumed",
+          "eligible": true,
+          "failed_closed": false,
+          "graph_mutation_consumed_worker_output": false,
+          "mode": "raw-overlap-vector-dry-run-v0",
+          "not_consumed": true,
+          "parsed_records": 27,
+          "proof_fault": "",
+          "proof_fault_applied": false,
+          "rehydrated_records": 27,
+          "schema": "cuflye-read-to-graph-full-query-hit-raw-overlap-rehydration-dry-run-v0",
+          "state": "not-consumed",
+          "status": "passed",
+          "typed_representation": "raw-overlap-vector-dry-run-v0",
+          "typed_row_key_diff": {
+            "extra_examples": [],
+            "extra_rows": 0,
+            "left_records": 27,
+            "matched_rows": 27,
+            "missing_examples": [],
+            "missing_rows": 0,
+            "ordered_match": true,
+            "right_records": 27,
+            "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+            "status": "match"
+          },
+          "worker_records": 27,
+          "worker_tsv": "/tmp/cuflye-m8d-proof-20260701T231500Z/positive/request-04/worker/full-query-hit-worker.raw-overlaps.tsv"
+        },
+        "response": {
+          "active_ext_groups": 24,
+          "adapter_mode": "full-query-hit-replay-v0",
+          "device": 0,
+          "device_name": "NVIDIA GB10",
+          "kernel_mode": "parallel-score",
+          "output_records": 27,
+          "output_tsv": "/tmp/cuflye-m8d-proof-20260701T231500Z/positive/request-04/worker/full-query-hit-worker.raw-overlaps.tsv",
+          "parallel_threads": 128,
+          "query_count": 16,
+          "raw_overlap_abi": "cuflye-read-to-graph-raw-overlap-v0",
+          "request_id": "read-to-graph-full-query-hit-session-positive_request-04_worker",
+          "request_ordinal": 4,
+          "required_bytes": 2727824,
+          "schema": "cuflye-full-query-hit-worker-response-v0",
+          "source_ext_groups": 47,
+          "source_match_records": 15306,
+          "source_pack_dir": "/tmp/cuflye-m8d-proof-20260701T231500Z/positive/source-pack",
+          "status": "ok",
+          "timing_ms": {
+            "device_allocation": 0.0,
+            "device_to_host": 0.06848,
+            "host_pack": 0.0,
+            "host_to_device": 0.0,
+            "kernel": 63.804868,
+            "parse": 0.0,
+            "request_total": 64.119429,
+            "worker_uptime": 67145.727762,
+            "write_output": 0.186625
+          },
+          "worker_context_setup_ms": 8.715274,
+          "worker_cuda_context_warm": true
+        },
+        "shadow_ledger": {
+          "chain_input_filter_rows": 18,
+          "checks": [
+            {
+              "detail": "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SHADOW_LEDGER_MODE=raw-overlap-chain-input-shadow-v0",
+              "name": "explicit_shadow_ledger_mode",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6p raw-overlap rehydration must pass before shadow ledger",
+              "name": "rehydration_passed",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "validated worker raw-overlap TSV must be readable",
+              "name": "worker_output_readable",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "shadow ledger audit JSON path must be available",
+              "name": "audit_metadata_available",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "worker output must not have reached graph mutation",
+              "name": "graph_not_mutated",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "ledger row count must match M6p rehydrated record count",
+              "name": "ledger_count_matches_rehydration",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "every ledger row must be counted as unresolved or resolved edge_id",
+              "name": "edge_id_rows_accounted",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "M6q records shadow eligibility but exposes no graph edge consumption candidates",
+              "name": "graph_edge_consumption_candidates_blocked",
+              "passed": true,
+              "required": true
+            },
+            {
+              "detail": "ledger evaluation must not mutate graph state",
+              "name": "graph_not_mutated_after_ledger",
+              "passed": true,
+              "required": true
+            }
+          ],
+          "consumed": false,
+          "decision": "shadow-ledger-written-not-consumed",
+          "eligible": true,
+          "failed_closed": false,
+          "future_chain_input_shadow_rows": 18,
+          "future_raw_overlap_shadow_rows": 27,
+          "graph_edge_consumption_candidate_rows": 0,
+          "graph_mutation_consumed_worker_output": false,
+          "ledger_rows": 27,
+          "mode": "raw-overlap-chain-input-shadow-v0",
+          "not_consumed": true,
+          "proof_fault": "",
+          "proof_fault_applied": false,
+          "queries": [
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 5,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 84,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 361,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2145,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2146,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2148,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 8,
+              "query_id": 2149,
+              "resolved_edge_id_rows": 8,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2150,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2152,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2154,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 3,
+              "ledger_rows": 3,
+              "query_id": 2157,
+              "resolved_edge_id_rows": 3,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2160,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2161,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2163,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 3,
+              "query_id": 2165,
+              "resolved_edge_id_rows": 3,
+              "unresolved_edge_id_zero_rows": 0
+            },
+            {
+              "chain_input_filter_rows": 1,
+              "ledger_rows": 1,
+              "query_id": 2167,
+              "resolved_edge_id_rows": 1,
+              "unresolved_edge_id_zero_rows": 0
+            }
+          ],
+          "rehydrated_records": 27,
+          "rehydration_status": "passed",
+          "resolved_edge_id_rows": 27,
+          "schema": "cuflye-read-to-graph-full-query-hit-shadow-consumption-ledger-v0",
+          "state": "not-consumed",
+          "status": "passed",
+          "unresolved_edge_id_zero_rows": 0,
+          "worker_records": 27,
+          "worker_tsv": "/tmp/cuflye-m8d-proof-20260701T231500Z/positive/request-04/worker/full-query-hit-worker.raw-overlaps.tsv"
+        }
+      }
+    ],
+    "session_complete": {
+      "device": 0,
+      "device_name": "NVIDIA GB10",
+      "free_bytes": 69152178176,
+      "pid": 3376557,
+      "schema": "cuflye-full-query-hit-worker-session-v0",
+      "status": "complete",
+      "total_bytes": 130594660352,
+      "worker_context_setup_ms": 8.715274,
+      "worker_device_arena_capacity_bytes": 2727824,
+      "worker_device_arena_enabled": true,
+      "worker_replay_session_initialized": true,
+      "worker_session_dir": "/tmp/cuflye-m8d-proof-20260701T231500Z/session",
+      "worker_session_max_requests": 4,
+      "worker_session_poll_ms": 2,
+      "worker_session_processed_requests": 4,
+      "worker_session_timeout_ms": 600000
+    },
+    "speedup_vs_m8a_quick_overlap": {
+      "all_no_mutation_seam_total_avg": 1.163573227464275,
+      "warm_no_mutation_seam_total_avg": 1.1995611670342772,
+      "warm_request_total_avg": 1.2379045610142532,
+      "warm_worker_wall_avg": 1.203378694821445
+    },
+    "timing_summary_ms": {
+      "all_no_mutation_seam_total_avg": 68.147075,
+      "all_request_total_avg": 66.21765625,
+      "all_worker_wall_avg": 67.94435,
+      "cold_no_mutation_seam_total": 74.2805,
+      "cold_request_total": 72.705297,
+      "cold_worker_wall": 74.0987,
+      "warm_graph_facing_validation_total_avg": 0.20966000000000004,
+      "warm_kernel_avg": 63.799129666666666,
+      "warm_no_mutation_seam_total_avg": 66.1026,
+      "warm_raw_overlap_rehydration_avg": 0.09726966666666666,
+      "warm_raw_overlap_shadow_ledger_avg": 0.07991,
+      "warm_request_total_avg": 64.05510933333333,
+      "warm_row_key_diff_avg": 0.03248033333333333,
+      "warm_worker_wall_avg": 65.8929
+    },
+    "worker_lifecycle_mode": "session-file-v0"
+  },
+  "proof_root": "/tmp/cuflye-m8d-proof-20260701T231500Z",
+  "schema": "cuflye-m8d-m8c-guarded-rehydration-shadow-consumption-proof-v0",
+  "source_pack": {
+    "canonical_sha256": "5fb1df86185f3cdce0bc0c15087b7bead53db6d46b523740650d4092a89c25aa",
+    "query_count": 16,
+    "query_ids": [
+      5,
+      84,
+      361,
+      2145,
+      2146,
+      2148,
+      2149,
+      2150,
+      2152,
+      2154,
+      2157,
+      2160,
+      2161,
+      2163,
+      2165,
+      2167
+    ],
+    "total_counts": {
+      "chain_input_records": 18,
+      "edge_sequence_records": 47,
+      "full_query_hit_records": 15306,
+      "index_bucket_records": 15159,
+      "query_minimizers": 17069,
+      "raw_overlap_records": 27
+    },
+    "validation_status": "ok"
+  },
+  "summary_checks_passed": 17,
+  "summary_checks_required": 17,
+  "work_root": "/tmp/cuflye-m8d-work-KozR4UQ9/cuFlye"
+}

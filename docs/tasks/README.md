@@ -11,12 +11,18 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m8d-m8c-guarded-rehydration-shadow-consumption.md`:
-  keep the same M8b/M8c selected source pack, add guarded rehydration or
-  shadow consumption, and measure whether graph-facing validation overhead
-  preserves the bounded seam advantage.
+- `2026-07-01-cuflye-m8e-selected-graph-facing-binding-object-proof.md`:
+  keep the same M8 selected source pack, enable the next guarded
+  graph-facing binding or object-vector proof, and measure whether that next
+  gate preserves the M8d no-mutation seam advantage.
 
 Completed cards:
+
+- `2026-07-01-cuflye-m8d-m8c-guarded-rehydration-shadow-consumption.md`:
+  add graph-facing timing fields plus an M8d proof runner, pass the M8b/M8c
+  selected pack through raw-overlap rehydration and shadow-ledger gates, and
+  keep warm no-mutation seam total below the matched CPU quick-overlap
+  baseline at `66.102600 ms` versus `79.294112 ms`.
 
 - `2026-07-01-cuflye-m8c-flye-side-m8b-worker-session-seam.md`:
   move the M8b selected source pack through the Flye-side worker/session seam,
