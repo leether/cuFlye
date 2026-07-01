@@ -1,0 +1,821 @@
+diff --git a/src/repeat_graph/read_aligner.cpp b/src/repeat_graph/read_aligner.cpp
+index 24ba9bd..87e30c4 100644
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -805,6 +805,51 @@ namespace
+ 		ReadToGraphRawOverlapRowKeyDiff selectedBypassRowKeyDiff;
+ 	};
+ 
++	struct ReadToGraphFullQueryHitSelectedCpuBypassSmokeResult
++	{
++		std::string mode;
++		std::string proofFault;
++		std::string status = "not-requested";
++		std::string state = "not-consumed";
++		std::string decision = "disabled";
++		std::string workerTsv;
++		std::string selectedBypassDryRunStatus = "not-requested";
++		std::string error;
++		bool eligible = false;
++		bool consumed = false;
++		bool notConsumed = true;
++		bool failedClosed = false;
++		bool proofFaultApplied = false;
++		bool graphMutationConsumedWorkerOutput = false;
++		bool cudaSuppliedRowKeyMatched = false;
++		bool cudaSuppliedOrderedRowKeyMatched = false;
++		bool finalMergedRowKeyMatched = false;
++		bool finalMergedOrderedRowKeyMatched = false;
++		size_t totalCpuRawOverlapRows = 0;
++		size_t selectedCpuHandoffRows = 0;
++		size_t skippedCpuSelectedRows = 0;
++		size_t cudaSuppliedSelectedRows = 0;
++		size_t cpuOwnedResidualRows = 0;
++		size_t finalMergedLedgerRows = 0;
++		size_t finalCudaSuppliedRows = 0;
++		size_t leakedSelectedCpuRows = 0;
++		size_t missingCudaSuppliedRows = 0;
++		size_t unexpectedCudaSuppliedRows = 0;
++		size_t missingGraphEdgeRows = 0;
++		std::vector<ReadToGraphFullQueryHitSelectedBypassPlanCheck>
++			checks;
++		std::vector<ReadToGraphFullQueryHitSelectedBypassPlanRow>
++			skippedCpuSelectedRowsLedger;
++		std::vector<ReadToGraphFullQueryHitSelectedBypassPlanRow>
++			cudaSuppliedRows;
++		std::vector<ReadToGraphFullQueryHitSelectedBypassPlanRow>
++			cpuOwnedRows;
++		std::vector<ReadToGraphFullQueryHitSelectedBypassPlanRow>
++			finalMergedLedger;
++		ReadToGraphRawOverlapRowKeyDiff cudaSuppliedRowKeyDiff;
++		ReadToGraphRawOverlapRowKeyDiff finalMergedRowKeyDiff;
++	};
++
+ 	struct ReadToGraphFullQueryHitWorkerDryRunResult
+ 	{
+ 		std::string mode;
+@@ -875,6 +920,12 @@ namespace
+ 		std::string rawOverlapSelectedBypassDryRunStatus = "not-requested";
+ 		std::string rawOverlapSelectedBypassDryRunState = "not-consumed";
+ 		std::string rawOverlapSelectedBypassDryRunDecision = "disabled";
++		std::string rawOverlapSelectedCpuBypassSmokeJson;
++		std::string rawOverlapSelectedCpuBypassSmokeMode;
++		std::string rawOverlapSelectedCpuBypassSmokeProofFault;
++		std::string rawOverlapSelectedCpuBypassSmokeStatus = "not-requested";
++		std::string rawOverlapSelectedCpuBypassSmokeState = "not-consumed";
++		std::string rawOverlapSelectedCpuBypassSmokeDecision = "disabled";
+ 		std::string workerCommand;
+ 		std::string error;
+ 		std::vector<int64_t> queryIds;
+@@ -906,6 +957,8 @@ namespace
+ 		bool rawOverlapSelectedBypassPlanFailedClosed = false;
+ 		bool rawOverlapSelectedBypassDryRunEligible = false;
+ 		bool rawOverlapSelectedBypassDryRunFailedClosed = false;
++		bool rawOverlapSelectedCpuBypassSmokeEligible = false;
++		bool rawOverlapSelectedCpuBypassSmokeFailedClosed = false;
+ 		size_t expectedOutputRecords = 0;
+ 		size_t rawOverlapRehydratedRecords = 0;
+ 		size_t rawOverlapShadowLedgerRows = 0;
+@@ -935,6 +988,9 @@ namespace
+ 		size_t rawOverlapSelectedBypassDryRunBypassedRows = 0;
+ 		size_t rawOverlapSelectedBypassDryRunCpuOwnedRows = 0;
+ 		size_t rawOverlapSelectedBypassDryRunMergedRows = 0;
++		size_t rawOverlapSelectedCpuBypassSmokeSkippedRows = 0;
++		size_t rawOverlapSelectedCpuBypassSmokeSuppliedRows = 0;
++		size_t rawOverlapSelectedCpuBypassSmokeMergedRows = 0;
+ 		double workerContextSetupMs = 0.0;
+ 		double actualRequestTotalMs = 0.0;
+ 		double actualKernelMs = 0.0;
+@@ -3241,6 +3297,51 @@ namespace
+ 		return proofFault;
+ 	}
+ 
++	std::string readToGraphFullQueryHitSelectedCpuBypassSmokeMode()
++	{
++		static std::string mode = []()
++		{
++			const char* raw = std::getenv(
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_CPU_BYPASS_SMOKE_MODE");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "selected-cpu-bypass-smoke-v0")
++			{
++				throw std::runtime_error(
++					"Unsupported "
++					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_CPU_BYPASS_SMOKE_MODE: " +
++					selected);
++			}
++			return selected;
++		}();
++		return mode;
++	}
++
++	bool readToGraphFullQueryHitSelectedCpuBypassSmokeEnabled()
++	{
++		return !readToGraphFullQueryHitSelectedCpuBypassSmokeMode().empty();
++	}
++
++	std::string readToGraphFullQueryHitSelectedCpuBypassSmokeProofFault()
++	{
++		static std::string proofFault = []()
++		{
++			const char* raw = std::getenv(
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_CPU_BYPASS_SMOKE_PROOF_FAULT");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "leak-first-skipped-cpu-row")
++			{
++				throw std::runtime_error(
++					"Unsupported "
++					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_CPU_BYPASS_SMOKE_PROOF_FAULT: " +
++					selected);
++			}
++			return selected;
++		}();
++		return proofFault;
++	}
++
+ 	std::string readToGraphFullQueryHitWorkerLifecycleMode()
+ 	{
+ 		static std::string mode = []()
+@@ -3392,6 +3493,10 @@ namespace
+ 			readToGraphFullQueryHitSelectedBypassDryRunEnabled();
+ 		std::string selectedBypassDryRunProofFault =
+ 			readToGraphFullQueryHitSelectedBypassDryRunProofFault();
++		bool selectedCpuBypassSmokeEnabled =
++			readToGraphFullQueryHitSelectedCpuBypassSmokeEnabled();
++		std::string selectedCpuBypassSmokeProofFault =
++			readToGraphFullQueryHitSelectedCpuBypassSmokeProofFault();
+ 		if (rehydrationEnabled && !readToGraphFullQueryHitWorkerDryRunEnabled())
+ 		{
+ 			throw std::runtime_error(
+@@ -3653,6 +3758,28 @@ namespace
+ 				"proof fault requires "
+ 				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_BYPASS_DRY_RUN_MODE");
+ 		}
++		if (selectedCpuBypassSmokeEnabled &&
++			!readToGraphFullQueryHitWorkerDryRunEnabled())
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit selected CPU-bypass smoke "
++				"requires CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_MODE");
++		}
++		if (selectedCpuBypassSmokeEnabled && !selectedBypassDryRunEnabled)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit selected CPU-bypass smoke "
++				"requires "
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_BYPASS_DRY_RUN_MODE");
++		}
++		if (!selectedCpuBypassSmokeProofFault.empty() &&
++			!selectedCpuBypassSmokeEnabled)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit selected CPU-bypass smoke "
++				"proof fault requires "
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_CPU_BYPASS_SMOKE_MODE");
++		}
+ 		if (!readToGraphFullQueryHitWorkerDryRunEnabled()) return;
+ 		if (!readToGraphSourcePackEnabled())
+ 		{
+@@ -7204,6 +7331,504 @@ namespace
+ 		writeReadAlignmentTextFile(path, json.str());
+ 	}
+ 
++	void markReadToGraphFullQueryHitSelectedCpuBypassSmokeFailed(
++		ReadToGraphFullQueryHitSelectedCpuBypassSmokeResult& smoke)
++	{
++		smoke.status = "failed";
++		smoke.state = "failed-closed";
++		smoke.decision = "failed-closed-before-graph-mutation";
++		smoke.eligible = false;
++		smoke.consumed = false;
++		smoke.notConsumed = false;
++		smoke.failedClosed = true;
++		smoke.graphMutationConsumedWorkerOutput = false;
++	}
++
++	bool allReadToGraphFullQueryHitSelectedCpuBypassSmokeChecksPassed(
++		const ReadToGraphFullQueryHitSelectedCpuBypassSmokeResult& smoke)
++	{
++		for (const auto& check : smoke.checks)
++		{
++			if (check.required && !check.passed) return false;
++		}
++		return !smoke.checks.empty();
++	}
++
++	void addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++		ReadToGraphFullQueryHitSelectedCpuBypassSmokeResult& smoke,
++		const std::string& name,
++		bool passed,
++		const std::string& detail)
++	{
++		ReadToGraphFullQueryHitSelectedBypassPlanCheck check;
++		check.name = name;
++		check.required = true;
++		check.passed = passed;
++		check.detail = detail;
++		smoke.checks.push_back(check);
++	}
++
++	ReadToGraphFullQueryHitSelectedCpuBypassSmokeResult
++	evaluateReadToGraphFullQueryHitSelectedCpuBypassSmoke(
++		const ReadToGraphFullQueryHitWorkerDryRunResult& dryRun,
++		const ReadToGraphFullQueryHitSelectedBypassDryRunResult& selectedBypass,
++		RepeatGraph& graph)
++	{
++		ReadToGraphFullQueryHitSelectedCpuBypassSmokeResult result;
++		result.mode = readToGraphFullQueryHitSelectedCpuBypassSmokeMode();
++		result.proofFault =
++			readToGraphFullQueryHitSelectedCpuBypassSmokeProofFault();
++		result.workerTsv = dryRun.workerOutputTsv;
++		result.selectedBypassDryRunStatus = selectedBypass.status;
++		result.graphMutationConsumedWorkerOutput =
++			dryRun.graphMutationConsumedWorkerOutput;
++		if (!readToGraphFullQueryHitSelectedCpuBypassSmokeEnabled())
++		{
++			return result;
++		}
++
++		markReadToGraphFullQueryHitSelectedCpuBypassSmokeFailed(result);
++		addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++			result, "explicit_selected_cpu_bypass_smoke_mode",
++			result.mode == "selected-cpu-bypass-smoke-v0",
++			"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_CPU_BYPASS_SMOKE_MODE="
++			"selected-cpu-bypass-smoke-v0");
++		addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++			result, "selected_bypass_dry_run_passed",
++			selectedBypass.status == "passed" && selectedBypass.eligible &&
++				!selectedBypass.failedClosed,
++			"M6x selected bypass dry-run must pass before selected CPU-bypass smoke");
++		addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++			result, "selected_bypass_dry_run_row_keys_matched",
++			selectedBypass.selectedBypassRowKeyMatched &&
++				selectedBypass.selectedBypassOrderedRowKeyMatched,
++			"M6x selected bypass dry-run must match selected CPU handoff rows");
++		addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++			result, "worker_output_readable",
++			dryRun.workerOutputReadable,
++			"validated worker raw-overlap TSV must be readable");
++		addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++			result, "audit_metadata_available",
++			!dryRun.rawOverlapSelectedCpuBypassSmokeJson.empty(),
++			"selected CPU-bypass smoke audit JSON path must be available");
++		addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++			result, "graph_not_mutated",
++			!dryRun.graphMutationConsumedWorkerOutput,
++			"worker output must not have reached graph mutation");
++
++		if (!allReadToGraphFullQueryHitSelectedCpuBypassSmokeChecksPassed(
++				result))
++		{
++			result.error = "selected CPU-bypass smoke preconditions failed";
++			return result;
++		}
++
++		try
++		{
++			auto allCpuRecords =
++				readToGraphOracleRawOverlapRecords(dryRun.queryIds);
++			auto selectedCpuRecords =
++				readToGraphSelectedCpuHandoffRecords(dryRun.queryIds);
++			result.totalCpuRawOverlapRows = allCpuRecords.size();
++			result.selectedCpuHandoffRows = selectedCpuRecords.size();
++			auto allCpuKeys =
++				readToGraphRawOverlapRecordRowKeys(allCpuRecords);
++			auto selectedCpuKeys =
++				readToGraphRawOverlapRecordRowKeys(selectedCpuRecords);
++			std::set<ReadToGraphRawOverlapRowKey> selectedCpuKeySet;
++			for (size_t index = 0; index < selectedCpuRecords.size(); ++index)
++			{
++				const auto key =
++					readToGraphRawOverlapRecordToRowKey(selectedCpuRecords[index]);
++				selectedCpuKeySet.insert(key);
++				result.skippedCpuSelectedRowsLedger.push_back(
++					readToGraphFullQueryHitSelectedBypassPlanRow(
++						index, selectedCpuRecords[index],
++						"selected-cpu-handoff-skipped",
++						"cuda-selected-bypass-supplier"));
++			}
++			result.skippedCpuSelectedRows =
++				result.skippedCpuSelectedRowsLedger.size();
++
++			std::vector<ReadToGraphFullQueryHitObjectVectorSmokeObject>
++				suppliedObjects =
++					buildReadToGraphFullQueryHitLiveObjectVector(
++						result.workerTsv, graph, result.missingGraphEdgeRows);
++			std::vector<ReadToGraphRawOverlapRecord> suppliedRecords;
++			std::set<ReadToGraphRawOverlapRowKey> suppliedKeys;
++			for (size_t index = 0; index < suppliedObjects.size(); ++index)
++			{
++				const auto& object = suppliedObjects[index];
++				const auto key =
++					readToGraphRawOverlapRecordToRowKey(object.record);
++				suppliedKeys.insert(key);
++				suppliedRecords.push_back(object.record);
++				result.cudaSuppliedRows.push_back(
++					readToGraphFullQueryHitSelectedBypassPlanRow(
++						index, object.record,
++						"cuda-supplied-selected-bypass",
++						"m6x-selected-bypass-row"));
++			}
++			result.cudaSuppliedSelectedRows = result.cudaSuppliedRows.size();
++			auto suppliedRecordKeys =
++				readToGraphRawOverlapRecordRowKeys(suppliedRecords);
++			result.cudaSuppliedRowKeyDiff =
++				compareReadToGraphRawOverlapRowKeys(
++					selectedCpuKeys, suppliedRecordKeys);
++			result.cudaSuppliedRowKeyMatched =
++				result.cudaSuppliedRowKeyDiff.matched;
++			result.cudaSuppliedOrderedRowKeyMatched =
++				result.cudaSuppliedRowKeyDiff.orderedMatched;
++			result.missingCudaSuppliedRows =
++				result.cudaSuppliedRowKeyDiff.missingRows;
++			result.unexpectedCudaSuppliedRows =
++				result.cudaSuppliedRowKeyDiff.extraRows;
++			result.cpuOwnedRows = selectedBypass.cpuOwnedRows;
++			result.cpuOwnedResidualRows = result.cpuOwnedRows.size();
++
++			bool leakFirstSkippedCpuRow =
++				result.proofFault == "leak-first-skipped-cpu-row" &&
++				!selectedCpuRecords.empty();
++			ReadToGraphRawOverlapRowKey leakedKey;
++			if (leakFirstSkippedCpuRow)
++			{
++				leakedKey = readToGraphRawOverlapRecordToRowKey(
++					selectedCpuRecords.front());
++				result.proofFaultApplied = true;
++			}
++
++			std::vector<ReadToGraphRawOverlapRecord> finalMergedRecords;
++			for (const auto& record : allCpuRecords)
++			{
++				const auto key = readToGraphRawOverlapRecordToRowKey(record);
++				finalMergedRecords.push_back(record);
++				if (suppliedKeys.count(key) != 0 &&
++					!(leakFirstSkippedCpuRow && key == leakedKey))
++				{
++					++result.finalCudaSuppliedRows;
++					result.finalMergedLedger.push_back(
++						readToGraphFullQueryHitSelectedBypassPlanRow(
++							result.finalMergedLedger.size(), record,
++							"cuda-supplied-selected-bypass",
++							"selected-cpu-handoff-skipped"));
++				}
++				else if (selectedCpuKeySet.count(key) != 0)
++				{
++					if (leakFirstSkippedCpuRow && key == leakedKey)
++					{
++						++result.leakedSelectedCpuRows;
++						result.finalMergedLedger.push_back(
++							readToGraphFullQueryHitSelectedBypassPlanRow(
++								result.finalMergedLedger.size(), record,
++								"cpu-owned-selected-leak",
++								"proof-fault-leaked-skipped-selected-row"));
++					}
++					else
++					{
++						++result.missingCudaSuppliedRows;
++						result.finalMergedLedger.push_back(
++							readToGraphFullQueryHitSelectedBypassPlanRow(
++								result.finalMergedLedger.size(), record,
++								"selected-cpu-skip-without-cuda-supply",
++								"selected-row-not-present-in-cuda-supply"));
++					}
++				}
++				else
++				{
++					std::string reason = "not-selected-for-bypass";
++					if (record.edgeId == 0)
++					{
++						reason = "unsupported-unresolved-edge-id";
++					}
++					result.finalMergedLedger.push_back(
++						readToGraphFullQueryHitSelectedBypassPlanRow(
++							result.finalMergedLedger.size(), record,
++							"cpu-owned", reason));
++				}
++			}
++			result.finalMergedLedgerRows = result.finalMergedLedger.size();
++			auto finalMergedKeys =
++				readToGraphRawOverlapRecordRowKeys(finalMergedRecords);
++			result.finalMergedRowKeyDiff =
++				compareReadToGraphRawOverlapRowKeys(
++					allCpuKeys, finalMergedKeys);
++			result.finalMergedRowKeyMatched =
++				result.finalMergedRowKeyDiff.matched;
++			result.finalMergedOrderedRowKeyMatched =
++				result.finalMergedRowKeyDiff.orderedMatched;
++
++			addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++				result, "selected_cpu_handoff_rows_present",
++				result.selectedCpuHandoffRows > 0,
++				"selected CPU handoff rows must be nonzero");
++			addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++				result, "skipped_cpu_rows_match_selected_handoff",
++				result.skippedCpuSelectedRows == result.selectedCpuHandoffRows,
++				"skipped CPU-selected rows must match selected CPU handoff rows");
++			addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++				result, "cuda_supplied_selected_rows_present",
++				result.cudaSuppliedSelectedRows > 0,
++				"CUDA-supplied selected bypass rows must be nonzero");
++			addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++				result, "cuda_supplied_count_matches_skipped_cpu_rows",
++				result.cudaSuppliedSelectedRows == result.skippedCpuSelectedRows,
++				"CUDA-supplied rows must match skipped CPU-selected rows");
++			addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++				result, "cuda_supplied_row_keys_match_selected_cpu_rows",
++				result.cudaSuppliedRowKeyMatched,
++				"CUDA-supplied selected row keys must match skipped CPU-selected rows");
++			addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++				result, "cuda_supplied_row_order_matches_selected_cpu_rows",
++				result.cudaSuppliedOrderedRowKeyMatched,
++				"CUDA-supplied selected row order must match skipped CPU-selected rows");
++			addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++				result, "cpu_owned_residual_rows_preserved",
++				result.cpuOwnedResidualRows == selectedBypass.cpuOwnedResidualRows &&
++					result.cpuOwnedResidualRows == result.cpuOwnedRows.size(),
++				"CPU-owned residual rows must be preserved from M6x");
++			addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++				result, "final_merged_ledger_accounts_for_input",
++				result.finalMergedLedgerRows == result.totalCpuRawOverlapRows &&
++					result.finalMergedLedgerRows ==
++						result.finalMergedLedger.size(),
++				"final merged smoke ledger must account for all CPU raw-overlap rows");
++			addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++				result, "final_merged_row_keys_match_cpu_oracle",
++				result.finalMergedRowKeyMatched,
++				"final merged smoke ledger row keys must match CPU oracle");
++			addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++				result, "final_merged_row_order_matches_cpu_oracle",
++				result.finalMergedOrderedRowKeyMatched,
++				"final merged smoke ledger row order must match CPU oracle");
++			addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++				result, "final_cuda_supplied_rows_match_supplier",
++				result.finalCudaSuppliedRows == result.cudaSuppliedSelectedRows,
++				"final merged ledger must consume every CUDA-supplied selected row");
++			addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++				result, "leaked_selected_cpu_rows_zero",
++				result.leakedSelectedCpuRows == 0,
++				"skipped selected CPU rows must not leak back into CPU-owned path");
++			addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++				result, "missing_cuda_supplied_rows_zero",
++				result.missingCudaSuppliedRows == 0,
++				"every skipped selected CPU row must have a CUDA supplier");
++			addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++				result, "unexpected_cuda_supplied_rows_zero",
++				result.unexpectedCudaSuppliedRows == 0,
++				"CUDA supplier must not add unexpected selected rows");
++			addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++				result, "bypass_objects_have_live_graph_edges",
++				result.missingGraphEdgeRows == 0,
++				"every CUDA-supplied selected object must have a live GraphEdge");
++			addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++				result, "graph_not_mutated_after_selected_cpu_bypass_smoke",
++				!result.graphMutationConsumedWorkerOutput,
++				"selected CPU-bypass smoke must not mutate graph state");
++
++			if (allReadToGraphFullQueryHitSelectedCpuBypassSmokeChecksPassed(
++					result))
++			{
++				result.status = "passed";
++				result.state = "not-consumed";
++				result.decision =
++					"selected-cpu-bypass-smoke-written-not-consumed";
++				result.eligible = true;
++				result.consumed = false;
++				result.notConsumed = true;
++				result.failedClosed = false;
++				result.error.clear();
++			}
++			else
++			{
++				result.error =
++					"selected CPU-bypass smoke differs from M6x selected bypass dry-run";
++			}
++		}
++		catch (const std::exception& exc)
++		{
++			result.error = exc.what();
++			markReadToGraphFullQueryHitSelectedCpuBypassSmokeFailed(result);
++		}
++		return result;
++	}
++
++	void captureReadToGraphFullQueryHitSelectedCpuBypassSmokeResult(
++		ReadToGraphFullQueryHitWorkerDryRunResult& dryRun,
++		const ReadToGraphFullQueryHitSelectedCpuBypassSmokeResult& smoke)
++	{
++		dryRun.rawOverlapSelectedCpuBypassSmokeMode = smoke.mode;
++		dryRun.rawOverlapSelectedCpuBypassSmokeProofFault =
++			smoke.proofFault;
++		dryRun.rawOverlapSelectedCpuBypassSmokeStatus = smoke.status;
++		dryRun.rawOverlapSelectedCpuBypassSmokeState = smoke.state;
++		dryRun.rawOverlapSelectedCpuBypassSmokeDecision = smoke.decision;
++		dryRun.rawOverlapSelectedCpuBypassSmokeEligible = smoke.eligible;
++		dryRun.rawOverlapSelectedCpuBypassSmokeFailedClosed =
++			smoke.failedClosed;
++		dryRun.rawOverlapSelectedCpuBypassSmokeSkippedRows =
++			smoke.skippedCpuSelectedRows;
++		dryRun.rawOverlapSelectedCpuBypassSmokeSuppliedRows =
++			smoke.cudaSuppliedSelectedRows;
++		dryRun.rawOverlapSelectedCpuBypassSmokeMergedRows =
++			smoke.finalMergedLedgerRows;
++	}
++
++	void writeReadToGraphFullQueryHitRawOverlapKeyDiffJson(
++		std::ostringstream& json,
++		const ReadToGraphRawOverlapRowKeyDiff& diff,
++		const std::string& indent)
++	{
++		json << indent << "\"schema\": "
++				"\"cuflye-read-to-graph-raw-overlap-row-key-diff-v0\",\n"
++			 << indent << "\"status\": \""
++			 << (diff.matched ? "match" : "mismatch") << "\",\n"
++			 << indent << "\"left_records\": " << diff.leftRecords << ",\n"
++			 << indent << "\"right_records\": " << diff.rightRecords << ",\n"
++			 << indent << "\"ordered_match\": "
++			 << readAlignmentBoolJson(diff.orderedMatched) << ",\n"
++			 << indent << "\"matched_rows\": " << diff.matchedRows << ",\n"
++			 << indent << "\"missing_rows\": " << diff.missingRows << ",\n"
++			 << indent << "\"extra_rows\": " << diff.extraRows << ",\n"
++			 << indent << "\"missing_examples\": [";
++		for (size_t index = 0; index < diff.missingExamples.size(); ++index)
++		{
++			if (index) json << ", ";
++			json << "\"" << readAlignmentJsonEscape(
++				diff.missingExamples[index]) << "\"";
++		}
++		json << "],\n"
++			 << indent << "\"extra_examples\": [";
++		for (size_t index = 0; index < diff.extraExamples.size(); ++index)
++		{
++			if (index) json << ", ";
++			json << "\"" << readAlignmentJsonEscape(
++				diff.extraExamples[index]) << "\"";
++		}
++		json << "]\n";
++	}
++
++	void writeReadToGraphFullQueryHitSelectedCpuBypassSmokeJson(
++		const std::string& path,
++		const ReadToGraphFullQueryHitSelectedCpuBypassSmokeResult& smoke)
++	{
++		std::ostringstream json;
++		json << "{\n"
++			 << "  \"schema\": "
++				"\"cuflye-read-to-graph-full-query-hit-selected-cpu-bypass-smoke-v0\",\n"
++			 << "  \"status\": \"" << readAlignmentJsonEscape(smoke.status)
++			 << "\",\n"
++			 << "  \"mode\": \"" << readAlignmentJsonEscape(smoke.mode)
++			 << "\",\n"
++			 << "  \"proof_fault\": \""
++			 << readAlignmentJsonEscape(smoke.proofFault) << "\",\n"
++			 << "  \"proof_fault_applied\": "
++			 << readAlignmentBoolJson(smoke.proofFaultApplied) << ",\n"
++			 << "  \"state\": \"" << readAlignmentJsonEscape(smoke.state)
++			 << "\",\n"
++			 << "  \"decision\": \"" << readAlignmentJsonEscape(smoke.decision)
++			 << "\",\n"
++			 << "  \"worker_tsv\": \""
++			 << readAlignmentJsonEscape(smoke.workerTsv) << "\",\n"
++			 << "  \"selected_bypass_dry_run_status\": \""
++			 << readAlignmentJsonEscape(smoke.selectedBypassDryRunStatus)
++			 << "\",\n"
++			 << "  \"eligible\": " << readAlignmentBoolJson(smoke.eligible)
++			 << ",\n"
++			 << "  \"consumed\": " << readAlignmentBoolJson(smoke.consumed)
++			 << ",\n"
++			 << "  \"not_consumed\": "
++			 << readAlignmentBoolJson(smoke.notConsumed) << ",\n"
++			 << "  \"failed_closed\": "
++			 << readAlignmentBoolJson(smoke.failedClosed) << ",\n"
++			 << "  \"graph_mutation_consumed_worker_output\": "
++			 << readAlignmentBoolJson(
++					smoke.graphMutationConsumedWorkerOutput) << ",\n"
++			 << "  \"cuda_supplied_row_key_matched\": "
++			 << readAlignmentBoolJson(smoke.cudaSuppliedRowKeyMatched) << ",\n"
++			 << "  \"cuda_supplied_ordered_row_key_matched\": "
++			 << readAlignmentBoolJson(
++					smoke.cudaSuppliedOrderedRowKeyMatched) << ",\n"
++			 << "  \"final_merged_row_key_matched\": "
++			 << readAlignmentBoolJson(smoke.finalMergedRowKeyMatched) << ",\n"
++			 << "  \"final_merged_ordered_row_key_matched\": "
++			 << readAlignmentBoolJson(
++					smoke.finalMergedOrderedRowKeyMatched) << ",\n"
++			 << "  \"total_cpu_raw_overlap_rows\": "
++			 << smoke.totalCpuRawOverlapRows << ",\n"
++			 << "  \"selected_cpu_handoff_rows\": "
++			 << smoke.selectedCpuHandoffRows << ",\n"
++			 << "  \"skipped_cpu_selected_rows\": "
++			 << smoke.skippedCpuSelectedRows << ",\n"
++			 << "  \"cuda_supplied_selected_rows\": "
++			 << smoke.cudaSuppliedSelectedRows << ",\n"
++			 << "  \"cpu_owned_residual_rows\": "
++			 << smoke.cpuOwnedResidualRows << ",\n"
++			 << "  \"final_merged_ledger_rows\": "
++			 << smoke.finalMergedLedgerRows << ",\n"
++			 << "  \"final_cuda_supplied_rows\": "
++			 << smoke.finalCudaSuppliedRows << ",\n"
++			 << "  \"leaked_selected_cpu_rows\": "
++			 << smoke.leakedSelectedCpuRows << ",\n"
++			 << "  \"missing_cuda_supplied_rows\": "
++			 << smoke.missingCudaSuppliedRows << ",\n"
++			 << "  \"unexpected_cuda_supplied_rows\": "
++			 << smoke.unexpectedCudaSuppliedRows << ",\n"
++			 << "  \"missing_graph_edge_rows\": "
++			 << smoke.missingGraphEdgeRows << ",\n"
++			 << "  \"checks\": [\n";
++		for (size_t index = 0; index < smoke.checks.size(); ++index)
++		{
++			const auto& check = smoke.checks[index];
++			json << "    {\n"
++				 << "      \"name\": \"" << readAlignmentJsonEscape(check.name)
++				 << "\",\n"
++				 << "      \"required\": " << readAlignmentBoolJson(check.required)
++				 << ",\n"
++				 << "      \"passed\": " << readAlignmentBoolJson(check.passed)
++				 << ",\n"
++				 << "      \"detail\": \"" << readAlignmentJsonEscape(check.detail)
++				 << "\"\n"
++				 << "    }" << (index + 1 == smoke.checks.size() ? "\n" : ",\n");
++		}
++		json << "  ],\n"
++			 << "  \"skipped_cpu_selected_rows_ledger\": [\n";
++		writeReadToGraphFullQueryHitSelectedBypassPlanRowsJson(
++			json, smoke.skippedCpuSelectedRowsLedger);
++		json << "  ],\n"
++			 << "  \"cuda_supplied_rows\": [\n";
++		writeReadToGraphFullQueryHitSelectedBypassPlanRowsJson(
++			json, smoke.cudaSuppliedRows);
++		json << "  ],\n"
++			 << "  \"cpu_owned_rows\": [\n";
++		writeReadToGraphFullQueryHitSelectedBypassPlanRowsJson(
++			json, smoke.cpuOwnedRows);
++		json << "  ],\n"
++			 << "  \"final_merged_ledger\": [\n";
++		writeReadToGraphFullQueryHitSelectedBypassPlanRowsJson(
++			json, smoke.finalMergedLedger);
++		json << "  ],\n"
++			 << "  \"cuda_supplied_row_key_diff\": {\n";
++		writeReadToGraphFullQueryHitRawOverlapKeyDiffJson(
++			json, smoke.cudaSuppliedRowKeyDiff, "    ");
++		json << "  },\n"
++			 << "  \"final_merged_row_key_diff\": {\n";
++		writeReadToGraphFullQueryHitRawOverlapKeyDiffJson(
++			json, smoke.finalMergedRowKeyDiff, "    ");
++		json << "  }";
++		if (!smoke.error.empty())
++		{
++			json << ",\n"
++				 << "  \"error\": \""
++				 << readAlignmentJsonEscape(smoke.error) << "\"\n";
++		}
++		else
++		{
++			json << "\n";
++		}
++		json << "}\n";
++		writeReadAlignmentTextFile(path, json.str());
++	}
++
+ 	void writeReadToGraphFullQueryHitWorkerDryRunJson(
+ 		const std::string& path,
+ 		const ReadToGraphFullQueryHitWorkerDryRunResult& result)
+@@ -7390,6 +8015,24 @@ namespace
+ 				 << "  \"raw_overlap_selected_bypass_dry_run_decision\": \""
+ 				 << readAlignmentJsonEscape(
+ 					 result.rawOverlapSelectedBypassDryRunDecision) << "\",\n"
++				 << "  \"raw_overlap_selected_cpu_bypass_smoke_json\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSelectedCpuBypassSmokeJson) << "\",\n"
++				 << "  \"raw_overlap_selected_cpu_bypass_smoke_mode\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSelectedCpuBypassSmokeMode) << "\",\n"
++				 << "  \"raw_overlap_selected_cpu_bypass_smoke_proof_fault\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSelectedCpuBypassSmokeProofFault) << "\",\n"
++				 << "  \"raw_overlap_selected_cpu_bypass_smoke_status\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSelectedCpuBypassSmokeStatus) << "\",\n"
++				 << "  \"raw_overlap_selected_cpu_bypass_smoke_state\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSelectedCpuBypassSmokeState) << "\",\n"
++				 << "  \"raw_overlap_selected_cpu_bypass_smoke_decision\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSelectedCpuBypassSmokeDecision) << "\",\n"
+ 				 << "  \"stdout_log\": \"" << readAlignmentJsonEscape(result.stdoutLog)
+ 				  << "\",\n"
+ 			 << "  \"stderr_log\": \"" << readAlignmentJsonEscape(result.stderrLog)
+@@ -7464,6 +8107,12 @@ namespace
+ 				 << "  \"raw_overlap_selected_bypass_dry_run_failed_closed\": "
+ 				 << readAlignmentBoolJson(
+ 					 result.rawOverlapSelectedBypassDryRunFailedClosed) << ",\n"
++				 << "  \"raw_overlap_selected_cpu_bypass_smoke_eligible\": "
++				 << readAlignmentBoolJson(
++					 result.rawOverlapSelectedCpuBypassSmokeEligible) << ",\n"
++				 << "  \"raw_overlap_selected_cpu_bypass_smoke_failed_closed\": "
++				 << readAlignmentBoolJson(
++					 result.rawOverlapSelectedCpuBypassSmokeFailedClosed) << ",\n"
+ 				 << "  \"graph_mutation_consumed_worker_output\": "
+ 				 << readAlignmentBoolJson(result.graphMutationConsumedWorkerOutput)
+ 				 << ",\n"
+@@ -7543,6 +8192,12 @@ namespace
+ 				 << result.rawOverlapSelectedBypassDryRunCpuOwnedRows << ",\n"
+ 				 << "  \"raw_overlap_selected_bypass_dry_run_merged_rows\": "
+ 				 << result.rawOverlapSelectedBypassDryRunMergedRows << ",\n"
++				 << "  \"raw_overlap_selected_cpu_bypass_smoke_skipped_rows\": "
++				 << result.rawOverlapSelectedCpuBypassSmokeSkippedRows << ",\n"
++				 << "  \"raw_overlap_selected_cpu_bypass_smoke_supplied_rows\": "
++				 << result.rawOverlapSelectedCpuBypassSmokeSuppliedRows << ",\n"
++				 << "  \"raw_overlap_selected_cpu_bypass_smoke_merged_rows\": "
++				 << result.rawOverlapSelectedCpuBypassSmokeMergedRows << ",\n"
+ 				 << "  \"query_ids\": [";
+ 		for (size_t idx = 0; idx < result.queryIds.size(); ++idx)
+ 		{
+@@ -7650,6 +8305,10 @@ namespace
+ 					readToGraphFullQueryHitSelectedBypassDryRunMode();
+ 				result.rawOverlapSelectedBypassDryRunProofFault =
+ 					readToGraphFullQueryHitSelectedBypassDryRunProofFault();
++				result.rawOverlapSelectedCpuBypassSmokeMode =
++					readToGraphFullQueryHitSelectedCpuBypassSmokeMode();
++				result.rawOverlapSelectedCpuBypassSmokeProofFault =
++					readToGraphFullQueryHitSelectedCpuBypassSmokeProofFault();
+ 				result.sourcePackDir = std::string(readToGraphSourcePackDir());
+ 				result.workerOutputRoot = readAlignmentRequiredEnv(
+ 					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_OUTPUT_DIR");
+@@ -7708,6 +8367,9 @@ namespace
+ 				result.rawOverlapSelectedBypassDryRunJson = joinReplayPath(
+ 					result.workerOutputRoot,
+ 					"full-query-hit-worker-selected-bypass-dry-run.json");
++				result.rawOverlapSelectedCpuBypassSmokeJson = joinReplayPath(
++					result.workerOutputRoot,
++					"full-query-hit-worker-selected-cpu-bypass-smoke.json");
+ 				result.workerSessionSubmitPath = joinReplayPath(
+ 					result.workerOutputRoot, "full-query-hit-worker-session-submit.txt");
+ 			result.queryIds = sortedReadToGraphSourcePackQueryIds();
+@@ -8005,6 +8667,36 @@ namespace
+ 												writeReadToGraphFullQueryHitSelectedBypassDryRunJson(
+ 													result.rawOverlapSelectedBypassDryRunJson,
+ 													selectedBypass);
++												if (readToGraphFullQueryHitSelectedCpuBypassSmokeEnabled() &&
++													!selectedBypass.failedClosed)
++												{
++													auto cpuBypassSmoke =
++														evaluateReadToGraphFullQueryHitSelectedCpuBypassSmoke(
++															result, selectedBypass, graph);
++													captureReadToGraphFullQueryHitSelectedCpuBypassSmokeResult(
++														result, cpuBypassSmoke);
++													writeReadToGraphFullQueryHitSelectedCpuBypassSmokeJson(
++														result.rawOverlapSelectedCpuBypassSmokeJson,
++														cpuBypassSmoke);
++													if (cpuBypassSmoke.failedClosed &&
++														!smoke.failedClosed &&
++														!binding.failedClosed &&
++														!ledger.failedClosed &&
++														!rehydration.failedClosed)
++													{
++														result.status =
++															"selected-cpu-bypass-smoke-failed-before-graph-mutation";
++														result.decision =
++															"fail-closed-before-graph-mutation";
++														result.failedClosed = true;
++														result.workerOutputConsumptionEligible =
++															false;
++														result.graphMutationConsumedWorkerOutput =
++															false;
++														result.error =
++															"CUDA full-query-hit selected CPU-bypass smoke failed";
++													}
++												}
+ 												if (selectedBypass.failedClosed &&
+ 													!smoke.failedClosed &&
+ 													!binding.failedClosed &&
+@@ -8149,7 +8841,9 @@ namespace
+ 							 result.status !=
+ 							 "selected-bypass-plan-failed-before-graph-mutation" &&
+ 							 result.status !=
+-							 "selected-bypass-dry-run-failed-before-graph-mutation")
++							 "selected-bypass-dry-run-failed-before-graph-mutation" &&
++							 result.status !=
++							 "selected-cpu-bypass-smoke-failed-before-graph-mutation")
+ 					{
+ 						result.status = "passed";
+ 						result.decision = "stopped-before-graph-mutation";
+@@ -8241,6 +8935,15 @@ namespace
+ 					result.rawOverlapSelectedBypassDryRunJson + "; audit_json=" +
+ 					result.auditJson);
+ 			}
++			if (result.status ==
++				"selected-cpu-bypass-smoke-failed-before-graph-mutation")
++			{
++				throw std::runtime_error(
++					"cuFlye read-to-graph full-query-hit selected CPU-bypass smoke "
++					"fail-closed before graph mutation; selected_cpu_bypass_json=" +
++					result.rawOverlapSelectedCpuBypassSmokeJson + "; audit_json=" +
++					result.auditJson);
++			}
+ 			throw std::runtime_error(
+ 				"cuFlye read-to-graph full-query-hit worker dry-run "
+ 				"fail-closed before graph mutation; audit_json=" +

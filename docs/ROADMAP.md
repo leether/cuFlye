@@ -4241,3 +4241,90 @@ handoff rows as skipped, supply those rows from the CUDA-derived selected
 bypass payload, preserve CPU-owned residual rows, and still fail closed before
 graph mutation on a skipped-row leak or missing selected bypass row.
 ```
+
+## 2026-07-01 Update: M6y Full Query-Hit Selected CPU-Bypass Smoke
+
+Status: completed.
+
+Task Card:
+
+- `docs/tasks/2026-07-01-cuflye-m6y-full-query-hit-selected-cpu-bypass-smoke.md`
+
+Golden proof:
+
+- `tests/golden/cuflye-m6y-full-query-hit-selected-cpu-bypass-smoke-dgx-aarch64.json`
+
+What changed:
+
+- Added Flye patch `0053` with an opt-in selected CPU-bypass smoke after the
+  M6x selected bypass dry-run.
+- Added ABI notes for
+  `cuflye-read-to-graph-full-query-hit-selected-cpu-bypass-smoke-v0`.
+- Extended `scripts/run_flye_fixture.sh` so proof runs can enable selected
+  CPU-bypass smoke mode and inject a skipped-row leak proof fault.
+- Kept graph mutation disabled and audited as not consumed.
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m6y-proof-20260701T130000Z
+fixture=toy-hifi
+query_ids=5,6,7,8,9,10,11,12
+baseline_artifact_hashes_match_golden=true
+positive_status=passed
+positive_m6x_selected_bypass_status=passed
+positive_m6y_selected_cpu_bypass_smoke_status=passed
+positive_skipped_cpu_selected_rows=8
+positive_cuda_supplied_selected_rows=8
+positive_cpu_owned_residual_rows=28
+positive_final_merged_ledger_rows=36
+positive_final_cuda_supplied_rows=8
+positive_leaked_selected_cpu_rows=0
+positive_row_key_diff_status=match
+positive_consumed=false
+positive_not_consumed=true
+positive_selected_cpu_bypass_smoke_checks=22/22
+negative_status=selected-cpu-bypass-smoke-failed-before-graph-mutation
+negative_m6x_selected_bypass_status=passed
+negative_m6y_selected_cpu_bypass_smoke_status=failed
+negative_proof_fault=leak-first-skipped-cpu-row
+negative_proof_fault_applied=true
+negative_final_cuda_supplied_rows=7
+negative_leaked_selected_cpu_rows=1
+negative_failed_checks=final_cuda_supplied_rows_match_supplier,leaked_selected_cpu_rows_zero
+summary_checks=27/27
+```
+
+Allowed M6y claim:
+
+```text
+cuFlye can skip the 8 M6x-selected CPU handoff rows in a guarded smoke ledger,
+supply the same 8 rows from CUDA-derived selected bypass output, preserve 28
+CPU-owned residual rows, account for all 36 CPU raw-overlap rows in the final
+merged handoff, and fail closed before graph mutation if a skipped selected CPU
+row leaks back into CPU-owned handling.
+```
+
+Forbidden M6y claim:
+
+```text
+M6y does not prove whole-Flye speedup, default GPU mode, real graph mutation,
+or GPU-computed chain-input filtering/edge identity.
+```
+
+Plain-language benefit:
+
+```text
+M6y still does not make full Flye faster. It proves the selected rows can now
+be treated as "CPU handoff skipped and CUDA supplied" under audit, while all
+other rows stay CPU-owned and a bad handoff stops before graph mutation.
+```
+
+Next highest-ROI task:
+
+```text
+M6z: add selected CPU-bypass timing attribution. Now that M6y proves the
+semantic skip boundary, measure the skipped CPU handoff work, CUDA supplier
+handoff cost, seam overhead, and residual CPU work so the next integrated gate
+can make or reject a real performance claim with numbers.
+```
