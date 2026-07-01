@@ -1,0 +1,219 @@
+{
+  "allowed_claim": "cuFlye can capture the full read-to-graph query-hit stream used by Flye IterKmers, replay it outside Flye, and narrow the selected raw-overlap gap from M6e to 35/36 exact rows while preserving canonical Flye artifacts.",
+  "architecture": "aarch64",
+  "build": {
+    "compiler": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+    "flye_commit": "886b8c17412c",
+    "flye_version": "2.9.6-b1802",
+    "last_patch": "0041-cuflye-read-to-graph-full-query-hit-source-pack.patch",
+    "make_args": [
+      "THREADS=32",
+      "aarch64=1",
+      "arm_neon=1"
+    ],
+    "patches_applied": 41
+  },
+  "fixture": "toy-hifi",
+  "flye_artifact_diff": {
+    "artifact_count": 9,
+    "baseline_vs_source_a_status": "match",
+    "baseline_vs_source_b_status": "match"
+  },
+  "forbidden_claim": "M6f does not implement CUDA minimizer discovery, exactly reproduce every raw-overlap row, replace quickSeqOverlaps, feed replayed records into Flye graph logic, or prove whole-Flye acceleration.",
+  "host": "dgx",
+  "hostname": "edgexpert-45d2",
+  "milestone": "M6f-full-query-hit-source-pack",
+  "next_recommended_step": "M6g: reproduce Flye C++ equal-key sort, DP tie/backtrack, and primary-overlap containment ordering for the remaining query 11 ext -3587 mismatch before moving this boundary to CUDA.",
+  "remote_proof_dir": "/tmp/cuflye-m6f-proof-20260701T064116Z",
+  "replay": {
+    "deterministic_diff_status": "match",
+    "exact_match": false,
+    "geometry_match": false,
+    "m6e_baseline_totals": {
+      "geometry_matched_rows": 26,
+      "matched_rows": 14,
+      "oracle_raw_overlap_records": 36,
+      "replay_raw_overlap_records": 34
+    },
+    "mismatch_examples": [
+      {
+        "exact_matched_rows": 23,
+        "extra_examples": [
+          {
+            "chain_input_count": 1,
+            "chain_length": 14,
+            "edge_begin": 23276,
+            "edge_end": 23585,
+            "edge_id": 0,
+            "edge_len": 75226,
+            "edge_seq_id": -3587,
+            "passes_chain_input_filter": 0,
+            "query_id": 11,
+            "raw_overlap_count": 26,
+            "read_begin": 1038,
+            "read_end": 1371,
+            "read_id": 11,
+            "read_len": 2479,
+            "score": 103,
+            "seq_divergence": 0.18641677413912852,
+            "source_order": 15
+          },
+          {
+            "chain_input_count": 1,
+            "chain_length": 14,
+            "edge_begin": 23366,
+            "edge_end": 23585,
+            "edge_id": 0,
+            "edge_len": 75226,
+            "edge_seq_id": -3587,
+            "passes_chain_input_filter": 0,
+            "query_id": 11,
+            "raw_overlap_count": 26,
+            "read_begin": 1035,
+            "read_end": 1270,
+            "read_id": 11,
+            "read_len": 2479,
+            "score": 93,
+            "seq_divergence": 0.16591342261934705,
+            "source_order": 16
+          },
+          {
+            "chain_input_count": 1,
+            "chain_length": 13,
+            "edge_begin": 23273,
+            "edge_end": 23492,
+            "edge_id": 0,
+            "edge_len": 75226,
+            "edge_seq_id": -3587,
+            "passes_chain_input_filter": 0,
+            "query_id": 11,
+            "raw_overlap_count": 26,
+            "read_begin": 1136,
+            "read_end": 1371,
+            "read_id": 11,
+            "read_len": 2479,
+            "score": 76,
+            "seq_divergence": 0.1702727150989778,
+            "source_order": 17
+          }
+        ],
+        "geometry_matched_rows": 23,
+        "geometry_missing_examples": [
+          {
+            "chain_input_count": 1,
+            "edge_begin": 23273,
+            "edge_end": 23585,
+            "edge_id": -9,
+            "edge_len": 75226,
+            "edge_seq_id": -3587,
+            "passes_chain_input_filter": 0,
+            "query_id": 11,
+            "raw_overlap_count": 24,
+            "read_begin": 1035,
+            "read_end": 1371,
+            "read_id": 11,
+            "read_len": 2479,
+            "score": 106,
+            "seq_divergence": 0.118272923,
+            "source_order": 15
+          }
+        ],
+        "geometry_missing_rows": 1,
+        "missing_examples": [
+          {
+            "chain_input_count": 1,
+            "edge_begin": 23273,
+            "edge_end": 23585,
+            "edge_id": -9,
+            "edge_len": 75226,
+            "edge_seq_id": -3587,
+            "passes_chain_input_filter": 0,
+            "query_id": 11,
+            "raw_overlap_count": 24,
+            "read_begin": 1035,
+            "read_end": 1371,
+            "read_id": 11,
+            "read_len": 2479,
+            "score": 106,
+            "seq_divergence": 0.118272923,
+            "source_order": 15
+          }
+        ],
+        "oracle_raw_overlap_records": 24,
+        "query_id": 11,
+        "replay_raw_overlap_records": 26
+      }
+    ],
+    "remaining_semantics": [
+      "full query-hit source capture is present, but selected rows still diverge from Flye raw-overlap oracle geometry",
+      "remaining differences are localized to C++ std::sort equal-key behavior, DP tie/backtrack behavior, or primary-overlap containment ordering",
+      "edge_id mapping and downstream chain-input filtering are validated by existing oracle rows, not recomputed in this replay"
+    ],
+    "replay_raw_overlaps_sha256": "1be41bf42fecd4c1af40eb516ee7377afdcce20a2c7bfdd52fdaccb0cdeb3e6c",
+    "reproduced_semantics": [
+      "materialize KmerMatch-like records from captured VertexIndex bucket hits",
+      "group KmerMatch records by Flye FastaRecord::Id order",
+      "run Flye-style gap-aware chain DP for each ext sequence",
+      "apply Flye overlapTest for the read-to-graph detector shape",
+      "apply primary-overlap containment filtering for onlyMaxExt=false",
+      "apply read-to-graph detector divergence gate with maxDivergence=1.0"
+    ],
+    "schema": "cuflye-read-to-graph-minimizer-source-replay-v0",
+    "second_replay_raw_overlaps_sha256": "1be41bf42fecd4c1af40eb516ee7377afdcce20a2c7bfdd52fdaccb0cdeb3e6c",
+    "source_match_modes": [
+      "full-query-hits"
+    ],
+    "status": "gap-ledger",
+    "totals": {
+      "extra_rows": 3,
+      "geometry_extra_rows": 3,
+      "geometry_matched_rows": 35,
+      "geometry_missing_rows": 1,
+      "matched_rows": 35,
+      "missing_rows": 1,
+      "oracle_raw_overlap_records": 36,
+      "replay_raw_overlap_records": 38,
+      "source_ext_groups": 33,
+      "source_match_records": 7747
+    }
+  },
+  "source_pack": {
+    "canonical_sha256": "16f4ced6054e7e4491071a1a7512760424a1e4fbc157e532ddb7c9e2aac53e5f",
+    "deterministic_diff_status": "match",
+    "full_query_hit_records": 7747,
+    "query_count": 8,
+    "query_ids": [
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "second_export_canonical_sha256": "16f4ced6054e7e4491071a1a7512760424a1e4fbc157e532ddb7c9e2aac53e5f",
+    "total_counts": {
+      "chain_input_records": 8,
+      "edge_sequence_records": 33,
+      "full_query_hit_records": 7747,
+      "index_bucket_records": 7640,
+      "query_minimizers": 7725,
+      "raw_overlap_records": 36
+    },
+    "validation_status": "ok"
+  },
+  "validation": {
+    "dgx_commands": [
+      "scripts/build_flye_cpu.sh --apply-patches --jobs 32",
+      "scripts/run_flye_fixture.sh --threads 1 baseline/source-a/source-b",
+      "tools/validate_read_to_graph_source_pack.py source-pack-a/source-pack-b",
+      "tools/diff_read_to_graph_source_packs.py source-pack-a source-pack-b",
+      "tools/replay_read_to_graph_source_pack.py source-pack-a/source-pack-b",
+      "tools/diff_flye_runs.py baseline source-a/source-b"
+    ],
+    "local_syntax": "python3 -m py_compile tools/replay_read_to_graph_source_pack.py tools/validate_read_to_graph_source_pack.py tools/diff_read_to_graph_source_packs.py",
+    "ownership_scan": "no direct new/delete/malloc/free or CUDA resource APIs in M6f code",
+    "patch_series_apply_check": "patches 0001..0041 apply cleanly from Flye 2.9.6"
+  }
+}

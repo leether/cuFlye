@@ -11,13 +11,16 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m6f-full-query-hit-source-pack.md`:
-  extend source capture from query minimizer hits to the full Flye
-  `IterKmers` query-hit stream so M6e replay can target exact raw-overlap
-  equality before CUDA consumer work resumes.
+- `2026-07-01-cuflye-m6g-query-hit-replay-tie-closure.md`:
+  close or precisely bound the final M6f full-query-hit replay mismatch around
+  query `11` / edge sequence `-3587` before CUDA consumer work resumes.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m6f-full-query-hit-source-pack.md`:
+  extend read-to-graph capture from query minimizer hits to the full Flye
+  `IterKmers` query-hit stream, preserve exact Flye artifacts, and improve
+  replay from M6e's `14/36` exact rows to `35/36`.
 - `2026-07-01-cuflye-m6e-minimizer-source-replay-gap-closure.md`:
   consume the M6d source pack with an external CPU replay harness, reproduce
   deterministic KmerMatch grouping, chain DP, overlapTest, and primary-overlap

@@ -19,6 +19,7 @@ REPLAY_SCHEMA = "cuflye-read-to-graph-minimizer-source-replay-v0"
 RAW_SCHEMA = "# schema=cuflye-read-to-graph-raw-overlap-v0"
 QUERY_SCHEMA = "# schema=cuflye-read-to-graph-source-query-v0"
 BUCKET_SCHEMA = "# schema=cuflye-read-to-graph-source-index-bucket-v0"
+FULL_HIT_SCHEMA = "# schema=cuflye-read-to-graph-source-full-query-hit-v0"
 EDGE_SCHEMA = "# schema=cuflye-read-to-graph-source-edge-sequence-v0"
 
 LARGE_GAP_PENALTY = 2.0
@@ -117,6 +118,34 @@ def read_edge_lengths(query_dir: Path) -> dict[int, int]:
     return lengths
 
 
+def read_full_hit_matches(query_dir: Path, query_id: int) -> list[Match]:
+    path = query_dir / "full-query-hits.tsv"
+    matches: list[Match] = []
+    for line in read_data_lines(path, FULL_HIT_SCHEMA):
+        fields = line.split("\t")
+        if len(fields) != 10:
+            raise ValueError(f"{query_dir}: invalid full query-hit row")
+        row_query_id = int(fields[0])
+        source_order = int(fields[1])
+        cur_pos = int(fields[2])
+        kmer_repr = int(fields[3])
+        is_repetitive = int(fields[6])
+        kmer_freq = int(fields[7])
+        ext_id = int(fields[8])
+        ext_pos = int(fields[9])
+        if row_query_id != query_id:
+            raise ValueError(f"{query_dir}: mixed query ids in full query hits")
+        if is_repetitive or not kmer_freq:
+            raise ValueError(f"{query_dir}: full query-hit row is not replayable")
+        if ext_id == query_id and ext_pos == cur_pos:
+            continue
+        matches.append(Match(cur_pos, ext_pos, ext_id, kmer_repr, source_order))
+    matches.sort(
+        key=lambda item: (signed_to_internal_id(item.ext_id), item.cur_pos, item.source_order)
+    )
+    return matches
+
+
 def read_bucket_matches(query_dir: Path, query_id: int) -> list[Match]:
     matches: list[Match] = []
     for order, line in enumerate(read_data_lines(query_dir / "index-buckets.tsv", BUCKET_SCHEMA)):
@@ -135,6 +164,12 @@ def read_bucket_matches(query_dir: Path, query_id: int) -> list[Match]:
         matches.append(Match(cur_pos, ext_pos, ext_id, kmer_repr, order))
     matches.sort(key=lambda item: (signed_to_internal_id(item.ext_id), item.cur_pos))
     return matches
+
+
+def read_source_matches(query_dir: Path, query_id: int) -> tuple[str, list[Match]]:
+    if (query_dir / "full-query-hits.tsv").is_file():
+        return "full-query-hits", read_full_hit_matches(query_dir, query_id)
+    return "minimizer-buckets", read_bucket_matches(query_dir, query_id)
 
 
 def read_oracle_rows(query_dir: Path) -> list[dict[str, Any]]:
@@ -336,7 +371,7 @@ def replay_query(query_dir: Path) -> dict[str, Any]:
     manifest = json.loads((query_dir / "manifest.json").read_text(encoding="utf-8"))
     query_id, query_len = read_query(query_dir)
     edge_lengths = read_edge_lengths(query_dir)
-    matches = read_bucket_matches(query_dir, query_id)
+    source_match_mode, matches = read_source_matches(query_dir, query_id)
     oracle_rows = read_oracle_rows(query_dir)
 
     params = manifest["parameters"]
@@ -379,6 +414,7 @@ def replay_query(query_dir: Path) -> dict[str, Any]:
         "query_id": query_id,
         "query_sequence_length": query_len,
         "source_match_records": len(matches),
+        "source_match_mode": source_match_mode,
         "source_ext_group_count": len(groups),
         "source_ext_ids": [group["ext_id"] for group in groups],
         "oracle_raw_overlap_records": len(oracle_rows),
@@ -515,6 +551,8 @@ def raw_rows_tsv(rows: list[dict[str, Any]]) -> str:
 
 
 def build_missing_semantics(query_summaries: list[dict[str, Any]]) -> list[str]:
+    source_modes = {item["source_match_mode"] for item in query_summaries}
+    uses_full_hits = source_modes == {"full-query-hits"}
     if all(item["comparison"]["status"] == "match" for item in query_summaries):
         return [
             "edge_id mapping and downstream chain-input filtering are validated by existing oracle rows, not recomputed in this replay",
@@ -526,6 +564,12 @@ def build_missing_semantics(query_summaries: list[dict[str, Any]]) -> list[str]:
         return [
             "M6d source pack captures enough bucket-hit geometry for selected raw-overlap coordinates, but not exact Flye score/divergence values",
             "non-minimizer query k-mer hits from OverlapDetector::IterKmers are not captured in M6d and can change chain score and divergence",
+            "edge_id mapping and downstream chain-input filtering are validated by existing oracle rows, not recomputed in this replay",
+        ]
+    if uses_full_hits:
+        return [
+            "full query-hit source capture is present, but selected rows still diverge from Flye raw-overlap oracle geometry",
+            "remaining differences are localized to C++ std::sort equal-key behavior, DP tie/backtrack behavior, or primary-overlap containment ordering",
             "edge_id mapping and downstream chain-input filtering are validated by existing oracle rows, not recomputed in this replay",
         ]
     return [
@@ -577,6 +621,7 @@ def replay_pack(pack_root: Path, output_dir: Path | None) -> dict[str, Any]:
         "pack_validation_sha256": validation["canonical_sha256"],
         "query_count": len(queries),
         "query_ids": [item["query_id"] for item in queries],
+        "source_match_modes": sorted({item["source_match_mode"] for item in queries}),
         "totals": totals,
         "replay_raw_overlaps_sha256": sha256_text(raw_tsv),
         "reproduced_semantics": [

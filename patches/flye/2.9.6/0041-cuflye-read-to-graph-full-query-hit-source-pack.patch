@@ -1,0 +1,73 @@
+diff --git a/src/repeat_graph/read_aligner.cpp b/src/repeat_graph/read_aligner.cpp
+index 64f338d..28dce4a 100644
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -955,6 +955,8 @@ namespace
+ 		std::vector<FastaRecord::Id> edgeSeqIds;
+ 		size_t repetitiveMinimizers = 0;
+ 		size_t indexBucketRecords = 0;
++		size_t fullQueryHitKmers = 0;
++		size_t fullQueryHitRecords = 0;
+ 
+ 		{
+ 			std::ofstream queryOut(joinReplayPath(queryDir, "query.tsv"));
+@@ -1003,6 +1005,42 @@ namespace
+ 			}
+ 		}
+ 
++		{
++			std::ofstream fullHitOut(
++				joinReplayPath(queryDir, "full-query-hits.tsv"));
++			fullHitOut << "# schema=cuflye-read-to-graph-source-full-query-hit-v0\n";
++			fullHitOut << "query_id\tsource_order\tquery_pos\tquery_kmer_repr\t"
++						  "standard_kmer_repr\tstandard_revcomp\tis_repetitive\t"
++						  "kmer_freq\ttarget_edge_seq_id\ttarget_pos\n";
++
++			size_t sourceOrder = 0;
++			for (auto kmerPos : IterKmers(querySeq))
++			{
++				Kmer standardKmer = kmerPos.kmer;
++				bool standardRevComp = standardKmer.standardForm();
++				bool isRepetitive = pathsIndex.isRepetitive(kmerPos.kmer);
++				size_t kmerFreq = pathsIndex.kmerFreq(kmerPos.kmer);
++				if (isRepetitive || !kmerFreq) continue;
++				++fullQueryHitKmers;
++				for (const auto& targetPos : pathsIndex.iterKmerPos(kmerPos.kmer))
++				{
++					fullHitOut << seqId.signedId() << "\t"
++							   << sourceOrder << "\t"
++							   << kmerPos.position << "\t"
++							   << kmerPos.kmer.numRepr() << "\t"
++							   << standardKmer.numRepr() << "\t"
++							   << (standardRevComp ? 1 : 0) << "\t"
++							   << (isRepetitive ? 1 : 0) << "\t"
++							   << kmerFreq << "\t"
++							   << targetPos.readId.signedId() << "\t"
++							   << targetPos.position << "\n";
++					edgeSeqIds.push_back(targetPos.readId);
++					++sourceOrder;
++					++fullQueryHitRecords;
++				}
++			}
++		}
++
+ 		{
+ 			std::ofstream rawOut(joinReplayPath(queryDir, "raw-overlaps.tsv"));
+ 			rawOut << "# schema=cuflye-read-to-graph-raw-overlap-v0\n";
+@@ -1098,6 +1136,8 @@ namespace
+ 				 << "    \"query_minimizers\": " << minimizers.size() << ",\n"
+ 				 << "    \"repetitive_minimizers\": " << repetitiveMinimizers << ",\n"
+ 				 << "    \"index_bucket_records\": " << indexBucketRecords << ",\n"
++				 << "    \"full_query_hit_kmers\": " << fullQueryHitKmers << ",\n"
++				 << "    \"full_query_hit_records\": " << fullQueryHitRecords << ",\n"
+ 				 << "    \"edge_sequence_records\": " << edgeSeqIds.size() << ",\n"
+ 				 << "    \"raw_overlap_records\": " << overlaps.size() << ",\n"
+ 				 << "    \"chain_input_records\": " << alignments.size() << "\n"
+@@ -1106,6 +1146,7 @@ namespace
+ 				 << "    \"query\": \"query.tsv\",\n"
+ 				 << "    \"query_minimizers\": \"query-minimizers.tsv\",\n"
+ 				 << "    \"index_buckets\": \"index-buckets.tsv\",\n"
++				 << "    \"full_query_hits\": \"full-query-hits.tsv\",\n"
+ 				 << "    \"edge_sequences\": \"edge-sequences.tsv\",\n"
+ 				 << "    \"raw_overlaps\": \"raw-overlaps.tsv\",\n"
+ 				 << "    \"oracle_chain_input\": \"oracle.chain-input.tsv\",\n"

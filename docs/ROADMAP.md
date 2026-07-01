@@ -326,6 +326,18 @@ Completed:
   and geometrically matched `26/36`, proving the next blocker is not CUDA
   mechanics but source completeness: M6d captures query minimizer hits while
   Flye's CPU path iterates all query k-mers through `IterKmers`.
+- M6f: the source pack now includes `full-query-hits.tsv`, the full
+  `OverlapDetector::IterKmers` query-hit stream for selected read-to-graph
+  queries. The DGX proof captured `7747` full query-hit records, deterministic
+  source-pack SHA-256
+  `16f4ced6054e7e4491071a1a7512760424a1e4fbc157e532ddb7c9e2aac53e5f`, and
+  deterministic replay SHA-256
+  `1be41bf42fecd4c1af40eb516ee7377afdcce20a2c7bfdd52fdaccb0cdeb3e6c`.
+  Replay improved from M6e's `14/36` exact raw-overlap rows to `35/36`, and
+  from `26/36` geometry rows to `35/36`. Baseline versus capture full Flye
+  artifact diffs still returned `match`. The remaining gap is a single query
+  `11` / edge sequence `-3587` ordering/tie/primary-selection mismatch, not
+  source completeness.
 
 Current allowed performance claim:
 
@@ -2742,7 +2754,7 @@ end-to-end GPU Flye speedup.
 Next highest-ROI task:
 
 ```text
-M6f: extend read-to-graph source capture from query minimizer hits to Flye's
-full `IterKmers` query-hit stream, then rerun M6e replay toward exact
-raw-overlap equality before CUDA consumer work resumes.
+M6g: close or precisely bound the final full-query-hit replay mismatch around
+query `11` / edge sequence `-3587`, then move the exact replay boundary toward
+a CUDA full-query-hit consumer.
 ```

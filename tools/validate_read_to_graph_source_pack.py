@@ -23,10 +23,14 @@ REQUIRED_FILES = (
     "oracle.chain-input.tsv",
     "missing-semantics.json",
 )
+OPTIONAL_FILES = (
+    "full-query-hits.tsv",
+)
 SCHEMA_LINES = {
     "query.tsv": "# schema=cuflye-read-to-graph-source-query-v0",
     "query-minimizers.tsv": "# schema=cuflye-read-to-graph-source-minimizer-v0",
     "index-buckets.tsv": "# schema=cuflye-read-to-graph-source-index-bucket-v0",
+    "full-query-hits.tsv": "# schema=cuflye-read-to-graph-source-full-query-hit-v0",
     "edge-sequences.tsv": "# schema=cuflye-read-to-graph-source-edge-sequence-v0",
     "raw-overlaps.tsv": "# schema=cuflye-read-to-graph-raw-overlap-v0",
     "oracle.chain-input.tsv": "# schema=cuflye-read-to-graph-chain-input-v0",
@@ -112,6 +116,11 @@ def validate_query_dir(query_dir: Path) -> dict[str, Any]:
             SCHEMA_LINES["oracle.chain-input.tsv"],
         ),
     }
+    if (query_dir / "full-query-hits.tsv").is_file():
+        actual_counts["full_query_hit_records"] = count_data_lines(
+            query_dir / "full-query-hits.tsv",
+            SCHEMA_LINES["full-query-hits.tsv"],
+        )
     for name, actual in actual_counts.items():
         expected = int(counts[name])
         if actual != expected:
@@ -148,8 +157,14 @@ def validate_query_dir(query_dir: Path) -> dict[str, Any]:
         name: stable_file_hash(query_dir / name)
         for name in REQUIRED_FILES
     }
+    for name in OPTIONAL_FILES:
+        if (query_dir / name).is_file():
+            file_hashes[name] = stable_file_hash(query_dir / name)
     canonical_parts = []
-    for name in sorted(REQUIRED_FILES):
+    canonical_files = list(REQUIRED_FILES) + [
+        name for name in OPTIONAL_FILES if (query_dir / name).is_file()
+    ]
+    for name in sorted(canonical_files):
         canonical_parts.append(name)
         canonical_parts.append(read_text(query_dir / name))
     return {

@@ -29,6 +29,7 @@ The pack root contains one directory per selected positive query id:
     query.tsv
     query-minimizers.tsv
     index-buckets.tsv
+    full-query-hits.tsv
     edge-sequences.tsv
     raw-overlaps.tsv
     oracle.chain-input.tsv
@@ -43,6 +44,7 @@ The pack root contains one directory per selected positive query id:
 | `query.tsv` | Selected query id and full read sequence. |
 | `query-minimizers.tsv` | Query minimizers generated with Flye's `yieldMinimizers` window. |
 | `index-buckets.tsv` | VertexIndex bucket entries for non-repetitive query minimizers. |
+| `full-query-hits.tsv` | Optional M6f extension with the full `OverlapDetector::IterKmers` query-hit stream. |
 | `edge-sequences.tsv` | Graph edge-sequence ids, lengths, and sequence strings referenced by buckets or overlap oracle rows. |
 | `raw-overlaps.tsv` | M6a raw-overlap oracle rows for the query. |
 | `oracle.chain-input.tsv` | M6a chain-input oracle rows for the query. |
@@ -66,6 +68,20 @@ query_id<TAB>query_pos<TAB>standard_kmer_repr<TAB>target_edge_seq_id<TAB>target_
 
 Rows are emitted by iterating Flye `VertexIndex::iterKmerPos` for each
 non-repetitive query minimizer with non-zero frequency.
+
+## Full Query-Hit TSV
+
+```text
+query_id<TAB>source_order<TAB>query_pos<TAB>query_kmer_repr<TAB>standard_kmer_repr<TAB>standard_revcomp<TAB>is_repetitive<TAB>kmer_freq<TAB>target_edge_seq_id<TAB>target_pos
+```
+
+`full-query-hits.tsv` is optional for M6d packs and present for M6f packs. It
+captures the full query-side stream used by Flye's CPU
+`OverlapDetector::getSeqOverlaps`: iterate all query k-mers with `IterKmers`,
+skip repetitive k-mers and k-mers with zero `VertexIndex` frequency, then emit
+one row for each `VertexIndex::iterKmerPos` target. `source_order` preserves
+the pre-sort insertion order before replay sorts by target `FastaRecord::Id`
+and query position.
 
 ## Oracle TSVs
 
@@ -136,3 +152,6 @@ the minimizer-built `VertexIndex`. Those non-minimizer query hits can change
 chain score, divergence, and in some cases coordinates. A CUDA replacement must
 therefore either capture/recompute the full query-hit stream or prove the
 minimizer-only stream is sufficient for a narrower supported shape.
+
+M6f adds `full-query-hits.tsv` to remove that source-completeness gap while
+preserving the older M6d files for compatibility.
