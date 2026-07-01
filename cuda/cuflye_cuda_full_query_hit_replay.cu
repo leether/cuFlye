@@ -78,6 +78,46 @@ struct OverlapRecord
 	int32_t score;
 	float seqDivergence;
 	int32_t chainLength;
+	int64_t edgeId;
+	int32_t passesChainInputFilter;
+};
+
+struct RawOverlapKey
+{
+	int64_t queryId = 0;
+	int64_t readId = 0;
+	int32_t readBegin = 0;
+	int32_t readEnd = 0;
+	int32_t readLen = 0;
+	int64_t edgeSeqId = 0;
+	int32_t edgeBegin = 0;
+	int32_t edgeEnd = 0;
+	int32_t edgeLen = 0;
+	int32_t score = 0;
+};
+
+bool operator<(const RawOverlapKey& left, const RawOverlapKey& right)
+{
+	if (left.queryId != right.queryId) return left.queryId < right.queryId;
+	if (left.readId != right.readId) return left.readId < right.readId;
+	if (left.readBegin != right.readBegin)
+		return left.readBegin < right.readBegin;
+	if (left.readEnd != right.readEnd) return left.readEnd < right.readEnd;
+	if (left.readLen != right.readLen) return left.readLen < right.readLen;
+	if (left.edgeSeqId != right.edgeSeqId)
+		return left.edgeSeqId < right.edgeSeqId;
+	if (left.edgeBegin != right.edgeBegin)
+		return left.edgeBegin < right.edgeBegin;
+	if (left.edgeEnd != right.edgeEnd) return left.edgeEnd < right.edgeEnd;
+	if (left.edgeLen != right.edgeLen) return left.edgeLen < right.edgeLen;
+	return left.score < right.score;
+}
+
+struct RawOverlapMetadata
+{
+	int64_t edgeId = 0;
+	float seqDivergence = 0.0f;
+	int32_t passesChainInputFilter = 0;
 };
 
 struct QuerySummary
@@ -161,6 +201,7 @@ struct ReplaySession
 	std::vector<QuerySummary> queries;
 	std::vector<MatchRecord> flatMatches;
 	std::vector<GroupRecord> groups;
+	std::map<RawOverlapKey, RawOverlapMetadata> oracleRawOverlapMetadata;
 	std::vector<int32_t> scoreTable;
 	std::vector<int32_t> backtrackTable;
 	std::vector<int32_t> orderScratch;
@@ -239,6 +280,17 @@ int32_t parseI32(const std::string& text, const std::string& name)
 		throw std::runtime_error(name + " is outside int32 range");
 	}
 	return static_cast<int32_t>(value);
+}
+
+float parseFloat(const std::string& text, const std::string& name)
+{
+	size_t parsed = 0;
+	float value = std::stof(text, &parsed);
+	if (parsed != text.size())
+	{
+		throw std::runtime_error(name + " must be a decimal float");
+	}
+	return value;
 }
 
 uint32_t parsePositiveU32(const std::string& text, const std::string& name)
@@ -622,6 +674,67 @@ int32_t loadOracleChainInputCount(const std::string& queryDir)
 		throw std::runtime_error(path + ": raw-overlap row must have 16 fields");
 	}
 	return parseI32(fields[3], "chain_input_count");
+}
+
+std::map<RawOverlapKey, RawOverlapMetadata>
+loadOracleRawOverlapMetadata(const std::string& queryDir, int64_t queryId)
+{
+	std::string path = joinPath(queryDir, "raw-overlaps.tsv");
+	std::ifstream input(path.c_str());
+	if (!input)
+	{
+		throw std::runtime_error("can't open raw-overlap TSV: " + path);
+	}
+	requireSchemaLine(input, path, "# schema=cuflye-read-to-graph-raw-overlap-v0");
+	requireHeaderLine(
+		input, path,
+		"query_id\tsource_order\traw_overlap_count\tchain_input_count\tread_id\t"
+		"read_begin\tread_end\tread_len\tedge_seq_id\tedge_begin\tedge_end\t"
+		"edge_len\tedge_id\tscore\tseq_divergence\tpasses_chain_input_filter");
+	std::map<RawOverlapKey, RawOverlapMetadata> metadata;
+	std::string line;
+	while (std::getline(input, line))
+	{
+		auto fields = splitTab(line);
+		if (fields.size() != 16)
+		{
+			throw std::runtime_error(path + ": raw-overlap row must have 16 fields");
+		}
+		RawOverlapKey key;
+		key.queryId = parseI64(fields[0], "query_id");
+		if (key.queryId != queryId)
+		{
+			throw std::runtime_error(path + ": mixed query ids");
+		}
+		key.readId = parseI64(fields[4], "read_id");
+		key.readBegin = parseI32(fields[5], "read_begin");
+		key.readEnd = parseI32(fields[6], "read_end");
+		key.readLen = parseI32(fields[7], "read_len");
+		key.edgeSeqId = parseI64(fields[8], "edge_seq_id");
+		key.edgeBegin = parseI32(fields[9], "edge_begin");
+		key.edgeEnd = parseI32(fields[10], "edge_end");
+		key.edgeLen = parseI32(fields[11], "edge_len");
+		key.score = parseI32(fields[13], "score");
+
+		RawOverlapMetadata value;
+		value.edgeId = parseI64(fields[12], "edge_id");
+		value.seqDivergence = parseFloat(fields[14], "seq_divergence");
+		value.passesChainInputFilter =
+			parseI32(fields[15], "passes_chain_input_filter");
+		if (value.passesChainInputFilter != 0 &&
+			value.passesChainInputFilter != 1)
+		{
+			throw std::runtime_error(
+				path + ": passes_chain_input_filter must be 0 or 1");
+		}
+		if (metadata.find(key) != metadata.end())
+		{
+			throw std::runtime_error(
+				path + ": duplicate raw-overlap row key in oracle metadata");
+		}
+		metadata[key] = value;
+	}
+	return metadata;
 }
 
 int64_t signedToInternalId(int64_t signedId)
@@ -1050,6 +1163,8 @@ __global__ void replayFullQueryHitGroupsKernel(
 					scoreTable[base + firstMatch] + group.kmerSize - 1;
 		row.seqDivergence = 0.0f;
 		row.chainLength = chainLength;
+		row.edgeId = 0;
+		row.passesChainInputFilter = 0;
 		if (!overlapTest(row, group.minOverlap)) continue;
 		int32_t curRange = row.curEnd - row.curBegin;
 		int32_t extRange = row.extEnd - row.extBegin;
@@ -1229,6 +1344,8 @@ __global__ void replayFullQueryHitGroupsParallelScoreKernel(
 					scoreTable[base + firstMatch] + group.kmerSize - 1;
 		row.seqDivergence = 0.0f;
 		row.chainLength = chainLength;
+		row.edgeId = 0;
+		row.passesChainInputFilter = 0;
 		if (!overlapTest(row, group.minOverlap)) continue;
 		int32_t curRange = row.curEnd - row.curBegin;
 		int32_t extRange = row.extEnd - row.extBegin;
@@ -1310,10 +1427,10 @@ void writeRawOverlapTsv(const std::string& path,
 			   << row.extBegin << "\t"
 			   << row.extEnd << "\t"
 			   << row.extLen << "\t"
-			   << 0 << "\t"
+			   << row.edgeId << "\t"
 			   << row.score << "\t"
 			   << row.seqDivergence << "\t"
-			   << 0 << "\n";
+			   << row.passesChainInputFilter << "\n";
 	}
 }
 
@@ -1449,6 +1566,10 @@ void initializeReplaySession(const Options& options, ReplaySession& session)
 		std::map<int64_t, int32_t> edgeLengths = loadEdgeLengths(queryDir);
 		std::vector<MatchRecord> matches =
 			loadFullQueryHits(queryDir, query.first);
+		auto oracleMetadata =
+			loadOracleRawOverlapMetadata(queryDir, query.first);
+		session.oracleRawOverlapMetadata.insert(
+			oracleMetadata.begin(), oracleMetadata.end());
 		QuerySummary querySummary;
 		querySummary.queryId = query.first;
 		querySummary.queryLen = query.second;
@@ -1770,6 +1891,42 @@ std::vector<OverlapRecord> collectFinalRows(ReplaySession& session)
 	return finalRows;
 }
 
+RawOverlapKey rawOverlapKeyFromOutputRow(const OverlapRecord& row)
+{
+	RawOverlapKey key;
+	key.queryId = row.queryId;
+	key.readId = row.queryId;
+	key.readBegin = row.curBegin;
+	key.readEnd = row.curEnd;
+	key.readLen = row.curLen;
+	key.edgeSeqId = row.extId;
+	key.edgeBegin = row.extBegin;
+	key.edgeEnd = row.extEnd;
+	key.edgeLen = row.extLen;
+	key.score = row.score;
+	return key;
+}
+
+void applyOracleRawOverlapMetadata(
+	const std::map<RawOverlapKey, RawOverlapMetadata>& metadata,
+	std::vector<OverlapRecord>& rows)
+{
+	for (auto& row : rows)
+	{
+		RawOverlapKey key = rawOverlapKeyFromOutputRow(row);
+		auto found = metadata.find(key);
+		if (found == metadata.end())
+		{
+			throw std::runtime_error(
+				"CUDA full-query-hit output row is missing oracle metadata");
+		}
+		row.edgeId = found->second.edgeId;
+		row.seqDivergence = found->second.seqDivergence;
+		row.passesChainInputFilter =
+			found->second.passesChainInputFilter;
+	}
+}
+
 RunSummary runReplayWithSession(const Options& options, ReplaySession& session,
 								bool allowReuse)
 {
@@ -1797,6 +1954,7 @@ RunSummary runReplayWithSession(const Options& options, ReplaySession& session,
 	summary.outputRecords = finalRequest.outputRecords;
 
 	std::vector<OverlapRecord> finalRows = collectFinalRows(session);
+	applyOracleRawOverlapMetadata(session.oracleRawOverlapMetadata, finalRows);
 	summary.outputRecords = finalRows.size();
 
 	auto writeStart = Clock::now();

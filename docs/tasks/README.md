@@ -11,13 +11,16 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m6r-chain-input-positive-full-query-hit-selection.md`:
-  find and prove a bounded full-query-hit selection with nonzero
-  `passes_chain_input_filter=1` rows before attempting graph-facing
-  consumption.
+- `2026-07-01-cuflye-m6s-full-query-hit-graph-edge-binding-dry-run.md`:
+  bind chain-input-positive, resolved-edge CUDA full-query-hit rows back to
+  live Flye graph edge objects in a no-mutation dry-run audit.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m6r-full-query-hit-non-key-field-propagation.md`:
+  preserve source-pack oracle-only full-query-hit raw-overlap metadata in CUDA
+  worker output after row-key replay succeeds, proving nonzero chain-input rows
+  and resolved edge-id rows while graph mutation remains disabled.
 - `2026-07-01-cuflye-m6q-full-query-hit-shadow-consumption-ledger.md`:
   add a no-mutation shadow consumption ledger for M6p-rehydrated full-query-hit
   raw-overlap rows, including unresolved `edge_id=0` accounting and zero

@@ -207,3 +207,5 @@ M6 read-to-graph input-boundary proof:
   `cuflye-m6p-full-query-hit-guarded-consumption-dry-run-dgx-aarch64.json`
 - Full query-hit shadow consumption ledger manifest:
   `cuflye-m6q-full-query-hit-shadow-consumption-ledger-dgx-aarch64.json`
+- Full query-hit non-key field propagation manifest:
+  `cuflye-m6r-full-query-hit-non-key-field-propagation-dgx-aarch64.json`

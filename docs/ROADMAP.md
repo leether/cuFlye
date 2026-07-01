@@ -3609,16 +3609,110 @@ Plain-language benefit:
 M6q still does not make Flye faster. It makes the next decision concrete:
 row-key parity and typed parsing are no longer the blocker for this selected
 full-query-hit pack, but the pack has zero chain-input-filter rows and zero
-graph-edge consumption candidates. The next high-ROI step is therefore to find
-a chain-input-positive full-query-hit selection before attempting any graph
-edge binding or graph mutation.
+graph-edge consumption candidates in the CUDA worker output. A source-pack scan
+shows the CPU oracle already has chain-input-positive rows for this selection,
+so the next high-ROI step is to propagate those oracle-only non-key fields into
+the worker output after row-key replay succeeds.
 ```
 
 Next highest-ROI task:
 
 ```text
-M6r: scan/select a bounded chain-input-positive full-query-hit query set, then
-run the existing CUDA session worker plus M6p/M6q gates on that selection. This
-should determine whether edge identity is the next blocker after chain-input
-rows actually exist.
+M6r: preserve source-pack oracle-only raw-overlap metadata in the CUDA
+full-query-hit worker output by row key, then rerun the existing M6p/M6q gates
+to prove nonzero chain-input rows and resolved edge ids are visible before graph
+mutation remains disabled.
+```
+
+## 2026-07-01 Update: M6r Full Query-Hit Non-Key Field Propagation
+
+Status: completed.
+
+Task Card:
+
+- `docs/tasks/2026-07-01-cuflye-m6r-full-query-hit-non-key-field-propagation.md`
+
+Golden proof:
+
+- `tests/golden/cuflye-m6r-full-query-hit-non-key-field-propagation-dgx-aarch64.json`
+
+What changed:
+
+- Added `tools/select_read_to_graph_chain_input_positive.py` to prove whether a
+  source pack contains chain-input-positive raw-overlap rows.
+- Extended the CUDA full-query-hit replay worker to load source-pack
+  raw-overlap oracle metadata and backfill these non-key fields by row key after
+  CUDA row-key replay succeeds:
+  - `edge_id`;
+  - `seq_divergence`;
+  - `passes_chain_input_filter`.
+- Kept CUDA kernel row-key generation unchanged.
+- Kept graph mutation disabled and audited as not consumed.
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m6r-proof-20260701T105200Z
+fixture=toy-hifi
+query_ids=5,6,7,8,9,10,11,12
+source_selection_chain_input_rows=8
+source_selection_raw_rows=36
+positive_status=passed
+positive_row_key_matched=true
+positive_external_row_key_status=match
+positive_rehydration_status=passed
+positive_worker_records=36
+positive_rehydrated_records=36
+positive_shadow_ledger_status=passed
+positive_shadow_ledger_rows=36
+positive_chain_input_filter_rows=8
+positive_unresolved_edge_id_zero_rows=0
+positive_resolved_edge_id_rows=36
+positive_graph_edge_consumption_candidate_rows=0
+positive_graph_mutation_consumed_worker_output=false
+negative_status=shadow-ledger-failed-before-graph-mutation
+negative_rehydration_status=passed
+negative_shadow_ledger_status=failed
+negative_proof_fault=drop-first-ledger-row
+negative_proof_fault_applied=true
+negative_rehydrated_records=36
+negative_shadow_ledger_rows=35
+negative_graph_mutation_consumed_worker_output=false
+default_cpu_artifact_hashes_match_m0=true
+```
+
+Allowed M6r claim:
+
+```text
+cuFlye can preserve source-pack oracle-only raw-overlap metadata in CUDA
+full-query-hit worker output after row-key replay succeeds, allowing the M6q
+ledger to see 8 chain-input-positive rows and 36 resolved edge-id rows while
+still blocking graph mutation.
+```
+
+Forbidden M6r claim:
+
+```text
+M6r does not prove whole-Flye speedup, GPU-computed chain-input filtering,
+GPU-computed graph-edge identity, GraphEdge object-vector consumption, graph
+mutation, or a default GPU mode.
+```
+
+Plain-language benefit:
+
+```text
+M6r still does not make full Flye faster. It removes a real integration blocker:
+the CUDA worker no longer loses the CPU oracle's non-key raw-overlap metadata
+after row-key replay. The next bottleneck is now sharper: the rows have
+chain-input flags and edge ids, but they are still not bound to live Flye graph
+edge objects.
+```
+
+Next highest-ROI task:
+
+```text
+M6s: add an opt-in no-mutation graph-edge binding audit for M6r/M6q rows. It
+should prove that chain-input-positive CUDA full-query-hit rows with resolved
+edge_id values can bind back to live Flye GraphEdge objects, then fail closed on
+a deliberate binding fault before any graph mutation is possible.
 ```
