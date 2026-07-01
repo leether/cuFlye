@@ -1,0 +1,93 @@
+{
+  "allowed_claim": "cuFlye can request compact-binary-v0 pre-divergence read-alignment chains from a CUDA session inside Flye, validate and rehydrate that binary payload in the Flye seam, apply Flye's existing divergence filter, match CPU goodChains for the selected batch, preserve exact canonical Flye artifacts, and fail closed on corrupted binary payloads before graph mutation.",
+  "architecture": "aarch64",
+  "artifacts": {
+    "cuda_build_manifest": "/tmp/cuflye-m5u-proof-20260701T041315Z/out/m5u/build/cuda-read-alignment-chain-replay-build.json",
+    "flye_build_manifest": "/tmp/cuflye-m5u-proof-20260701T041315Z/out/m5u/build/flye-build.json",
+    "negative_checksum_audit_json": "/tmp/cuflye-m5u-proof-20260701T041315Z/out/m5u/flye-negative-compact-binary-checksum-batch64/read-alignment-replay-fixtures/predivergence-batch-worker/read-alignment-predivergence-batch-dry-run.json",
+    "negative_truncate_audit_json": "/tmp/cuflye-m5u-proof-20260701T041315Z/out/m5u/flye-negative-compact-binary-truncate-batch64/read-alignment-replay-fixtures/predivergence-batch-worker/read-alignment-predivergence-batch-dry-run.json",
+    "positive_audit_json": "/tmp/cuflye-m5u-proof-20260701T041315Z/out/m5u/flye-positive-compact-binary-session-batch64/read-alignment-replay-fixtures/predivergence-batch-worker/read-alignment-predivergence-batch-dry-run.json",
+    "positive_canonical_diff_json": "/tmp/cuflye-m5u-proof-20260701T041315Z/out/m5u/flye-positive-compact-binary-session-batch64/canonical-diff.json",
+    "positive_compact_binary_validation_json": "/tmp/cuflye-m5u-proof-20260701T041315Z/out/m5u/flye-positive-compact-binary-session-batch64/compact-binary-validation.json",
+    "positive_worker_response_json": "/tmp/cuflye-m5u-proof-20260701T041315Z/out/m5u/flye-positive-compact-binary-session-batch64/read-alignment-replay-fixtures/predivergence-batch-worker/read-alignment-worker-response.json"
+  },
+  "comparison": {
+    "m5r_selected_batch64_session_wall_ms": 4.139341,
+    "m5r_selected_batch64_worker_request_total_ms": 2.75092,
+    "m5u_selected_batch64_session_wall_speedup_vs_m5r": 1.9855030406056842,
+    "m5u_selected_batch64_worker_request_speedup_vs_m5r": 13.519894629236456
+  },
+  "fixture": "toy-hifi",
+  "forbidden_claim": "M5u does not prove default GPU mode, full Flye acceleration, broad _readAlignments replacement, CUDA minimizer overlap discovery, or replacement of Flye's CPU divergence/base-alignment stages.",
+  "host": "dgx",
+  "milestone": "M5u-read-alignment-compact-binary-flye-rehydration",
+  "negative_checksum": {
+    "compact_binary_mode": "rehydrate-v0",
+    "decision": "failed-closed-before-graph-mutation",
+    "error": "compact binary checksum mismatch: expected 0000000000000000000000000000000000000000000000000000000000000000, got f6dc209fad4311c61396f93ad240f56928557dc0b70f6c947c6991d2f2047504",
+    "failed_closed": true,
+    "graph_mutation_consumed_worker_output": false,
+    "status": "failed",
+    "worker_compact_binary_validation_status": "failed"
+  },
+  "negative_truncate": {
+    "compact_binary_mode": "rehydrate-v0",
+    "decision": "failed-closed-before-graph-mutation",
+    "error_suffix": "compact binary payload size mismatch",
+    "failed_closed": true,
+    "graph_mutation_consumed_worker_output": false,
+    "proof_fault": "truncate-compact-binary-payload",
+    "proof_fault_applied": true,
+    "status": "failed",
+    "worker_compact_binary_validation_status": "failed"
+  },
+  "next_recommended_step": "M5v: after the compact-binary-v0 Flye seam validates and matches CPU goodChains for an allowlisted batch, run a guarded vector-substitution smoke that feeds the verified GPU-derived goodChains into the selected _readAlignments slice while preserving exact artifacts and fail-closed behavior.",
+  "plain_language_benefit": "M5u moves the compact binary payload into Flye itself. In plain terms: the GPU worker no longer needs to spray per-read TSV files back to Flye; Flye can ask for one binary file, check it, rebuild the same goodChains, and keep the assembly byte-identical. On the same selected batch64 Flye session seam, wall time drops from M5r's 4.139341 ms to 2.084782 ms, and the worker's actual request_total drops from 2.75092 ms to 0.203472 ms. This is a real integration win, but still not a whole-Flye speed claim.",
+  "positive": {
+    "canonical_diff": "match",
+    "compact_binary_mode": "rehydrate-v0",
+    "decision": "batch-dry-run-match-not-consumed",
+    "fixture_count": 64,
+    "graph_mutation_consumed_worker_output": false,
+    "matched_fixture_count": 64,
+    "mismatched_fixture_count": 0,
+    "status": "passed",
+    "total_worker_records": 64,
+    "worker_actual_wall_ms": 2.084782,
+    "worker_compact_binary_checksum_status": "computed",
+    "worker_compact_binary_sha256": "f6dc209fad4311c61396f93ad240f56928557dc0b70f6c947c6991d2f2047504",
+    "worker_compact_binary_validation_status": "passed",
+    "worker_warmup_wall_ms": 6.201769
+  },
+  "positive_compact_binary_validation": {
+    "bytes": 5952,
+    "fixture_count": 64,
+    "magic": "CUFRALB0",
+    "output_mode": "pre-divergence-chains",
+    "output_records": 64,
+    "record_bytes": 92,
+    "sha256": "f6dc209fad4311c61396f93ad240f56928557dc0b70f6c947c6991d2f2047504",
+    "status": "ok",
+    "total_input_records": 66
+  },
+  "positive_worker_response": {
+    "compact_output_only": true,
+    "output_artifact_mode": "compact-binary-v0",
+    "request_ordinal": 2,
+    "status": "ok",
+    "timing_ms": {
+      "backend_mean_total_before_json": 0.063968,
+      "device_to_host": 0.037664,
+      "kernel": 0.025984,
+      "request_total": 0.203472,
+      "worker_overhead": 0.139504,
+      "write_output": 0.0944
+    },
+    "worker_cuda_context_warm": true,
+    "worker_device_arena_cache_hit": true
+  },
+  "proof_root": "/tmp/cuflye-m5u-proof-20260701T041315Z",
+  "schema": "cuflye-m5u-read-alignment-compact-binary-flye-rehydration-proof-v0",
+  "selected_query_count": 64,
+  "status": "accepted"
+}

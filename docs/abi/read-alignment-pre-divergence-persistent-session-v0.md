@@ -162,6 +162,20 @@ This mode writes the same deterministic segment stream as
 payloads must compare byte-for-byte before the payload can be treated as
 oracle-equivalent.
 
+M5u Flye-side compact binary rehydration adds:
+
+```text
+CUFLYE_READ_ALIGNMENT_COMPACT_BINARY_MODE=rehydrate-v0
+CUFLYE_READ_ALIGNMENT_COMPACT_BINARY_EXPECTED_SHA256=<optional-64-char-hex>
+```
+
+In this mode Flye requests `compact-binary-v0` from the persistent session,
+validates the binary payload inside the Flye seam, rehydrates records into the
+same pre-divergence chain shape as the TSV path, applies Flye's existing
+divergence filter, and compares GPU-derived `goodChains` with CPU `goodChains`.
+The worker output remains non-consumed by graph mutation unless a later Task
+Card explicitly enables a guarded substitution mode.
+
 ## Response JSON
 
 Response schema:
@@ -203,3 +217,22 @@ The Flye proof submits two requests to one session:
 
 The positive proof must preserve exact canonical Flye artifacts versus a CPU
 baseline. The negative proof must fail closed before graph mutation.
+
+## M5u Proof Shape
+
+The compact binary Flye rehydration proof records the following audit fields in
+`read-alignment-predivergence-batch-dry-run.json`:
+
+- `compact_binary_mode`;
+- `worker_compact_binary`;
+- `worker_warmup_compact_binary`;
+- `worker_compact_binary_sha256`;
+- `worker_compact_binary_checksum_status`;
+- `worker_compact_binary_validation_status`;
+- per-fixture `worker_binary` and `worker_binary_readable`.
+
+Positive M5u runs must report `worker_compact_binary_validation_status=passed`,
+`matched_fixture_count=fixture_count`, and canonical Flye artifact
+`status=match` versus the CPU baseline. Corrupted payload runs, including
+checksum mismatch and truncation, must report `failed-closed-before-graph-mutation`
+with `graph_mutation_consumed_worker_output=false`.

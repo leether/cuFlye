@@ -154,3 +154,11 @@ M5 read-to-graph alignment proof:
   `cuflye-m5p-read-alignment-pre-divergence-batch-dry-run-dgx-aarch64.json`
 - Read alignment pre-divergence batch crossover manifest:
   `cuflye-m5q-read-alignment-pre-divergence-batch-crossover-dgx-aarch64.json`
+- Read alignment pre-divergence persistent session manifest:
+  `cuflye-m5r-read-alignment-pre-divergence-persistent-session-dgx-aarch64.json`
+- Read alignment session output overhead-reduction manifest:
+  `cuflye-m5s-read-alignment-session-output-overhead-reduction-dgx-aarch64.json`
+- Read alignment compact binary payload manifest:
+  `cuflye-m5t-read-alignment-compact-binary-payload-dgx-aarch64.json`
+- Read alignment compact binary Flye rehydration manifest:
+  `cuflye-m5u-read-alignment-compact-binary-flye-rehydration-dgx-aarch64.json`

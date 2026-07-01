@@ -1,6 +1,6 @@
 # cuFlye Read Alignment Compact Binary v0
 
-Status: proposed
+Status: active
 
 Introduced: M5t
 
@@ -82,8 +82,41 @@ same fixture list before the payload is treated as oracle-equivalent.
 Schema, count, checksum, and truncation failures must fail closed before graph
 mutation.
 
+## Flye-Side Rehydration
+
+M5u adds Flye-side consumption inside the guarded pre-divergence dry-run seam.
+The opt-in mode is:
+
+```text
+CUFLYE_READ_ALIGNMENT_COMPACT_BINARY_MODE=rehydrate-v0
+```
+
+Flye requests:
+
+```text
+compact_output_binary=<path>
+compact_output_only=true
+```
+
+from the CUDA worker session, then validates and rehydrates the single binary
+payload before per-fixture comparison. Flye must reject unsupported magic,
+version, header bytes, record bytes, output mode, reserved header values,
+fixture-count mismatches, non-finite divergence values, unexpected query ids,
+payload length mismatches, and optional checksum mismatches.
+
+Optional checksum pinning uses:
+
+```text
+CUFLYE_READ_ALIGNMENT_COMPACT_BINARY_EXPECTED_SHA256=<64-char-hex>
+```
+
+The rehydrated records still pass through Flye's existing CPU divergence filter
+and must match CPU `goodChains` before any graph mutation can consume the CUDA
+output.
+
 ## Compatibility
 
 `compact-jsonl-v0` remains available for audit/debug runs. M5t uses
 `compact-binary-v0` for the session performance proof because it is smaller
-and cheaper to write/read.
+and cheaper to write/read. M5u keeps the standalone validator as an external
+audit gate while adding the Flye-side parser for guarded rehydration.

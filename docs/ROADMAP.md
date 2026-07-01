@@ -225,7 +225,7 @@ Completed:
   `98.134393%` versus the M4u cold batch-run worker process, but the full
   toy-raw run was still slower than CPU (`88s` vs `82s`) because the proof still
   pays for one synthetic warmup request inside the same Flye run.
-- M5a-M5t: cuFlye now has a deterministic read-to-graph alignment oracle,
+- M5a-M5u: cuFlye now has a deterministic read-to-graph alignment oracle,
   bounded replay fixtures, a CUDA chain replay prototype, real multi-read
   batching, heterogeneous shape grouping, and a persistent per-shape CUDA arena.
   The M5h proof expands the toy-hifi replay harvest to `3546` valid fixtures
@@ -251,7 +251,12 @@ Completed:
   `4.450572 ms`. M5t replaces that JSONL proof payload with a fixed-width
   little-endian `compact-binary-v0` payload, reducing payload size from
   `1126769` bytes to `332736` bytes and full3546 compact request time to
-  `2.273654 ms` while preserving byte-level CPU/CUDA equivalence.
+  `2.273654 ms` while preserving byte-level CPU/CUDA equivalence. M5u moves
+  that binary payload into Flye's pre-divergence dry-run seam: Flye can request
+  one compact binary file from the CUDA session, validate and rehydrate it,
+  apply Flye's existing divergence filter, match CPU `goodChains`, preserve
+  exact canonical artifacts, and fail closed on checksum/truncation corruption
+  before graph mutation.
 
 Current allowed performance claim:
 
@@ -365,6 +370,13 @@ cuFlye can now write that scoped read-alignment session payload as
 `compact-binary-v0`, validate schema/count/checksum/length gates, and
 byte-match the CPU binary oracle. This is a payload and proof-harness
 optimization claim, not yet a Flye-side binary consumption claim.
+
+cuFlye can now consume `compact-binary-v0` inside Flye's guarded
+pre-divergence read-alignment seam: Flye validates the binary payload,
+rehydrates CUDA-produced chains, applies its existing divergence filter, and
+matches CPU `goodChains` for the selected batch while preserving exact
+artifacts. This is a Flye-side binary consumption and integration-overhead
+claim, not a default GPU mode or whole-Flye speed claim.
 ```
 
 Current forbidden claim:
@@ -2343,4 +2355,79 @@ Next highest-ROI task:
 M5u: move compact-binary-v0 into the Flye-side pre-divergence dry-run seam,
 validate and rehydrate it inside Flye, apply Flye's existing divergence filter,
 and fail closed on corrupted payloads before graph mutation.
+```
+
+M5u accepted result:
+
+```text
+cuFlye can request compact-binary-v0 pre-divergence read-alignment chains from
+a CUDA session inside Flye, validate and rehydrate that binary payload in the
+Flye seam, apply Flye's existing divergence filter, match CPU goodChains for
+the selected batch, preserve exact canonical Flye artifacts, and fail closed on
+corrupted binary payloads before graph mutation.
+```
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m5u-proof-20260701T041315Z
+golden=tests/golden/cuflye-m5u-read-alignment-compact-binary-flye-rehydration-dgx-aarch64.json
+fixture_count=64
+compact_binary_mode=rehydrate-v0
+positive_status=passed
+positive_canonical_diff=match
+positive_matched_fixture_count=64
+positive_worker_actual_wall_ms=2.084782
+positive_worker_request_total_ms=0.203472
+positive_worker_write_output_ms=0.094400
+positive_compact_binary_bytes=5952
+positive_compact_binary_sha256=f6dc209fad4311c61396f93ad240f56928557dc0b70f6c947c6991d2f2047504
+m5r_selected_batch64_worker_actual_wall_ms=4.139341
+m5r_selected_batch64_worker_request_total_ms=2.750920
+m5u_selected_batch64_session_wall_speedup_vs_m5r=1.985503x
+m5u_selected_batch64_worker_request_speedup_vs_m5r=13.519895x
+negative_truncate_status=failed
+negative_truncate_error=compact binary payload size mismatch
+negative_checksum_status=failed
+negative_checksum_error=compact binary checksum mismatch
+graph_mutation_consumed_worker_output=false
+```
+
+Allowed M5u claim:
+
+```text
+cuFlye can request, validate, and rehydrate compact-binary-v0 CUDA
+pre-divergence read-alignment output inside Flye, match CPU goodChains for the
+selected batch, preserve exact artifacts, and cut selected batch64 Flye-session
+worker wall time from M5r's 4.139341 ms to 2.084782 ms.
+```
+
+Forbidden M5u claim:
+
+```text
+M5u does not prove default GPU mode, full Flye acceleration, broad
+_readAlignments replacement, CUDA minimizer overlap discovery, or replacement
+of Flye's CPU divergence/base-alignment stages.
+```
+
+Plain-language benefit:
+
+```text
+M5u moves the compact binary payload into Flye itself. The GPU worker no longer
+needs to write per-read TSV files for this seam; Flye can ask for one binary
+file, verify it, rebuild the same goodChains, and keep the assembly
+byte-identical. This cuts selected batch64 session wall time by about 2x versus
+M5r and cuts the worker's actual request_total by about 13.5x, but it is still
+not a whole-Flye speed claim because the verified output is not yet the default
+read-alignment path.
+```
+
+Next highest-ROI task:
+
+```text
+M5v: after the compact-binary-v0 Flye seam validates and matches CPU
+goodChains for an allowlisted batch, run a guarded vector-substitution smoke
+that feeds the verified GPU-derived goodChains into the selected
+_readAlignments slice while preserving exact artifacts and fail-closed
+behavior.
 ```

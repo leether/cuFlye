@@ -1,0 +1,703 @@
+diff --git a/src/repeat_graph/read_aligner.cpp b/src/repeat_graph/read_aligner.cpp
+index 0a25059..8328c3e 100644
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -6,9 +6,11 @@
+ #include "../sequence/alignment.h"
+ #include "../common/parallel.h"
+ #include <algorithm>
++#include <array>
+ #include <cctype>
+ #include <cerrno>
+ #include <chrono>
++#include <cstdint>
+ #include <cmath>
+ #include <cstdio>
+ #include <cstring>
+@@ -16,6 +18,8 @@
+ #include <fstream>
+ #include <iomanip>
+ #include <limits>
++#include <map>
++#include <memory>
+ #include <mutex>
+ #include <queue>
+ #include <sstream>
+@@ -272,10 +276,12 @@ namespace
+ 		int64_t queryId = 0;
+ 		std::string fixtureDir;
+ 		std::string workerTsv;
++		std::string workerBinary;
+ 		std::string status = "failed";
+ 		bool matched = false;
+ 		bool proofFaultApplied = false;
+ 		bool workerTsvReadable = false;
++		bool workerBinaryReadable = false;
+ 		size_t cpuPreDivergenceChains = 0;
+ 		size_t gpuPreDivergenceChains = 0;
+ 		size_t cpuGoodChains = 0;
+@@ -307,6 +313,11 @@ namespace
+ 		std::string workerResponseJson;
+ 		std::string workerWarmupRequestJson;
+ 		std::string workerWarmupResponseJson;
++		std::string workerCompactBinary;
++		std::string workerWarmupCompactBinary;
++		std::string workerCompactBinarySha256;
++		std::string workerCompactBinaryChecksumStatus = "not-run";
++		std::string workerCompactBinaryValidationStatus = "not-run";
+ 		std::string workerSessionSubmitPath;
+ 		std::string workerSessionDonePath;
+ 		std::string workerWarmupSessionSubmitPath;
+@@ -574,6 +585,7 @@ namespace
+ 	}
+ 
+ 	std::string readAlignmentWorkerFileSessionDir();
++	std::string readAlignmentCompactBinaryExpectedSha256();
+ 
+ 	void writeReadAlignmentTextFile(const std::string& path,
+ 									const std::string& text)
+@@ -771,6 +783,326 @@ namespace
+ 		return records;
+ 	}
+ 
++	struct ReadAlignmentCompactBinaryPayload
++	{
++		std::string path;
++		std::string sha256;
++		std::string checksumStatus = "computed";
++		uint64_t fixtureCount = 0;
++		uint64_t outputRecords = 0;
++		uint64_t totalInputRecords = 0;
++		uint32_t minInputRecords = 0;
++		uint32_t maxInputRecords = 0;
++		std::map<int64_t, std::vector<ReadAlignmentDumpRecord>> recordsByQuery;
++	};
++
++	std::vector<unsigned char> readAlignmentBinaryFile(const std::string& path)
++	{
++		std::ifstream input(path, std::ios::binary);
++		if (!input)
++		{
++			throw std::runtime_error("Can't open compact read alignment binary: " +
++									 path);
++		}
++		input.seekg(0, std::ios::end);
++		std::streamoff size = input.tellg();
++		if (size < 0)
++		{
++			throw std::runtime_error("Can't size compact read alignment binary: " +
++									 path);
++		}
++		input.seekg(0, std::ios::beg);
++		std::vector<unsigned char> data(static_cast<size_t>(size));
++		if (!data.empty())
++		{
++			input.read(reinterpret_cast<char*>(data.data()),
++					   static_cast<std::streamsize>(data.size()));
++		}
++		if (!input)
++		{
++			throw std::runtime_error("Can't read compact read alignment binary: " +
++									 path);
++		}
++		return data;
++	}
++
++	uint32_t readAlignmentBinaryU32(const std::vector<unsigned char>& data,
++									size_t offset,
++									const std::string& path)
++	{
++		if (offset + 4 > data.size())
++		{
++			throw std::runtime_error(path + ": compact binary u32 read out of bounds");
++		}
++		uint32_t value = 0;
++		for (size_t index = 0; index < 4; ++index)
++		{
++			value |= static_cast<uint32_t>(data[offset + index]) << (index * 8);
++		}
++		return value;
++	}
++
++	uint64_t readAlignmentBinaryU64(const std::vector<unsigned char>& data,
++									size_t offset,
++									const std::string& path)
++	{
++		if (offset + 8 > data.size())
++		{
++			throw std::runtime_error(path + ": compact binary u64 read out of bounds");
++		}
++		uint64_t value = 0;
++		for (size_t index = 0; index < 8; ++index)
++		{
++			value |= static_cast<uint64_t>(data[offset + index]) << (index * 8);
++		}
++		return value;
++	}
++
++	int32_t readAlignmentBinaryI32(const std::vector<unsigned char>& data,
++								   size_t offset,
++								   const std::string& path)
++	{
++		uint32_t bits = readAlignmentBinaryU32(data, offset, path);
++		int32_t value = 0;
++		std::memcpy(&value, &bits, sizeof(value));
++		return value;
++	}
++
++	int64_t readAlignmentBinaryI64(const std::vector<unsigned char>& data,
++								   size_t offset,
++								   const std::string& path)
++	{
++		uint64_t bits = readAlignmentBinaryU64(data, offset, path);
++		int64_t value = 0;
++		std::memcpy(&value, &bits, sizeof(value));
++		return value;
++	}
++
++	float readAlignmentBinaryF32(const std::vector<unsigned char>& data,
++								 size_t offset,
++								 const std::string& path)
++	{
++		uint32_t bits = readAlignmentBinaryU32(data, offset, path);
++		float value = 0.0f;
++		std::memcpy(&value, &bits, sizeof(value));
++		if (!std::isfinite(value))
++		{
++			throw std::runtime_error(path +
++									 ": compact binary non-finite seq_divergence");
++		}
++		return value;
++	}
++
++	bool readAlignmentSha256HexValid(const std::string& text)
++	{
++		if (text.size() != 64) return false;
++		for (char ch : text)
++		{
++			if (!std::isxdigit(static_cast<unsigned char>(ch))) return false;
++		}
++		return true;
++	}
++
++	std::string readAlignmentSha256File(const std::string& path)
++	{
++		std::string command = "sha256sum " + readAlignmentShellQuote(path);
++		std::array<char, 256> buffer{};
++		std::string output;
++		std::unique_ptr<FILE, int (*)(FILE*)> pipe(
++			popen(command.c_str(), "r"), pclose);
++		if (!pipe)
++		{
++			throw std::runtime_error("Can't run sha256sum for compact binary: " +
++									 path);
++		}
++		while (std::fgets(buffer.data(),
++						  static_cast<int>(buffer.size()), pipe.get()))
++		{
++			output += buffer.data();
++		}
++		std::istringstream parsed(output);
++		std::string digest;
++		if (!(parsed >> digest) || !readAlignmentSha256HexValid(digest))
++		{
++			throw std::runtime_error("sha256sum returned malformed output for " +
++									 path);
++		}
++		return digest;
++	}
++
++	void writeReadAlignmentBinaryFile(const std::string& path,
++									  const std::vector<unsigned char>& data)
++	{
++		std::ofstream output(path, std::ios::binary);
++		if (!output)
++		{
++			throw std::runtime_error("Can't open compact binary for write: " +
++									 path);
++		}
++		if (!data.empty())
++		{
++			output.write(reinterpret_cast<const char*>(data.data()),
++						 static_cast<std::streamsize>(data.size()));
++		}
++		if (!output)
++		{
++			throw std::runtime_error("Can't write compact binary: " + path);
++		}
++	}
++
++	void truncateReadAlignmentCompactBinaryPayload(const std::string& path)
++	{
++		std::vector<unsigned char> data = readAlignmentBinaryFile(path);
++		if (data.empty())
++		{
++			throw std::runtime_error("Can't truncate empty compact binary: " +
++									 path);
++		}
++		data.pop_back();
++		writeReadAlignmentBinaryFile(path, data);
++	}
++
++	ReadAlignmentDumpRecord readAlignmentCompactBinaryRecord(
++		const std::vector<unsigned char>& data,
++		size_t offset,
++		int64_t& queryId,
++		const std::string& path)
++	{
++		ReadAlignmentDumpRecord record;
++		queryId = readAlignmentBinaryI64(data, offset + 0, path);
++		record.chainId = readAlignmentBinaryI32(data, offset + 8, path);
++		record.segmentId = readAlignmentBinaryI32(data, offset + 12, path);
++		(void)readAlignmentBinaryI32(data, offset + 16, path);
++		(void)readAlignmentBinaryI64(data, offset + 20, path);
++		record.readId = readAlignmentBinaryI64(data, offset + 28, path);
++		record.readBegin = readAlignmentBinaryI32(data, offset + 36, path);
++		record.readEnd = readAlignmentBinaryI32(data, offset + 40, path);
++		record.readLen = readAlignmentBinaryI32(data, offset + 44, path);
++		record.edgeId = readAlignmentBinaryI64(data, offset + 48, path);
++		(void)readAlignmentBinaryI32(data, offset + 56, path);
++		(void)readAlignmentBinaryI32(data, offset + 60, path);
++		record.edgeSeqId = readAlignmentBinaryI64(data, offset + 64, path);
++		record.edgeBegin = readAlignmentBinaryI32(data, offset + 72, path);
++		record.edgeEnd = readAlignmentBinaryI32(data, offset + 76, path);
++		record.edgeLen = readAlignmentBinaryI32(data, offset + 80, path);
++		record.score = readAlignmentBinaryI32(data, offset + 84, path);
++		record.seqDivergence = readAlignmentBinaryF32(data, offset + 88, path);
++		return record;
++	}
++
++	ReadAlignmentCompactBinaryPayload readAlignmentCompactBinaryPayload(
++		const std::string& path,
++		const std::vector<int64_t>& queryIds,
++		size_t expectedFixtureCount)
++	{
++		ReadAlignmentCompactBinaryPayload payload;
++		payload.path = path;
++		payload.sha256 = readAlignmentSha256File(path);
++		std::string expectedSha = readAlignmentCompactBinaryExpectedSha256();
++		if (!expectedSha.empty())
++		{
++			if (!readAlignmentSha256HexValid(expectedSha))
++			{
++				throw std::runtime_error(
++					"CUFLYE_READ_ALIGNMENT_COMPACT_BINARY_EXPECTED_SHA256 "
++					"must be a 64-character hex digest");
++			}
++			if (payload.sha256 != expectedSha)
++			{
++				throw std::runtime_error(
++					"compact binary checksum mismatch: expected " + expectedSha +
++					", got " + payload.sha256);
++			}
++			payload.checksumStatus = "matched";
++		}
++
++		std::vector<unsigned char> data = readAlignmentBinaryFile(path);
++		static const size_t HEADER_BYTES = 64;
++		static const size_t RECORD_BYTES = 92;
++		if (data.size() < HEADER_BYTES)
++		{
++			throw std::runtime_error(path + ": compact binary is shorter than header");
++		}
++		const char magic[] = {'C', 'U', 'F', 'R', 'A', 'L', 'B', '0'};
++		for (size_t index = 0; index < sizeof(magic); ++index)
++		{
++			if (data[index] != static_cast<unsigned char>(magic[index]))
++			{
++				throw std::runtime_error(path + ": invalid compact binary magic");
++			}
++		}
++		uint32_t headerBytes = readAlignmentBinaryU32(data, 8, path);
++		uint32_t recordBytes = readAlignmentBinaryU32(data, 12, path);
++		uint32_t versionMajor = readAlignmentBinaryU32(data, 16, path);
++		uint32_t versionMinor = readAlignmentBinaryU32(data, 20, path);
++		payload.fixtureCount = readAlignmentBinaryU64(data, 24, path);
++		payload.outputRecords = readAlignmentBinaryU64(data, 32, path);
++		payload.totalInputRecords = readAlignmentBinaryU64(data, 40, path);
++		payload.minInputRecords = readAlignmentBinaryU32(data, 48, path);
++		payload.maxInputRecords = readAlignmentBinaryU32(data, 52, path);
++		uint32_t outputMode = readAlignmentBinaryU32(data, 56, path);
++		uint32_t reserved = readAlignmentBinaryU32(data, 60, path);
++		if (headerBytes != HEADER_BYTES || recordBytes != RECORD_BYTES)
++		{
++			throw std::runtime_error(path +
++									 ": unsupported compact binary byte layout");
++		}
++		if (versionMajor != 0 || versionMinor != 0)
++		{
++			throw std::runtime_error(path +
++									 ": unsupported compact binary version");
++		}
++		if (payload.fixtureCount != expectedFixtureCount)
++		{
++			throw std::runtime_error(path + ": compact binary fixture count mismatch");
++		}
++		if (payload.minInputRecords > payload.maxInputRecords)
++		{
++			throw std::runtime_error(path +
++									 ": compact binary min/max input count mismatch");
++		}
++		if (outputMode != 1 || reserved != 0)
++		{
++			throw std::runtime_error(path +
++									 ": invalid compact binary output mode header");
++		}
++		if (payload.outputRecords >
++			(std::numeric_limits<uint64_t>::max() - HEADER_BYTES) / RECORD_BYTES)
++		{
++			throw std::runtime_error(path +
++									 ": compact binary payload size overflows");
++		}
++		uint64_t expectedSize =
++			payload.outputRecords * RECORD_BYTES + HEADER_BYTES;
++		if (expectedSize != static_cast<uint64_t>(data.size()))
++		{
++			throw std::runtime_error(path + ": compact binary payload size mismatch");
++		}
++
++		std::unordered_set<int64_t> expectedQueries(queryIds.begin(), queryIds.end());
++		for (uint64_t recordIndex = 0; recordIndex < payload.outputRecords;
++			 ++recordIndex)
++		{
++			size_t offset = HEADER_BYTES +
++				static_cast<size_t>(recordIndex) * RECORD_BYTES;
++			int64_t queryId = 0;
++			ReadAlignmentDumpRecord record =
++				readAlignmentCompactBinaryRecord(data, offset, queryId, path);
++			if (expectedQueries.count(queryId) == 0)
++			{
++				throw std::runtime_error(path +
++										 ": compact binary record has unexpected query_id " +
++										 std::to_string(queryId));
++			}
++			payload.recordsByQuery[queryId].push_back(record);
++		}
++		for (auto& item : payload.recordsByQuery)
++		{
++			std::sort(item.second.begin(), item.second.end());
++		}
++		return payload;
++	}
++
+ 	FastaRecord::Id readAlignmentFastaIdFromSigned(int64_t signedId)
+ 	{
+ 		if (signedId > 0)
+@@ -780,6 +1112,7 @@ namespace
+ 		return FastaRecord::Id(static_cast<uint32_t>((-signedId) * 2 - 1));
+ 	}
+ 
++
+ 	FastaRecord::Id checkedReadAlignmentFastaIdFromSigned(
+ 		int64_t signedId,
+ 		const std::string& name,
+@@ -1239,6 +1572,38 @@ namespace
+ 		return readAlignmentPreDivergenceChainMode() == "batch-dry-run-v0";
+ 	}
+ 
++	std::string readAlignmentCompactBinaryMode()
++	{
++		static std::string mode = []()
++		{
++			const char* raw =
++				std::getenv("CUFLYE_READ_ALIGNMENT_COMPACT_BINARY_MODE");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "rehydrate-v0")
++			{
++				throw std::runtime_error(
++					"Unsupported CUFLYE_READ_ALIGNMENT_COMPACT_BINARY_MODE: " +
++					selected);
++			}
++			return selected;
++		}();
++		return mode;
++	}
++
++	bool readAlignmentCompactBinaryEnabled()
++	{
++		return readAlignmentCompactBinaryMode() == "rehydrate-v0";
++	}
++
++	std::string readAlignmentCompactBinaryExpectedSha256()
++	{
++		const char* raw = std::getenv(
++			"CUFLYE_READ_ALIGNMENT_COMPACT_BINARY_EXPECTED_SHA256");
++		if (!raw || !raw[0]) return std::string();
++		return std::string(raw);
++	}
++
+ 	std::string readAlignmentPreDivergenceChainProofFault()
+ 	{
+ 		static std::string fault = []()
+@@ -1247,7 +1612,8 @@ namespace
+ 				"CUFLYE_READ_ALIGNMENT_PREDIVERGENCE_CHAIN_PROOF_FAULT");
+ 			if (!raw || !raw[0]) return std::string();
+ 			std::string selected(raw);
+-			if (selected != "drop-first-gpu-good-chain")
++			if (selected != "drop-first-gpu-good-chain" &&
++				selected != "truncate-compact-binary-payload")
+ 			{
+ 				throw std::runtime_error(
+ 					"Unsupported "
+@@ -1398,6 +1764,15 @@ namespace
+ 		}
+ 		(void)readAlignmentReplayQueryIds();
+ 		(void)readAlignmentWorkerLifecycleMode();
++		(void)readAlignmentCompactBinaryMode();
++		if (readAlignmentCompactBinaryEnabled() &&
++			!readAlignmentPreDivergenceBatchDryRunEnabled())
++		{
++			throw std::runtime_error(
++				"cuFlye read alignment compact binary rehydration requires "
++				"CUFLYE_READ_ALIGNMENT_PREDIVERGENCE_CHAIN_MODE=batch-dry-run-v0");
++		}
++		(void)readAlignmentCompactBinaryExpectedSha256();
+ 		if (readAlignmentPreDivergenceBatchDryRunEnabled() &&
+ 			readAlignmentWorkerFileSessionLifecycleEnabled())
+ 		{
+@@ -1452,6 +1827,7 @@ namespace
+ 		const std::string& batchOutputDir,
+ 		const std::string& batchJson,
+ 		const std::string& responseJson,
++		const std::string& compactBinary,
+ 		size_t expectedFixtureCount)
+ 	{
+ 		std::ostringstream json;
+@@ -1494,6 +1870,12 @@ namespace
+ 		{
+ 			json << "  \"memory_budget_bytes\": " << memoryBudget << ",\n";
+ 		}
++		if (!compactBinary.empty())
++		{
++			json << "  \"compact_output_binary\": \""
++				 << readAlignmentJsonEscape(compactBinary) << "\",\n"
++				 << "  \"compact_output_only\": true,\n";
++		}
+ 		json << "  \"expected_fixture_count\": "
+ 			 << expectedFixtureCount << "\n"
+ 			 << "}\n";
+@@ -2720,6 +3102,22 @@ namespace
+ 			 << readAlignmentJsonEscape(result.workerWarmupRequestJson) << "\",\n"
+ 			 << "  \"worker_warmup_response_json\": \""
+ 			 << readAlignmentJsonEscape(result.workerWarmupResponseJson) << "\",\n"
++			 << "  \"compact_binary_mode\": \""
++			 << readAlignmentJsonEscape(readAlignmentCompactBinaryMode())
++			 << "\",\n"
++			 << "  \"worker_compact_binary\": \""
++			 << readAlignmentJsonEscape(result.workerCompactBinary) << "\",\n"
++			 << "  \"worker_warmup_compact_binary\": \""
++			 << readAlignmentJsonEscape(result.workerWarmupCompactBinary) << "\",\n"
++			 << "  \"worker_compact_binary_sha256\": \""
++			 << readAlignmentJsonEscape(result.workerCompactBinarySha256)
++			 << "\",\n"
++			 << "  \"worker_compact_binary_checksum_status\": \""
++			 << readAlignmentJsonEscape(
++				result.workerCompactBinaryChecksumStatus) << "\",\n"
++			 << "  \"worker_compact_binary_validation_status\": \""
++			 << readAlignmentJsonEscape(
++				result.workerCompactBinaryValidationStatus) << "\",\n"
+ 			 << "  \"worker_session_submit_path\": \""
+ 			 << readAlignmentJsonEscape(result.workerSessionSubmitPath) << "\",\n"
+ 			 << "  \"worker_session_done_path\": \""
+@@ -2781,6 +3179,8 @@ namespace
+ 				 << readAlignmentJsonEscape(fixture.fixtureDir) << "\",\n"
+ 				 << "      \"worker_tsv\": \""
+ 				 << readAlignmentJsonEscape(fixture.workerTsv) << "\",\n"
++				 << "      \"worker_binary\": \""
++				 << readAlignmentJsonEscape(fixture.workerBinary) << "\",\n"
+ 				 << "      \"status\": \""
+ 				 << readAlignmentJsonEscape(fixture.status) << "\",\n"
+ 				 << "      \"matched\": "
+@@ -2789,6 +3189,8 @@ namespace
+ 				 << readAlignmentBoolJson(fixture.proofFaultApplied) << ",\n"
+ 				 << "      \"worker_tsv_readable\": "
+ 				 << readAlignmentBoolJson(fixture.workerTsvReadable) << ",\n"
++				 << "      \"worker_binary_readable\": "
++				 << readAlignmentBoolJson(fixture.workerBinaryReadable) << ",\n"
+ 				 << "      \"cpu_predivergence_chains\": "
+ 				 << fixture.cpuPreDivergenceChains << ",\n"
+ 				 << "      \"gpu_predivergence_chains\": "
+@@ -2864,6 +3266,12 @@ namespace
+ 		result.workerWarmupResponseJson =
+ 			joinReplayPath(result.workerOutputRoot,
+ 						   "read-alignment-worker-response-warmup.json");
++		result.workerCompactBinary =
++			joinReplayPath(result.workerOutputRoot,
++						   "read-alignment-worker-compact.bin");
++		result.workerWarmupCompactBinary =
++			joinReplayPath(result.workerOutputRoot,
++						   "read-alignment-worker-compact-warmup.bin");
+ 		result.workerSessionSubmitPath =
+ 			joinReplayPath(result.workerOutputRoot,
+ 						   "read-alignment-worker-session-submit.path");
+@@ -2892,6 +3300,7 @@ namespace
+ 				joinReplayPath(result.batchOutputDir,
+ 							   replayQueryDirName(fixture.queryId)),
+ 				"read-alignment.tsv");
++			fixture.workerBinary = result.workerCompactBinary;
+ 			fixture.status = "pending";
+ 			result.totalCpuPreDivergenceChains +=
+ 				fixture.cpuPreDivergenceChains;
+@@ -2927,14 +3336,17 @@ namespace
+ 				readAlignmentWorkerFileSessionTimeoutMs(),
+ 				readAlignmentWorkerFileSessionPollMs());
+ 
+-			writeReadAlignmentPreDivergenceWorkerRequestJson(
+-				result.workerWarmupRequestJson,
+-				"read-alignment-predivergence-warmup",
+-				result.fixtureList,
+-				warmupBatchOutputDir,
+-				warmupBatchJson,
+-				result.workerWarmupResponseJson,
+-				result.fixtures.size());
++				writeReadAlignmentPreDivergenceWorkerRequestJson(
++					result.workerWarmupRequestJson,
++					"read-alignment-predivergence-warmup",
++					result.fixtureList,
++					warmupBatchOutputDir,
++					warmupBatchJson,
++					result.workerWarmupResponseJson,
++					readAlignmentCompactBinaryEnabled()
++						? result.workerWarmupCompactBinary
++						: std::string(),
++					result.fixtures.size());
+ 			auto warmupStart = std::chrono::steady_clock::now();
+ 			std::string warmupReadyPath;
+ 			submitReadAlignmentWorkerFileSessionRequest(
+@@ -2964,14 +3376,17 @@ namespace
+ 				readAlignmentWorkerFileSessionTimeoutMs(),
+ 				readAlignmentWorkerFileSessionPollMs());
+ 
+-			writeReadAlignmentPreDivergenceWorkerRequestJson(
+-				result.workerRequestJson,
+-				"read-alignment-predivergence-actual",
+-				result.fixtureList,
+-				result.batchOutputDir,
+-				result.batchJson,
+-				result.workerResponseJson,
+-				result.fixtures.size());
++				writeReadAlignmentPreDivergenceWorkerRequestJson(
++					result.workerRequestJson,
++					"read-alignment-predivergence-actual",
++					result.fixtureList,
++					result.batchOutputDir,
++					result.batchJson,
++					result.workerResponseJson,
++					readAlignmentCompactBinaryEnabled()
++						? result.workerCompactBinary
++						: std::string(),
++					result.fixtures.size());
+ 			auto actualStart = std::chrono::steady_clock::now();
+ 			std::string actualReadyPath;
+ 			submitReadAlignmentWorkerFileSessionRequest(
+@@ -3029,6 +3444,12 @@ namespace
+ 			result.workerCommand += " --memory-budget-bytes " +
+ 									readAlignmentShellQuote(memoryBudget);
+ 		}
++		if (readAlignmentCompactBinaryEnabled())
++		{
++			result.workerCommand += " --compact-output-binary " +
++									readAlignmentShellQuote(result.workerCompactBinary) +
++									" --compact-output-only";
++		}
+ 		result.workerCommand += " > " +
+ 								readAlignmentShellQuote(result.stdoutLog) +
+ 								" 2> " +
+@@ -3841,27 +4262,75 @@ void ReadAligner::alignReads()
+ 				preDivergenceBatchFixtures, batchDryRun);
+ 			runReadAlignmentPreDivergenceBatchWorker(batchDryRun);
+ 
++			ReadAlignmentCompactBinaryPayload compactPayload;
++			if (readAlignmentCompactBinaryEnabled())
++			{
++				if (batchDryRun.proofFault == "truncate-compact-binary-payload")
++				{
++					truncateReadAlignmentCompactBinaryPayload(
++						batchDryRun.workerCompactBinary);
++					batchDryRun.proofFaultApplied = true;
++				}
++				std::vector<int64_t> queryIds;
++				queryIds.reserve(batchDryRun.fixtures.size());
++				for (const auto& fixture : batchDryRun.fixtures)
++				{
++					queryIds.push_back(fixture.queryId);
++				}
++				compactPayload = readAlignmentCompactBinaryPayload(
++					batchDryRun.workerCompactBinary, queryIds,
++					batchDryRun.fixtures.size());
++				batchDryRun.workerCompactBinarySha256 = compactPayload.sha256;
++				batchDryRun.workerCompactBinaryChecksumStatus =
++					compactPayload.checksumStatus;
++				batchDryRun.workerCompactBinaryValidationStatus = "passed";
++			}
++
+ 			bool faultApplied = false;
+ 			for (auto& fixture : batchDryRun.fixtures)
+ 			{
+ 				try
+ 				{
+-					fixture.workerTsvReadable = readableFile(fixture.workerTsv);
+-					if (!fixture.workerTsvReadable)
++					std::vector<ReadAlignmentDumpRecord> workerRecords;
++					std::string workerRecordPath = fixture.workerTsv;
++					if (readAlignmentCompactBinaryEnabled())
+ 					{
+-						throw std::runtime_error(
+-							"CUDA read-alignment pre-divergence batch worker "
+-							"did not write TSV: " + fixture.workerTsv);
++						fixture.workerBinary = batchDryRun.workerCompactBinary;
++						fixture.workerBinaryReadable =
++							readableFile(fixture.workerBinary);
++						if (!fixture.workerBinaryReadable)
++						{
++							throw std::runtime_error(
++								"CUDA read-alignment pre-divergence batch worker "
++								"did not write compact binary: " +
++								fixture.workerBinary);
++						}
++						auto found =
++							compactPayload.recordsByQuery.find(fixture.queryId);
++						if (found != compactPayload.recordsByQuery.end())
++						{
++							workerRecords = found->second;
++						}
++						workerRecordPath = fixture.workerBinary;
++					}
++					else
++					{
++						fixture.workerTsvReadable = readableFile(fixture.workerTsv);
++						if (!fixture.workerTsvReadable)
++						{
++							throw std::runtime_error(
++								"CUDA read-alignment pre-divergence batch worker "
++								"did not write TSV: " + fixture.workerTsv);
++						}
++						workerRecords = readAlignmentDumpRecords(fixture.workerTsv);
+ 					}
+-					auto workerRecords =
+-						readAlignmentDumpRecords(fixture.workerTsv);
+ 					fixture.workerRecords = workerRecords.size();
+ 					auto typedRecords =
+ 						rehydrateTypedReadAlignmentRecords(
+-							workerRecords, _graph, fixture.workerTsv);
++							workerRecords, _graph, workerRecordPath);
+ 					auto gpuPreChains =
+ 						rehydrateGraphAlignmentObjectVector(
+-							typedRecords, fixture.workerTsv);
++							typedRecords, workerRecordPath);
+ 					fixture.gpuPreDivergenceChains = gpuPreChains.size();
+ 
+ 					std::vector<GraphAlignment> gpuGoodChains;
+@@ -3939,6 +4408,11 @@ void ReadAligner::alignReads()
+ 		}
+ 		catch (const std::exception& exc)
+ 		{
++			if (readAlignmentCompactBinaryEnabled() &&
++				batchDryRun.workerCompactBinaryValidationStatus != "passed")
++			{
++				batchDryRun.workerCompactBinaryValidationStatus = "failed";
++			}
+ 			if (batchDryRun.mode.empty())
+ 			{
+ 				batchDryRun.mode = readAlignmentPreDivergenceChainMode();

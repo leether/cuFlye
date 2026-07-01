@@ -11,13 +11,18 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m5u-read-alignment-compact-binary-flye-rehydration.md`:
-  move the M5t compact binary payload into the Flye-side pre-divergence
-  dry-run seam, validate and rehydrate it inside Flye, and fail closed on
-  corrupted payloads before graph mutation.
+- `2026-07-01-cuflye-m5v-read-alignment-compact-binary-vector-substitution-smoke.md`:
+  after M5u validates and rehydrates compact-binary CUDA pre-divergence chains
+  inside Flye, run a guarded selected-slice `_readAlignments` substitution
+  smoke that preserves exact artifacts and fails closed.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m5u-read-alignment-compact-binary-flye-rehydration.md`:
+  move the M5t compact binary payload into the Flye-side pre-divergence
+  dry-run seam, validate and rehydrate it inside Flye, match CPU goodChains for
+  the selected batch, preserve exact canonical artifacts, and fail closed on
+  truncated/checksum-corrupted payloads before graph mutation.
 - `2026-07-01-cuflye-m5t-read-alignment-compact-binary-payload.md`: replace
   the M5s compact JSONL proof payload with `compact-binary-v0`, byte-match the
   CPU compact binary oracle, reduce payload size from `1126769` bytes to
