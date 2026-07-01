@@ -1,0 +1,641 @@
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -488,6 +488,50 @@
+ 		std::vector<ReadToGraphFullQueryHitShadowLedgerQuerySummary> queries;
+ 	};
+ 
++	struct ReadToGraphFullQueryHitGraphEdgeBindingCheck
++	{
++		std::string name;
++		bool required = true;
++		bool passed = false;
++		std::string detail;
++	};
++
++	struct ReadToGraphFullQueryHitGraphEdgeBindingQuerySummary
++	{
++		int64_t queryId = 0;
++		size_t chainInputRows = 0;
++		size_t resolvedEdgeIdRows = 0;
++		size_t liveGraphEdgeRows = 0;
++		size_t missingGraphEdgeRows = 0;
++	};
++
++	struct ReadToGraphFullQueryHitGraphEdgeBindingResult
++	{
++		std::string mode;
++		std::string proofFault;
++		std::string status = "not-requested";
++		std::string state = "not-consumed";
++		std::string decision = "disabled";
++		std::string workerTsv;
++		std::string ledgerStatus = "not-requested";
++		std::string error;
++		bool eligible = false;
++		bool consumed = false;
++		bool notConsumed = true;
++		bool failedClosed = false;
++		bool proofFaultApplied = false;
++		bool graphMutationConsumedWorkerOutput = false;
++		size_t ledgerRows = 0;
++		size_t chainInputFilterRows = 0;
++		size_t resolvedEdgeIdRows = 0;
++		size_t bindingRows = 0;
++		size_t liveGraphEdgeRows = 0;
++		size_t missingGraphEdgeRows = 0;
++		std::vector<ReadToGraphFullQueryHitGraphEdgeBindingCheck> checks;
++		std::vector<ReadToGraphFullQueryHitGraphEdgeBindingQuerySummary>
++			queries;
++	};
++
+ 	struct ReadToGraphFullQueryHitWorkerDryRunResult
+ 	{
+ 		std::string mode;
+@@ -522,6 +570,12 @@
+ 		std::string rawOverlapShadowLedgerStatus = "not-requested";
+ 		std::string rawOverlapShadowLedgerState = "not-consumed";
+ 		std::string rawOverlapShadowLedgerDecision = "disabled";
++		std::string rawOverlapGraphEdgeBindingJson;
++		std::string rawOverlapGraphEdgeBindingMode;
++		std::string rawOverlapGraphEdgeBindingProofFault;
++		std::string rawOverlapGraphEdgeBindingStatus = "not-requested";
++		std::string rawOverlapGraphEdgeBindingState = "not-consumed";
++		std::string rawOverlapGraphEdgeBindingDecision = "disabled";
+ 		std::string workerCommand;
+ 		std::string error;
+ 		std::vector<int64_t> queryIds;
+@@ -543,6 +597,8 @@
+ 		bool rawOverlapRehydrationFailedClosed = false;
+ 		bool rawOverlapShadowLedgerEligible = false;
+ 		bool rawOverlapShadowLedgerFailedClosed = false;
++		bool rawOverlapGraphEdgeBindingEligible = false;
++		bool rawOverlapGraphEdgeBindingFailedClosed = false;
+ 		size_t expectedOutputRecords = 0;
+ 		size_t rawOverlapRehydratedRecords = 0;
+ 		size_t rawOverlapShadowLedgerRows = 0;
+@@ -550,6 +606,11 @@
+ 		size_t rawOverlapShadowUnresolvedEdgeIdZeroRows = 0;
+ 		size_t rawOverlapShadowResolvedEdgeIdRows = 0;
+ 		size_t rawOverlapShadowGraphEdgeConsumptionCandidateRows = 0;
++		size_t rawOverlapGraphEdgeBindingRows = 0;
++		size_t rawOverlapGraphEdgeBindingChainInputRows = 0;
++		size_t rawOverlapGraphEdgeBindingResolvedEdgeIdRows = 0;
++		size_t rawOverlapGraphEdgeBindingLiveEdgeRows = 0;
++		size_t rawOverlapGraphEdgeBindingMissingEdgeRows = 0;
+ 		double workerContextSetupMs = 0.0;
+ 		double actualRequestTotalMs = 0.0;
+ 		double actualKernelMs = 0.0;
+@@ -2585,6 +2646,51 @@
+ 		return proofFault;
+ 	}
+ 
++	std::string readToGraphFullQueryHitGraphEdgeBindingMode()
++	{
++		static std::string mode = []()
++		{
++			const char* raw = std::getenv(
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_GRAPH_EDGE_BINDING_MODE");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "graph-edge-binding-dry-run-v0")
++			{
++				throw std::runtime_error(
++					"Unsupported "
++					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_GRAPH_EDGE_BINDING_MODE: " +
++					selected);
++			}
++			return selected;
++		}();
++		return mode;
++	}
++
++	bool readToGraphFullQueryHitGraphEdgeBindingEnabled()
++	{
++		return !readToGraphFullQueryHitGraphEdgeBindingMode().empty();
++	}
++
++	std::string readToGraphFullQueryHitGraphEdgeBindingProofFault()
++	{
++		static std::string proofFault = []()
++		{
++			const char* raw = std::getenv(
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_GRAPH_EDGE_BINDING_PROOF_FAULT");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "drop-first-binding-row")
++			{
++				throw std::runtime_error(
++					"Unsupported "
++					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_GRAPH_EDGE_BINDING_PROOF_FAULT: " +
++					selected);
++			}
++			return selected;
++		}();
++		return proofFault;
++	}
++
+ 	std::string readToGraphFullQueryHitWorkerLifecycleMode()
+ 	{
+ 		static std::string mode = []()
+@@ -2713,6 +2820,10 @@
+ 			readToGraphFullQueryHitShadowLedgerEnabled();
+ 		std::string shadowLedgerProofFault =
+ 			readToGraphFullQueryHitShadowLedgerProofFault();
++		bool graphEdgeBindingEnabled =
++			readToGraphFullQueryHitGraphEdgeBindingEnabled();
++		std::string graphEdgeBindingProofFault =
++			readToGraphFullQueryHitGraphEdgeBindingProofFault();
+ 		if (rehydrationEnabled && !readToGraphFullQueryHitWorkerDryRunEnabled())
+ 		{
+ 			throw std::runtime_error(
+@@ -2744,6 +2855,33 @@
+ 				"requires "
+ 				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SHADOW_LEDGER_MODE");
+ 		}
++		if (graphEdgeBindingEnabled &&
++			!readToGraphFullQueryHitWorkerDryRunEnabled())
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit graph-edge binding "
++				"requires CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_MODE");
++		}
++		if (graphEdgeBindingEnabled && !rehydrationEnabled)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit graph-edge binding "
++				"requires CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_REHYDRATION_MODE");
++		}
++		if (graphEdgeBindingEnabled && !shadowLedgerEnabled)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit graph-edge binding "
++				"requires "
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SHADOW_LEDGER_MODE");
++		}
++		if (!graphEdgeBindingProofFault.empty() && !graphEdgeBindingEnabled)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit graph-edge binding proof "
++				"fault requires "
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_GRAPH_EDGE_BINDING_MODE");
++		}
+ 		if (!readToGraphFullQueryHitWorkerDryRunEnabled()) return;
+ 		if (!readToGraphSourcePackEnabled())
+ 		{
+@@ -4015,6 +4151,312 @@
+ 		writeReadAlignmentTextFile(path, json.str());
+ 	}
+ 
++	void addReadToGraphFullQueryHitGraphEdgeBindingCheck(
++		ReadToGraphFullQueryHitGraphEdgeBindingResult& binding,
++		const std::string& name,
++		bool passed,
++		const std::string& detail)
++	{
++		ReadToGraphFullQueryHitGraphEdgeBindingCheck check;
++		check.name = name;
++		check.required = true;
++		check.passed = passed;
++		check.detail = detail;
++		binding.checks.push_back(check);
++	}
++
++	bool allReadToGraphFullQueryHitGraphEdgeBindingChecksPassed(
++		const ReadToGraphFullQueryHitGraphEdgeBindingResult& binding)
++	{
++		for (const auto& check : binding.checks)
++		{
++			if (check.required && !check.passed) return false;
++		}
++		return !binding.checks.empty();
++	}
++
++	void markReadToGraphFullQueryHitGraphEdgeBindingFailed(
++		ReadToGraphFullQueryHitGraphEdgeBindingResult& binding)
++	{
++		binding.status = "failed";
++		binding.state = "failed-closed";
++		binding.decision = "failed-closed-before-graph-mutation";
++		binding.eligible = false;
++		binding.consumed = false;
++		binding.notConsumed = false;
++		binding.failedClosed = true;
++		binding.graphMutationConsumedWorkerOutput = false;
++	}
++
++	ReadToGraphFullQueryHitGraphEdgeBindingResult
++	evaluateReadToGraphFullQueryHitGraphEdgeBinding(
++		const ReadToGraphFullQueryHitWorkerDryRunResult& dryRun,
++		const ReadToGraphRawOverlapRehydrationResult& rehydration,
++		const ReadToGraphFullQueryHitShadowLedgerResult& ledger,
++		RepeatGraph& graph)
++	{
++		ReadToGraphFullQueryHitGraphEdgeBindingResult result;
++		result.mode = readToGraphFullQueryHitGraphEdgeBindingMode();
++		result.proofFault =
++			readToGraphFullQueryHitGraphEdgeBindingProofFault();
++		result.workerTsv = dryRun.workerOutputTsv;
++		result.ledgerStatus = ledger.status;
++		result.ledgerRows = ledger.ledgerRows;
++		result.chainInputFilterRows = ledger.chainInputFilterRows;
++		if (!readToGraphFullQueryHitGraphEdgeBindingEnabled()) return result;
++
++		markReadToGraphFullQueryHitGraphEdgeBindingFailed(result);
++		addReadToGraphFullQueryHitGraphEdgeBindingCheck(
++			result, "explicit_graph_edge_binding_mode",
++			result.mode == "graph-edge-binding-dry-run-v0",
++			"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_GRAPH_EDGE_BINDING_MODE="
++			"graph-edge-binding-dry-run-v0");
++		addReadToGraphFullQueryHitGraphEdgeBindingCheck(
++			result, "rehydration_passed",
++			rehydration.status == "passed" && rehydration.eligible &&
++				!rehydration.failedClosed,
++			"M6p raw-overlap rehydration must pass before graph-edge binding");
++		addReadToGraphFullQueryHitGraphEdgeBindingCheck(
++			result, "shadow_ledger_passed",
++			ledger.status == "passed" && ledger.eligible &&
++				!ledger.failedClosed,
++			"M6q shadow ledger must pass before graph-edge binding");
++		addReadToGraphFullQueryHitGraphEdgeBindingCheck(
++			result, "chain_input_rows_present",
++			ledger.chainInputFilterRows > 0,
++			"graph-edge binding requires chain-input-positive rows");
++		addReadToGraphFullQueryHitGraphEdgeBindingCheck(
++			result, "worker_output_readable",
++			dryRun.workerOutputReadable,
++			"validated worker raw-overlap TSV must be readable");
++		addReadToGraphFullQueryHitGraphEdgeBindingCheck(
++			result, "audit_metadata_available",
++			!dryRun.rawOverlapGraphEdgeBindingJson.empty(),
++			"graph-edge binding audit JSON path must be available");
++		addReadToGraphFullQueryHitGraphEdgeBindingCheck(
++			result, "graph_not_mutated",
++			!dryRun.graphMutationConsumedWorkerOutput,
++			"worker output must not have reached graph mutation");
++
++		if (!allReadToGraphFullQueryHitGraphEdgeBindingChecksPassed(result))
++		{
++			result.error = "graph-edge binding preconditions failed";
++			return result;
++		}
++
++		try
++		{
++			auto records = readToGraphRawOverlapRecords(result.workerTsv);
++			std::vector<ReadToGraphRawOverlapRecord> bindingRecords;
++			for (const auto& record : records)
++			{
++				if (record.passesChainInputFilter)
++				{
++					bindingRecords.push_back(record);
++				}
++			}
++			if (result.proofFault == "drop-first-binding-row" &&
++				!bindingRecords.empty())
++			{
++				bindingRecords.erase(bindingRecords.begin());
++				result.proofFaultApplied = true;
++			}
++			result.bindingRows = bindingRecords.size();
++
++			std::map<int64_t,
++					 ReadToGraphFullQueryHitGraphEdgeBindingQuerySummary>
++				byQuery;
++			for (const auto& record : bindingRecords)
++			{
++				auto& summary = byQuery[record.queryId];
++				summary.queryId = record.queryId;
++				++summary.chainInputRows;
++
++				if (record.edgeId == 0)
++				{
++					++result.missingGraphEdgeRows;
++					++summary.missingGraphEdgeRows;
++					continue;
++				}
++
++				++result.resolvedEdgeIdRows;
++				++summary.resolvedEdgeIdRows;
++				FastaRecord::Id edgeId = checkedReadAlignmentFastaIdFromSigned(
++					record.edgeId, "edge_id", result.workerTsv);
++				GraphEdge* edge = graph.getEdge(edgeId);
++				if (edge)
++				{
++					++result.liveGraphEdgeRows;
++					++summary.liveGraphEdgeRows;
++				}
++				else
++				{
++					++result.missingGraphEdgeRows;
++					++summary.missingGraphEdgeRows;
++				}
++			}
++			for (const auto& entry : byQuery)
++			{
++				result.queries.push_back(entry.second);
++			}
++
++			addReadToGraphFullQueryHitGraphEdgeBindingCheck(
++				result, "binding_count_matches_chain_input",
++				result.bindingRows == ledger.chainInputFilterRows,
++				"binding rows must match M6q chain-input-positive rows");
++			addReadToGraphFullQueryHitGraphEdgeBindingCheck(
++				result, "binding_rows_have_resolved_edge_ids",
++				result.resolvedEdgeIdRows == result.bindingRows,
++				"every binding row must have a resolved nonzero edge_id");
++			addReadToGraphFullQueryHitGraphEdgeBindingCheck(
++				result, "binding_rows_have_live_graph_edges",
++				result.liveGraphEdgeRows == result.bindingRows,
++				"every binding row edge_id must map to a live GraphEdge");
++			addReadToGraphFullQueryHitGraphEdgeBindingCheck(
++				result, "graph_not_mutated_after_binding",
++				!result.graphMutationConsumedWorkerOutput,
++				"graph-edge binding audit must not mutate graph state");
++
++			if (allReadToGraphFullQueryHitGraphEdgeBindingChecksPassed(result))
++			{
++				result.status = "passed";
++				result.state = "not-consumed";
++				result.decision = "graph-edge-binding-audited-not-consumed";
++				result.eligible = true;
++				result.consumed = false;
++				result.notConsumed = true;
++				result.failedClosed = false;
++				result.error.clear();
++			}
++			else
++			{
++				result.error =
++					"graph-edge binding rows differ from ledger chain-input rows";
++			}
++		}
++		catch (const std::exception& exc)
++		{
++			result.error = exc.what();
++			markReadToGraphFullQueryHitGraphEdgeBindingFailed(result);
++		}
++		return result;
++	}
++
++	void captureReadToGraphFullQueryHitGraphEdgeBindingResult(
++		ReadToGraphFullQueryHitWorkerDryRunResult& dryRun,
++		const ReadToGraphFullQueryHitGraphEdgeBindingResult& binding)
++	{
++		dryRun.rawOverlapGraphEdgeBindingMode = binding.mode;
++		dryRun.rawOverlapGraphEdgeBindingProofFault = binding.proofFault;
++		dryRun.rawOverlapGraphEdgeBindingStatus = binding.status;
++		dryRun.rawOverlapGraphEdgeBindingState = binding.state;
++		dryRun.rawOverlapGraphEdgeBindingDecision = binding.decision;
++		dryRun.rawOverlapGraphEdgeBindingEligible = binding.eligible;
++		dryRun.rawOverlapGraphEdgeBindingFailedClosed =
++			binding.failedClosed;
++		dryRun.rawOverlapGraphEdgeBindingRows = binding.bindingRows;
++		dryRun.rawOverlapGraphEdgeBindingChainInputRows =
++			binding.chainInputFilterRows;
++		dryRun.rawOverlapGraphEdgeBindingResolvedEdgeIdRows =
++			binding.resolvedEdgeIdRows;
++		dryRun.rawOverlapGraphEdgeBindingLiveEdgeRows =
++			binding.liveGraphEdgeRows;
++		dryRun.rawOverlapGraphEdgeBindingMissingEdgeRows =
++			binding.missingGraphEdgeRows;
++	}
++
++	void writeReadToGraphFullQueryHitGraphEdgeBindingJson(
++		const std::string& path,
++		const ReadToGraphFullQueryHitGraphEdgeBindingResult& binding)
++	{
++		std::ostringstream json;
++		json << "{\n"
++			 << "  \"schema\": "
++				"\"cuflye-read-to-graph-full-query-hit-graph-edge-binding-dry-run-v0\",\n"
++			 << "  \"status\": \"" << readAlignmentJsonEscape(binding.status)
++			 << "\",\n"
++			 << "  \"mode\": \"" << readAlignmentJsonEscape(binding.mode)
++			 << "\",\n"
++			 << "  \"proof_fault\": \""
++			 << readAlignmentJsonEscape(binding.proofFault) << "\",\n"
++			 << "  \"proof_fault_applied\": "
++			 << readAlignmentBoolJson(binding.proofFaultApplied) << ",\n"
++			 << "  \"state\": \"" << readAlignmentJsonEscape(binding.state)
++			 << "\",\n"
++			 << "  \"decision\": \"" << readAlignmentJsonEscape(binding.decision)
++			 << "\",\n"
++			 << "  \"worker_tsv\": \""
++			 << readAlignmentJsonEscape(binding.workerTsv) << "\",\n"
++			 << "  \"ledger_status\": \""
++			 << readAlignmentJsonEscape(binding.ledgerStatus) << "\",\n"
++			 << "  \"eligible\": " << readAlignmentBoolJson(binding.eligible)
++			 << ",\n"
++			 << "  \"consumed\": " << readAlignmentBoolJson(binding.consumed)
++			 << ",\n"
++			 << "  \"not_consumed\": "
++			 << readAlignmentBoolJson(binding.notConsumed) << ",\n"
++			 << "  \"failed_closed\": "
++			 << readAlignmentBoolJson(binding.failedClosed) << ",\n"
++			 << "  \"graph_mutation_consumed_worker_output\": "
++			 << readAlignmentBoolJson(
++					binding.graphMutationConsumedWorkerOutput) << ",\n"
++			 << "  \"ledger_rows\": " << binding.ledgerRows << ",\n"
++			 << "  \"chain_input_filter_rows\": "
++			 << binding.chainInputFilterRows << ",\n"
++			 << "  \"binding_rows\": " << binding.bindingRows << ",\n"
++			 << "  \"resolved_edge_id_rows\": "
++			 << binding.resolvedEdgeIdRows << ",\n"
++			 << "  \"live_graph_edge_rows\": "
++			 << binding.liveGraphEdgeRows << ",\n"
++			 << "  \"missing_graph_edge_rows\": "
++			 << binding.missingGraphEdgeRows << ",\n"
++			 << "  \"checks\": [\n";
++		for (size_t index = 0; index < binding.checks.size(); ++index)
++		{
++			const auto& check = binding.checks[index];
++			json << "    {\n"
++				 << "      \"name\": \"" << readAlignmentJsonEscape(check.name)
++				 << "\",\n"
++				 << "      \"required\": " << readAlignmentBoolJson(check.required)
++				 << ",\n"
++				 << "      \"passed\": " << readAlignmentBoolJson(check.passed)
++				 << ",\n"
++				 << "      \"detail\": \"" << readAlignmentJsonEscape(check.detail)
++				 << "\"\n"
++				 << "    }" << (index + 1 == binding.checks.size() ? "\n" : ",\n");
++		}
++		json << "  ],\n"
++			 << "  \"queries\": [\n";
++		for (size_t index = 0; index < binding.queries.size(); ++index)
++		{
++			const auto& summary = binding.queries[index];
++			json << "    {\n"
++				 << "      \"query_id\": " << summary.queryId << ",\n"
++				 << "      \"chain_input_rows\": "
++				 << summary.chainInputRows << ",\n"
++				 << "      \"resolved_edge_id_rows\": "
++				 << summary.resolvedEdgeIdRows << ",\n"
++				 << "      \"live_graph_edge_rows\": "
++				 << summary.liveGraphEdgeRows << ",\n"
++				 << "      \"missing_graph_edge_rows\": "
++				 << summary.missingGraphEdgeRows << "\n"
++				 << "    }" << (index + 1 == binding.queries.size() ? "\n" : ",\n");
++		}
++		json << "  ]";
++		if (!binding.error.empty())
++		{
++			json << ",\n"
++				 << "  \"error\": \""
++				 << readAlignmentJsonEscape(binding.error) << "\"\n";
++		}
++		else
++		{
++			json << "\n";
++		}
++		json << "}\n";
++		writeReadAlignmentTextFile(path, json.str());
++	}
++
+ 	void writeReadToGraphFullQueryHitWorkerDryRunJson(
+ 		const std::string& path,
+ 		const ReadToGraphFullQueryHitWorkerDryRunResult& result)
+@@ -4107,5 +4520,23 @@
+ 				 << readAlignmentJsonEscape(
+ 					 result.rawOverlapShadowLedgerDecision) << "\",\n"
++				 << "  \"raw_overlap_graph_edge_binding_json\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapGraphEdgeBindingJson) << "\",\n"
++				 << "  \"raw_overlap_graph_edge_binding_mode\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapGraphEdgeBindingMode) << "\",\n"
++				 << "  \"raw_overlap_graph_edge_binding_proof_fault\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapGraphEdgeBindingProofFault) << "\",\n"
++				 << "  \"raw_overlap_graph_edge_binding_status\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapGraphEdgeBindingStatus) << "\",\n"
++				 << "  \"raw_overlap_graph_edge_binding_state\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapGraphEdgeBindingState) << "\",\n"
++				 << "  \"raw_overlap_graph_edge_binding_decision\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapGraphEdgeBindingDecision) << "\",\n"
+ 				 << "  \"stdout_log\": \"" << readAlignmentJsonEscape(result.stdoutLog)
+ 				  << "\",\n"
+ 			 << "  \"stderr_log\": \"" << readAlignmentJsonEscape(result.stderrLog)
+@@ -4151,6 +4584,12 @@
+ 				 << "  \"raw_overlap_shadow_ledger_failed_closed\": "
+ 				 << readAlignmentBoolJson(
+ 					 result.rawOverlapShadowLedgerFailedClosed) << ",\n"
++				 << "  \"raw_overlap_graph_edge_binding_eligible\": "
++				 << readAlignmentBoolJson(
++					 result.rawOverlapGraphEdgeBindingEligible) << ",\n"
++				 << "  \"raw_overlap_graph_edge_binding_failed_closed\": "
++				 << readAlignmentBoolJson(
++					 result.rawOverlapGraphEdgeBindingFailedClosed) << ",\n"
+ 				 << "  \"graph_mutation_consumed_worker_output\": "
+ 				 << readAlignmentBoolJson(result.graphMutationConsumedWorkerOutput)
+ 				 << ",\n"
+@@ -4177,6 +4616,16 @@
+ 				 << "  \"raw_overlap_shadow_graph_edge_consumption_candidate_rows\": "
+ 				 << result.rawOverlapShadowGraphEdgeConsumptionCandidateRows
+ 				 << ",\n"
++				 << "  \"raw_overlap_graph_edge_binding_rows\": "
++				 << result.rawOverlapGraphEdgeBindingRows << ",\n"
++				 << "  \"raw_overlap_graph_edge_binding_chain_input_rows\": "
++				 << result.rawOverlapGraphEdgeBindingChainInputRows << ",\n"
++				 << "  \"raw_overlap_graph_edge_binding_resolved_edge_id_rows\": "
++				 << result.rawOverlapGraphEdgeBindingResolvedEdgeIdRows << ",\n"
++				 << "  \"raw_overlap_graph_edge_binding_live_edge_rows\": "
++				 << result.rawOverlapGraphEdgeBindingLiveEdgeRows << ",\n"
++				 << "  \"raw_overlap_graph_edge_binding_missing_edge_rows\": "
++				 << result.rawOverlapGraphEdgeBindingMissingEdgeRows << ",\n"
+ 				 << "  \"query_ids\": [";
+ 		for (size_t idx = 0; idx < result.queryIds.size(); ++idx)
+ 		{
+@@ -4230,4 +4681,4 @@
+-	void runReadToGraphFullQueryHitWorkerDryRunSeam()
++	void runReadToGraphFullQueryHitWorkerDryRunSeam(RepeatGraph& graph)
+ 	{
+ 		if (!readToGraphFullQueryHitWorkerDryRunEnabled()) return;
+ 
+@@ -4241,6 +4692,10 @@
+ 					readToGraphFullQueryHitShadowLedgerMode();
+ 				result.rawOverlapShadowLedgerProofFault =
+ 					readToGraphFullQueryHitShadowLedgerProofFault();
++				result.rawOverlapGraphEdgeBindingMode =
++					readToGraphFullQueryHitGraphEdgeBindingMode();
++				result.rawOverlapGraphEdgeBindingProofFault =
++					readToGraphFullQueryHitGraphEdgeBindingProofFault();
+ 				result.sourcePackDir = std::string(readToGraphSourcePackDir());
+ 				result.workerOutputRoot = readAlignmentRequiredEnv(
+ 					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_OUTPUT_DIR");
+@@ -4280,6 +4735,9 @@
+ 				result.rawOverlapShadowLedgerJson = joinReplayPath(
+ 					result.workerOutputRoot,
+ 					"full-query-hit-worker-shadow-consumption-ledger.json");
++				result.rawOverlapGraphEdgeBindingJson = joinReplayPath(
++					result.workerOutputRoot,
++					"full-query-hit-worker-graph-edge-binding.json");
+ 				result.workerSessionSubmitPath = joinReplayPath(
+ 					result.workerOutputRoot, "full-query-hit-worker-session-submit.txt");
+ 			result.queryIds = sortedReadToGraphSourcePackQueryIds();
+@@ -4517,5 +4975,29 @@
+ 						writeReadToGraphFullQueryHitShadowLedgerJson(
+ 							result.rawOverlapShadowLedgerJson, ledger);
++						if (readToGraphFullQueryHitGraphEdgeBindingEnabled())
++						{
++							auto binding =
++								evaluateReadToGraphFullQueryHitGraphEdgeBinding(
++									result, rehydration, ledger, graph);
++							captureReadToGraphFullQueryHitGraphEdgeBindingResult(
++								result, binding);
++							writeReadToGraphFullQueryHitGraphEdgeBindingJson(
++								result.rawOverlapGraphEdgeBindingJson, binding);
++							if (binding.failedClosed &&
++								!ledger.failedClosed &&
++								!rehydration.failedClosed)
++							{
++								result.status =
++									"graph-edge-binding-failed-before-graph-mutation";
++								result.decision =
++									"fail-closed-before-graph-mutation";
++								result.failedClosed = true;
++								result.workerOutputConsumptionEligible = false;
++								result.graphMutationConsumedWorkerOutput = false;
++								result.error =
++									"CUDA full-query-hit graph-edge binding failed";
++							}
++						}
+ 						if (ledger.failedClosed &&
+ 							!rehydration.failedClosed)
+ 						{
+@@ -4539,6 +5021,8 @@
+ 					}
+ 					else if (result.status !=
+-							 "shadow-ledger-failed-before-graph-mutation")
++							 "shadow-ledger-failed-before-graph-mutation" &&
++							 result.status !=
++							 "graph-edge-binding-failed-before-graph-mutation")
+ 					{
+ 						result.status = "passed";
+ 						result.decision = "stopped-before-graph-mutation";
+@@ -4569,7 +5053,15 @@
+ 					"fail-closed before graph mutation; ledger_json=" +
+ 					result.rawOverlapShadowLedgerJson + "; audit_json=" +
+ 					result.auditJson);
+ 			}
++			if (result.status == "graph-edge-binding-failed-before-graph-mutation")
++			{
++				throw std::runtime_error(
++					"cuFlye read-to-graph full-query-hit graph-edge binding "
++					"fail-closed before graph mutation; binding_json=" +
++					result.rawOverlapGraphEdgeBindingJson + "; audit_json=" +
++					result.auditJson);
++			}
+ 			throw std::runtime_error(
+ 				"cuFlye read-to-graph full-query-hit worker dry-run "
+ 				"fail-closed before graph mutation; audit_json=" +
+@@ -7800,5 +8286,5 @@
+ 	readsOverlaps.overlapDivergenceStats(divergenceStats, MAX_DIVERGENCE);
+ 	dumpReadAlignmentRecords(_readAlignments);
+-	runReadToGraphFullQueryHitWorkerDryRunSeam();
++	runReadToGraphFullQueryHitWorkerDryRunSeam(_graph);
+ 	runReadAlignmentWorkerDryRunSeam(_graph, _readAlignments);
+ }

@@ -3716,3 +3716,85 @@ should prove that chain-input-positive CUDA full-query-hit rows with resolved
 edge_id values can bind back to live Flye GraphEdge objects, then fail closed on
 a deliberate binding fault before any graph mutation is possible.
 ```
+
+## 2026-07-01 Update: M6s Full Query-Hit Graph Edge Binding Dry-Run
+
+Status: completed.
+
+Task Card:
+
+- `docs/tasks/2026-07-01-cuflye-m6s-full-query-hit-graph-edge-binding-dry-run.md`
+
+Golden proof:
+
+- `tests/golden/cuflye-m6s-full-query-hit-graph-edge-binding-dry-run-dgx-aarch64.json`
+
+What changed:
+
+- Added Flye patch `0047` with an opt-in no-mutation graph-edge binding audit.
+- Added ABI notes for
+  `cuflye-read-to-graph-full-query-hit-graph-edge-binding-dry-run-v0`.
+- Extended `scripts/run_flye_fixture.sh` so proof runs can enable graph-edge
+  binding mode and inject a binding proof fault.
+- Kept graph mutation disabled and audited as not consumed.
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m6s-proof-20260701T120300Z
+fixture=toy-hifi
+query_ids=5,6,7,8,9,10,11,12
+positive_status=passed
+positive_rehydration_status=passed
+positive_shadow_ledger_status=passed
+positive_graph_edge_binding_status=passed
+positive_chain_input_filter_rows=8
+positive_graph_edge_binding_rows=8
+positive_graph_edge_binding_resolved_edge_id_rows=8
+positive_graph_edge_binding_live_edge_rows=8
+positive_graph_edge_binding_missing_edge_rows=0
+positive_graph_mutation_consumed_worker_output=false
+negative_status=graph-edge-binding-failed-before-graph-mutation
+negative_rehydration_status=passed
+negative_shadow_ledger_status=passed
+negative_graph_edge_binding_status=failed
+negative_proof_fault=drop-first-binding-row
+negative_proof_fault_applied=true
+negative_chain_input_filter_rows=8
+negative_graph_edge_binding_rows=7
+negative_graph_mutation_consumed_worker_output=false
+default_cpu_artifact_hashes_match_m0=true
+```
+
+Allowed M6s claim:
+
+```text
+cuFlye can take M6r/M6q CUDA full-query-hit rows that pass chain-input filtering
+and prove that all 8 selected rows bind back to live Flye GraphEdge objects in a
+no-mutation audit.
+```
+
+Forbidden M6s claim:
+
+```text
+M6s does not prove whole-Flye speedup, object-vector substitution, graph
+mutation, default GPU mode, or GPU-computed chain-input filtering/edge identity.
+```
+
+Plain-language benefit:
+
+```text
+M6s still does not make full Flye faster. It proves the next safety boundary:
+the selected CUDA-derived rows are no longer just TSV records with edge ids;
+they can be tied back to actual live Flye graph edge objects. This makes the
+next step an object-vector consumption smoke instead of another identity check.
+```
+
+Next highest-ROI task:
+
+```text
+M6t: construct and account a bounded graph-facing object vector from the M6s
+bound rows, keep it behind a no-mutation gate, and fail closed if object
+accounting is corrupted before the vector can be returned to Flye's mutating
+read-to-graph path.
+```

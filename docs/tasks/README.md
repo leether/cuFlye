@@ -11,12 +11,15 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m6s-full-query-hit-graph-edge-binding-dry-run.md`:
-  bind chain-input-positive, resolved-edge CUDA full-query-hit rows back to
-  live Flye graph edge objects in a no-mutation dry-run audit.
+- `2026-07-01-cuflye-m6t-full-query-hit-object-vector-consumption-smoke.md`:
+  construct and account the first graph-facing object vector from M6s-bound
+  full-query-hit rows while still preventing graph mutation consumption.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m6s-full-query-hit-graph-edge-binding-dry-run.md`:
+  bind chain-input-positive, resolved-edge CUDA full-query-hit rows back to
+  live Flye graph edge objects in a no-mutation dry-run audit.
 - `2026-07-01-cuflye-m6r-full-query-hit-non-key-field-propagation.md`:
   preserve source-pack oracle-only full-query-hit raw-overlap metadata in CUDA
   worker output after row-key replay succeeds, proving nonzero chain-input rows

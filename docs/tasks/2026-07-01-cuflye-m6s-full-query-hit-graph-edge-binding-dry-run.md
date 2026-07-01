@@ -1,6 +1,6 @@
 # Task Card: cuFlye M6s Full Query-Hit Graph Edge Binding Dry-Run
 
-Status: proposed
+Status: completed
 
 Created: 2026-07-01
 
@@ -62,15 +62,59 @@ live Flye graph edge object without changing graph state?
 
 ## Acceptance Gates
 
-- [ ] M6p rehydration and M6q shadow ledger must pass before binding runs.
-- [ ] Positive DGX proof records nonzero chain-input-positive rows.
-- [ ] Positive DGX proof records nonzero live graph-edge bindings.
-- [ ] Binding audit proves graph mutation remains disabled and not consumed.
-- [ ] Negative proof fails closed before graph mutation when a binding row is
+- [x] M6p rehydration and M6q shadow ledger must pass before binding runs.
+- [x] Positive DGX proof records nonzero chain-input-positive rows.
+- [x] Positive DGX proof records nonzero live graph-edge bindings.
+- [x] Binding audit proves graph mutation remains disabled and not consumed.
+- [x] Negative proof fails closed before graph mutation when a binding row is
       intentionally corrupted or dropped.
-- [ ] Default CPU Flye canonical artifacts remain unchanged.
-- [ ] Local and DGX syntax/style/ownership gates pass.
+- [x] Default CPU Flye canonical artifacts remain unchanged.
+- [x] Local and DGX syntax/style/ownership gates pass.
 
 ## Completion Notes
 
-Pending implementation.
+Implemented in:
+
+- `patches/flye/2.9.6/0047-cuflye-read-to-graph-full-query-hit-graph-edge-binding.patch`
+- `docs/abi/read-to-graph-full-query-hit-graph-edge-binding-dry-run-v0.md`
+- `tests/golden/cuflye-m6s-full-query-hit-graph-edge-binding-dry-run-dgx-aarch64.json`
+
+Proof summary:
+
+```text
+proof_root=/tmp/cuflye-m6s-proof-20260701T120300Z
+fixture=toy-hifi
+query_ids=5,6,7,8,9,10,11,12
+positive_status=passed
+positive_rehydration_status=passed
+positive_shadow_ledger_status=passed
+positive_graph_edge_binding_status=passed
+positive_chain_input_filter_rows=8
+positive_graph_edge_binding_rows=8
+positive_graph_edge_binding_resolved_edge_id_rows=8
+positive_graph_edge_binding_live_edge_rows=8
+positive_graph_edge_binding_missing_edge_rows=0
+positive_graph_mutation_consumed_worker_output=false
+negative_status=graph-edge-binding-failed-before-graph-mutation
+negative_rehydration_status=passed
+negative_shadow_ledger_status=passed
+negative_graph_edge_binding_status=failed
+negative_proof_fault=drop-first-binding-row
+negative_proof_fault_applied=true
+negative_chain_input_filter_rows=8
+negative_graph_edge_binding_rows=7
+negative_graph_mutation_consumed_worker_output=false
+default_cpu_artifact_hashes_match_m0=true
+```
+
+Plain-language benefit:
+
+```text
+M6s still does not make full Flye faster and still does not mutate the graph.
+It proves the next critical safety gate: the 8 chain-input-positive CUDA
+full-query-hit rows can be resolved from row-key-validated TSV, through M6p
+rehydration and M6q ledger, all the way back to live Flye GraphEdge objects.
+The next useful step is a no-mutation object-vector consumption smoke: construct
+the candidate graph-facing objects, account them, and still refuse to return
+them to Flye's mutating graph path.
+```

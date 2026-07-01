@@ -209,3 +209,5 @@ M6 read-to-graph input-boundary proof:
   `cuflye-m6q-full-query-hit-shadow-consumption-ledger-dgx-aarch64.json`
 - Full query-hit non-key field propagation manifest:
   `cuflye-m6r-full-query-hit-non-key-field-propagation-dgx-aarch64.json`
+- Full query-hit graph-edge binding dry-run manifest:
+  `cuflye-m6s-full-query-hit-graph-edge-binding-dry-run-dgx-aarch64.json`
