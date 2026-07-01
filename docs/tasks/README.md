@@ -7,9 +7,10 @@ change is considered complete.
 
 Active cards:
 
-- `2026-07-01-cuflye-m5q-read-alignment-pre-divergence-batch-crossover.md`:
-  use the M5p batch seam on larger selected-read batches to find the CPU/CUDA
-  crossover point or identify the remaining setup/process overhead blocker.
+- `2026-07-01-cuflye-m5r-read-alignment-pre-divergence-persistent-session.md`:
+  remove fresh worker/context setup from Flye-side selected pre-divergence
+  batches with a long-lived CUDA session proof, while preserving exact
+  artifacts and fail-closed behavior.
 
 Proposed cards:
 
@@ -17,6 +18,10 @@ Proposed cards:
 
 Completed cards:
 
+- `2026-07-01-cuflye-m5q-read-alignment-pre-divergence-batch-crossover.md`:
+  benchmark larger selected pre-divergence read-alignment batches, prove CUDA
+  output parity, find a warm persistent-bulk hot-path win at full batch size,
+  and identify fresh worker/CUDA setup as the integration blocker.
 - `2026-07-01-cuflye-m5p-read-alignment-pre-divergence-batch-dry-run.md`:
   batch selected pre-divergence CUDA read-alignment chain output into one worker
   invocation, compare Flye-filtered goodChains per query, preserve exact

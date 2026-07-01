@@ -2038,3 +2038,75 @@ M5q: use the M5p batch seam on larger selected-read batches and compare CPU
 versus CUDA pre-divergence replay timing to find the crossover point or prove
 that setup/process overhead remains the dominant blocker.
 ```
+
+M5q accepted result:
+
+```text
+cuFlye can benchmark larger selected read-alignment pre-divergence replay
+batches, prove CUDA outputs match CPU across the same fixture list, and show
+that a warmed persistent-bulk CUDA path has crossed the CPU hot-path boundary
+for the full M5h 3546-fixture batch.
+```
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m5q-proof-20260701T025345Z
+fixture_list=/tmp/cuflye-m5h-proof-20260630T234728Z/out/m5h/larger-batch/selected-fixtures.list
+cold_batch_sizes=16,64,256,1024,3546
+cold_outputs_match_cpu=true
+full_batch_cold_cpu_ms=0.402465
+full_batch_cold_cuda_persistent_bulk_single_invocation_ms=247.104709
+full_batch_warm_cpu_ms=0.324878
+full_batch_warm_cuda_persistent_bulk_ms=0.300236
+full_batch_warm_cuda_hot_path_speedup_vs_cpu=1.082075
+full_batch_warm_cuda_single_invocation_ms=249.070891
+single_invocation_crossover_batch_size=null
+flye_positive_selected_query_count=64
+flye_positive_status=passed
+flye_positive_matched_fixture_count=64
+flye_positive_canonical_diff=match
+flye_positive_worker_wall_ms=435.505899
+worker_setup_ms=301.297979
+worker_kernel_ms=0.096576
+worker_device_to_host_ms=2.980852
+worker_write_output_ms=1.569866
+graph_mutation_consumed_worker_output=false
+```
+
+Allowed M5q claim:
+
+```text
+On the M5h 3546-fixture selected read-alignment replay set, a warmed
+persistent-bulk CUDA pre-divergence hot path is slightly faster than CPU before
+JSON/TSV emission, while all CUDA outputs match CPU and a Flye-side 64-read
+batch dry-run preserves exact artifacts.
+```
+
+Forbidden M5q claim:
+
+```text
+M5q does not prove end-to-end Flye acceleration or a default GPU mode. A single
+Flye worker invocation still loses badly after CUDA setup/context cost is
+counted.
+```
+
+Plain-language benefit:
+
+```text
+M5q found the boundary clearly. CUDA is better only after the context and
+persistent arena are warm: full-batch warm persistent-bulk CUDA ran in
+0.300236 ms versus CPU at 0.324878 ms, a 1.082x hot-path speedup. But Flye
+currently launches a fresh worker, so the single-invocation path is still about
+249.07 ms, dominated by CUDA setup. The useful win is real, but it is trapped
+behind process/context setup.
+```
+
+Next highest-ROI task:
+
+```text
+M5r: replace the Flye-side pre-divergence batch worker process with a
+long-lived session/persistent worker proof so selected batches can reuse CUDA
+context and arena across Flye calls, then re-measure batch64 and larger
+selected-read integration timing.
+```
