@@ -1,0 +1,730 @@
+diff --git a/src/repeat_graph/read_aligner.cpp b/src/repeat_graph/read_aligner.cpp
+index 38bfa1b..ac499c3 100644
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -602,6 +602,57 @@ namespace
+ 			queryEdges;
+ 	};
+ 
++	struct ReadToGraphFullQueryHitSubstitutionGuardCheck
++	{
++		std::string name;
++		bool required = true;
++		bool passed = false;
++		std::string detail;
++	};
++
++	struct ReadToGraphFullQueryHitSubstitutionGuardObjectSummary
++	{
++		size_t orderIndex = 0;
++		int64_t queryId = 0;
++		int64_t sourceOrder = 0;
++		int64_t edgeId = 0;
++		int64_t readId = 0;
++		int64_t edgeSeqId = 0;
++	};
++
++	struct ReadToGraphFullQueryHitSubstitutionGuardResult
++	{
++		std::string mode;
++		std::string proofFault;
++		std::string status = "not-requested";
++		std::string state = "not-consumed";
++		std::string decision = "disabled";
++		std::string workerTsv;
++		std::string objectVectorSmokeStatus = "not-requested";
++		std::string error;
++		bool eligible = false;
++		bool consumed = false;
++		bool notConsumed = true;
++		bool failedClosed = false;
++		bool proofFaultApplied = false;
++		bool graphMutationConsumedWorkerOutput = false;
++		size_t objectVectorRows = 0;
++		size_t objectVectorAccountingRows = 0;
++		size_t objectVectorQueryAccountedRows = 0;
++		size_t objectVectorEdgeAccountedRows = 0;
++		size_t objectVectorQueryEdgeAccountedRows = 0;
++		size_t handoffRows = 0;
++		size_t handoffAccountingRows = 0;
++		size_t handoffQueryAccountedRows = 0;
++		size_t handoffEdgeAccountedRows = 0;
++		size_t handoffQueryEdgeAccountedRows = 0;
++		size_t handoffObjectSummaryRows = 0;
++		size_t missingGraphEdgeRows = 0;
++		std::vector<ReadToGraphFullQueryHitSubstitutionGuardCheck> checks;
++		std::vector<ReadToGraphFullQueryHitSubstitutionGuardObjectSummary>
++			objects;
++	};
++
+ 	struct ReadToGraphFullQueryHitWorkerDryRunResult
+ 	{
+ 		std::string mode;
+@@ -648,6 +699,12 @@ namespace
+ 		std::string rawOverlapObjectVectorSmokeStatus = "not-requested";
+ 		std::string rawOverlapObjectVectorSmokeState = "not-consumed";
+ 		std::string rawOverlapObjectVectorSmokeDecision = "disabled";
++		std::string rawOverlapSubstitutionGuardJson;
++		std::string rawOverlapSubstitutionGuardMode;
++		std::string rawOverlapSubstitutionGuardProofFault;
++		std::string rawOverlapSubstitutionGuardStatus = "not-requested";
++		std::string rawOverlapSubstitutionGuardState = "not-consumed";
++		std::string rawOverlapSubstitutionGuardDecision = "disabled";
+ 		std::string workerCommand;
+ 		std::string error;
+ 		std::vector<int64_t> queryIds;
+@@ -671,6 +728,8 @@ namespace
+ 		bool rawOverlapGraphEdgeBindingFailedClosed = false;
+ 		bool rawOverlapObjectVectorSmokeEligible = false;
+ 		bool rawOverlapObjectVectorSmokeFailedClosed = false;
++		bool rawOverlapSubstitutionGuardEligible = false;
++		bool rawOverlapSubstitutionGuardFailedClosed = false;
+ 		size_t expectedOutputRecords = 0;
+ 		size_t rawOverlapRehydratedRecords = 0;
+ 		size_t rawOverlapShadowLedgerRows = 0;
+@@ -688,6 +747,9 @@ namespace
+ 		size_t rawOverlapObjectVectorSmokeQuerySummaryRows = 0;
+ 		size_t rawOverlapObjectVectorSmokeEdgeSummaryRows = 0;
+ 		size_t rawOverlapObjectVectorSmokeQueryEdgeSummaryRows = 0;
++		size_t rawOverlapSubstitutionGuardHandoffRows = 0;
++		size_t rawOverlapSubstitutionGuardAccountingRows = 0;
++		size_t rawOverlapSubstitutionGuardObjectSummaryRows = 0;
+ 		double workerContextSetupMs = 0.0;
+ 		double actualRequestTotalMs = 0.0;
+ 		double actualKernelMs = 0.0;
+@@ -2814,6 +2876,51 @@ namespace
+ 		return proofFault;
+ 	}
+ 
++	std::string readToGraphFullQueryHitSubstitutionGuardMode()
++	{
++		static std::string mode = []()
++		{
++			const char* raw = std::getenv(
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SUBSTITUTION_GUARD_MODE");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "substitution-guard-dry-run-v0")
++			{
++				throw std::runtime_error(
++					"Unsupported "
++					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SUBSTITUTION_GUARD_MODE: " +
++					selected);
++			}
++			return selected;
++		}();
++		return mode;
++	}
++
++	bool readToGraphFullQueryHitSubstitutionGuardEnabled()
++	{
++		return !readToGraphFullQueryHitSubstitutionGuardMode().empty();
++	}
++
++	std::string readToGraphFullQueryHitSubstitutionGuardProofFault()
++	{
++		static std::string proofFault = []()
++		{
++			const char* raw = std::getenv(
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SUBSTITUTION_GUARD_PROOF_FAULT");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "drop-first-handoff-row")
++			{
++				throw std::runtime_error(
++					"Unsupported "
++					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SUBSTITUTION_GUARD_PROOF_FAULT: " +
++					selected);
++			}
++			return selected;
++		}();
++		return proofFault;
++	}
++
+ 	std::string readToGraphFullQueryHitWorkerLifecycleMode()
+ 	{
+ 		static std::string mode = []()
+@@ -2949,6 +3056,10 @@ namespace
+ 			readToGraphFullQueryHitObjectVectorSmokeEnabled();
+ 		std::string objectVectorSmokeProofFault =
+ 			readToGraphFullQueryHitObjectVectorSmokeProofFault();
++		bool substitutionGuardEnabled =
++			readToGraphFullQueryHitSubstitutionGuardEnabled();
++		std::string substitutionGuardProofFault =
++			readToGraphFullQueryHitSubstitutionGuardProofFault();
+ 		if (rehydrationEnabled && !readToGraphFullQueryHitWorkerDryRunEnabled())
+ 		{
+ 			throw std::runtime_error(
+@@ -3042,6 +3153,47 @@ namespace
+ 				"fault requires "
+ 				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_OBJECT_VECTOR_SMOKE_MODE");
+ 		}
++		if (substitutionGuardEnabled &&
++			!readToGraphFullQueryHitWorkerDryRunEnabled())
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit substitution guard "
++				"requires CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_MODE");
++		}
++		if (substitutionGuardEnabled && !rehydrationEnabled)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit substitution guard "
++				"requires CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_REHYDRATION_MODE");
++		}
++		if (substitutionGuardEnabled && !shadowLedgerEnabled)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit substitution guard "
++				"requires "
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SHADOW_LEDGER_MODE");
++		}
++		if (substitutionGuardEnabled && !graphEdgeBindingEnabled)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit substitution guard "
++				"requires "
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_GRAPH_EDGE_BINDING_MODE");
++		}
++		if (substitutionGuardEnabled && !objectVectorSmokeEnabled)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit substitution guard "
++				"requires "
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_OBJECT_VECTOR_SMOKE_MODE");
++		}
++		if (!substitutionGuardProofFault.empty() && !substitutionGuardEnabled)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit substitution guard proof "
++				"fault requires "
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SUBSTITUTION_GUARD_MODE");
++		}
+ 		if (!readToGraphFullQueryHitWorkerDryRunEnabled()) return;
+ 		if (!readToGraphSourcePackEnabled())
+ 		{
+@@ -4652,6 +4804,38 @@ namespace
+ 		smoke.graphMutationConsumedWorkerOutput = false;
+ 	}
+ 
++	std::vector<ReadToGraphFullQueryHitObjectVectorSmokeObject>
++	buildReadToGraphFullQueryHitLiveObjectVector(
++		const std::string& workerTsv,
++		RepeatGraph& graph,
++		size_t& missingGraphEdgeRows)
++	{
++		auto records = readToGraphRawOverlapRecords(workerTsv);
++		std::vector<ReadToGraphFullQueryHitObjectVectorSmokeObject> objects;
++		for (const auto& record : records)
++		{
++			if (!record.passesChainInputFilter) continue;
++			if (record.edgeId == 0)
++			{
++				++missingGraphEdgeRows;
++				continue;
++			}
++			FastaRecord::Id edgeId = checkedReadAlignmentFastaIdFromSigned(
++				record.edgeId, "edge_id", workerTsv);
++			GraphEdge* edge = graph.getEdge(edgeId);
++			if (!edge)
++			{
++				++missingGraphEdgeRows;
++				continue;
++			}
++			ReadToGraphFullQueryHitObjectVectorSmokeObject object;
++			object.record = record;
++			object.edge = edge;
++			objects.push_back(object);
++		}
++		return objects;
++	}
++
+ 	ReadToGraphFullQueryHitObjectVectorSmokeResult
+ 	evaluateReadToGraphFullQueryHitObjectVectorSmoke(
+ 		const ReadToGraphFullQueryHitWorkerDryRunResult& dryRun,
+@@ -4706,30 +4890,9 @@ namespace
+ 
+ 		try
+ 		{
+-			auto records = readToGraphRawOverlapRecords(result.workerTsv);
+ 			std::vector<ReadToGraphFullQueryHitObjectVectorSmokeObject>
+-				objects;
+-			for (const auto& record : records)
+-			{
+-				if (!record.passesChainInputFilter) continue;
+-				if (record.edgeId == 0)
+-				{
+-					++result.missingGraphEdgeRows;
+-					continue;
+-				}
+-				FastaRecord::Id edgeId = checkedReadAlignmentFastaIdFromSigned(
+-					record.edgeId, "edge_id", result.workerTsv);
+-				GraphEdge* edge = graph.getEdge(edgeId);
+-				if (!edge)
+-				{
+-					++result.missingGraphEdgeRows;
+-					continue;
+-				}
+-				ReadToGraphFullQueryHitObjectVectorSmokeObject object;
+-				object.record = record;
+-				object.edge = edge;
+-				objects.push_back(object);
+-			}
++				objects = buildReadToGraphFullQueryHitLiveObjectVector(
++					result.workerTsv, graph, result.missingGraphEdgeRows);
+ 			result.objectRows = objects.size();
+ 
+ 			std::vector<ReadToGraphFullQueryHitObjectVectorSmokeObject>
+@@ -4977,6 +5140,317 @@ namespace
+ 		writeReadAlignmentTextFile(path, json.str());
+ 	}
+ 
++	void addReadToGraphFullQueryHitSubstitutionGuardCheck(
++		ReadToGraphFullQueryHitSubstitutionGuardResult& guard,
++		const std::string& name,
++		bool passed,
++		const std::string& detail)
++	{
++		ReadToGraphFullQueryHitSubstitutionGuardCheck check;
++		check.name = name;
++		check.required = true;
++		check.passed = passed;
++		check.detail = detail;
++		guard.checks.push_back(check);
++	}
++
++	bool allReadToGraphFullQueryHitSubstitutionGuardChecksPassed(
++		const ReadToGraphFullQueryHitSubstitutionGuardResult& guard)
++	{
++		for (const auto& check : guard.checks)
++		{
++			if (check.required && !check.passed) return false;
++		}
++		return !guard.checks.empty();
++	}
++
++	void markReadToGraphFullQueryHitSubstitutionGuardFailed(
++		ReadToGraphFullQueryHitSubstitutionGuardResult& guard)
++	{
++		guard.status = "failed";
++		guard.state = "failed-closed";
++		guard.decision = "failed-closed-before-graph-mutation";
++		guard.eligible = false;
++		guard.consumed = false;
++		guard.notConsumed = false;
++		guard.failedClosed = true;
++		guard.graphMutationConsumedWorkerOutput = false;
++	}
++
++	ReadToGraphFullQueryHitSubstitutionGuardResult
++	evaluateReadToGraphFullQueryHitSubstitutionGuard(
++		const ReadToGraphFullQueryHitWorkerDryRunResult& dryRun,
++		const ReadToGraphFullQueryHitObjectVectorSmokeResult& smoke,
++		RepeatGraph& graph)
++	{
++		ReadToGraphFullQueryHitSubstitutionGuardResult result;
++		result.mode = readToGraphFullQueryHitSubstitutionGuardMode();
++		result.proofFault =
++			readToGraphFullQueryHitSubstitutionGuardProofFault();
++		result.workerTsv = dryRun.workerOutputTsv;
++		result.objectVectorSmokeStatus = smoke.status;
++		result.objectVectorRows = smoke.objectRows;
++		result.objectVectorAccountingRows = smoke.objectAccountingRows;
++		result.objectVectorQueryAccountedRows = smoke.queryAccountedRows;
++		result.objectVectorEdgeAccountedRows = smoke.edgeAccountedRows;
++		result.objectVectorQueryEdgeAccountedRows =
++			smoke.queryEdgeAccountedRows;
++		result.graphMutationConsumedWorkerOutput =
++			dryRun.graphMutationConsumedWorkerOutput;
++		if (!readToGraphFullQueryHitSubstitutionGuardEnabled()) return result;
++
++		markReadToGraphFullQueryHitSubstitutionGuardFailed(result);
++		addReadToGraphFullQueryHitSubstitutionGuardCheck(
++			result, "explicit_substitution_guard_mode",
++			result.mode == "substitution-guard-dry-run-v0",
++			"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SUBSTITUTION_GUARD_MODE="
++			"substitution-guard-dry-run-v0");
++		addReadToGraphFullQueryHitSubstitutionGuardCheck(
++			result, "object_vector_smoke_passed",
++			smoke.status == "passed" && smoke.eligible &&
++				!smoke.failedClosed,
++			"M6t object-vector smoke must pass before substitution guard");
++		addReadToGraphFullQueryHitSubstitutionGuardCheck(
++			result, "object_vector_rows_present",
++			smoke.objectRows > 0,
++			"substitution guard requires nonzero object-vector rows");
++		addReadToGraphFullQueryHitSubstitutionGuardCheck(
++			result, "worker_output_readable",
++			dryRun.workerOutputReadable,
++			"validated worker raw-overlap TSV must be readable");
++		addReadToGraphFullQueryHitSubstitutionGuardCheck(
++			result, "audit_metadata_available",
++			!dryRun.rawOverlapSubstitutionGuardJson.empty(),
++			"substitution guard audit JSON path must be available");
++		addReadToGraphFullQueryHitSubstitutionGuardCheck(
++			result, "graph_not_mutated",
++			!dryRun.graphMutationConsumedWorkerOutput,
++			"worker output must not have reached graph mutation");
++
++		if (!allReadToGraphFullQueryHitSubstitutionGuardChecksPassed(result))
++		{
++			result.error = "substitution guard preconditions failed";
++			return result;
++		}
++
++		try
++		{
++			std::vector<ReadToGraphFullQueryHitObjectVectorSmokeObject>
++				handoffObjects = buildReadToGraphFullQueryHitLiveObjectVector(
++					result.workerTsv, graph, result.missingGraphEdgeRows);
++			if (result.proofFault == "drop-first-handoff-row" &&
++				!handoffObjects.empty())
++			{
++				handoffObjects.erase(handoffObjects.begin());
++				result.proofFaultApplied = true;
++			}
++			result.handoffRows = handoffObjects.size();
++			result.handoffAccountingRows = handoffObjects.size();
++
++			for (size_t index = 0; index < handoffObjects.size(); ++index)
++			{
++				const auto& object = handoffObjects[index];
++				const int64_t queryId = object.record.queryId;
++				const int64_t edgeId = object.record.edgeId;
++				++result.handoffQueryAccountedRows;
++				++result.handoffEdgeAccountedRows;
++				++result.handoffQueryEdgeAccountedRows;
++
++				ReadToGraphFullQueryHitSubstitutionGuardObjectSummary
++					summary;
++				summary.orderIndex = index;
++				summary.queryId = queryId;
++				summary.sourceOrder = object.record.sourceOrder;
++				summary.edgeId = edgeId;
++				summary.readId = object.record.overlap.curId.signedId();
++				summary.edgeSeqId = object.record.overlap.extId.signedId();
++				result.objects.push_back(summary);
++			}
++			result.handoffObjectSummaryRows = result.objects.size();
++
++			addReadToGraphFullQueryHitSubstitutionGuardCheck(
++				result, "handoff_count_matches_object_vector",
++				result.handoffRows == smoke.objectRows,
++				"guard handoff rows must match M6t object-vector rows");
++			addReadToGraphFullQueryHitSubstitutionGuardCheck(
++				result, "handoff_accounting_matches_object_vector",
++				result.handoffAccountingRows == smoke.objectAccountingRows,
++				"guard handoff accounting must match M6t object accounting");
++			addReadToGraphFullQueryHitSubstitutionGuardCheck(
++				result, "handoff_query_accounting_matches_object_vector",
++				result.handoffQueryAccountedRows == smoke.queryAccountedRows,
++				"guard query accounting must match M6t query accounting");
++			addReadToGraphFullQueryHitSubstitutionGuardCheck(
++				result, "handoff_edge_accounting_matches_object_vector",
++				result.handoffEdgeAccountedRows == smoke.edgeAccountedRows,
++				"guard edge accounting must match M6t edge accounting");
++			addReadToGraphFullQueryHitSubstitutionGuardCheck(
++				result, "handoff_query_edge_accounting_matches_object_vector",
++				result.handoffQueryEdgeAccountedRows ==
++					smoke.queryEdgeAccountedRows,
++				"guard query-edge accounting must match M6t query-edge accounting");
++			addReadToGraphFullQueryHitSubstitutionGuardCheck(
++				result, "handoff_order_recorded",
++				result.handoffObjectSummaryRows == result.handoffRows,
++				"guard must record deterministic handoff object order");
++			addReadToGraphFullQueryHitSubstitutionGuardCheck(
++				result, "handoff_objects_have_live_graph_edges",
++				result.missingGraphEdgeRows == 0,
++				"every guarded object must have a live GraphEdge");
++			addReadToGraphFullQueryHitSubstitutionGuardCheck(
++				result, "graph_not_mutated_after_substitution_guard",
++				!result.graphMutationConsumedWorkerOutput,
++				"substitution guard must not mutate graph state");
++
++			if (allReadToGraphFullQueryHitSubstitutionGuardChecksPassed(result))
++			{
++				result.status = "passed";
++				result.state = "not-consumed";
++				result.decision =
++					"substitution-guard-audited-not-consumed";
++				result.eligible = true;
++				result.consumed = false;
++				result.notConsumed = true;
++				result.failedClosed = false;
++				result.error.clear();
++			}
++			else
++			{
++				result.error =
++					"substitution guard handoff differs from object vector";
++			}
++		}
++		catch (const std::exception& exc)
++		{
++			result.error = exc.what();
++			markReadToGraphFullQueryHitSubstitutionGuardFailed(result);
++		}
++		return result;
++	}
++
++	void captureReadToGraphFullQueryHitSubstitutionGuardResult(
++		ReadToGraphFullQueryHitWorkerDryRunResult& dryRun,
++		const ReadToGraphFullQueryHitSubstitutionGuardResult& guard)
++	{
++		dryRun.rawOverlapSubstitutionGuardMode = guard.mode;
++		dryRun.rawOverlapSubstitutionGuardProofFault = guard.proofFault;
++		dryRun.rawOverlapSubstitutionGuardStatus = guard.status;
++		dryRun.rawOverlapSubstitutionGuardState = guard.state;
++		dryRun.rawOverlapSubstitutionGuardDecision = guard.decision;
++		dryRun.rawOverlapSubstitutionGuardEligible = guard.eligible;
++		dryRun.rawOverlapSubstitutionGuardFailedClosed =
++			guard.failedClosed;
++		dryRun.rawOverlapSubstitutionGuardHandoffRows =
++			guard.handoffRows;
++		dryRun.rawOverlapSubstitutionGuardAccountingRows =
++			guard.handoffAccountingRows;
++		dryRun.rawOverlapSubstitutionGuardObjectSummaryRows =
++			guard.handoffObjectSummaryRows;
++	}
++
++	void writeReadToGraphFullQueryHitSubstitutionGuardJson(
++		const std::string& path,
++		const ReadToGraphFullQueryHitSubstitutionGuardResult& guard)
++	{
++		std::ostringstream json;
++		json << "{\n"
++			 << "  \"schema\": "
++				"\"cuflye-read-to-graph-full-query-hit-substitution-guard-dry-run-v0\",\n"
++			 << "  \"status\": \"" << readAlignmentJsonEscape(guard.status)
++			 << "\",\n"
++			 << "  \"mode\": \"" << readAlignmentJsonEscape(guard.mode)
++			 << "\",\n"
++			 << "  \"proof_fault\": \""
++			 << readAlignmentJsonEscape(guard.proofFault) << "\",\n"
++			 << "  \"proof_fault_applied\": "
++			 << readAlignmentBoolJson(guard.proofFaultApplied) << ",\n"
++			 << "  \"state\": \"" << readAlignmentJsonEscape(guard.state)
++			 << "\",\n"
++			 << "  \"decision\": \"" << readAlignmentJsonEscape(guard.decision)
++			 << "\",\n"
++			 << "  \"worker_tsv\": \""
++			 << readAlignmentJsonEscape(guard.workerTsv) << "\",\n"
++			 << "  \"object_vector_smoke_status\": \""
++			 << readAlignmentJsonEscape(guard.objectVectorSmokeStatus)
++			 << "\",\n"
++			 << "  \"eligible\": " << readAlignmentBoolJson(guard.eligible)
++			 << ",\n"
++			 << "  \"consumed\": " << readAlignmentBoolJson(guard.consumed)
++			 << ",\n"
++			 << "  \"not_consumed\": "
++			 << readAlignmentBoolJson(guard.notConsumed) << ",\n"
++			 << "  \"failed_closed\": "
++			 << readAlignmentBoolJson(guard.failedClosed) << ",\n"
++			 << "  \"graph_mutation_consumed_worker_output\": "
++			 << readAlignmentBoolJson(
++					guard.graphMutationConsumedWorkerOutput) << ",\n"
++			 << "  \"object_vector_rows\": "
++			 << guard.objectVectorRows << ",\n"
++			 << "  \"object_vector_accounting_rows\": "
++			 << guard.objectVectorAccountingRows << ",\n"
++			 << "  \"object_vector_query_accounted_rows\": "
++			 << guard.objectVectorQueryAccountedRows << ",\n"
++			 << "  \"object_vector_edge_accounted_rows\": "
++			 << guard.objectVectorEdgeAccountedRows << ",\n"
++			 << "  \"object_vector_query_edge_accounted_rows\": "
++			 << guard.objectVectorQueryEdgeAccountedRows << ",\n"
++			 << "  \"handoff_rows\": " << guard.handoffRows << ",\n"
++			 << "  \"handoff_accounting_rows\": "
++			 << guard.handoffAccountingRows << ",\n"
++			 << "  \"handoff_query_accounted_rows\": "
++			 << guard.handoffQueryAccountedRows << ",\n"
++			 << "  \"handoff_edge_accounted_rows\": "
++			 << guard.handoffEdgeAccountedRows << ",\n"
++			 << "  \"handoff_query_edge_accounted_rows\": "
++			 << guard.handoffQueryEdgeAccountedRows << ",\n"
++			 << "  \"handoff_object_summary_rows\": "
++			 << guard.handoffObjectSummaryRows << ",\n"
++			 << "  \"missing_graph_edge_rows\": "
++			 << guard.missingGraphEdgeRows << ",\n"
++			 << "  \"checks\": [\n";
++		for (size_t index = 0; index < guard.checks.size(); ++index)
++		{
++			const auto& check = guard.checks[index];
++			json << "    {\n"
++				 << "      \"name\": \"" << readAlignmentJsonEscape(check.name)
++				 << "\",\n"
++				 << "      \"required\": " << readAlignmentBoolJson(check.required)
++				 << ",\n"
++				 << "      \"passed\": " << readAlignmentBoolJson(check.passed)
++				 << ",\n"
++				 << "      \"detail\": \"" << readAlignmentJsonEscape(check.detail)
++				 << "\"\n"
++				 << "    }" << (index + 1 == guard.checks.size() ? "\n" : ",\n");
++		}
++		json << "  ],\n"
++			 << "  \"objects\": [\n";
++		for (size_t index = 0; index < guard.objects.size(); ++index)
++		{
++			const auto& object = guard.objects[index];
++			json << "    {\n"
++				 << "      \"order_index\": " << object.orderIndex << ",\n"
++				 << "      \"query_id\": " << object.queryId << ",\n"
++				 << "      \"source_order\": " << object.sourceOrder << ",\n"
++				 << "      \"edge_id\": " << object.edgeId << ",\n"
++				 << "      \"read_id\": " << object.readId << ",\n"
++				 << "      \"edge_seq_id\": " << object.edgeSeqId << "\n"
++				 << "    }" << (index + 1 == guard.objects.size() ? "\n" : ",\n");
++		}
++		json << "  ]";
++		if (!guard.error.empty())
++		{
++			json << ",\n"
++				 << "  \"error\": \""
++				 << readAlignmentJsonEscape(guard.error) << "\"\n";
++		}
++		else
++		{
++			json << "\n";
++		}
++		json << "}\n";
++		writeReadAlignmentTextFile(path, json.str());
++	}
++
+ 	void writeReadToGraphFullQueryHitWorkerDryRunJson(
+ 		const std::string& path,
+ 		const ReadToGraphFullQueryHitWorkerDryRunResult& result)
+@@ -5091,6 +5565,24 @@ namespace
+ 				 << "  \"raw_overlap_object_vector_smoke_decision\": \""
+ 				 << readAlignmentJsonEscape(
+ 					 result.rawOverlapObjectVectorSmokeDecision) << "\",\n"
++				 << "  \"raw_overlap_substitution_guard_json\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSubstitutionGuardJson) << "\",\n"
++				 << "  \"raw_overlap_substitution_guard_mode\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSubstitutionGuardMode) << "\",\n"
++				 << "  \"raw_overlap_substitution_guard_proof_fault\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSubstitutionGuardProofFault) << "\",\n"
++				 << "  \"raw_overlap_substitution_guard_status\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSubstitutionGuardStatus) << "\",\n"
++				 << "  \"raw_overlap_substitution_guard_state\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSubstitutionGuardState) << "\",\n"
++				 << "  \"raw_overlap_substitution_guard_decision\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSubstitutionGuardDecision) << "\",\n"
+ 				 << "  \"stdout_log\": \"" << readAlignmentJsonEscape(result.stdoutLog)
+ 				  << "\",\n"
+ 			 << "  \"stderr_log\": \"" << readAlignmentJsonEscape(result.stderrLog)
+@@ -5141,6 +5633,12 @@ namespace
+ 				 << "  \"raw_overlap_object_vector_smoke_failed_closed\": "
+ 				 << readAlignmentBoolJson(
+ 					 result.rawOverlapObjectVectorSmokeFailedClosed) << ",\n"
++				 << "  \"raw_overlap_substitution_guard_eligible\": "
++				 << readAlignmentBoolJson(
++					 result.rawOverlapSubstitutionGuardEligible) << ",\n"
++				 << "  \"raw_overlap_substitution_guard_failed_closed\": "
++				 << readAlignmentBoolJson(
++					 result.rawOverlapSubstitutionGuardFailedClosed) << ",\n"
+ 				 << "  \"graph_mutation_consumed_worker_output\": "
+ 				 << readAlignmentBoolJson(result.graphMutationConsumedWorkerOutput)
+ 				 << ",\n"
+@@ -5193,6 +5691,13 @@ namespace
+ 				 << "  \"raw_overlap_object_vector_smoke_query_edge_summary_rows\": "
+ 				 << result.rawOverlapObjectVectorSmokeQueryEdgeSummaryRows
+ 				 << ",\n"
++				 << "  \"raw_overlap_substitution_guard_handoff_rows\": "
++				 << result.rawOverlapSubstitutionGuardHandoffRows << ",\n"
++				 << "  \"raw_overlap_substitution_guard_accounting_rows\": "
++				 << result.rawOverlapSubstitutionGuardAccountingRows << ",\n"
++				 << "  \"raw_overlap_substitution_guard_object_summary_rows\": "
++				 << result.rawOverlapSubstitutionGuardObjectSummaryRows
++				 << ",\n"
+ 				 << "  \"query_ids\": [";
+ 		for (size_t idx = 0; idx < result.queryIds.size(); ++idx)
+ 		{
+@@ -5284,6 +5789,10 @@ namespace
+ 					readToGraphFullQueryHitObjectVectorSmokeMode();
+ 				result.rawOverlapObjectVectorSmokeProofFault =
+ 					readToGraphFullQueryHitObjectVectorSmokeProofFault();
++				result.rawOverlapSubstitutionGuardMode =
++					readToGraphFullQueryHitSubstitutionGuardMode();
++				result.rawOverlapSubstitutionGuardProofFault =
++					readToGraphFullQueryHitSubstitutionGuardProofFault();
+ 				result.sourcePackDir = std::string(readToGraphSourcePackDir());
+ 				result.workerOutputRoot = readAlignmentRequiredEnv(
+ 					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_OUTPUT_DIR");
+@@ -5330,6 +5839,9 @@ namespace
+ 				result.rawOverlapObjectVectorSmokeJson = joinReplayPath(
+ 					result.workerOutputRoot,
+ 					"full-query-hit-worker-object-vector-smoke.json");
++				result.rawOverlapSubstitutionGuardJson = joinReplayPath(
++					result.workerOutputRoot,
++					"full-query-hit-worker-substitution-guard.json");
+ 				result.workerSessionSubmitPath = joinReplayPath(
+ 					result.workerOutputRoot, "full-query-hit-worker-session-submit.txt");
+ 			result.queryIds = sortedReadToGraphSourcePackQueryIds();
+@@ -5584,6 +6096,35 @@ namespace
+ 								writeReadToGraphFullQueryHitObjectVectorSmokeJson(
+ 									result.rawOverlapObjectVectorSmokeJson,
+ 									smoke);
++								if (readToGraphFullQueryHitSubstitutionGuardEnabled())
++								{
++									auto guard =
++										evaluateReadToGraphFullQueryHitSubstitutionGuard(
++											result, smoke, graph);
++									captureReadToGraphFullQueryHitSubstitutionGuardResult(
++										result, guard);
++									writeReadToGraphFullQueryHitSubstitutionGuardJson(
++										result.rawOverlapSubstitutionGuardJson,
++										guard);
++									if (guard.failedClosed &&
++										!smoke.failedClosed &&
++										!binding.failedClosed &&
++										!ledger.failedClosed &&
++										!rehydration.failedClosed)
++									{
++										result.status =
++											"substitution-guard-failed-before-graph-mutation";
++										result.decision =
++											"fail-closed-before-graph-mutation";
++										result.failedClosed = true;
++										result.workerOutputConsumptionEligible =
++											false;
++										result.graphMutationConsumedWorkerOutput =
++											false;
++										result.error =
++											"CUDA full-query-hit substitution guard failed";
++									}
++								}
+ 								if (smoke.failedClosed &&
+ 									!binding.failedClosed &&
+ 									!ledger.failedClosed &&
+@@ -5644,7 +6185,9 @@ namespace
+ 							 result.status !=
+ 							 "graph-edge-binding-failed-before-graph-mutation" &&
+ 							 result.status !=
+-							 "object-vector-smoke-failed-before-graph-mutation")
++							 "object-vector-smoke-failed-before-graph-mutation" &&
++							 result.status !=
++							 "substitution-guard-failed-before-graph-mutation")
+ 					{
+ 						result.status = "passed";
+ 						result.decision = "stopped-before-graph-mutation";
+@@ -5701,6 +6244,14 @@ namespace
+ 					result.rawOverlapObjectVectorSmokeJson + "; audit_json=" +
+ 					result.auditJson);
+ 			}
++			if (result.status == "substitution-guard-failed-before-graph-mutation")
++			{
++				throw std::runtime_error(
++					"cuFlye read-to-graph full-query-hit substitution guard "
++					"fail-closed before graph mutation; guard_json=" +
++					result.rawOverlapSubstitutionGuardJson + "; audit_json=" +
++					result.auditJson);
++			}
+ 			throw std::runtime_error(
+ 				"cuFlye read-to-graph full-query-hit worker dry-run "
+ 				"fail-closed before graph mutation; audit_json=" +

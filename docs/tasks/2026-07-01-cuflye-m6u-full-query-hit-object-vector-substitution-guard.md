@@ -1,6 +1,6 @@
 # Task Card: cuFlye M6u Full Query-Hit Object Vector Substitution Guard
 
-Status: proposed
+Status: completed
 
 Created: 2026-07-01
 
@@ -59,15 +59,64 @@ graph mutation.
 
 ## Acceptance Gates
 
-- [ ] M6p, M6q, M6s, and M6t gates must pass before substitution guard runs.
-- [ ] Positive DGX proof records nonzero guarded handoff objects.
-- [ ] Positive DGX proof handoff count equals M6t object-vector count.
-- [ ] Positive DGX proof proves the handoff is not consumed by graph mutation.
-- [ ] Negative proof fails closed before graph mutation when the handoff count
+- [x] M6p, M6q, M6s, and M6t gates must pass before substitution guard runs.
+- [x] Positive DGX proof records nonzero guarded handoff objects.
+- [x] Positive DGX proof handoff count equals M6t object-vector count.
+- [x] Positive DGX proof proves the handoff is not consumed by graph mutation.
+- [x] Negative proof fails closed before graph mutation when the handoff count
       is intentionally corrupted.
-- [ ] Default CPU Flye canonical artifacts remain unchanged.
-- [ ] Local and DGX syntax/style/ownership gates pass.
+- [x] Default CPU Flye canonical artifacts remain unchanged.
+- [x] Local and DGX syntax/style/ownership gates pass.
 
 ## Completion Notes
 
-Pending implementation.
+Implemented in patch
+`patches/flye/2.9.6/0049-cuflye-read-to-graph-full-query-hit-substitution-guard.patch`.
+
+ABI:
+
+- `docs/abi/read-to-graph-full-query-hit-substitution-guard-dry-run-v0.md`
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m6u-proof-20260701T111200Z
+fixture=toy-hifi
+query_ids=5,6,7,8,9,10,11,12
+positive_status=passed
+positive_rehydration_status=passed
+positive_shadow_ledger_status=passed
+positive_graph_edge_binding_status=passed
+positive_object_vector_smoke_status=passed
+positive_substitution_guard_status=passed
+positive_object_rows=8
+positive_handoff_rows=8
+positive_handoff_accounting_rows=8
+positive_handoff_query_accounted_rows=8
+positive_handoff_edge_accounted_rows=8
+positive_handoff_query_edge_accounted_rows=8
+positive_handoff_object_summary_rows=8
+positive_graph_mutation_consumed_worker_output=false
+negative_status=substitution-guard-failed-before-graph-mutation
+negative_substitution_guard_status=failed
+negative_proof_fault=drop-first-handoff-row
+negative_proof_fault_applied=true
+negative_object_rows=8
+negative_handoff_rows=7
+negative_object_vector_smoke_status=passed
+negative_graph_mutation_consumed_worker_output=false
+default_cpu_artifact_hashes_match_m0=true
+```
+
+Golden manifest:
+
+- `tests/golden/cuflye-m6u-full-query-hit-substitution-guard-dgx-aarch64.json`
+
+Plain-language benefit:
+
+```text
+M6u still does not make full Flye faster. It proves the CUDA-derived
+graph-facing object vector can reach a guarded substitution handoff, and that
+Flye rejects a corrupted handoff count before any graph mutation can consume
+the vector.
+```

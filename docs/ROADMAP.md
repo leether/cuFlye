@@ -3883,3 +3883,91 @@ object vector at the handoff boundary, prove the handoff count matches M6t
 accounting, and fail closed on a deliberately corrupted handoff before graph
 mutation.
 ```
+
+## 2026-07-01 Update: M6u Full Query-Hit Object Vector Substitution Guard
+
+Status: completed.
+
+Task Card:
+
+- `docs/tasks/2026-07-01-cuflye-m6u-full-query-hit-object-vector-substitution-guard.md`
+
+Golden proof:
+
+- `tests/golden/cuflye-m6u-full-query-hit-substitution-guard-dgx-aarch64.json`
+
+What changed:
+
+- Added Flye patch `0049` with an opt-in no-mutation substitution guard after
+  the M6t object-vector smoke.
+- Added ABI notes for
+  `cuflye-read-to-graph-full-query-hit-substitution-guard-dry-run-v0`.
+- Extended `scripts/run_flye_fixture.sh` so proof runs can enable substitution
+  guard mode and inject a handoff-count proof fault.
+- Kept graph mutation disabled and audited as not consumed.
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m6u-proof-20260701T111200Z
+fixture=toy-hifi
+query_ids=5,6,7,8,9,10,11,12
+positive_status=passed
+positive_rehydration_status=passed
+positive_shadow_ledger_status=passed
+positive_graph_edge_binding_status=passed
+positive_object_vector_smoke_status=passed
+positive_substitution_guard_status=passed
+positive_object_rows=8
+positive_handoff_rows=8
+positive_handoff_accounting_rows=8
+positive_handoff_query_accounted_rows=8
+positive_handoff_edge_accounted_rows=8
+positive_handoff_query_edge_accounted_rows=8
+positive_handoff_object_summary_rows=8
+positive_graph_mutation_consumed_worker_output=false
+negative_status=substitution-guard-failed-before-graph-mutation
+negative_rehydration_status=passed
+negative_shadow_ledger_status=passed
+negative_graph_edge_binding_status=passed
+negative_object_vector_smoke_status=passed
+negative_substitution_guard_status=failed
+negative_proof_fault=drop-first-handoff-row
+negative_proof_fault_applied=true
+negative_object_rows=8
+negative_handoff_rows=7
+negative_graph_mutation_consumed_worker_output=false
+default_cpu_artifact_hashes_match_m0=true
+```
+
+Allowed M6u claim:
+
+```text
+cuFlye can carry 8 CUDA-derived graph-facing full-query-hit objects to a guarded
+substitution handoff, prove the handoff count and accounting match the M6t
+object vector, and still block graph mutation.
+```
+
+Forbidden M6u claim:
+
+```text
+M6u does not prove whole-Flye speedup, real substitution, graph mutation,
+default GPU mode, or GPU-computed chain-input filtering/edge identity.
+```
+
+Plain-language benefit:
+
+```text
+M6u still does not make full Flye faster. It proves Flye can see the
+CUDA-derived object vector at the replacement boundary, and that a bad handoff
+is rejected before the graph can be mutated.
+```
+
+Next highest-ROI task:
+
+```text
+M6v: add a verified-substitution smoke after M6u. It should compare the guarded
+CUDA object vector against the selected CPU-derived handoff shape, record a
+rollback-safe would-substitute ledger, and still fail closed before graph
+mutation on a deliberately corrupted substitution ledger.
+```

@@ -11,12 +11,16 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m6u-full-query-hit-object-vector-substitution-guard.md`:
-  receive the M6t object vector at a guarded no-mutation substitution handoff,
-  prove the handoff count matches, and fail closed before graph mutation.
+- `2026-07-01-cuflye-m6v-full-query-hit-verified-substitution-smoke.md`:
+  compare the guarded M6u handoff against the selected CPU-derived handoff
+  shape, record a rollback-safe would-substitute ledger, and fail closed before
+  graph mutation.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m6u-full-query-hit-object-vector-substitution-guard.md`:
+  receive the M6t object vector at a guarded no-mutation substitution handoff,
+  prove the handoff count matches, and fail closed before graph mutation.
 - `2026-07-01-cuflye-m6t-full-query-hit-object-vector-consumption-smoke.md`:
   construct and account the first graph-facing object vector from M6s-bound
   full-query-hit rows while still preventing graph mutation consumption.
