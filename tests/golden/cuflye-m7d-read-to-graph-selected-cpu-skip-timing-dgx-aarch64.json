@@ -1,0 +1,217 @@
+{
+  "allowed_claim": "cuFlye can attribute the M7c selected CPU-skip path on DGX: 8 selected CPU chain/divergence computations are skipped and CUDA-derived placeholders preserve canonical Flye artifacts, but the measured selected CPU work is far smaller than CUDA worker and graph-fill overhead.",
+  "build": {
+    "cuda_worker": {
+      "cuda_arch": "sm_121",
+      "cuda_home": "/usr/local/cuda-13.0",
+      "host": "edgexpert-45d2",
+      "machine": "aarch64",
+      "nvcc": "/usr/local/cuda-13.0/bin/nvcc",
+      "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:57:39_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+      "output_binary": "/tmp/cuflye-m7b-work-uZhePGLL/cuFlye/out/m7b/bin/cuflye-cuda-full-query-hit-replay",
+      "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+      "repo_commit": "d6d31f32b82a383bdc912938cde99fe2179a85b5"
+    },
+    "flye": {
+      "actual_commit": "886b8c17412c",
+      "actual_tags": [
+        "2.9.6"
+      ],
+      "applied_patch_count": 58,
+      "flye_dir": "/tmp/cuflye-m7b-work-uZhePGLL/upstream-flye-m7d-0058",
+      "flye_version": "2.9.6-b1802",
+      "gxx": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "host": "edgexpert-45d2",
+      "last_applied_patch": "0058-cuflye-read-to-graph-selected-cpu-skip-timing-attribution.patch",
+      "machine": "aarch64",
+      "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39"
+    }
+  },
+  "checks": {
+    "control_matches_golden": true,
+    "negative_expected_failure": true,
+    "negative_failed_closed_before_graph_mutation": true,
+    "positive_canary_passed": true,
+    "positive_cpu_slice_absent": true,
+    "positive_graph_mutation_consumed_worker_output": true,
+    "positive_matches_control_canonical_artifacts": true,
+    "positive_placeholder_timing_recorded": true,
+    "roi_conclusion_records_no_selected_speed_win": true,
+    "timing_summary_checks_passed": true
+  },
+  "control": {
+    "metadata": {
+      "elapsed_seconds": 26,
+      "exit_status": 0,
+      "fixture": "toy-hifi",
+      "host": "edgexpert-45d2",
+      "input_boundary_dump": "/tmp/cuflye-m7d-proof-20260701T190000Z/control/input-boundary.tsv",
+      "machine": "aarch64",
+      "threads": 1
+    },
+    "vs_golden": {
+      "artifact_count": 9,
+      "extra": [],
+      "matched_count": 9,
+      "mismatch": [],
+      "missing": [],
+      "schema": "cuflye-canonical-artifact-diff-v0",
+      "status": "match"
+    }
+  },
+  "created_at_utc": "2026-07-01T14:20:47.801698Z",
+  "fixture": "toy-hifi",
+  "forbidden_claim": "M7d does not prove default GPU mode, whole-Flye speedup, or a CUDA-over-CPU win for the selected read-to-graph chain/divergence boundary.",
+  "negative": {
+    "chain_input_rows": 8,
+    "checks": {
+      "failed": [
+        "selected_cpu_skip_rebuilt_chains_match_chain_input",
+        "proof_fault_not_applied"
+      ],
+      "passed": 12,
+      "required": 14
+    },
+    "decision": "failed-closed-before-graph-mutation-commit",
+    "failed_closed": true,
+    "graph_mutation_consumed_worker_output": false,
+    "metadata": {
+      "elapsed_seconds": 16,
+      "exit_status": 1,
+      "expected_failure": true,
+      "proof_fault": "drop-first-cpu-skip-canary-chain"
+    },
+    "placeholder_complement_chains_filled": 0,
+    "placeholder_forward_chains_filled": 0,
+    "proof_fault": "drop-first-cpu-skip-canary-chain",
+    "proof_fault_applied": true,
+    "rebuilt_good_chains": 7,
+    "selected_cpu_skip_canary_failed_closed": true,
+    "status": "failed",
+    "timing_ms": {
+      "compare": 0.086016,
+      "rebuild": 0.525138,
+      "selected_cpu_skip_placeholder": 0.002304,
+      "substitution": 0,
+      "total": 0.615298
+    }
+  },
+  "next_recommended_step": "M8a: move the performance target upstream to read-to-graph quick-overlap/minimizer candidate discovery, where CPU-control timing shows seconds rather than sub-millisecond selected chain/divergence work.",
+  "plain_language_benefit": "M7d prevents optimizing the wrong boundary. The selected CPU slice costs under 1 ms on this toy proof, while the CUDA path costs tens to hundreds of milliseconds, so the next ROI target must move upstream to heavier quick-overlap/minimizer work or substantially larger selected batches.",
+  "positive": {
+    "chain_input_rows": 8,
+    "checks": {
+      "failed": [],
+      "passed": 18,
+      "required": 18
+    },
+    "cpu_slice_chains": 0,
+    "cpu_slice_records": 0,
+    "decision": "selected-cpu-skip-canary-substituted",
+    "metadata": {
+      "cpu_skip_canary_mode": "selected-cpu-skip-canary-v0",
+      "elapsed_seconds": 23,
+      "exit_status": 0,
+      "input_boundary_dump": "/tmp/cuflye-m7d-proof-20260701T190000Z/positive/input-boundary.tsv"
+    },
+    "placeholder_complement_chains_filled": 8,
+    "placeholder_forward_chains_filled": 8,
+    "rebuilt_good_chains": 8,
+    "selected_cpu_skipped_queries": 8,
+    "status": "passed",
+    "timing_ms": {
+      "compare": 0.093584,
+      "rebuild": 0.531538,
+      "selected_cpu_skip_placeholder": 0.001616,
+      "substitution": 0.879236,
+      "total": 1.64428
+    },
+    "vs_control": {
+      "artifact_count": 9,
+      "matched_count": 9,
+      "mismatch": [],
+      "schema": "cuflye-canonical-artifact-diff-v0",
+      "status": "match"
+    },
+    "worker_records": 36
+  },
+  "proof_root": "/tmp/cuflye-m7d-proof-20260701T190000Z",
+  "schema": "cuflye-m7d-read-to-graph-selected-cpu-skip-timing-proof-v0",
+  "summary_checks_passed": 10,
+  "summary_checks_required": 10,
+  "timing_summary": {
+    "checks": {
+      "canary_consumed": true,
+      "canary_status_passed": true,
+      "canonical_canary_records_match": true,
+      "cpu_control_has_all_selected_queries": true,
+      "cpu_slice_absent": true,
+      "dry_run_consumed_worker_output": true,
+      "placeholder_timing_recorded": true,
+      "selected_query_counts_match": true,
+      "worker_response_ok": true
+    },
+    "cpu_control": {
+      "chain_input_records": 8,
+      "cpu_chain_dp_wall_ms": 0.01808,
+      "cpu_chain_plus_divergence_wall_ms": 0.926453,
+      "cpu_divergence_filter_wall_ms": 0.908373,
+      "input_filter_sort_wall_ms": 0.017584,
+      "missing_query_ids": [],
+      "path": "/tmp/cuflye-m7d-proof-20260701T190000Z/control/input-boundary.tsv",
+      "quick_overlap_wall_ms": 13.973963,
+      "raw_overlap_records": 36,
+      "selected_query_count": 8
+    },
+    "cuda_path": {
+      "canary_compare_wall_ms": 0.093584,
+      "canary_json": "/tmp/cuflye-m7d-proof-20260701T190000Z/positive/worker/full-query-hit-worker-selected-graph-consumption-mutation-canary.json",
+      "canary_rebuild_wall_ms": 0.531538,
+      "canary_substitution_wall_ms": 0.879236,
+      "canary_total_wall_ms": 1.64428,
+      "chain_input_rows": 8,
+      "cold_cuda_path_total_ms": 354.630613,
+      "dry_run_json": "/tmp/cuflye-m7d-proof-20260701T190000Z/positive/worker/full-query-hit-worker-dry-run.json",
+      "graph_fill_total_ms": 1.505974,
+      "hot_kernel_plus_graph_ms": 54.250612000000004,
+      "placeholder_complement_chains_filled": 8,
+      "placeholder_forward_chains_filled": 8,
+      "placeholder_insert_wall_ms": 0.001616,
+      "rebuilt_good_chains": 8,
+      "selected_cpu_skipped_queries": 8,
+      "worker_d2h_ms": 0.033552,
+      "worker_device_allocation_ms": 0.168176,
+      "worker_h2d_ms": 0.050481,
+      "worker_host_pack_ms": 0.321105,
+      "worker_kernel_ms": 52.744638,
+      "worker_parse_ms": 4.856724,
+      "worker_records": 36,
+      "worker_request_total_ms": 353.124639,
+      "worker_response_json": "/tmp/cuflye-m7d-proof-20260701T190000Z/positive/worker/full-query-hit-worker-response.json",
+      "worker_write_output_ms": 0.146129
+    },
+    "query_ids": [
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "roi": {
+      "cold_cuda_over_cpu_ratio": 382.78316655027294,
+      "cold_cuda_path_faster_than_selected_cpu_control": false,
+      "cold_cuda_path_total_ms": 354.630613,
+      "cpu_control_selected_ms": 0.926453,
+      "hot_kernel_plus_graph_faster_than_selected_cpu_control": false,
+      "hot_kernel_plus_graph_ms": 54.250612000000004,
+      "hot_kernel_plus_graph_over_cpu_ratio": 58.55732778673069
+    },
+    "schema": "cuflye-m7d-read-to-graph-selected-cpu-skip-timing-summary-v0",
+    "summary_checks_passed": 9,
+    "summary_checks_required": 9
+  },
+  "work_root": "/tmp/cuflye-m7b-work-uZhePGLL"
+}

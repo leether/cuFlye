@@ -1,0 +1,56 @@
+diff --git a/src/repeat_graph/read_aligner.cpp b/src/repeat_graph/read_aligner.cpp
+index f94a229..a4dd9f3 100644
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -931,6 +931,7 @@ namespace
+ 		size_t substitutedComplementChains = 0;
+ 		size_t appendedForwardChains = 0;
+ 		size_t appendedComplementChains = 0;
++		double selectedCpuSkipPlaceholderMs = 0.0;
+ 		double rebuildMs = 0.0;
+ 		double compareMs = 0.0;
+ 		double substitutionMs = 0.0;
+@@ -8450,6 +8451,7 @@ namespace
+ 		int64_t queryId = 0;
+ 		size_t forwardOffset = 0;
+ 		size_t complementOffset = 0;
++		double placeholderInsertMs = 0.0;
+ 	};
+ 
+ 	ReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryResult
+@@ -8493,6 +8495,11 @@ namespace
+ 		{
+ 			result.selectedCpuSkippedQueries =
+ 				selectedCpuSkipPlaceholders.size();
++			for (const auto& item : selectedCpuSkipPlaceholders)
++			{
++				result.selectedCpuSkipPlaceholderMs +=
++					item.second.placeholderInsertMs;
++			}
+ 		}
+ 		markReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryFailed(
+ 			result);
+@@ -9023,6 +9030,8 @@ namespace
+ 			 << "  \"placeholder_complement_chains_filled\": "
+ 			 << canary.appendedComplementChains << ",\n"
+ 			 << "  \"timing_ms\": {\n"
++			 << "    \"selected_cpu_skip_placeholder\": "
++			 << canary.selectedCpuSkipPlaceholderMs << ",\n"
+ 			 << "    \"rebuild\": " << canary.rebuildMs << ",\n"
+ 			 << "    \"compare\": " << canary.compareMs << ",\n"
+ 			 << "    \"substitution\": " << canary.substitutionMs << ",\n"
+@@ -13384,11 +13393,14 @@ void ReadAligner::alignReads()
+ 		{
+ 			ReadToGraphSelectedCpuSkipPlaceholder placeholder;
+ 			placeholder.queryId = seqId.signedId();
++			auto placeholderStart = std::chrono::steady_clock::now();
+ 			indexMutex.lock();
+ 			placeholder.forwardOffset = _readAlignments.size();
+ 			_readAlignments.emplace_back();
+ 			placeholder.complementOffset = _readAlignments.size();
+ 			_readAlignments.emplace_back();
++			placeholder.placeholderInsertMs = readAlignmentElapsedMs(
++				placeholderStart, std::chrono::steady_clock::now());
+ 			selectedCpuSkipPlaceholders[placeholder.queryId] = placeholder;
+ 			indexMutex.unlock();
+ 			return;

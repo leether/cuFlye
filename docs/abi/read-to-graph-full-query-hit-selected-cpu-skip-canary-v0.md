@@ -74,6 +74,7 @@ M7c keeps the M7b fields and adds or specializes these fields:
 | `cpu_slice_records` | Must be `0` in M7c positive proof. |
 | `placeholder_forward_chains_filled` | Number of selected forward placeholders filled from rebuilt CUDA output. |
 | `placeholder_complement_chains_filled` | Number of selected complement placeholders filled from rebuilt CUDA output. |
+| `timing_ms.selected_cpu_skip_placeholder` | M7d timing for selected placeholder insertion and accounting. |
 
 ## Invariants
 
@@ -105,6 +106,7 @@ cpu_slice_records=0
 rebuilt_good_chains=8
 placeholder_forward_chains_filled=8
 placeholder_complement_chains_filled=8
+timing_ms.selected_cpu_skip_placeholder=0.001616
 positive_vs_baseline_canonical_artifacts=match
 negative_proof_fault=drop-first-cpu-skip-canary-chain
 negative_rebuilt_good_chains=7

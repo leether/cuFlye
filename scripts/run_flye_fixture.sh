@@ -70,6 +70,8 @@ Options:
                        Set CUFLYE_READ_ALIGNMENT_PREDIVERGENCE_CHAIN_MODE
   --read-alignment-predivergence-chain-proof-fault NAME
                        Set CUFLYE_READ_ALIGNMENT_PREDIVERGENCE_CHAIN_PROOF_FAULT
+  --read-alignment-input-boundary-dump PATH
+                       Set CUFLYE_READ_ALIGNMENT_INPUT_BOUNDARY_DUMP
   --read-to-graph-source-pack-dir PATH
                        Set CUFLYE_READ_TO_GRAPH_SOURCE_PACK_DIR
   --read-to-graph-source-pack-query-ids IDS
@@ -251,6 +253,7 @@ expect_failure=0
 candidate_dump=""
 overlap_dump=""
 read_alignment_dump="${CUFLYE_READ_ALIGNMENT_DUMP:-}"
+read_alignment_input_boundary_dump="${CUFLYE_READ_ALIGNMENT_INPUT_BOUNDARY_DUMP:-}"
 read_alignment_replay_dump_dir="${CUFLYE_READ_ALIGNMENT_REPLAY_DUMP_DIR:-}"
 read_alignment_replay_query_id="${CUFLYE_READ_ALIGNMENT_REPLAY_QUERY_ID:-}"
 read_alignment_replay_query_ids="${CUFLYE_READ_ALIGNMENT_REPLAY_QUERY_IDS:-}"
@@ -494,6 +497,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --read-alignment-predivergence-chain-proof-fault)
       read_alignment_predivergence_chain_proof_fault="$2"
+      shift 2
+      ;;
+    --read-alignment-input-boundary-dump)
+      read_alignment_input_boundary_dump="$2"
       shift 2
       ;;
     --read-to-graph-source-pack-dir)
@@ -971,6 +978,9 @@ fi
 if [ -n "${read_alignment_dump}" ]; then
   export CUFLYE_READ_ALIGNMENT_DUMP="${read_alignment_dump}"
 fi
+if [ -n "${read_alignment_input_boundary_dump}" ]; then
+  export CUFLYE_READ_ALIGNMENT_INPUT_BOUNDARY_DUMP="${read_alignment_input_boundary_dump}"
+fi
 if [ -n "${read_alignment_replay_dump_dir}" ]; then
   export CUFLYE_READ_ALIGNMENT_REPLAY_DUMP_DIR="${read_alignment_replay_dump_dir}"
 fi
@@ -1319,6 +1329,9 @@ if overlap_dump:
     payload["overlap_dump"] = os.path.abspath(overlap_dump)
 if read_alignment_dump:
     payload["read_alignment_dump"] = os.path.abspath(read_alignment_dump)
+read_alignment_input_boundary_dump = os.environ.get("CUFLYE_READ_ALIGNMENT_INPUT_BOUNDARY_DUMP", "")
+if read_alignment_input_boundary_dump:
+    payload["read_alignment_input_boundary_dump"] = os.path.abspath(read_alignment_input_boundary_dump)
 if read_alignment_replay_dump_dir:
     payload["read_alignment_replay_dump_dir"] = os.path.abspath(read_alignment_replay_dump_dir)
 if read_alignment_replay_query_id:

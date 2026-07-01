@@ -11,13 +11,18 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m7d-read-to-graph-selected-cpu-skip-timing-expansion.md`:
-  measure selected CPU-skip ROI by comparing skipped CPU chain/divergence work,
-  CUDA handoff cost, and graph-facing placeholder fill cost under larger
-  supported selected sets.
+- `2026-07-01-cuflye-m8a-read-to-graph-quick-overlap-minimizer-target.md`:
+  move the performance target upstream to read-to-graph quick-overlap/minimizer
+  candidate discovery after M7d proved selected chain/divergence CPU-skip is
+  too small to beat CUDA overhead.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m7d-read-to-graph-selected-cpu-skip-timing-expansion.md`:
+  attribute M7c selected CPU-skip timing against a CPU-control input-boundary
+  dump, prove canonical artifacts and fail-closed behavior still hold, and
+  record that this selected chain/divergence boundary has no CUDA-side speed
+  advantage.
 - `2026-07-01-cuflye-m7c-read-to-graph-selected-cpu-skip-canary.md`:
   skip the selected read-to-graph CPU chain/divergence slice for 8 toy-hifi
   full-query-hit queries, fill graph-facing placeholders from CUDA-derived

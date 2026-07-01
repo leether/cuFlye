@@ -4681,3 +4681,92 @@ M7d: add timing attribution around the selected CPU-skip boundary and expand
 the selected set only where the skipped CPU work is large enough to compete
 with CUDA handoff and worker overhead.
 ```
+
+## 2026-07-01 Update: M7d Read-to-Graph Selected CPU-Skip Timing
+
+Status: completed.
+
+Task Card:
+
+- `docs/tasks/2026-07-01-cuflye-m7d-read-to-graph-selected-cpu-skip-timing-expansion.md`
+
+Golden proof:
+
+- `tests/golden/cuflye-m7d-read-to-graph-selected-cpu-skip-timing-dgx-aarch64.json`
+
+What changed:
+
+- Added Flye patch `0058` with
+  `timing_ms.selected_cpu_skip_placeholder` in the selected CPU-skip canary.
+- Exposed `--read-alignment-input-boundary-dump` in
+  `scripts/run_flye_fixture.sh` so CPU-control timing can be captured through
+  the standard fixture runner.
+- Added
+  `tools/summarize_read_to_graph_selected_cpu_skip_timing.py` to compare
+  CPU-control selected chain/divergence time with CUDA worker, rebuild,
+  compare, placeholder, and substitution costs.
+- Added ABI notes for
+  `cuflye-m7d-read-to-graph-selected-cpu-skip-timing-summary-v0`.
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m7d-proof-20260701T190000Z
+fixture=toy-hifi
+query_ids=5,6,7,8,9,10,11,12
+control_matches_golden=true
+positive_status=passed
+positive_canary_checks=18/18
+positive_vs_control_canonical_artifacts=match
+positive_selected_cpu_skipped_queries=8
+positive_cpu_slice_chains=0
+positive_cpu_slice_records=0
+positive_placeholder_forward_chains_filled=8
+positive_placeholder_complement_chains_filled=8
+positive_placeholder_insert_ms=0.001616
+positive_graph_fill_total_ms=1.505974
+cpu_control_selected_chain_plus_divergence_ms=0.926453
+cuda_worker_request_total_ms=353.124639
+cuda_cold_path_total_ms=354.630613
+cuda_hot_kernel_plus_graph_ms=54.250612
+cold_cuda_path_faster_than_selected_cpu_control=false
+hot_kernel_plus_graph_faster_than_selected_cpu_control=false
+negative_status=failed
+negative_state=failed-closed
+negative_proof_fault=drop-first-cpu-skip-canary-chain
+negative_graph_mutation_consumed_worker_output=false
+summary_checks=10/10
+```
+
+Allowed M7d claim:
+
+```text
+cuFlye can attribute the M7c selected CPU-skip path on DGX: 8 selected CPU
+chain/divergence computations are skipped and CUDA-derived placeholders
+preserve canonical Flye artifacts, but the measured selected CPU work is far
+smaller than CUDA worker and graph-fill overhead.
+```
+
+Forbidden M7d claim:
+
+```text
+M7d does not prove default GPU mode, whole-Flye speedup, or a CUDA-over-CPU win
+for the selected read-to-graph chain/divergence boundary.
+```
+
+Plain-language benefit:
+
+```text
+M7d prevents optimizing the wrong boundary. The selected CPU slice costs under
+1 ms on this toy proof, while the CUDA path costs tens to hundreds of
+milliseconds, so the next ROI target must move upstream to heavier
+quick-overlap/minimizer work or substantially larger selected batches.
+```
+
+Next highest-ROI task:
+
+```text
+M8a: move the performance target upstream to read-to-graph quick-overlap and
+minimizer candidate discovery, where CPU-control timing shows seconds rather
+than sub-millisecond selected chain/divergence work.
+```

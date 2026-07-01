@@ -231,3 +231,5 @@ M6 read-to-graph input-boundary proof:
   `cuflye-m7b-full-query-hit-selected-graph-consumption-mutation-canary-dgx-aarch64.json`
 - Read-to-graph selected CPU-skip canary manifest:
   `cuflye-m7c-read-to-graph-selected-cpu-skip-canary-dgx-aarch64.json`
+- Read-to-graph selected CPU-skip timing manifest:
+  `cuflye-m7d-read-to-graph-selected-cpu-skip-timing-dgx-aarch64.json`
