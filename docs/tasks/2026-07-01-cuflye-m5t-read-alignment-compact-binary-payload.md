@@ -1,6 +1,6 @@
 # Task Card: cuFlye M5t Read Alignment Compact Binary Payload
 
-Status: proposed
+Status: accepted
 
 Created: 2026-07-01
 
@@ -63,16 +63,80 @@ candidate for graph-facing substitution?
 
 ## Acceptance Gates
 
-- [ ] Patch series applies and patched Flye builds on DGX.
-- [ ] CUDA worker builds on DGX.
-- [ ] New compact payload preserves exact CPU equivalence.
-- [ ] New compact payload request time improves versus M5s `4.450572 ms`.
-- [ ] Payload size and write time improve versus M5s compact JSONL.
-- [ ] Negative schema/count/checksum/truncation cases fail closed before graph
+- [x] Patch series applies and patched Flye builds on DGX.
+- [x] CUDA worker builds on DGX.
+- [x] New compact payload preserves exact CPU equivalence.
+- [x] New compact payload request time improves versus M5s `4.450572 ms`.
+- [x] Payload size and write time improve versus M5s compact JSONL.
+- [x] Negative schema/count/checksum/truncation cases fail closed before graph
       mutation.
-- [ ] Local and DGX syntax/style gates pass.
-- [ ] Ownership scan shows no new direct owning heap/resource APIs.
+- [x] Local and DGX syntax/style gates pass.
+- [x] Ownership scan shows no new direct owning heap/resource APIs.
 
 ## Completion Notes
 
-Pending implementation.
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m5t-proof-20260701T035137Z
+golden=tests/golden/cuflye-m5t-read-alignment-compact-binary-payload-dgx-aarch64.json
+fixture_count=3546
+output_artifact_mode=compact-binary-v0
+binary_cmp=match
+binary_payload_bytes=332736
+m5s_jsonl_payload_bytes=1126769
+payload_size_reduction_ratio_vs_m5s_jsonl=3.386375x
+cpu_binary_sha256=daaaf20276447d1e3656b36beb9f8ca21b9673cb99372b66521e7ccf2af8d4df
+cuda_actual_binary_sha256=daaaf20276447d1e3656b36beb9f8ca21b9673cb99372b66521e7ccf2af8d4df
+cpu_binary_backend_mean_total_before_json_ms=0.400641
+cpu_binary_write_output_ms=1.030275
+cuda_actual_status=ok
+cuda_actual_request_ordinal=2
+cuda_actual_arena_cache_hit=true
+cuda_actual_backend_mean_total_before_json_ms=0.417153
+cuda_actual_write_output_ms=1.811909
+cuda_actual_request_total_ms=2.273654
+m5s_cuda_actual_request_total_ms=4.450572
+cuda_actual_request_speedup_vs_m5s=1.957454x
+cuda_actual_write_speedup_vs_m5s=2.194032x
+negative_bad_magic_status=error
+negative_bad_count_status=error
+negative_bad_checksum_status=error
+negative_truncated_status=error
+```
+
+Allowed M5t claim:
+
+```text
+cuFlye can write the full3546 read-alignment pre-divergence session output as
+compact-binary-v0, validate the payload with schema/count/checksum/length
+gates, byte-match the CPU compact binary oracle, and reduce M5s compact-output
+request time.
+```
+
+Forbidden M5t claim:
+
+```text
+M5t does not prove default GPU mode, full Flye acceleration, broad
+_readAlignments replacement, CUDA minimizer overlap discovery, or replacement
+of Flye's CPU divergence/base-alignment stages. It also does not yet prove that
+Flye itself can consume the compact binary payload; that is M5u.
+```
+
+Plain-language benefit:
+
+```text
+M5t replaces the human-readable proof file with a machine-facing binary file.
+The same 3546-fixture output shrinks from 1,126,769 bytes to 332,736 bytes.
+CUDA write time drops from M5s 3.975386 ms to 1.811909 ms, and full request
+time drops from 4.450572 ms to 2.273654 ms while CPU and CUDA files are
+byte-identical.
+```
+
+Next highest-ROI task:
+
+```text
+M5u: move compact-binary-v0 into the Flye-side pre-divergence dry-run seam,
+validate and rehydrate it inside Flye, apply Flye's existing divergence filter,
+and fail closed on corrupted payloads before graph mutation.
+```

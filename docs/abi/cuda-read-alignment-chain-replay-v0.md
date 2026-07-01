@@ -52,6 +52,7 @@ M5e adds real multi-fixture batch mode:
 --cuda-persistent-arena
 --cuda-persistent-bulk-output
 --compact-output-jsonl PATH
+--compact-output-binary PATH
 --compact-output-only
 ```
 
@@ -91,6 +92,7 @@ M5s adds compact batch output:
 
 ```text
 --compact-output-jsonl PATH
+--compact-output-binary PATH
 --compact-output-only
 ```
 
@@ -99,8 +101,13 @@ segments instead of requiring consumers to read one TSV per fixture. Each line
 contains query id, chain/segment id, overlap index, read/edge coordinates,
 score, and divergence for one `read-alignment-v1` segment.
 
-`--compact-output-only` requires `--compact-output-jsonl` and skips per-fixture
-TSV materialization. Batch JSON switches to schema
+M5t adds `--compact-output-binary`, which writes the same segment stream as a
+fixed-width little-endian `compact-binary-v0` payload documented in
+`docs/abi/read-alignment-compact-binary-v0.md`.
+
+`--compact-output-only` requires either `--compact-output-jsonl` or
+`--compact-output-binary` and skips per-fixture TSV materialization. Batch JSON
+switches to schema
 `cuflye-cuda-read-alignment-chain-replay-compact-batch-v0` and omits the
 per-fixture array. This mode is intended for session/proof paths that need a
 single canonical artifact rather than thousands of small files.
@@ -179,9 +186,10 @@ Batch JSON uses schema
 Compact batch JSON uses schema
 `cuflye-cuda-read-alignment-chain-replay-compact-batch-v0` and records the same
 global counts, timing, device, memory, and supported-shape fields, plus
-`output_artifact_mode=compact-jsonl-v0` and `compact_output_jsonl`. It omits
-per-fixture TSV paths because compact-only mode intentionally does not create
-them.
+`output_artifact_mode`, `compact_output_jsonl`, and `compact_output_binary`.
+`output_artifact_mode` is `compact-jsonl-v0` for JSONL payloads and
+`compact-binary-v0` for binary payloads. It omits per-fixture TSV paths because
+compact-only mode intentionally does not create them.
 
 ## Determinism
 

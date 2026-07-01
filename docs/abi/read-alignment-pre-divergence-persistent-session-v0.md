@@ -129,6 +129,7 @@ Optional field:
 ```text
 memory_budget_bytes
 compact_output_jsonl
+compact_output_binary
 compact_output_only
 ```
 
@@ -147,6 +148,19 @@ JSONL artifact. The batch JSON response switches to compact batch schema and
 omits per-fixture TSV paths. CPU and CUDA compact JSONL artifacts must compare
 byte-for-byte before compact output can be treated as an oracle-equivalent
 payload.
+
+M5t compact binary mode sets:
+
+```text
+compact_output_binary=<path>
+compact_output_only=true
+```
+
+This mode writes the same deterministic segment stream as
+`compact-binary-v0`. The binary payload must pass
+`tools/validate_read_alignment_binary_payload.py`, and CPU/CUDA binary
+payloads must compare byte-for-byte before the payload can be treated as
+oracle-equivalent.
 
 ## Response JSON
 
@@ -167,6 +181,7 @@ Success response records:
 - `fixture_count`, `output_records`;
 - `output_artifact_mode`;
 - `compact_output_jsonl`;
+- `compact_output_binary`;
 - `compact_output_only`;
 - `batch_json_output`, `batch_output_dir`;
 - `timing_ms.request_total`;

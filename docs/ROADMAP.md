@@ -225,7 +225,7 @@ Completed:
   `98.134393%` versus the M4u cold batch-run worker process, but the full
   toy-raw run was still slower than CPU (`88s` vs `82s`) because the proof still
   pays for one synthetic warmup request inside the same Flye run.
-- M5a-M5s: cuFlye now has a deterministic read-to-graph alignment oracle,
+- M5a-M5t: cuFlye now has a deterministic read-to-graph alignment oracle,
   bounded replay fixtures, a CUDA chain replay prototype, real multi-read
   batching, heterogeneous shape grouping, and a persistent per-shape CUDA arena.
   The M5h proof expands the toy-hifi replay harvest to `3546` valid fixtures
@@ -248,7 +248,10 @@ Completed:
   remaining per-fixture TSV output bottleneck from the full3546 session path by
   writing one deterministic compact JSONL artifact that byte-matches the CPU
   compact oracle, reducing full3546 request time from `91.698238 ms` to
-  `4.450572 ms`.
+  `4.450572 ms`. M5t replaces that JSONL proof payload with a fixed-width
+  little-endian `compact-binary-v0` payload, reducing payload size from
+  `1126769` bytes to `332736` bytes and full3546 compact request time to
+  `2.273654 ms` while preserving byte-level CPU/CUDA equivalence.
 
 Current allowed performance claim:
 
@@ -357,6 +360,11 @@ cuFlye can now bypass per-fixture TSV emission for the read-alignment CUDA
 session proof by writing one compact JSONL artifact that byte-matches the CPU
 compact oracle. This is a host-output overhead reduction claim for the scoped
 full3546 replay request, not a full Flye GPU-mode claim.
+
+cuFlye can now write that scoped read-alignment session payload as
+`compact-binary-v0`, validate schema/count/checksum/length gates, and
+byte-match the CPU binary oracle. This is a payload and proof-harness
+optimization claim, not yet a Flye-side binary consumption claim.
 ```
 
 Current forbidden claim:
@@ -2265,4 +2273,74 @@ Next highest-ROI task:
 M5t: replace the compact JSONL proof payload with a smaller graph-facing binary
 or object-vector payload, then validate and rehydrate it before graph mutation
 while measuring whether payload write/read cost falls below M5s.
+```
+
+M5t accepted result:
+
+```text
+cuFlye can write the full3546 read-alignment pre-divergence session output as
+compact-binary-v0, validate the payload with schema/count/checksum/length
+gates, byte-match the CPU compact binary oracle, and reduce M5s compact-output
+request time.
+```
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m5t-proof-20260701T035137Z
+golden=tests/golden/cuflye-m5t-read-alignment-compact-binary-payload-dgx-aarch64.json
+fixture_count=3546
+binary_cmp=match
+binary_payload_bytes=332736
+m5s_jsonl_payload_bytes=1126769
+payload_size_reduction_ratio_vs_m5s_jsonl=3.386375x
+cpu_binary_sha256=daaaf20276447d1e3656b36beb9f8ca21b9673cb99372b66521e7ccf2af8d4df
+cuda_actual_binary_sha256=daaaf20276447d1e3656b36beb9f8ca21b9673cb99372b66521e7ccf2af8d4df
+cpu_binary_write_output_ms=1.030275
+cuda_actual_request_ordinal=2
+cuda_actual_arena_cache_hit=true
+cuda_actual_backend_mean_total_before_json_ms=0.417153
+cuda_actual_write_output_ms=1.811909
+cuda_actual_request_total_ms=2.273654
+m5s_cuda_actual_request_total_ms=4.450572
+cuda_actual_request_speedup_vs_m5s=1.957454x
+negative_bad_magic_status=error
+negative_bad_count_status=error
+negative_bad_checksum_status=error
+negative_truncated_status=error
+```
+
+Allowed M5t claim:
+
+```text
+cuFlye can write the full3546 read-alignment pre-divergence session output as
+compact-binary-v0, validate the payload with schema/count/checksum/length
+gates, byte-match the CPU compact binary oracle, and reduce M5s compact-output
+request time from 4.450572 ms to 2.273654 ms.
+```
+
+Forbidden M5t claim:
+
+```text
+M5t does not prove default GPU mode, full Flye acceleration, broad
+_readAlignments replacement, CUDA minimizer overlap discovery, replacement of
+Flye's CPU divergence/base-alignment stages, or Flye-side binary consumption.
+```
+
+Plain-language benefit:
+
+```text
+M5t turns the compact proof file from text into a machine-facing binary. That
+cuts payload size to about 29.5% of M5s JSONL, halves the CUDA request time for
+the same full3546 session proof, and keeps CPU/CUDA output byte-identical. The
+remaining work is to prove Flye itself can safely validate and rehydrate this
+binary payload.
+```
+
+Next highest-ROI task:
+
+```text
+M5u: move compact-binary-v0 into the Flye-side pre-divergence dry-run seam,
+validate and rehydrate it inside Flye, apply Flye's existing divergence filter,
+and fail closed on corrupted payloads before graph mutation.
 ```

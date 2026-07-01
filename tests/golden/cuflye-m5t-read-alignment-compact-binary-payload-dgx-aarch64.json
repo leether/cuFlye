@@ -1,0 +1,91 @@
+{
+  "acceptance": {
+    "compact_binary_payload_preserves_exact_cpu_equivalence": true,
+    "compact_binary_payload_size_improves_vs_m5s_jsonl": true,
+    "compact_binary_request_time_improves_vs_m5s": true,
+    "compact_binary_skips_per_fixture_tsv_files": true,
+    "cuda_worker_builds_on_dgx": true,
+    "local_syntax_gate_passed": true,
+    "negative_checksum_mismatch_fails_closed": true,
+    "negative_count_mismatch_fails_closed": true,
+    "negative_schema_mismatch_fails_closed": true,
+    "negative_truncation_fails_closed": true,
+    "patched_flye_builds_on_dgx": true
+  },
+  "allowed_claim": "cuFlye can write the full3546 read-alignment pre-divergence session output as compact-binary-v0, validate the payload with schema/count/checksum/length gates, byte-match the CPU compact binary oracle, and reduce M5s compact-output request time.",
+  "artifacts": {
+    "binary_sha256_file": "/tmp/cuflye-m5t-proof-20260701T035137Z/out/m5t/binary-proof/compact-binary.sha256",
+    "cpu_batch_json": "/tmp/cuflye-m5t-proof-20260701T035137Z/out/m5t/binary-proof/cpu/batch.json",
+    "cpu_compact_binary": "/tmp/cuflye-m5t-proof-20260701T035137Z/out/m5t/binary-proof/cpu/compact.bin",
+    "cpu_validation_json": "/tmp/cuflye-m5t-proof-20260701T035137Z/out/m5t/binary-proof/cpu/validate.json",
+    "cuda_actual_binary": "/tmp/cuflye-m5t-proof-20260701T035137Z/out/m5t/binary-proof/cuda-session/actual/compact.bin",
+    "cuda_actual_response_json": "/tmp/cuflye-m5t-proof-20260701T035137Z/out/m5t/binary-proof/cuda-session/actual/response.json",
+    "cuda_actual_validation_json": "/tmp/cuflye-m5t-proof-20260701T035137Z/out/m5t/binary-proof/cuda-session/actual/validate.json",
+    "cuda_build_manifest": "/tmp/cuflye-m5t-proof-20260701T035137Z/out/m5t/build/cuda-read-alignment-chain-replay-build.json",
+    "flye_build_manifest": "/tmp/cuflye-m5t-proof-20260701T035137Z/out/m5t/build/flye-build.json",
+    "negative_bad_checksum_json": "/tmp/cuflye-m5t-proof-20260701T035137Z/out/m5t/binary-proof/negative/bad-checksum.json",
+    "negative_bad_count_json": "/tmp/cuflye-m5t-proof-20260701T035137Z/out/m5t/binary-proof/negative/bad-count.json",
+    "negative_bad_magic_json": "/tmp/cuflye-m5t-proof-20260701T035137Z/out/m5t/binary-proof/negative/bad-magic.json",
+    "negative_truncated_json": "/tmp/cuflye-m5t-proof-20260701T035137Z/out/m5t/binary-proof/negative/truncated.json",
+    "proof_summary_json": "/tmp/cuflye-m5t-proof-20260701T035137Z/out/m5t/binary-proof/m5t-proof-summary.json"
+  },
+  "comparison": {
+    "cuda_actual_request_speedup_vs_m5s": 1.9574535087572691,
+    "cuda_actual_write_speedup_vs_m5s": 2.194031819478793,
+    "m5s_jsonl_payload_bytes": 1126769,
+    "payload_size_reduction_ratio_vs_m5s_jsonl": 3.3863753846893633,
+    "payload_size_vs_m5s_fraction": 0.29530098893384536
+  },
+  "fixture": "toy-hifi",
+  "host": "dgx",
+  "m5t": {
+    "binary_cmp": "match",
+    "binary_payload_bytes": 332736,
+    "cpu": {
+      "benchmark_mean_total_before_json_ms": 0.400641,
+      "output_artifact_mode": "compact-binary-v0",
+      "output_records": 3616,
+      "per_fixture_files_in_output_dir": 0,
+      "validator_status": "ok",
+      "validator_total_input_records": 3781,
+      "write_output_ms": 1.030275
+    },
+    "cpu_binary_sha256": "daaaf20276447d1e3656b36beb9f8ca21b9673cb99372b66521e7ccf2af8d4df",
+    "cuda_actual": {
+      "arena_cache_hit": true,
+      "backend_mean_total_before_json_ms": 0.417153,
+      "output_artifact_mode": "compact-binary-v0",
+      "per_fixture_files_in_output_dir": 0,
+      "request_ordinal": 2,
+      "request_total_ms": 2.273654,
+      "status": "ok",
+      "validator_status": "ok",
+      "write_output_ms": 1.811909
+    },
+    "cuda_actual_binary_sha256": "daaaf20276447d1e3656b36beb9f8ca21b9673cb99372b66521e7ccf2af8d4df",
+    "cuda_warmup": {
+      "arena_cache_hit": false,
+      "backend_mean_total_before_json_ms": 0.468369,
+      "output_artifact_mode": "compact-binary-v0",
+      "request_ordinal": 1,
+      "request_total_ms": 33.166143,
+      "status": "ok",
+      "write_output_ms": 1.710949
+    },
+    "fixture_count": 3546,
+    "negative": {
+      "bad_checksum_exit_code": 1,
+      "bad_checksum_status": "error",
+      "bad_count_exit_code": 1,
+      "bad_count_status": "error",
+      "bad_magic_exit_code": 1,
+      "bad_magic_status": "error",
+      "truncated_exit_code": 1,
+      "truncated_status": "error"
+    }
+  },
+  "plain_language_benefit": "M5t changes the proof payload from human-readable JSONL to a fixed binary file. The same 3546-fixture output shrinks from 1,126,769 bytes to 332,736 bytes, CUDA write time drops from M5s 3.975386 ms to 1.811909 ms, and full request time drops from 4.450572 ms to 2.273654 ms while CPU and CUDA files are byte-identical.",
+  "proof_root": "/tmp/cuflye-m5t-proof-20260701T035137Z",
+  "schema": "cuflye-m5t-read-alignment-compact-binary-payload-proof-v0",
+  "status": "accepted"
+}

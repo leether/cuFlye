@@ -114,6 +114,7 @@ struct Options
 	std::string batchOutputDir;
 	std::string batchJsonOutput;
 	std::string compactOutputJsonl;
+	std::string compactOutputBinary;
 	std::string workerRequestJson;
 	std::string workerRequestsJsonl;
 	std::string workerSessionDir;
@@ -2526,6 +2527,158 @@ void writeCompactReadAlignmentJsonl(
 	}
 }
 
+void appendU32LittleEndian(std::vector<char>& output, uint32_t value)
+{
+	for (int shift = 0; shift < 32; shift += 8)
+	{
+		output.push_back(static_cast<char>((value >> shift) & 0xffu));
+	}
+}
+
+void appendI32LittleEndian(std::vector<char>& output, int32_t value)
+{
+	appendU32LittleEndian(output, static_cast<uint32_t>(value));
+}
+
+void appendU64LittleEndian(std::vector<char>& output, uint64_t value)
+{
+	for (int shift = 0; shift < 64; shift += 8)
+	{
+		output.push_back(static_cast<char>((value >> shift) & 0xffu));
+	}
+}
+
+void appendI64LittleEndian(std::vector<char>& output, int64_t value)
+{
+	appendU64LittleEndian(output, static_cast<uint64_t>(value));
+}
+
+void appendF32LittleEndian(std::vector<char>& output, float value)
+{
+	uint32_t bits = 0;
+	std::memcpy(&bits, &value, sizeof(bits));
+	appendU32LittleEndian(output, bits);
+}
+
+uint32_t checkedUint32(size_t value, const std::string& label)
+{
+	if (value > std::numeric_limits<uint32_t>::max())
+	{
+		throw std::overflow_error(label + " exceeds uint32_t");
+	}
+	return static_cast<uint32_t>(value);
+}
+
+void writeCompactReadAlignmentBinary(
+    const std::string& path, const std::vector<LoadedFixture>& fixtures,
+    const std::vector<std::vector<OutputSegment>>& segmentsByFixture)
+{
+	if (fixtures.size() != segmentsByFixture.size())
+	{
+		throw std::runtime_error("compact binary output count differs from fixture count");
+	}
+	static const uint32_t HEADER_BYTES = 64;
+	static const uint32_t RECORD_BYTES = 92;
+	size_t outputRecords = 0;
+	size_t totalInputRecords = 0;
+	size_t minInputRecords = fixtures.empty() ? 0 : fixtures.front().overlaps.size();
+	size_t maxInputRecords = 0;
+	for (size_t fixtureIndex = 0; fixtureIndex < fixtures.size(); ++fixtureIndex)
+	{
+		const LoadedFixture& fixture = fixtures[fixtureIndex];
+		outputRecords = checkedAdd(outputRecords, segmentsByFixture[fixtureIndex].size(),
+		                           "compact binary output records");
+		totalInputRecords = checkedAdd(totalInputRecords, fixture.overlaps.size(),
+		                               "compact binary total input records");
+		minInputRecords = std::min(minInputRecords, fixture.overlaps.size());
+		maxInputRecords = std::max(maxInputRecords, fixture.overlaps.size());
+	}
+
+	std::vector<char> payload;
+	payload.reserve(static_cast<size_t>(HEADER_BYTES) +
+	                checkedMul(outputRecords, static_cast<size_t>(RECORD_BYTES),
+	                           "compact binary payload bytes"));
+	const char magic[] = {'C', 'U', 'F', 'R', 'A', 'L', 'B', '0'};
+	payload.insert(payload.end(), magic, magic + sizeof(magic));
+	appendU32LittleEndian(payload, HEADER_BYTES);
+	appendU32LittleEndian(payload, RECORD_BYTES);
+	appendU32LittleEndian(payload, 0);
+	appendU32LittleEndian(payload, 0);
+	appendU64LittleEndian(payload, static_cast<uint64_t>(fixtures.size()));
+	appendU64LittleEndian(payload, static_cast<uint64_t>(outputRecords));
+	appendU64LittleEndian(payload, static_cast<uint64_t>(totalInputRecords));
+	appendU32LittleEndian(payload, checkedUint32(minInputRecords,
+	                                            "compact binary min input records"));
+	appendU32LittleEndian(payload, checkedUint32(maxInputRecords,
+	                                            "compact binary max input records"));
+	appendU32LittleEndian(payload, 1);
+	appendU32LittleEndian(payload, 0);
+	if (payload.size() != HEADER_BYTES)
+	{
+		throw std::runtime_error("compact binary header size mismatch");
+	}
+
+	for (size_t fixtureIndex = 0; fixtureIndex < fixtures.size(); ++fixtureIndex)
+	{
+		const LoadedFixture& fixture = fixtures[fixtureIndex];
+		for (const OutputSegment& segment : segmentsByFixture[fixtureIndex])
+		{
+			if (segment.overlapIndex < 0 ||
+			    static_cast<size_t>(segment.overlapIndex) >= fixture.overlaps.size())
+			{
+				throw std::runtime_error("compact binary output overlap index "
+				                         "is out of bounds");
+			}
+			const EdgeOverlap& overlap =
+			    fixture.overlaps[static_cast<size_t>(segment.overlapIndex)];
+			appendI64LittleEndian(payload, fixture.manifest.queryId);
+			appendI32LittleEndian(payload, segment.chainId);
+			appendI32LittleEndian(payload, segment.segmentId);
+			appendI32LittleEndian(payload, segment.overlapIndex);
+			appendI64LittleEndian(payload, overlap.candidateId);
+			appendI64LittleEndian(payload, overlap.readId);
+			appendI32LittleEndian(payload, overlap.readBegin);
+			appendI32LittleEndian(payload, overlap.readEnd);
+			appendI32LittleEndian(payload, overlap.readLen);
+			appendI64LittleEndian(payload, overlap.edgeId);
+			appendI32LittleEndian(payload, overlap.edgeLeftNode);
+			appendI32LittleEndian(payload, overlap.edgeRightNode);
+			appendI64LittleEndian(payload, overlap.edgeSeqId);
+			appendI32LittleEndian(payload, overlap.edgeBegin);
+			appendI32LittleEndian(payload, overlap.edgeEnd);
+			appendI32LittleEndian(payload, overlap.edgeLen);
+			appendI32LittleEndian(payload, overlap.score);
+			appendF32LittleEndian(payload, overlap.seqDivergence);
+		}
+	}
+	size_t expectedBytes = static_cast<size_t>(HEADER_BYTES) +
+	                       checkedMul(outputRecords, static_cast<size_t>(RECORD_BYTES),
+	                                  "compact binary expected payload bytes");
+	if (payload.size() != expectedBytes)
+	{
+		throw std::runtime_error("compact binary payload size mismatch");
+	}
+
+	ensureParentDirectory(path);
+	std::ofstream output(path, std::ios::binary);
+	if (!output)
+	{
+		throw std::runtime_error("cannot write compact read-alignment binary: " + path);
+	}
+	output.write(payload.data(), static_cast<std::streamsize>(payload.size()));
+	if (!output)
+	{
+		throw std::runtime_error("failed writing compact read-alignment binary: " + path);
+	}
+}
+
+std::string compactOutputArtifactMode(const Options& options)
+{
+	if (!options.compactOutputBinary.empty()) return "compact-binary-v0";
+	if (!options.compactOutputJsonl.empty()) return "compact-jsonl-v0";
+	return "per-fixture-tsv-v0";
+}
+
 std::vector<BatchShapeOutputSummary>
 summarizeBatchShapes(const std::vector<BatchFixtureOutput>& fixtureOutputs)
 {
@@ -2743,9 +2896,12 @@ void writeCompactBatchJsonSummary(const std::string& path, const Options& option
 	{
 		output << "null,\n";
 	}
-	output << "  \"output_artifact_mode\": \"compact-jsonl-v0\",\n"
+	output << "  \"output_artifact_mode\": \""
+	       << jsonEscape(compactOutputArtifactMode(options)) << "\",\n"
 	       << "  \"compact_output_jsonl\": \""
 	       << jsonEscape(options.compactOutputJsonl) << "\",\n"
+	       << "  \"compact_output_binary\": \""
+	       << jsonEscape(options.compactOutputBinary) << "\",\n"
 	       << "  \"compact_output_only\": "
 	       << (options.compactOutputOnly ? "true" : "false") << ",\n"
 	       << "  \"batch_fixtures_file\": \""
@@ -2903,6 +3059,11 @@ ReadAlignmentWorkerRequest parseReadAlignmentWorkerRequestObject(const std::stri
 	{
 		request.options.compactOutputJsonl = compactOutputJsonl;
 	}
+	std::string compactOutputBinary = optionalJsonField(fields, "compact_output_binary");
+	if (!compactOutputBinary.empty() && compactOutputBinary != "null")
+	{
+		request.options.compactOutputBinary = compactOutputBinary;
+	}
 	std::string compactOutputOnly = optionalJsonField(fields, "compact_output_only");
 	if (!compactOutputOnly.empty() && compactOutputOnly != "null")
 	{
@@ -3012,10 +3173,13 @@ void validateReadAlignmentWorkerRequest(const ReadAlignmentWorkerRequest& reques
 	{
 		throw std::runtime_error("read-alignment worker benchmark_runs must be greater than zero");
 	}
-	if (request.options.compactOutputOnly && request.options.compactOutputJsonl.empty())
+	if (request.options.compactOutputOnly &&
+	    request.options.compactOutputJsonl.empty() &&
+	    request.options.compactOutputBinary.empty())
 	{
 		throw std::runtime_error(
-		    "read-alignment worker compact_output_only requires compact_output_jsonl");
+		    "read-alignment worker compact_output_only requires compact_output_jsonl "
+		    "or compact_output_binary");
 	}
 }
 
@@ -3068,8 +3232,9 @@ std::string buildReadAlignmentWorkerResponseJson(
 	     << "  \"fixture_count\": " << result.fixtureCount << ",\n"
 	     << "  \"output_records\": " << result.outputRecords << ",\n"
 	     << "  \"output_artifact_mode\": \""
-	     << (request.options.compactOutputOnly ? "compact-jsonl-v0"
-	                                           : "per-fixture-tsv-v0") << "\",\n"
+	     << jsonEscape(request.options.compactOutputOnly
+	                       ? compactOutputArtifactMode(request.options)
+	                       : "per-fixture-tsv-v0") << "\",\n"
 	     << "  \"compact_output_jsonl\": ";
 	if (request.options.compactOutputJsonl.empty())
 	{
@@ -3078,6 +3243,15 @@ std::string buildReadAlignmentWorkerResponseJson(
 	else
 	{
 		json << "\"" << jsonEscape(request.options.compactOutputJsonl) << "\",\n";
+	}
+	json << "  \"compact_output_binary\": ";
+	if (request.options.compactOutputBinary.empty())
+	{
+		json << "null,\n";
+	}
+	else
+	{
+		json << "\"" << jsonEscape(request.options.compactOutputBinary) << "\",\n";
 	}
 	json << "  \"compact_output_only\": "
 	     << (request.options.compactOutputOnly ? "true" : "false") << ",\n"
@@ -3181,6 +3355,11 @@ bool executeReadAlignmentWorkerRequest(
 		{
 			writeCompactReadAlignmentJsonl(request.options.compactOutputJsonl,
 			                              cache.fixtures, segmentsByFixture);
+		}
+		if (!request.options.compactOutputBinary.empty())
+		{
+			writeCompactReadAlignmentBinary(request.options.compactOutputBinary,
+			                               cache.fixtures, segmentsByFixture);
 		}
 		auto writeEnd = Clock::now();
 		summary.writeMs = elapsedMs(writeStart, writeEnd);
@@ -3491,6 +3670,8 @@ void parseArgs(int argc, char** argv, Options& options)
 			options.batchJsonOutput = nextValue();
 		else if (arg == "--compact-output-jsonl")
 			options.compactOutputJsonl = nextValue();
+		else if (arg == "--compact-output-binary")
+			options.compactOutputBinary = nextValue();
 		else if (arg == "--compact-output-only")
 			options.compactOutputOnly = true;
 		else if (arg == "--worker-request-json")
@@ -3559,7 +3740,8 @@ void parseArgs(int argc, char** argv, Options& options)
 			          << "[--allow-heterogeneous-batch] [--cuda-persistent-arena] "
 			          << "[--cuda-persistent-bulk-output] "
 			          << "[--emit-pre-divergence-chains] "
-			          << "[--compact-output-jsonl PATH] [--compact-output-only] "
+			          << "[--compact-output-jsonl PATH] "
+			          << "[--compact-output-binary PATH] [--compact-output-only] "
 			          << "[--memory-budget-bytes BYTES]\n"
 			          << "Worker mode: cuflye-cuda-read-alignment-chain-replay "
 			          << "--worker-request-json PATH "
@@ -3630,9 +3812,12 @@ void parseArgs(int argc, char** argv, Options& options)
 			throw std::runtime_error(
 			    "--cuda-persistent-bulk-output requires --cuda-persistent-arena");
 		}
-		if (options.compactOutputOnly && options.compactOutputJsonl.empty())
+		if (options.compactOutputOnly && options.compactOutputJsonl.empty() &&
+		    options.compactOutputBinary.empty())
 		{
-			throw std::runtime_error("--compact-output-only requires --compact-output-jsonl");
+			throw std::runtime_error(
+			    "--compact-output-only requires --compact-output-jsonl "
+			    "or --compact-output-binary");
 		}
 	}
 	else
@@ -3650,7 +3835,8 @@ void parseArgs(int argc, char** argv, Options& options)
 			throw std::runtime_error(
 			    "--cuda-persistent-bulk-output is only supported in batch mode");
 		}
-		if (!options.compactOutputJsonl.empty() || options.compactOutputOnly)
+		if (!options.compactOutputJsonl.empty() ||
+		    !options.compactOutputBinary.empty() || options.compactOutputOnly)
 		{
 			throw std::runtime_error("compact output is only supported in batch mode");
 		}
@@ -3723,6 +3909,11 @@ int main(int argc, char** argv)
 			{
 				writeCompactReadAlignmentJsonl(options.compactOutputJsonl, fixtures,
 				                              segmentsByFixture);
+			}
+			if (!options.compactOutputBinary.empty())
+			{
+				writeCompactReadAlignmentBinary(options.compactOutputBinary, fixtures,
+				                               segmentsByFixture);
 			}
 			auto writeEnd = Clock::now();
 			summary.writeMs = elapsedMs(writeStart, writeEnd);

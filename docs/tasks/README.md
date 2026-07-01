@@ -11,13 +11,18 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m5t-read-alignment-compact-binary-payload.md`: replace
-  the M5s compact JSONL proof payload with a smaller graph-facing binary or
-  object-vector payload, preserving exact CPU equivalence while reducing the
-  remaining write/read/rehydration cost.
+- `2026-07-01-cuflye-m5u-read-alignment-compact-binary-flye-rehydration.md`:
+  move the M5t compact binary payload into the Flye-side pre-divergence
+  dry-run seam, validate and rehydrate it inside Flye, and fail closed on
+  corrupted payloads before graph mutation.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m5t-read-alignment-compact-binary-payload.md`: replace
+  the M5s compact JSONL proof payload with `compact-binary-v0`, byte-match the
+  CPU compact binary oracle, reduce payload size from `1126769` bytes to
+  `332736` bytes, and reduce CUDA full3546 compact request time from
+  `4.450572 ms` to `2.273654 ms`.
 - `2026-07-01-cuflye-m5s-read-alignment-session-output-overhead-reduction.md`:
   bypass per-fixture TSV emission in the read-alignment CUDA session path with
   a deterministic compact JSONL payload, preserve byte-level CPU equivalence,
