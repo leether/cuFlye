@@ -15,6 +15,9 @@ Proposed cards:
 
 Completed cards:
 
+- `2026-07-01-cuflye-m5h-larger-read-alignment-fixture-harvest.md`: expand
+  real read-alignment replay work for the persistent CUDA arena while
+  preserving per-read oracle diffs.
 - `2026-07-01-cuflye-m5g-persistent-read-alignment-arena.md`: reduce grouped
   read-alignment CUDA overhead with reusable per-shape device buffers while
   preserving per-read oracle diffs.

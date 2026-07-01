@@ -1,0 +1,224 @@
+{
+  "acceptance": {
+    "all_outputs_validate_read_alignment_v1": true,
+    "cpu_cold_cuda_persistent_outputs_match_oracle": true,
+    "cpu_cold_cuda_persistent_runs_complete": true,
+    "cuda_ownership_scan_clean": true,
+    "cuda_replay_binary_builds_on_dgx": true,
+    "larger_than_m5g_total_input_records": true,
+    "local_syntax_style_gates_pass": true,
+    "persistent_compared_against_cold_cuda_and_cpu": true,
+    "persistent_cuda_outputs_match_cold_cuda": true,
+    "selector_writes_fixture_list_and_summary": true
+  },
+  "benefit_assessment_plain_language": "M5h expanded the persistent read-alignment proof from M5g's 68 fixtures and 141 total input records to 3546 valid fixtures and 3781 total input records while preserving every per-read oracle diff. CUDA kernel/core time is now 12.706503x faster than CPU core time, but total persistent CUDA time is still 55.029972x slower than CPU because device-to-host copy/output handling dominates at 18.156663 ms per timed run. The useful conclusion is that larger harvests expose the next bottleneck: bulk output transfer/compaction, not more tiny per-fixture copies.",
+  "build": {
+    "cuda_manifest": "/tmp/cuflye-m5h-proof-20260630T234728Z/out/m5h/cuda_read_alignment_chain_replay_build_manifest.json",
+    "flye_manifest": "/tmp/cuflye-m5h-proof-20260630T234728Z/out/m5h/flye_build_manifest.json",
+    "output_binary": "/tmp/cuflye-m5h-proof-20260630T234728Z/out/m5h/bin/cuflye-cuda-read-alignment-chain-replay"
+  },
+  "claims": {
+    "allowed": "cuFlye can expand read-alignment replay proof from 68 toy-hifi fixtures to a wider 3546-fixture harvest and run the persistent CUDA arena while preserving every per-read oracle diff.",
+    "forbidden": "M5h does not prove default GPU mode, graph mutation consumption, edlib/base realignment replay, end-to-end Flye acceleration, or CPU-beating read-alignment speed unless the recorded timings show it."
+  },
+  "cpu": {
+    "benchmark": {
+      "max_total_before_json_ms": 0.379313,
+      "mean_core_ms": 0.33258,
+      "mean_total_before_json_ms": 0.33258,
+      "min_total_before_json_ms": 0.328881,
+      "timed_runs": 50,
+      "warmup_runs": 5
+    },
+    "run_json": "/tmp/cuflye-m5h-proof-20260630T234728Z/out/m5h/larger-batch/cpu/run.json",
+    "timing_ms": {
+      "cpu_chain": 0.329474,
+      "device_allocation": 0.0,
+      "device_to_host": 0.0,
+      "finalize": 0.0,
+      "host_to_device": 0.0,
+      "kernel": 0.0,
+      "one_time_device_allocation": 0.0,
+      "one_time_host_to_device": 0.0,
+      "one_time_setup": 0.0,
+      "one_time_total": 0.0,
+      "setup": 0.0,
+      "total_before_json": 0.329474,
+      "write_output": 91.006082
+    }
+  },
+  "created_at_utc": "2026-06-30T23:57:15.149585+00:00",
+  "cuda_cold": {
+    "benchmark": {
+      "max_total_before_json_ms": 21.7069,
+      "mean_core_ms": 0.048954,
+      "mean_total_before_json_ms": 18.270376,
+      "min_total_before_json_ms": 17.843893,
+      "timed_runs": 50,
+      "warmup_runs": 5
+    },
+    "cuda_execution_mode": "per-run-allocation",
+    "memory": {
+      "required_bytes": 550298
+    },
+    "run_json": "/tmp/cuflye-m5h-proof-20260630T234728Z/out/m5h/larger-batch/cuda-cold/run.json",
+    "timing_ms": {
+      "cpu_chain": 0.0,
+      "device_allocation": 0.369122,
+      "device_to_host": 17.646854,
+      "finalize": 0.008912,
+      "host_to_device": 0.06696,
+      "kernel": 0.048288,
+      "one_time_device_allocation": 0.0,
+      "one_time_host_to_device": 0.0,
+      "one_time_setup": 0.0,
+      "one_time_total": 0.0,
+      "setup": 0.066304,
+      "total_before_json": 18.20644,
+      "write_output": 82.131104
+    }
+  },
+  "cuda_persistent": {
+    "benchmark": {
+      "max_total_before_json_ms": 20.252591,
+      "mean_core_ms": 0.026174,
+      "mean_total_before_json_ms": 18.301868,
+      "min_total_before_json_ms": 17.817958,
+      "timed_runs": 50,
+      "warmup_runs": 5
+    },
+    "cuda_execution_mode": "persistent-arena",
+    "memory": {
+      "required_bytes": 611266
+    },
+    "run_json": "/tmp/cuflye-m5h-proof-20260630T234728Z/out/m5h/larger-batch/cuda-persistent/run.json",
+    "timing_ms": {
+      "cpu_chain": 0.0,
+      "device_allocation": 0.0,
+      "device_to_host": 18.156663,
+      "finalize": 0.009696,
+      "host_to_device": 0.0,
+      "kernel": 0.025952,
+      "one_time_device_allocation": 0.229057,
+      "one_time_host_to_device": 0.062096,
+      "one_time_setup": 242.041821,
+      "one_time_total": 242.332974,
+      "setup": 0.0,
+      "total_before_json": 18.192311,
+      "write_output": 72.641834
+    }
+  },
+  "diffs": {
+    "aggregate": {
+      "cpu_vs_cuda_persistent_match": 3546,
+      "cpu_vs_oracle_match": 3546,
+      "cuda_cold_vs_oracle_match": 3546,
+      "cuda_persistent_vs_cold_cuda_match": 3546,
+      "cuda_persistent_vs_oracle_match": 3546,
+      "validated_paths": 14184
+    },
+    "all_match": true,
+    "per_fixture_summary": "/tmp/cuflye-m5h-proof-20260630T234728Z/out/m5h/larger-batch/per-fixture-diff-summary.json"
+  },
+  "harvest": {
+    "fixture_root": "/tmp/cuflye-m5h-proof-20260630T234728Z/out/m5h/runs/toy-hifi-wide-read-alignment/read-alignment-replay-fixtures",
+    "requested_query_id_end": 6000,
+    "requested_query_id_start": 1,
+    "run_metadata": "/tmp/cuflye-m5h-proof-20260630T234728Z/out/m5h/runs/toy-hifi-wide-read-alignment/run_metadata.json"
+  },
+  "host": {
+    "gpu_query": "NVIDIA GB10, 12.1",
+    "hostname": "edgexpert-45d2",
+    "machine": "aarch64",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39"
+  },
+  "milestone": "M5h",
+  "next_optimization_target": "M5i should remove the dominant device-to-host/output overhead by copying packed output segments in bulk per shape group, or by adding device-side output compaction/prefix offsets, before attempting graph-consumption integration.",
+  "repo": {
+    "flye_source_note": "Flye checkout copied from M5e proof after DGX GitHub clone failed; build manifest records patched checkout state.",
+    "proof_dir": "/tmp/cuflye-m5h-proof-20260630T234728Z"
+  },
+  "schema": "cuflye-milestone-proof-v1",
+  "selection": {
+    "discovered_fixture_count": 3577,
+    "excluded_fixture_count": 0,
+    "invalid_fixture_count": 31,
+    "invalid_reason_summary": {
+      "read alignment dump is empty": 31
+    },
+    "selected_fixture_count": 3546,
+    "selected_shape_group_count": 4,
+    "selected_shape_groups": [
+      {
+        "chain_divergence_rows": 1,
+        "first_query_id": 5,
+        "fixture_count": 3418,
+        "input_records_per_fixture": 1,
+        "last_query_id": 3582,
+        "max_read_overlap": 50,
+        "max_separation": 500,
+        "maximum_jump": 1500,
+        "minimum_overlap": 1000,
+        "query_id_count": 3418,
+        "reads_base_alignment": true,
+        "total_input_records": 3418,
+        "total_oracle_records": 3418
+      },
+      {
+        "chain_divergence_rows": 1,
+        "first_query_id": 204,
+        "fixture_count": 29,
+        "input_records_per_fixture": 2,
+        "last_query_id": 3567,
+        "max_read_overlap": 50,
+        "max_separation": 500,
+        "maximum_jump": 1500,
+        "minimum_overlap": 1000,
+        "query_id_count": 29,
+        "reads_base_alignment": true,
+        "total_input_records": 58,
+        "total_oracle_records": 45
+      },
+      {
+        "chain_divergence_rows": 1,
+        "first_query_id": 47,
+        "fixture_count": 91,
+        "input_records_per_fixture": 3,
+        "last_query_id": 3578,
+        "max_read_overlap": 50,
+        "max_separation": 500,
+        "maximum_jump": 1500,
+        "minimum_overlap": 1000,
+        "query_id_count": 91,
+        "reads_base_alignment": true,
+        "total_input_records": 273,
+        "total_oracle_records": 129
+      },
+      {
+        "chain_divergence_rows": 1,
+        "first_query_id": 200,
+        "fixture_count": 8,
+        "input_records_per_fixture": 4,
+        "last_query_id": 3512,
+        "max_read_overlap": 50,
+        "max_separation": 500,
+        "maximum_jump": 1500,
+        "minimum_overlap": 1000,
+        "query_id_count": 8,
+        "reads_base_alignment": true,
+        "total_input_records": 32,
+        "total_oracle_records": 24
+      }
+    ],
+    "selected_total_input_records": 3781,
+    "selected_total_oracle_records": 3616,
+    "valid_fixture_count": 3546
+  },
+  "speed": {
+    "persistent_cuda_core_speedup_vs_cold_cuda": 1.8703293344540384,
+    "persistent_cuda_core_speedup_vs_cpu": 12.706502636203867,
+    "persistent_cuda_total_slowdown_vs_cpu": 55.02997173612364,
+    "persistent_cuda_total_speedup_vs_cold_cuda": 0.998279301325963,
+    "persistent_cuda_total_speedup_vs_cpu": 0.018171915566214333
+  }
+}

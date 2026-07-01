@@ -134,3 +134,5 @@ M5 read-to-graph alignment proof:
   `cuflye-m5f-heterogeneous-read-alignment-batch-dgx-aarch64.json`
 - Persistent read alignment arena manifest:
   `cuflye-m5g-persistent-read-alignment-arena-dgx-aarch64.json`
+- Larger read alignment fixture harvest manifest:
+  `cuflye-m5h-larger-read-alignment-fixture-harvest-dgx-aarch64.json`

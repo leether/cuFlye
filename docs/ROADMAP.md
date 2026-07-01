@@ -225,13 +225,14 @@ Completed:
   `98.134393%` versus the M4u cold batch-run worker process, but the full
   toy-raw run was still slower than CPU (`88s` vs `82s`) because the proof still
   pays for one synthetic warmup request inside the same Flye run.
-- M5a-M5g: cuFlye now has a deterministic read-to-graph alignment oracle,
+- M5a-M5h: cuFlye now has a deterministic read-to-graph alignment oracle,
   bounded replay fixtures, a CUDA chain replay prototype, real multi-read
   batching, heterogeneous shape grouping, and a persistent per-shape CUDA arena.
-  The M5g proof preserves every per-read `read-alignment-v1` oracle diff on
-  the 68-read toy-hifi replay fixture set. Persistent CUDA is `2.310763x`
-  faster than the cold grouped CUDA path, but still `35.489368x` slower than
-  CPU for this tiny batch.
+  The M5h proof expands the toy-hifi replay harvest to `3546` valid fixtures
+  and `3781` total input records while preserving every per-read
+  `read-alignment-v1` oracle diff. Persistent CUDA kernel/core time is
+  `12.706503x` faster than CPU core work, but total persistent CUDA is still
+  `55.029972x` slower than CPU because device-to-host/output handling dominates.
 
 Current allowed performance claim:
 
@@ -313,6 +314,10 @@ cuFlye can also reuse per-shape CUDA read-alignment arenas across benchmark
 iterations while preserving every per-read oracle diff. This is a CUDA overhead
 reduction claim for a bounded replay benchmark, not a CPU-beating or end-to-end
 Flye speed claim.
+
+cuFlye can now expand that proof to a much larger toy-hifi read-alignment
+fixture harvest. This improves diagnosis: kernel work is no longer the main
+problem, while thousands of tiny output copies dominate total CUDA time.
 ```
 
 Current forbidden claim:
@@ -1488,4 +1493,80 @@ Next highest-ROI task:
 M5h: increase real read-alignment work per persistent CUDA invocation. Prefer
 larger non-toy fixture harvests or a long-lived persistent read-alignment
 worker before any graph-consumption integration.
+```
+
+Completed as a larger read-alignment fixture harvest and persistent-arena
+diagnostic proof.
+
+M5h adds `tools/select_read_alignment_fixture_batch.py`, a deterministic scanner
+for `cuflye-read-alignment-replay-fixture-v0` directories. It validates fixture
+shape, validates `oracle.read-alignment.tsv`, writes a selected fixture list,
+and records shape distribution plus invalid fixture exclusions.
+
+The DGX proof requested toy-hifi query ids `1..6000` through the existing M5e
+multi-query replay dump protocol. The harvest produced:
+
+```text
+discovered_fixture_count=3577
+valid_selected_fixture_count=3546
+invalid_fixture_count=31
+invalid_reason=read alignment dump is empty
+shape_group_count=4
+selected_total_input_records=3781
+selected_total_oracle_records=3616
+```
+
+Selected shape distribution:
+
+```text
+input_records=1: fixture_count=3418, total_input_records=3418, total_oracle_records=3418
+input_records=2: fixture_count=29,   total_input_records=58,   total_oracle_records=45
+input_records=3: fixture_count=91,   total_input_records=273,  total_oracle_records=129
+input_records=4: fixture_count=8,    total_input_records=32,   total_oracle_records=24
+```
+
+Every CPU, cold CUDA, persistent CUDA, and oracle per-fixture
+`read-alignment-v1` output validated and canonical-diffed as `match` across all
+`3546` selected fixtures.
+
+Warm benchmark timing with `5` warmups and `50` timed runs:
+
+```text
+cpu_mean_total_before_json_ms=0.332580
+cpu_mean_core_ms=0.332580
+cold_cuda_mean_total_before_json_ms=18.270376
+cold_cuda_mean_kernel_ms=0.048954
+persistent_cuda_mean_total_before_json_ms=18.301868
+persistent_cuda_mean_kernel_ms=0.026174
+persistent_cuda_speedup_vs_cold_cuda=0.998279x
+persistent_cuda_speedup_vs_cpu=0.018172x
+persistent_cuda_slowdown_vs_cpu=55.029972x
+persistent_cuda_core_speedup_vs_cpu=12.706503x
+persistent_cuda_core_speedup_vs_cold_cuda=1.870329x
+persistent_cuda_device_to_host_ms=18.156663
+```
+
+Allowed M5h claim:
+
+```text
+cuFlye can expand read-alignment replay proof from 68 toy-hifi fixtures to a
+wider 3546-fixture harvest and run the persistent CUDA arena while preserving
+every per-read oracle diff.
+```
+
+Forbidden M5h claim:
+
+```text
+M5h does not prove default GPU mode, graph mutation consumption, edlib/base
+realignment replay, end-to-end Flye acceleration, or CPU-beating
+read-alignment speed.
+```
+
+Next highest-ROI task:
+
+```text
+M5i: remove the dominant device-to-host/output overhead in the persistent
+read-alignment arena. Prefer bulk output transfer per shape group or
+device-side output compaction/prefix offsets before any graph-consumption
+integration.
 ```
