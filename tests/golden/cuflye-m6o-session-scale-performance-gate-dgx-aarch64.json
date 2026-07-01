@@ -1,0 +1,483 @@
+{
+  "acceptance": {
+    "default_cpu_flye_artifacts_unchanged": true,
+    "every_warm_request_reports_worker_cuda_context_warm": true,
+    "local_and_dgx_gates_passed": true,
+    "negative_proof_fails_closed_before_graph_mutation": true,
+    "one_file_backed_session_processes_at_least_four_compatible_requests": true,
+    "row_key_diff_matches_cpu_oracle_for_every_validated_actual_request": true,
+    "warm_requests_report_zero_parse_device_allocation_and_host_to_device": true
+  },
+  "allowed_claim": "cuFlye can process at least four compatible selected full-query-hit Flye dry-run seam requests through one file-backed CUDA worker session, keep requests 2-4 warm, preserve row-key parity for every validated request, and fail closed on a memory-budget negative proof.",
+  "default_cpu_artifacts": {
+    "artifact_hashes_match_m0_golden": true,
+    "comparison": {
+      "current_records": 9,
+      "extra": [],
+      "golden_records": 9,
+      "mismatch": {},
+      "missing": [],
+      "status": "match"
+    }
+  },
+  "fixture": "toy-hifi",
+  "flye_build": {
+    "actual_commit": "886b8c17412c",
+    "actual_tags": [
+      "2.9.6"
+    ],
+    "applied_patch_count": 44,
+    "last_patch": "0044-cuflye-read-to-graph-full-query-hit-worker-session-file.patch",
+    "manifest": "/tmp/cuflye-m6o-work/out/m6o/build_manifest.json"
+  },
+  "forbidden_claim": "M6o does not prove whole-Flye speedup, graph consumption, default GPU mode, full non-key raw-overlap field parity, or production daemon lifecycle.",
+  "host": "edgexpert-45d2",
+  "machine": "aarch64",
+  "milestone": "M6o-session-scale-performance-gate",
+  "negative_fail_closed": {
+    "audit": {
+      "decision": "fail-closed-before-graph-mutation",
+      "error": "CUDA full-query-hit worker session request failed: required bytes exceed memory budget",
+      "failed_closed": true,
+      "graph_mutation_consumed_worker_output": false,
+      "row_key_diff": {
+        "extra_examples": [],
+        "extra_rows": 0,
+        "left_records": 36,
+        "matched_rows": 0,
+        "missing_examples": [],
+        "missing_rows": 36,
+        "ordered_match": false,
+        "right_records": 0,
+        "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+        "status": "mismatch"
+      },
+      "status": "failed-before-graph-mutation",
+      "worker_exit_status": 1,
+      "worker_output_consumption_eligible": false,
+      "worker_session_submit_ms": 6.21734
+    },
+    "response": {
+      "error_code": "request-failed",
+      "error_message": "required bytes exceed memory budget",
+      "request_id": "read-to-graph-full-query-hit-session-cuflye-m6o-proof-20260701T090904Z_negative_worker",
+      "request_ordinal": 1,
+      "schema": "cuflye-full-query-hit-worker-response-v0",
+      "status": "error"
+    },
+    "session_dir": "/tmp/cuflye-m6o-proof-20260701T090904Z/negative-session",
+    "session_error": {
+      "device": 0,
+      "device_name": "NVIDIA GB10",
+      "free_bytes": 5573586944,
+      "pid": 2601140,
+      "schema": "cuflye-full-query-hit-worker-session-v0",
+      "status": "error",
+      "total_bytes": 130594660352,
+      "worker_context_setup_ms": 245.585428,
+      "worker_device_arena_capacity_bytes": 0,
+      "worker_device_arena_enabled": true,
+      "worker_replay_session_initialized": false,
+      "worker_session_dir": "/tmp/cuflye-m6o-proof-20260701T090904Z/negative-session",
+      "worker_session_max_requests": 1,
+      "worker_session_poll_ms": 2,
+      "worker_session_processed_requests": 1,
+      "worker_session_timeout_ms": 600000
+    }
+  },
+  "next_recommended_step": "M6p: design a guarded full-query-hit graph-consumption dry-run that rehydrates session-validated raw-overlap rows into Flye-side structures without enabling default GPU mode, then prove mismatch and corruption still fail closed before graph mutation.",
+  "patch_series_applied_through": "0044-cuflye-read-to-graph-full-query-hit-worker-session-file.patch",
+  "plain_language_benefit": "M6o shows that M6n's file-backed full-query-hit session benefit is stable across four separate Flye seam submissions. The first request was cold at about 60.165 ms wall / 57.310 ms request time. The next three warm requests averaged 55.003 ms wall / 52.690 ms request time, with parse, device allocation, and host-to-device copy all at 0 ms. This still does not mutate Flye graph state, but it proves the session path can amortize worker setup across multiple real Flye seam calls.",
+  "positive_file_session": {
+    "requests": [
+      {
+        "audit": {
+          "actual_request_timing_ms": {
+            "device_allocation": 0.242032,
+            "host_to_device": 0.144769,
+            "kernel": 52.567,
+            "parse": 3.90753,
+            "request_total": 57.3101
+          },
+          "actual_worker_cuda_context_warm": false,
+          "decision": "stopped-before-graph-mutation",
+          "graph_mutation_consumed_worker_output": false,
+          "row_key_diff": {
+            "extra_examples": [],
+            "extra_rows": 0,
+            "left_records": 36,
+            "matched_rows": 36,
+            "missing_examples": [],
+            "missing_rows": 0,
+            "ordered_match": false,
+            "right_records": 36,
+            "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+            "status": "match"
+          },
+          "status": "passed",
+          "worker_session_submit_ms": 60.1647,
+          "worker_wall_ms": 60.1647
+        },
+        "external_row_key_diff": {
+          "extra_examples": [],
+          "extra_rows": 0,
+          "left": "/tmp/cuflye-m6o-proof-20260701T090904Z/positive/oracle.raw-overlaps.tsv",
+          "left_records": 36,
+          "left_sha256": "8b417a19152d1b64801927a6c6e7d73e7734148d502c8b88ce9ee8fd779aace9",
+          "matched_rows": 36,
+          "missing_examples": [],
+          "missing_rows": 0,
+          "ordered_match": false,
+          "right": "/tmp/cuflye-m6o-proof-20260701T090904Z/positive/request-01/worker/full-query-hit-worker.raw-overlaps.tsv",
+          "right_records": 36,
+          "right_sha256": "8b417a19152d1b64801927a6c6e7d73e7734148d502c8b88ce9ee8fd779aace9",
+          "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+          "status": "match"
+        },
+        "index": 1,
+        "name": "request-01",
+        "response": {
+          "active_ext_groups": 22,
+          "adapter_mode": "full-query-hit-replay-v0",
+          "device": 0,
+          "device_name": "NVIDIA GB10",
+          "kernel_mode": "parallel-score",
+          "output_records": 36,
+          "output_tsv": "/tmp/cuflye-m6o-proof-20260701T090904Z/positive/request-01/worker/full-query-hit-worker.raw-overlaps.tsv",
+          "parallel_threads": 128,
+          "query_count": 8,
+          "raw_overlap_abi": "cuflye-read-to-graph-raw-overlap-v0",
+          "request_id": "read-to-graph-full-query-hit-session-positive_request-01_worker",
+          "request_ordinal": 1,
+          "required_bytes": 1142052,
+          "schema": "cuflye-full-query-hit-worker-response-v0",
+          "source_ext_groups": 33,
+          "source_match_records": 7747,
+          "source_pack_dir": "/tmp/cuflye-m6o-proof-20260701T090904Z/positive/source-pack",
+          "status": "ok",
+          "timing_ms": {
+            "device_allocation": 0.242032,
+            "device_to_host": 0.029632,
+            "host_pack": 0.252912,
+            "host_to_device": 0.144769,
+            "kernel": 52.566955,
+            "parse": 3.907525,
+            "request_total": 57.310081,
+            "worker_uptime": 12974.317656,
+            "write_output": 0.09344
+          },
+          "worker_context_setup_ms": 4.611494,
+          "worker_cuda_context_warm": false
+        }
+      },
+      {
+        "audit": {
+          "actual_request_timing_ms": {
+            "device_allocation": 0,
+            "host_to_device": 0,
+            "kernel": 52.5226,
+            "parse": 0,
+            "request_total": 52.6192
+          },
+          "actual_worker_cuda_context_warm": true,
+          "decision": "stopped-before-graph-mutation",
+          "graph_mutation_consumed_worker_output": false,
+          "row_key_diff": {
+            "extra_examples": [],
+            "extra_rows": 0,
+            "left_records": 36,
+            "matched_rows": 36,
+            "missing_examples": [],
+            "missing_rows": 0,
+            "ordered_match": false,
+            "right_records": 36,
+            "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+            "status": "match"
+          },
+          "status": "passed",
+          "worker_session_submit_ms": 55.27,
+          "worker_wall_ms": 55.27
+        },
+        "external_row_key_diff": {
+          "extra_examples": [],
+          "extra_rows": 0,
+          "left": "/tmp/cuflye-m6o-proof-20260701T090904Z/positive/oracle.raw-overlaps.tsv",
+          "left_records": 36,
+          "left_sha256": "8b417a19152d1b64801927a6c6e7d73e7734148d502c8b88ce9ee8fd779aace9",
+          "matched_rows": 36,
+          "missing_examples": [],
+          "missing_rows": 0,
+          "ordered_match": false,
+          "right": "/tmp/cuflye-m6o-proof-20260701T090904Z/positive/request-02/worker/full-query-hit-worker.raw-overlaps.tsv",
+          "right_records": 36,
+          "right_sha256": "8b417a19152d1b64801927a6c6e7d73e7734148d502c8b88ce9ee8fd779aace9",
+          "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+          "status": "match"
+        },
+        "index": 2,
+        "name": "request-02",
+        "response": {
+          "active_ext_groups": 22,
+          "adapter_mode": "full-query-hit-replay-v0",
+          "device": 0,
+          "device_name": "NVIDIA GB10",
+          "kernel_mode": "parallel-score",
+          "output_records": 36,
+          "output_tsv": "/tmp/cuflye-m6o-proof-20260701T090904Z/positive/request-02/worker/full-query-hit-worker.raw-overlaps.tsv",
+          "parallel_threads": 128,
+          "query_count": 8,
+          "raw_overlap_abi": "cuflye-read-to-graph-raw-overlap-v0",
+          "request_id": "read-to-graph-full-query-hit-session-positive_request-02_worker",
+          "request_ordinal": 2,
+          "required_bytes": 1142052,
+          "schema": "cuflye-full-query-hit-worker-response-v0",
+          "source_ext_groups": 33,
+          "source_match_records": 7747,
+          "source_pack_dir": "/tmp/cuflye-m6o-proof-20260701T090904Z/positive/source-pack",
+          "status": "ok",
+          "timing_ms": {
+            "device_allocation": 0.0,
+            "device_to_host": 0.0284,
+            "host_pack": 0.0,
+            "host_to_device": 0.0,
+            "kernel": 52.522587,
+            "parse": 0.0,
+            "request_total": 52.619195,
+            "worker_uptime": 26994.401519,
+            "write_output": 0.035008
+          },
+          "worker_context_setup_ms": 4.611494,
+          "worker_cuda_context_warm": true
+        }
+      },
+      {
+        "audit": {
+          "actual_request_timing_ms": {
+            "device_allocation": 0,
+            "host_to_device": 0,
+            "kernel": 52.524,
+            "parse": 0,
+            "request_total": 52.7075
+          },
+          "actual_worker_cuda_context_warm": true,
+          "decision": "stopped-before-graph-mutation",
+          "graph_mutation_consumed_worker_output": false,
+          "row_key_diff": {
+            "extra_examples": [],
+            "extra_rows": 0,
+            "left_records": 36,
+            "matched_rows": 36,
+            "missing_examples": [],
+            "missing_rows": 0,
+            "ordered_match": false,
+            "right_records": 36,
+            "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+            "status": "match"
+          },
+          "status": "passed",
+          "worker_session_submit_ms": 54.2501,
+          "worker_wall_ms": 54.2501
+        },
+        "external_row_key_diff": {
+          "extra_examples": [],
+          "extra_rows": 0,
+          "left": "/tmp/cuflye-m6o-proof-20260701T090904Z/positive/oracle.raw-overlaps.tsv",
+          "left_records": 36,
+          "left_sha256": "8b417a19152d1b64801927a6c6e7d73e7734148d502c8b88ce9ee8fd779aace9",
+          "matched_rows": 36,
+          "missing_examples": [],
+          "missing_rows": 0,
+          "ordered_match": false,
+          "right": "/tmp/cuflye-m6o-proof-20260701T090904Z/positive/request-03/worker/full-query-hit-worker.raw-overlaps.tsv",
+          "right_records": 36,
+          "right_sha256": "8b417a19152d1b64801927a6c6e7d73e7734148d502c8b88ce9ee8fd779aace9",
+          "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+          "status": "match"
+        },
+        "index": 3,
+        "name": "request-03",
+        "response": {
+          "active_ext_groups": 22,
+          "adapter_mode": "full-query-hit-replay-v0",
+          "device": 0,
+          "device_name": "NVIDIA GB10",
+          "kernel_mode": "parallel-score",
+          "output_records": 36,
+          "output_tsv": "/tmp/cuflye-m6o-proof-20260701T090904Z/positive/request-03/worker/full-query-hit-worker.raw-overlaps.tsv",
+          "parallel_threads": 128,
+          "query_count": 8,
+          "raw_overlap_abi": "cuflye-read-to-graph-raw-overlap-v0",
+          "request_id": "read-to-graph-full-query-hit-session-positive_request-03_worker",
+          "request_ordinal": 3,
+          "required_bytes": 1142052,
+          "schema": "cuflye-full-query-hit-worker-response-v0",
+          "source_ext_groups": 33,
+          "source_match_records": 7747,
+          "source_pack_dir": "/tmp/cuflye-m6o-proof-20260701T090904Z/positive/source-pack",
+          "status": "ok",
+          "timing_ms": {
+            "device_allocation": 0.0,
+            "device_to_host": 0.033696,
+            "host_pack": 0.0,
+            "host_to_device": 0.0,
+            "kernel": 52.523995,
+            "parse": 0.0,
+            "request_total": 52.707515,
+            "worker_uptime": 40037.690268,
+            "write_output": 0.065328
+          },
+          "worker_context_setup_ms": 4.611494,
+          "worker_cuda_context_warm": true
+        }
+      },
+      {
+        "audit": {
+          "actual_request_timing_ms": {
+            "device_allocation": 0,
+            "host_to_device": 0,
+            "kernel": 52.5209,
+            "parse": 0,
+            "request_total": 52.7444
+          },
+          "actual_worker_cuda_context_warm": true,
+          "decision": "stopped-before-graph-mutation",
+          "graph_mutation_consumed_worker_output": false,
+          "row_key_diff": {
+            "extra_examples": [],
+            "extra_rows": 0,
+            "left_records": 36,
+            "matched_rows": 36,
+            "missing_examples": [],
+            "missing_rows": 0,
+            "ordered_match": false,
+            "right_records": 36,
+            "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+            "status": "match"
+          },
+          "status": "passed",
+          "worker_session_submit_ms": 55.4902,
+          "worker_wall_ms": 55.4902
+        },
+        "external_row_key_diff": {
+          "extra_examples": [],
+          "extra_rows": 0,
+          "left": "/tmp/cuflye-m6o-proof-20260701T090904Z/positive/oracle.raw-overlaps.tsv",
+          "left_records": 36,
+          "left_sha256": "8b417a19152d1b64801927a6c6e7d73e7734148d502c8b88ce9ee8fd779aace9",
+          "matched_rows": 36,
+          "missing_examples": [],
+          "missing_rows": 0,
+          "ordered_match": false,
+          "right": "/tmp/cuflye-m6o-proof-20260701T090904Z/positive/request-04/worker/full-query-hit-worker.raw-overlaps.tsv",
+          "right_records": 36,
+          "right_sha256": "8b417a19152d1b64801927a6c6e7d73e7734148d502c8b88ce9ee8fd779aace9",
+          "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+          "status": "match"
+        },
+        "index": 4,
+        "name": "request-04",
+        "response": {
+          "active_ext_groups": 22,
+          "adapter_mode": "full-query-hit-replay-v0",
+          "device": 0,
+          "device_name": "NVIDIA GB10",
+          "kernel_mode": "parallel-score",
+          "output_records": 36,
+          "output_tsv": "/tmp/cuflye-m6o-proof-20260701T090904Z/positive/request-04/worker/full-query-hit-worker.raw-overlaps.tsv",
+          "parallel_threads": 128,
+          "query_count": 8,
+          "raw_overlap_abi": "cuflye-read-to-graph-raw-overlap-v0",
+          "request_id": "read-to-graph-full-query-hit-session-positive_request-04_worker",
+          "request_ordinal": 4,
+          "required_bytes": 1142052,
+          "schema": "cuflye-full-query-hit-worker-response-v0",
+          "source_ext_groups": 33,
+          "source_match_records": 7747,
+          "source_pack_dir": "/tmp/cuflye-m6o-proof-20260701T090904Z/positive/source-pack",
+          "status": "ok",
+          "timing_ms": {
+            "device_allocation": 0.0,
+            "device_to_host": 0.039488,
+            "host_pack": 0.0,
+            "host_to_device": 0.0,
+            "kernel": 52.520923,
+            "parse": 0.0,
+            "request_total": 52.744364,
+            "worker_uptime": 53454.012723,
+            "write_output": 0.143409
+          },
+          "worker_context_setup_ms": 4.611494,
+          "worker_cuda_context_warm": true
+        }
+      }
+    ],
+    "session_complete": {
+      "device": 0,
+      "device_name": "NVIDIA GB10",
+      "free_bytes": 5579825152,
+      "pid": 2598897,
+      "schema": "cuflye-full-query-hit-worker-session-v0",
+      "status": "complete",
+      "total_bytes": 130594660352,
+      "worker_context_setup_ms": 4.611494,
+      "worker_device_arena_capacity_bytes": 1142052,
+      "worker_device_arena_enabled": true,
+      "worker_replay_session_initialized": true,
+      "worker_session_dir": "/tmp/cuflye-m6o-proof-20260701T090904Z/session",
+      "worker_session_max_requests": 4,
+      "worker_session_poll_ms": 2,
+      "worker_session_processed_requests": 4,
+      "worker_session_timeout_ms": 600000
+    },
+    "session_dir": "/tmp/cuflye-m6o-proof-20260701T090904Z/session",
+    "timing_summary_ms": {
+      "all_request_total_avg": 53.845288749999995,
+      "all_worker_wall_avg": 56.29375,
+      "amortized_request_total_including_cold": 53.845288749999995,
+      "amortized_worker_wall_including_cold": 56.29375,
+      "cold_request_total": 57.310081,
+      "cold_to_warm_request_total_improvement": 1.087676819352793,
+      "cold_to_warm_wall_improvement": 1.0938353545202937,
+      "cold_worker_wall": 60.1647,
+      "warm_kernel_avg": 52.52250166666667,
+      "warm_request_total_avg": 52.690358,
+      "warm_request_total_max": 52.744364,
+      "warm_request_total_min": 52.619195,
+      "warm_worker_wall_avg": 55.003433333333334,
+      "warm_worker_wall_max": 55.4902,
+      "warm_worker_wall_min": 54.2501
+    },
+    "worker_lifecycle_mode": "session-file-v0"
+  },
+  "proof_root": "/tmp/cuflye-m6o-proof-20260701T090904Z",
+  "request_count": 4,
+  "request_ordinals": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "schema": "cuflye-m6o-session-scale-performance-gate-proof-v0",
+  "source_pack_query_ids": [
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+  ],
+  "warm_request_ordinals": [
+    2,
+    3,
+    4
+  ],
+  "worker_build": {
+    "cuda_arch": "sm_121",
+    "manifest": "/tmp/cuflye-m6o-work/out/m6o/full_query_hit_worker_build_manifest.json",
+    "nvcc": "/usr/local/cuda-13.0/bin/nvcc",
+    "output_binary": "/tmp/cuflye-m6o-work/out/m6o/bin/cuflye-cuda-full-query-hit-replay",
+    "repo_commit": "21713b93e84fe18cb0b5f26eb44566956aff4722"
+  }
+}

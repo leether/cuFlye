@@ -201,3 +201,5 @@ M6 read-to-graph input-boundary proof:
   `cuflye-m6m-persistent-flye-full-query-hit-worker-lifecycle-dgx-aarch64.json`
 - File-backed full query-hit worker session manifest:
   `cuflye-m6n-file-backed-full-query-hit-worker-session-dgx-aarch64.json`
+- Session-scale full query-hit performance gate manifest:
+  `cuflye-m6o-session-scale-performance-gate-dgx-aarch64.json`

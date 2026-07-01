@@ -11,12 +11,23 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m6m-persistent-flye-full-query-hit-worker-lifecycle.md`:
-  add a warm/persistent Flye-side full-query-hit worker lifecycle so the M6l
-  seam can reuse CUDA context and device buffers.
+- `2026-07-01-cuflye-m6p-full-query-hit-guarded-consumption-dry-run.md`:
+  parse session-validated full-query-hit worker rows into Flye-side typed
+  structures in a no-graph-mutation guarded dry-run.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m6o-session-scale-performance-gate.md`:
+  run four compatible Flye full-query-hit dry-run seam submissions through one
+  file-backed CUDA worker session, prove warm requests stay near kernel time,
+  preserve row-key parity, and fail closed on a memory-budget negative proof.
+- `2026-07-01-cuflye-m6n-file-backed-full-query-hit-worker-session.md`:
+  replace per-Flye-process JSONL proof invocation with a file-backed worker
+  session so separate Flye seam calls can reuse one already-running CUDA
+  worker process.
+- `2026-07-01-cuflye-m6m-persistent-flye-full-query-hit-worker-lifecycle.md`:
+  add a warm/persistent Flye-side full-query-hit worker lifecycle so the M6l
+  seam can reuse CUDA context and device buffers.
 - `2026-07-01-cuflye-m6l-flye-full-query-hit-worker-dry-run-seam.md`:
   move the M6k full-query-hit worker boundary into a Flye-side dry-run seam,
   validate row-key parity, preserve default CPU artifacts, and stop before graph
