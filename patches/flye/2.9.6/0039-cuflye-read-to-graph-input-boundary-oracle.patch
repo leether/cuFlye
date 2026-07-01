@@ -1,0 +1,267 @@
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -375,6 +375,10 @@
+ 		std::vector<ReadAlignmentPreDivergenceBatchFixture> fixtures;
+ 		std::string error;
+ 	};
++
++	typedef std::unordered_map<FastaRecord::Id,
++							   std::pair<GraphEdge*, EdgeSequence>>
++		ReadAlignmentSegmentIndex;
+ 
+ 	std::mutex& readAlignmentDumpMutex()
+ 	{
+@@ -438,9 +442,189 @@
+ 					 << ovlp.score << "\t"
+ 					 << ovlp.seqDivergence << "\n";
+ 			}
++		}
++	}
++
++	std::mutex& readAlignmentInputBoundaryDumpMutex()
++	{
++		static std::mutex dumpMutex;
++		return dumpMutex;
++	}
++
++	const char* readAlignmentInputBoundaryDumpPath()
++	{
++		static const char* dumpPath =
++			std::getenv("CUFLYE_READ_ALIGNMENT_INPUT_BOUNDARY_DUMP");
++		return dumpPath;
++	}
++
++	bool readAlignmentInputBoundaryDumpEnabled()
++	{
++		const char* dumpPath = readAlignmentInputBoundaryDumpPath();
++		return dumpPath && dumpPath[0];
++	}
++
++	void validateReadAlignmentInputBoundaryDumpConfig()
++	{
++		if (!readAlignmentInputBoundaryDumpEnabled()) return;
++		if (Parameters::get().numThreads != 1)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph input boundary dump requires --threads 1 "
++				"for deterministic query ordering");
+ 		}
+ 	}
+ 
++	void initializeReadAlignmentInputBoundaryDump()
++	{
++		if (!readAlignmentInputBoundaryDumpEnabled()) return;
++
++		std::lock_guard<std::mutex> lock(readAlignmentInputBoundaryDumpMutex());
++		std::ofstream fout(readAlignmentInputBoundaryDumpPath(), std::ios::out);
++		if (!fout)
++		{
++			throw std::runtime_error(
++				"Can't open CUFLYE_READ_ALIGNMENT_INPUT_BOUNDARY_DUMP path");
++		}
++
++		fout << "# schema=cuflye-read-to-graph-input-boundary-v0\n";
++		fout << "record_type\tquery_id\torder\traw_overlap_count\t"
++				"chain_input_count\tread_id\tread_begin\tread_end\tread_len\t"
++				"edge_seq_id\tedge_begin\tedge_end\tedge_len\tedge_id\t"
++				"score\tseq_divergence\tpasses_chain_input_filter\t"
++				"quick_overlap_wall_ms\tinput_filter_sort_wall_ms\t"
++				"cpu_chain_dp_wall_ms\tcpu_divergence_filter_wall_ms\n";
++	}
++
++	bool readAlignmentInputBoundaryPassesFilter(
++		const OverlapRange& overlap, int longEdge, int bigAln)
++	{
++		return overlap.extLen < longEdge ||
++			   std::min(overlap.curRange(), overlap.extRange()) > bigAln;
++	}
++
++	int64_t readAlignmentInputBoundaryEdgeId(
++		const OverlapRange& overlap, const ReadAlignmentSegmentIndex& idToSegment)
++	{
++		auto segment = idToSegment.find(overlap.extId);
++		if (segment == idToSegment.end() || segment->second.first == nullptr)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph input boundary saw an overlap without a "
++				"matching graph edge");
++		}
++		return segment->second.first->edgeId.signedId();
++	}
++
++	void writeReadAlignmentInputBoundaryRecord(
++		std::ofstream& fout, const char* recordType, int64_t queryId,
++		size_t order, size_t rawOverlapCount, size_t chainInputCount,
++		const OverlapRange& overlap, int64_t edgeId, bool passesFilter,
++		double quickOverlapWallMs, double inputFilterSortWallMs,
++		double cpuChainDpWallMs, double cpuDivergenceFilterWallMs)
++	{
++		fout << recordType << "\t"
++			 << queryId << "\t"
++			 << order << "\t"
++			 << rawOverlapCount << "\t"
++			 << chainInputCount << "\t"
++			 << overlap.curId.signedId() << "\t"
++			 << overlap.curBegin << "\t"
++			 << overlap.curEnd << "\t"
++			 << overlap.curLen << "\t"
++			 << overlap.extId.signedId() << "\t"
++			 << overlap.extBegin << "\t"
++			 << overlap.extEnd << "\t"
++			 << overlap.extLen << "\t"
++			 << edgeId << "\t"
++			 << overlap.score << "\t"
++			 << overlap.seqDivergence << "\t"
++			 << (passesFilter ? 1 : 0) << "\t"
++			 << quickOverlapWallMs << "\t"
++			 << inputFilterSortWallMs << "\t"
++			 << cpuChainDpWallMs << "\t"
++			 << cpuDivergenceFilterWallMs << "\n";
++	}
++
++	void writeReadAlignmentInputBoundaryQuerySummary(
++		std::ofstream& fout, int64_t queryId, size_t rawOverlapCount,
++		size_t chainInputCount, double quickOverlapWallMs,
++		double inputFilterSortWallMs, double cpuChainDpWallMs,
++		double cpuDivergenceFilterWallMs)
++	{
++		fout << "query_summary\t"
++			 << queryId << "\t"
++			 << 0 << "\t"
++			 << rawOverlapCount << "\t"
++			 << chainInputCount << "\t"
++			 << 0 << "\t"
++			 << 0 << "\t"
++			 << 0 << "\t"
++			 << 0 << "\t"
++			 << 0 << "\t"
++			 << 0 << "\t"
++			 << 0 << "\t"
++			 << 0 << "\t"
++			 << 0 << "\t"
++			 << 0 << "\t"
++			 << 0.0 << "\t"
++			 << 0 << "\t"
++			 << quickOverlapWallMs << "\t"
++			 << inputFilterSortWallMs << "\t"
++			 << cpuChainDpWallMs << "\t"
++			 << cpuDivergenceFilterWallMs << "\n";
++	}
++
++	void dumpReadAlignmentInputBoundary(
++		const FastaRecord::Id& seqId, const std::vector<OverlapRange>& overlaps,
++		const std::vector<EdgeAlignment>& alignments,
++		const ReadAlignmentSegmentIndex& idToSegment, double quickOverlapWallMs,
++		double inputFilterSortWallMs, double cpuChainDpWallMs,
++		double cpuDivergenceFilterWallMs, int longEdge, int bigAln)
++	{
++		if (!readAlignmentInputBoundaryDumpEnabled()) return;
++
++		std::lock_guard<std::mutex> lock(readAlignmentInputBoundaryDumpMutex());
++		std::ofstream fout(readAlignmentInputBoundaryDumpPath(), std::ios::app);
++		if (!fout)
++		{
++			throw std::runtime_error(
++				"Can't open CUFLYE_READ_ALIGNMENT_INPUT_BOUNDARY_DUMP path");
++		}
++
++		fout << std::setprecision(9);
++		int64_t queryId = seqId.signedId();
++		writeReadAlignmentInputBoundaryQuerySummary(
++			fout, queryId, overlaps.size(), alignments.size(),
++			quickOverlapWallMs, inputFilterSortWallMs, cpuChainDpWallMs,
++			cpuDivergenceFilterWallMs);
++
++		for (size_t recordId = 0; recordId < overlaps.size(); ++recordId)
++		{
++			const auto& overlap = overlaps[recordId];
++			bool passesFilter = readAlignmentInputBoundaryPassesFilter(
++				overlap, longEdge, bigAln);
++			int64_t edgeId =
++				readAlignmentInputBoundaryEdgeId(overlap, idToSegment);
++			writeReadAlignmentInputBoundaryRecord(
++				fout, "raw_overlap", queryId, recordId, overlaps.size(),
++				alignments.size(), overlap, edgeId, passesFilter,
++				quickOverlapWallMs, inputFilterSortWallMs, cpuChainDpWallMs,
++				cpuDivergenceFilterWallMs);
++		}
++
++		for (size_t recordId = 0; recordId < alignments.size(); ++recordId)
++		{
++			const auto& alignment = alignments[recordId];
++			writeReadAlignmentInputBoundaryRecord(
++				fout, "chain_input", queryId, recordId, overlaps.size(),
++				alignments.size(), alignment.overlap,
++				alignment.edge->edgeId.signedId(), true, quickOverlapWallMs,
++				inputFilterSortWallMs, cpuChainDpWallMs,
++				cpuDivergenceFilterWallMs);
++		}
++	}
++
+ 	const char* readAlignmentReplayDumpDir()
+ 	{
+ 		static const char* dumpDir =
+@@ -4388,9 +4572,11 @@
+ void ReadAligner::alignReads()
+ {
+ 	validateReadAlignmentDumpConfig();
++	validateReadAlignmentInputBoundaryDumpConfig();
+ 	validateReadAlignmentReplayDumpConfig();
+ 	validateReadAlignmentWorkerConfig();
+ 	validateReadAlignmentPreDivergenceChainConfig();
++	initializeReadAlignmentInputBoundaryDump();
+ 
+ 	static const int SMALL_ALN = 100;
+ 	static const int BIG_ALN = 500;
+@@ -4399,8 +4585,7 @@
+ 	static const float MAX_DIVERGENCE = Config::get("read_align_ovlp_divergence");
+ 
+ 	//create database
+-	std::unordered_map<FastaRecord::Id, 
+-					   std::pair<GraphEdge*, EdgeSequence>> idToSegment;
++	ReadAlignmentSegmentIndex idToSegment;
+ 	for (auto& edge : _graph.iterEdges())
+ 	{
+ 		for (auto& segment : edge->seqSegments)
+@@ -4453,15 +4638,19 @@
+ 		&preDivergenceBatchFixtures]
+ 	(const FastaRecord::Id& seqId)
+ 	{
++		auto quickOverlapStart = std::chrono::steady_clock::now();
+ 		auto overlaps = readsOverlaps.quickSeqOverlaps(seqId);
++		double quickOverlapWallMs = readAlignmentElapsedMs(
++			quickOverlapStart, std::chrono::steady_clock::now());
++		auto inputFilterSortStart = std::chrono::steady_clock::now();
+ 		std::vector<EdgeAlignment> alignments;
+ 		for (auto& ovlp : overlaps)
+ 		{
+ 			//because edges might be as short as max_separation,
+ 			//we set minimum alignment threshold to a bit shorter value.
+ 			//However, apply the actual threshold for longer edges now.
+-			if (ovlp.extLen < LONG_EDGE ||
+-				std::min(ovlp.curRange(), ovlp.extRange()) > BIG_ALN)
++			if (readAlignmentInputBoundaryPassesFilter(
++					ovlp, LONG_EDGE, BIG_ALN))
+ 			{
+ 				//alignments.push_back({ovlp, idToSegment[ovlp.extId].first,
+ 				//					  idToSegment[ovlp.extId].second});
+@@ -4472,6 +4661,8 @@
+ 		std::sort(alignments.begin(), alignments.end(),
+ 		  [](const EdgeAlignment& e1, const EdgeAlignment& e2)
+ 			{return e1.overlap.curBegin < e2.overlap.curBegin;});
++		double inputFilterSortWallMs = readAlignmentElapsedMs(
++			inputFilterSortStart, std::chrono::steady_clock::now());
+ 
+ 		bool selectedForPreDivergence =
+ 			readAlignmentPreDivergenceChainSelected(seqId);
+@@ -4506,6 +4697,10 @@
+ 			cpuDivergenceFilterWallMs = readAlignmentElapsedMs(
+ 				cpuDivergenceStart, std::chrono::steady_clock::now());
+ 		}
++		dumpReadAlignmentInputBoundary(
++			seqId, overlaps, alignments, idToSegment, quickOverlapWallMs,
++			inputFilterSortWallMs, cpuChainDpWallMs,
++			cpuDivergenceFilterWallMs, LONG_EDGE, BIG_ALN);
+ 		auto replayDumpStart = std::chrono::steady_clock::now();
+ 		dumpReadAlignmentReplayFixture(seqId, alignments, readChains,
+ 									   chainDivergences, goodChains, _readSeqs,

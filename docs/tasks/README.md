@@ -11,13 +11,18 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m6a-read-to-graph-overlap-input-boundary.md`:
-  define the read-to-graph overlap/minimizer input-boundary oracle before
-  adding more CUDA kernels, because M5y shows selected chain-DP bypass is not
-  the dominant toy-hifi wall-time bottleneck.
+- `2026-07-01-cuflye-m6b-read-to-graph-input-boundary-replay-pack.md`:
+  turn the M6a input-boundary oracle into an external replay/packing harness so
+  a CUDA candidate/minimizer prototype can reproduce `chain_input` records
+  before Flye consumes GPU output.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m6a-read-to-graph-overlap-input-boundary.md`:
+  define the read-to-graph overlap/minimizer input-boundary oracle, prove two
+  deterministic CPU oracle runs canonical-diff `match`, preserve full Flye
+  canonical artifacts, and show quick overlap discovery is the next higher-ROI
+  CUDA target.
 - `2026-07-01-cuflye-m5y-read-alignment-post-bypass-attribution.md`:
   attribute the remaining Flye wall time after M5x selected CPU-bypass, prove
   selected CPU pre-divergence chain and divergence-filter work are really

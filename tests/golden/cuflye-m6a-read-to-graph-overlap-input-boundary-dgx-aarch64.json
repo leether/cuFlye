@@ -1,0 +1,65 @@
+{
+  "allowed_claim": "cuFlye can opt-in dump and validate a deterministic read-to-graph overlap input-boundary oracle before chainReadAlignments, with stable raw overlap and chain_input records, while preserving exact toy-hifi Flye canonical artifacts.",
+  "architecture": "aarch64",
+  "build": {
+    "actual_commit": "886b8c17412c",
+    "flye_version": "2.9.6-b1802",
+    "last_patch": "0039-cuflye-read-to-graph-input-boundary-oracle.patch",
+    "patch_count": 39
+  },
+  "fixture": "toy-hifi",
+  "forbidden_claim": "M6a does not add a CUDA kernel, prove default GPU mode, prove whole-Flye speedup, or prove that GPU-generated read-to-graph overlaps can be consumed by graph logic.",
+  "host": "dgx",
+  "milestone": "M6a-read-to-graph-overlap-input-boundary",
+  "next_recommended_step": "M6b: build an external replay/packing harness for this input-boundary ABI so a CUDA candidate/minimizer prototype can reproduce the chain_input records before Flye consumes GPU output.",
+  "plain_language_benefit": "M6a moved the CUDA target earlier than read-alignment chain DP. The dump shows toy-hifi spends about 1.55-1.59 seconds in quick read-to-graph overlap discovery versus about 0.17 seconds in divergence filtering and under 1 ms in chain DP, so the next useful GPU work should target candidate/minimizer discovery, not the already tiny chain-DP slice.",
+  "proof_root": "/tmp/cuflye-m6a-proof-20260701T054514Z",
+  "runs": {
+    "baseline": {
+      "elapsed_seconds": 20,
+      "run_dir": "/tmp/cuflye-m6a-proof-20260701T054514Z/out/m6a/baseline"
+    },
+    "oracle_a": {
+      "elapsed_seconds": 19,
+      "run_dir": "/tmp/cuflye-m6a-proof-20260701T054514Z/out/m6a/oracle-a",
+      "validation": {
+        "abi": "read-to-graph-input-boundary-v0",
+        "canonical_sha256": "674a6bc7ffb42a058859254ac78aa83b374c578a18d17a339bd2e6a669d6d628",
+        "canonical_timing_excluded": true,
+        "chain_input_records": 3814,
+        "queries": 3577,
+        "raw_overlap_records": 5092,
+        "records": 12483,
+        "total_cpu_chain_dp_wall_ms": 0.755808,
+        "total_cpu_divergence_filter_wall_ms": 170.134613,
+        "total_input_filter_sort_wall_ms": 0.281907,
+        "total_quick_overlap_wall_ms": 1544.816833
+      }
+    },
+    "oracle_b": {
+      "elapsed_seconds": 20,
+      "run_dir": "/tmp/cuflye-m6a-proof-20260701T054514Z/out/m6a/oracle-b",
+      "validation": {
+        "abi": "read-to-graph-input-boundary-v0",
+        "canonical_sha256": "674a6bc7ffb42a058859254ac78aa83b374c578a18d17a339bd2e6a669d6d628",
+        "canonical_timing_excluded": true,
+        "chain_input_records": 3814,
+        "queries": 3577,
+        "raw_overlap_records": 5092,
+        "records": 12483,
+        "total_cpu_chain_dp_wall_ms": 0.733872,
+        "total_cpu_divergence_filter_wall_ms": 169.962196,
+        "total_input_filter_sort_wall_ms": 0.304321,
+        "total_quick_overlap_wall_ms": 1591.971136
+      }
+    }
+  },
+  "verification": {
+    "baseline_vs_oracle_a_flye_diff": "match",
+    "baseline_vs_oracle_b_flye_diff": "match",
+    "input_boundary_diff": "match",
+    "local_apply_check": "passed",
+    "local_python_py_compile": "passed",
+    "local_whitespace_check": "passed"
+  }
+}

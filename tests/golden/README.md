@@ -170,3 +170,8 @@ M5 read-to-graph alignment proof:
   `cuflye-m5x-read-alignment-selected-cpu-bypass-dgx-aarch64.json`
 - Read alignment post-bypass attribution manifest:
   `cuflye-m5y-read-alignment-post-bypass-attribution-dgx-aarch64.json`
+
+M6 read-to-graph input-boundary proof:
+
+- Read-to-graph overlap input-boundary oracle manifest:
+  `cuflye-m6a-read-to-graph-overlap-input-boundary-dgx-aarch64.json`

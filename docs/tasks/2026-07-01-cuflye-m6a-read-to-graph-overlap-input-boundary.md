@@ -1,6 +1,6 @@
 # Task Card: cuFlye M6a Read-To-Graph Overlap Input Boundary
 
-Status: proposed
+Status: accepted
 
 Created: 2026-07-01
 
@@ -52,14 +52,42 @@ contract before adding a new kernel.
 
 ## Acceptance Gates
 
-- [ ] Two deterministic CPU oracle runs canonical-diff `match`.
-- [ ] Oracle records include stable query ids, graph/read coordinates, ordering
+- [x] Two deterministic CPU oracle runs canonical-diff `match`.
+- [x] Oracle records include stable query ids, graph/read coordinates, ordering
       keys, and enough metadata to replay the boundary outside Flye.
-- [ ] Timing separates candidate/minimizer generation from chain DP and
+- [x] Timing separates candidate/minimizer generation from chain DP and
       divergence filtering.
-- [ ] Full Flye canonical artifacts remain unchanged with the oracle enabled.
-- [ ] Local and DGX syntax/style gates pass.
+- [x] Full Flye canonical artifacts remain unchanged with the oracle enabled.
+- [x] Local and DGX syntax/style gates pass.
 
 ## Completion Notes
 
-Pending implementation.
+Implemented in `0039-cuflye-read-to-graph-input-boundary-oracle.patch`.
+
+DGX proof root:
+
+```text
+/tmp/cuflye-m6a-proof-20260701T054514Z
+```
+
+Proof summary:
+
+- Flye 2.9.6 patched through `0039` built on DGX Linux/aarch64.
+- Two toy-hifi oracle runs produced the same canonical input-boundary hash:
+  `674a6bc7ffb42a058859254ac78aa83b374c578a18d17a339bd2e6a669d6d628`.
+- Oracle records: 3,577 query summaries, 5,092 raw overlap records, 3,814
+  chain-input records.
+- Canonical timing is intentionally excluded from the hash, but validation
+  records separate quick overlap discovery, input filter/sort, chain DP, and
+  divergence filtering.
+- Baseline vs oracle A and baseline vs oracle B full Flye canonical artifact
+  diffs both returned `match`.
+
+Plain-language benefit:
+
+M6a shows the earlier read-to-graph overlap discovery boundary is measurable,
+deterministic, and graph-safe as an oracle. On this toy proof, quick overlap
+discovery is about 1.55-1.59 seconds, divergence filtering is about 0.17
+seconds, and chain DP is under 1 ms. That means the next CUDA ROI should move
+toward candidate/minimizer discovery rather than further optimizing the already
+tiny chain-DP slice.

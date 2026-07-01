@@ -275,6 +275,16 @@ Completed:
   precision). This points the next boundary upstream to read-to-graph
   overlap/minimizer candidate generation, not more micro-optimization of the
   selected chain-DP slice.
+- M6a: Flye now has an opt-in read-to-graph input-boundary oracle immediately
+  after `quickSeqOverlaps(seqId)` and before `chainReadAlignments`. Two DGX
+  toy-hifi oracle runs produced `12,483` records each (`3,577` query summaries,
+  `5,092` raw overlap records, `3,814` chain-input records), canonical SHA-256
+  `674a6bc7ffb42a058859254ac78aa83b374c578a18d17a339bd2e6a669d6d628`, and
+  canonical diff `match` with timing excluded from the equality hash. Baseline
+  versus oracle full Flye canonical artifact diffs both returned `match`. The
+  timing attribution shows quick read-to-graph overlap discovery costs about
+  `1.55-1.59s` on toy-hifi, while chain DP is under `1ms`, so the next CUDA
+  target should be candidate/minimizer discovery at this boundary.
 
 Current allowed performance claim:
 
@@ -2691,8 +2701,8 @@ end-to-end GPU Flye speedup.
 Next highest-ROI task:
 
 ```text
-M5y: attribute the remaining Flye wall time after M5x selected CPU-bypass and
-decide whether to keep optimizing read alignment, move earlier to
-overlap/minimizer discovery, or test the same bypass on a larger approved DGX
-sample before making stronger GPU-mode performance claims.
+M6b: turn the M6a read-to-graph input-boundary oracle into an external
+replay/packing harness so the first CUDA candidate/minimizer prototype can
+reproduce Flye's chain_input records before any GPU output is consumed by graph
+logic.
 ```
