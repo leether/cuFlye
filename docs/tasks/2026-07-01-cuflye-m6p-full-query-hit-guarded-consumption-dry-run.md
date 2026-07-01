@@ -1,6 +1,6 @@
 # Task Card: cuFlye M6p Full Query-Hit Guarded Consumption Dry-Run
 
-Status: proposed
+Status: complete
 
 Created: 2026-07-01
 
@@ -56,14 +56,69 @@ structures, while still refusing to mutate graph state.
 
 ## Acceptance Gates
 
-- [ ] Positive session-file proof validates row-key parity before rehydration.
-- [ ] Rehydrated row count matches the validated worker row count.
-- [ ] Graph mutation remains disabled and audited as not consumed.
-- [ ] Mismatch, truncated output, or corruption proof fails closed before graph
+- [x] Positive session-file proof validates row-key parity before rehydration.
+- [x] Rehydrated row count matches the validated worker row count.
+- [x] Graph mutation remains disabled and audited as not consumed.
+- [x] Mismatch, truncated output, or corruption proof fails closed before graph
       mutation.
-- [ ] Default CPU Flye canonical artifacts remain unchanged.
-- [ ] Local and DGX syntax/style/ownership gates pass.
+- [x] Default CPU Flye canonical artifacts remain unchanged.
+- [x] Local and DGX syntax/style/ownership gates pass.
 
 ## Completion Notes
 
-Pending implementation.
+Implemented in
+`patches/flye/2.9.6/0045-cuflye-read-to-graph-full-query-hit-rehydration-dry-run.patch`
+with runner support in `scripts/run_flye_fixture.sh`.
+
+ABI/design doc:
+
+- `docs/abi/read-to-graph-full-query-hit-raw-overlap-rehydration-dry-run-v0.md`
+
+DGX proof manifest:
+
+- `tests/golden/cuflye-m6p-full-query-hit-guarded-consumption-dry-run-dgx-aarch64.json`
+
+Proof summary:
+
+```text
+proof_root=/tmp/cuflye-m6p-proof-20260701T093152Z
+fixture=toy-hifi
+query_ids=5,6,7,8,9,10,11,12
+positive_status=passed
+positive_row_key_matched=true
+positive_rehydration_status=passed
+positive_worker_records=36
+positive_parsed_records=36
+positive_rehydrated_records=36
+positive_typed_row_key_status=match
+positive_graph_mutation_consumed_worker_output=false
+negative_status=rehydration-failed-before-graph-mutation
+negative_row_key_matched=true
+negative_rehydration_status=failed
+negative_proof_fault=drop-first-rehydrated-record
+negative_proof_fault_applied=true
+negative_worker_records=36
+negative_rehydrated_records=35
+negative_typed_row_key_status=mismatch
+negative_graph_mutation_consumed_worker_output=false
+default_cpu_artifact_hashes_match_m0=true
+```
+
+Plain-language benefit:
+
+```text
+M6p does not speed up full Flye yet. It proves that CUDA full-query-hit worker
+output can pass one more real Flye-side boundary: after session-file worker
+row-key parity, Flye can parse the worker raw-overlap rows into checked
+OverlapRange-shaped records and canonicalize them back to the same row keys.
+The negative proof shows this new boundary fails closed after row-key parity
+has already passed, and graph mutation still receives nothing.
+```
+
+Follow-up:
+
+```text
+M6q should add a shadow consumption ledger for these rehydrated raw-overlap
+records, still without mutating graph state, so the next step can reason about
+which downstream read-to-graph path would be eligible for guarded consumption.
+```

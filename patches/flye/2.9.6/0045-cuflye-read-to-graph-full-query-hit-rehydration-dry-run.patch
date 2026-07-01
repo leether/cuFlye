@@ -1,0 +1,829 @@
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -403,6 +403,46 @@
+ 		std::vector<std::string> extraExamples;
+ 	};
+ 
++	struct ReadToGraphRawOverlapRecord
++	{
++		int64_t queryId = 0;
++		int64_t sourceOrder = 0;
++		int64_t rawOverlapCount = 0;
++		int64_t chainInputCount = 0;
++		int64_t edgeId = 0;
++		bool passesChainInputFilter = false;
++		OverlapRange overlap;
++	};
++
++	struct ReadToGraphRawOverlapRehydrationCheck
++	{
++		std::string name;
++		bool required = true;
++		bool passed = false;
++		std::string detail;
++	};
++
++	struct ReadToGraphRawOverlapRehydrationResult
++	{
++		std::string mode;
++		std::string proofFault;
++		std::string status = "not-requested";
++		std::string state = "not-consumed";
++		std::string decision = "disabled";
++		std::string workerTsv;
++		std::string error;
++		bool eligible = false;
++		bool consumed = false;
++		bool notConsumed = true;
++		bool failedClosed = false;
++		bool proofFaultApplied = false;
++		size_t workerRecords = 0;
++		size_t parsedRecords = 0;
++		size_t rehydratedRecords = 0;
++		std::vector<ReadToGraphRawOverlapRehydrationCheck> checks;
++		ReadToGraphRawOverlapRowKeyDiff typedDiff;
++	};
++
+ 	struct ReadToGraphFullQueryHitWorkerDryRunResult
+ 	{
+ 		std::string mode;
+@@ -425,6 +465,12 @@
+ 		std::string stdoutLog;
+ 		std::string stderrLog;
+ 		std::string auditJson;
++		std::string rawOverlapRehydrationJson;
++		std::string rawOverlapRehydrationMode;
++		std::string rawOverlapRehydrationProofFault;
++		std::string rawOverlapRehydrationStatus = "not-requested";
++		std::string rawOverlapRehydrationState = "not-consumed";
++		std::string rawOverlapRehydrationDecision = "disabled";
+ 		std::string workerCommand;
+ 		std::string error;
+ 		std::vector<int64_t> queryIds;
+@@ -440,7 +486,10 @@
+ 		bool failedClosed = false;
+ 		bool graphMutationConsumedWorkerOutput = false;
+ 		bool workerOutputConsumptionEligible = false;
++		bool rawOverlapRehydrationEligible = false;
++		bool rawOverlapRehydrationFailedClosed = false;
+ 		size_t expectedOutputRecords = 0;
++		size_t rawOverlapRehydratedRecords = 0;
+ 		double workerContextSetupMs = 0.0;
+ 		double actualRequestTotalMs = 0.0;
+ 		double actualKernelMs = 0.0;
+@@ -2387,6 +2436,51 @@
+ 		return !readToGraphFullQueryHitWorkerMode().empty();
+ 	}
+ 
++	std::string readToGraphFullQueryHitRawOverlapRehydrationMode()
++	{
++		static std::string mode = []()
++		{
++			const char* raw = std::getenv(
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_REHYDRATION_MODE");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "raw-overlap-vector-dry-run-v0")
++			{
++				throw std::runtime_error(
++					"Unsupported "
++					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_REHYDRATION_MODE: " +
++					selected);
++			}
++			return selected;
++		}();
++		return mode;
++	}
++
++	bool readToGraphFullQueryHitRawOverlapRehydrationEnabled()
++	{
++		return !readToGraphFullQueryHitRawOverlapRehydrationMode().empty();
++	}
++
++	std::string readToGraphFullQueryHitRawOverlapRehydrationProofFault()
++	{
++		static std::string proofFault = []()
++		{
++			const char* raw = std::getenv(
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_REHYDRATION_PROOF_FAULT");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "drop-first-rehydrated-record")
++			{
++				throw std::runtime_error(
++					"Unsupported "
++					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_REHYDRATION_PROOF_FAULT: " +
++					selected);
++			}
++			return selected;
++		}();
++		return proofFault;
++	}
++
+ 	std::string readToGraphFullQueryHitWorkerLifecycleMode()
+ 	{
+ 		static std::string mode = []()
+@@ -2506,6 +2600,23 @@
+ 
+ 	void validateReadToGraphFullQueryHitWorkerConfig()
+ 	{
++		bool rehydrationEnabled =
++			readToGraphFullQueryHitRawOverlapRehydrationEnabled();
++		std::string rehydrationProofFault =
++			readToGraphFullQueryHitRawOverlapRehydrationProofFault();
++		if (rehydrationEnabled && !readToGraphFullQueryHitWorkerDryRunEnabled())
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit raw-overlap rehydration "
++				"requires CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_MODE");
++		}
++		if (!rehydrationProofFault.empty() && !rehydrationEnabled)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit raw-overlap rehydration "
++				"proof fault requires "
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_REHYDRATION_MODE");
++		}
+ 		if (!readToGraphFullQueryHitWorkerDryRunEnabled()) return;
+ 		if (!readToGraphSourcePackEnabled())
+ 		{
+@@ -2610,6 +2721,40 @@
+ 		return value;
+ 	}
+ 
++	double parseReadToGraphRawOverlapDouble(
++		const std::string& text, const std::string& fieldName,
++		const std::string& path, size_t lineNumber)
++	{
++		size_t parsedChars = 0;
++		double value = std::stod(text, &parsedChars);
++		if (parsedChars != text.size() || !std::isfinite(value))
++		{
++			throw std::runtime_error(
++				path + ":" + std::to_string(lineNumber) + ": " + fieldName +
++				" must be a finite decimal number");
++		}
++		return value;
++	}
++
++	bool parseReadToGraphRawOverlapBool01(
++		const std::string& text, const std::string& fieldName,
++		const std::string& path, size_t lineNumber)
++	{
++		if (text == "0") return false;
++		if (text == "1") return true;
++		throw std::runtime_error(
++			path + ":" + std::to_string(lineNumber) + ": " + fieldName +
++			" must be 0 or 1");
++	}
++
++	const char* readToGraphRawOverlapExpectedHeader()
++	{
++		return "query_id\tsource_order\traw_overlap_count\tchain_input_count\t"
++			"read_id\tread_begin\tread_end\tread_len\tedge_seq_id\t"
++			"edge_begin\tedge_end\tedge_len\tedge_id\tscore\t"
++			"seq_divergence\tpasses_chain_input_filter";
++	}
++
+ 	ReadToGraphRawOverlapRowKey parseReadToGraphRawOverlapRowKey(
+ 		const std::vector<std::string>& fields,
+ 		const std::string& path,
+@@ -2645,6 +2790,94 @@
+ 		return key;
+ 	}
+ 
++	ReadToGraphRawOverlapRecord parseReadToGraphRawOverlapRecord(
++		const std::vector<std::string>& fields,
++		const std::string& path,
++		size_t lineNumber)
++	{
++		if (fields.size() != 16)
++		{
++			throw std::runtime_error(
++				path + ":" + std::to_string(lineNumber) +
++				": raw-overlap row must have 16 fields");
++		}
++		std::string rowPath = path + ":" + std::to_string(lineNumber);
++		ReadToGraphRawOverlapRecord record;
++		record.queryId = parseReadToGraphRawOverlapInt64(
++			fields[0], "query_id", path, lineNumber);
++		record.sourceOrder = parseReadToGraphRawOverlapInt64(
++			fields[1], "source_order", path, lineNumber);
++		record.rawOverlapCount = parseReadToGraphRawOverlapInt64(
++			fields[2], "raw_overlap_count", path, lineNumber);
++		record.chainInputCount = parseReadToGraphRawOverlapInt64(
++			fields[3], "chain_input_count", path, lineNumber);
++		int64_t readId = parseReadToGraphRawOverlapInt64(
++			fields[4], "read_id", path, lineNumber);
++		int64_t readBegin = parseReadToGraphRawOverlapInt64(
++			fields[5], "read_begin", path, lineNumber);
++		int64_t readEnd = parseReadToGraphRawOverlapInt64(
++			fields[6], "read_end", path, lineNumber);
++		int64_t readLen = parseReadToGraphRawOverlapInt64(
++			fields[7], "read_len", path, lineNumber);
++		int64_t edgeSeqId = parseReadToGraphRawOverlapInt64(
++			fields[8], "edge_seq_id", path, lineNumber);
++		int64_t edgeBegin = parseReadToGraphRawOverlapInt64(
++			fields[9], "edge_begin", path, lineNumber);
++		int64_t edgeEnd = parseReadToGraphRawOverlapInt64(
++			fields[10], "edge_end", path, lineNumber);
++		int64_t edgeLen = parseReadToGraphRawOverlapInt64(
++			fields[11], "edge_len", path, lineNumber);
++		record.edgeId = parseReadToGraphRawOverlapInt64(
++			fields[12], "edge_id", path, lineNumber);
++		int64_t score = parseReadToGraphRawOverlapInt64(
++			fields[13], "score", path, lineNumber);
++		double seqDivergence = parseReadToGraphRawOverlapDouble(
++			fields[14], "seq_divergence", path, lineNumber);
++		record.passesChainInputFilter = parseReadToGraphRawOverlapBool01(
++			fields[15], "passes_chain_input_filter", path, lineNumber);
++
++		if (record.sourceOrder < 0 ||
++			record.rawOverlapCount < 0 ||
++			record.chainInputCount < 0)
++		{
++			throw std::runtime_error(
++				rowPath + ": source_order and count fields must be non-negative");
++		}
++		checkReadAlignmentRange(readBegin, readEnd, readLen, "read", rowPath);
++		checkReadAlignmentRange(edgeBegin, edgeEnd, edgeLen, "edge", rowPath);
++
++		record.overlap.curId = checkedReadAlignmentFastaIdFromSigned(
++			readId, "read_id", rowPath);
++		record.overlap.curBegin = checkedReadAlignmentInt32(
++			readBegin, "read_begin", rowPath);
++		record.overlap.curEnd = checkedReadAlignmentInt32(
++			readEnd, "read_end", rowPath);
++		record.overlap.curLen = checkedReadAlignmentInt32(
++			readLen, "read_len", rowPath);
++		record.overlap.extId = checkedReadAlignmentFastaIdFromSigned(
++			edgeSeqId, "edge_seq_id", rowPath);
++		record.overlap.extBegin = checkedReadAlignmentInt32(
++			edgeBegin, "edge_begin", rowPath);
++		record.overlap.extEnd = checkedReadAlignmentInt32(
++			edgeEnd, "edge_end", rowPath);
++		record.overlap.extLen = checkedReadAlignmentInt32(
++			edgeLen, "edge_len", rowPath);
++		record.overlap.score = checkedReadAlignmentInt32(score, "score", rowPath);
++		record.overlap.seqDivergence = static_cast<float>(seqDivergence);
++		if (!std::isfinite(record.overlap.seqDivergence))
++		{
++			throw std::runtime_error(
++				rowPath + ": seq_divergence is outside finite float range");
++		}
++
++		if (record.edgeId != 0)
++		{
++			(void)checkedReadAlignmentFastaIdFromSigned(
++				record.edgeId, "edge_id", rowPath);
++		}
++		return record;
++	}
++
+ 	std::vector<ReadToGraphRawOverlapRowKey> readToGraphRawOverlapRowKeys(
+ 		const std::string& path)
+ 	{
+@@ -2659,19 +2892,51 @@
+ 		if (!std::getline(input, schema) ||
+ 			schema != "# schema=cuflye-read-to-graph-raw-overlap-v0")
+ 		{
++				throw std::runtime_error(path + ": unexpected raw-overlap schema");
++			}
++			const char* expectedHeader = readToGraphRawOverlapExpectedHeader();
++			if (!std::getline(input, header) || header != expectedHeader)
++			{
++				throw std::runtime_error(path + ": unexpected raw-overlap header");
++		}
++
++		std::vector<ReadToGraphRawOverlapRowKey> keys;
++		std::string line;
++		size_t lineNumber = 2;
++		while (std::getline(input, line))
++		{
++			++lineNumber;
++			if (!line.empty() && line.back() == '\r') line.pop_back();
++			if (line.empty()) continue;
++			keys.push_back(parseReadToGraphRawOverlapRowKey(
++				readAlignmentSplitTab(line), path, lineNumber));
++		}
++			return keys;
++		}
++
++	std::vector<ReadToGraphRawOverlapRecord> readToGraphRawOverlapRecords(
++		const std::string& path)
++	{
++		std::ifstream input(path);
++		if (!input)
++		{
++			throw std::runtime_error("Can't open read-to-graph raw-overlap TSV: " +
++									 path);
++		}
++		std::string schema;
++		std::string header;
++		if (!std::getline(input, schema) ||
++			schema != "# schema=cuflye-read-to-graph-raw-overlap-v0")
++		{
+ 			throw std::runtime_error(path + ": unexpected raw-overlap schema");
+ 		}
+-		const char* expectedHeader =
+-			"query_id\tsource_order\traw_overlap_count\tchain_input_count\t"
+-			"read_id\tread_begin\tread_end\tread_len\tedge_seq_id\t"
+-			"edge_begin\tedge_end\tedge_len\tedge_id\tscore\t"
+-			"seq_divergence\tpasses_chain_input_filter";
+-		if (!std::getline(input, header) || header != expectedHeader)
++		if (!std::getline(input, header) ||
++			header != readToGraphRawOverlapExpectedHeader())
+ 		{
+ 			throw std::runtime_error(path + ": unexpected raw-overlap header");
+ 		}
+ 
+-		std::vector<ReadToGraphRawOverlapRowKey> keys;
++		std::vector<ReadToGraphRawOverlapRecord> records;
+ 		std::string line;
+ 		size_t lineNumber = 2;
+ 		while (std::getline(input, line))
+@@ -2679,9 +2944,39 @@
+ 			++lineNumber;
+ 			if (!line.empty() && line.back() == '\r') line.pop_back();
+ 			if (line.empty()) continue;
+-			keys.push_back(parseReadToGraphRawOverlapRowKey(
++			records.push_back(parseReadToGraphRawOverlapRecord(
+ 				readAlignmentSplitTab(line), path, lineNumber));
+ 		}
++		return records;
++	}
++
++	ReadToGraphRawOverlapRowKey readToGraphRawOverlapRecordToRowKey(
++		const ReadToGraphRawOverlapRecord& record)
++	{
++		ReadToGraphRawOverlapRowKey key;
++		key.queryId = record.queryId;
++		key.readId = record.overlap.curId.signedId();
++		key.readBegin = record.overlap.curBegin;
++		key.readEnd = record.overlap.curEnd;
++		key.readLen = record.overlap.curLen;
++		key.edgeSeqId = record.overlap.extId.signedId();
++		key.edgeBegin = record.overlap.extBegin;
++		key.edgeEnd = record.overlap.extEnd;
++		key.edgeLen = record.overlap.extLen;
++		key.score = record.overlap.score;
++		return key;
++	}
++
++	std::vector<ReadToGraphRawOverlapRowKey>
++	readToGraphRawOverlapRecordRowKeys(
++		const std::vector<ReadToGraphRawOverlapRecord>& records)
++	{
++		std::vector<ReadToGraphRawOverlapRowKey> keys;
++		keys.reserve(records.size());
++		for (const auto& record : records)
++		{
++			keys.push_back(readToGraphRawOverlapRecordToRowKey(record));
++		}
+ 		return keys;
+ 	}
+ 
+@@ -3058,6 +3353,249 @@
+ 	{
+ 		return readToGraphFullQueryHitWorkerResponseString(
+ 			response, "error_message", "");
++	}
++
++	void addReadToGraphRawOverlapRehydrationCheck(
++		ReadToGraphRawOverlapRehydrationResult& rehydration,
++		const std::string& name,
++		bool passed,
++		const std::string& detail)
++	{
++		ReadToGraphRawOverlapRehydrationCheck check;
++		check.name = name;
++		check.required = true;
++		check.passed = passed;
++		check.detail = detail;
++		rehydration.checks.push_back(check);
++	}
++
++	bool allReadToGraphRawOverlapRehydrationChecksPassed(
++		const ReadToGraphRawOverlapRehydrationResult& rehydration)
++	{
++		for (const auto& check : rehydration.checks)
++		{
++			if (check.required && !check.passed) return false;
++		}
++		return !rehydration.checks.empty();
++	}
++
++	void markReadToGraphRawOverlapRehydrationFailed(
++		ReadToGraphRawOverlapRehydrationResult& rehydration)
++	{
++		rehydration.status = "failed";
++		rehydration.state = "failed-closed";
++		rehydration.decision = "failed-closed-before-graph-mutation";
++		rehydration.eligible = false;
++		rehydration.consumed = false;
++		rehydration.notConsumed = false;
++		rehydration.failedClosed = true;
++	}
++
++	ReadToGraphRawOverlapRehydrationResult
++	evaluateReadToGraphRawOverlapRehydration(
++		const ReadToGraphFullQueryHitWorkerDryRunResult& dryRun,
++		const std::vector<ReadToGraphRawOverlapRowKey>& workerKeys)
++	{
++		ReadToGraphRawOverlapRehydrationResult result;
++		result.mode = readToGraphFullQueryHitRawOverlapRehydrationMode();
++		result.proofFault =
++			readToGraphFullQueryHitRawOverlapRehydrationProofFault();
++		result.workerTsv = dryRun.workerOutputTsv;
++		result.workerRecords = workerKeys.size();
++		if (!readToGraphFullQueryHitRawOverlapRehydrationEnabled()) return result;
++
++		markReadToGraphRawOverlapRehydrationFailed(result);
++		addReadToGraphRawOverlapRehydrationCheck(
++			result, "explicit_rehydration_mode",
++			result.mode == "raw-overlap-vector-dry-run-v0",
++			"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_REHYDRATION_MODE="
++			"raw-overlap-vector-dry-run-v0");
++		addReadToGraphRawOverlapRehydrationCheck(
++			result, "worker_row_key_parity_passed",
++			dryRun.rowKeyMatched && dryRun.workerOutputConsumptionEligible,
++			"M6l/M6n full-query-hit worker row-key diff must pass first");
++		addReadToGraphRawOverlapRehydrationCheck(
++			result, "worker_output_readable",
++			dryRun.workerOutputReadable,
++			"validated worker raw-overlap TSV must be readable");
++		addReadToGraphRawOverlapRehydrationCheck(
++			result, "audit_metadata_available",
++			!dryRun.rawOverlapRehydrationJson.empty(),
++			"raw-overlap rehydration audit JSON path must be available");
++		addReadToGraphRawOverlapRehydrationCheck(
++			result, "graph_not_mutated",
++			!dryRun.graphMutationConsumedWorkerOutput,
++			"worker output must not have reached graph mutation");
++
++		if (!allReadToGraphRawOverlapRehydrationChecksPassed(result))
++		{
++			result.error = "raw-overlap rehydration preconditions failed";
++			return result;
++		}
++
++		try
++		{
++			auto records = readToGraphRawOverlapRecords(result.workerTsv);
++			result.parsedRecords = records.size();
++			if (result.proofFault == "drop-first-rehydrated-record" &&
++				!records.empty())
++			{
++				records.erase(records.begin());
++				result.proofFaultApplied = true;
++			}
++			result.rehydratedRecords = records.size();
++			auto typedKeys = readToGraphRawOverlapRecordRowKeys(records);
++			result.typedDiff = compareReadToGraphRawOverlapRowKeys(
++				workerKeys, typedKeys);
++			addReadToGraphRawOverlapRehydrationCheck(
++				result, "rehydrated_count_matches_worker",
++				result.rehydratedRecords == result.workerRecords,
++				"rehydrated record count must match validated worker row count");
++			addReadToGraphRawOverlapRehydrationCheck(
++				result, "typed_row_keys_match_worker",
++				result.typedDiff.matched,
++				"rehydrated Flye-side row keys must match validated worker row keys");
++
++			if (allReadToGraphRawOverlapRehydrationChecksPassed(result))
++			{
++				result.status = "passed";
++				result.state = "not-consumed";
++				result.decision = "raw-overlap-vector-match-not-consumed";
++				result.eligible = true;
++				result.consumed = false;
++				result.notConsumed = true;
++				result.failedClosed = false;
++				result.error.clear();
++			}
++			else
++			{
++				result.error =
++					"rehydrated raw-overlap row keys differ from validated worker rows";
++			}
++		}
++		catch (const std::exception& exc)
++		{
++			result.error = exc.what();
++			markReadToGraphRawOverlapRehydrationFailed(result);
++		}
++		return result;
++	}
++
++	void captureReadToGraphRawOverlapRehydrationResult(
++		ReadToGraphFullQueryHitWorkerDryRunResult& dryRun,
++		const ReadToGraphRawOverlapRehydrationResult& rehydration)
++	{
++		dryRun.rawOverlapRehydrationMode = rehydration.mode;
++		dryRun.rawOverlapRehydrationProofFault = rehydration.proofFault;
++		dryRun.rawOverlapRehydrationStatus = rehydration.status;
++		dryRun.rawOverlapRehydrationState = rehydration.state;
++		dryRun.rawOverlapRehydrationDecision = rehydration.decision;
++		dryRun.rawOverlapRehydrationEligible = rehydration.eligible;
++		dryRun.rawOverlapRehydrationFailedClosed = rehydration.failedClosed;
++		dryRun.rawOverlapRehydratedRecords = rehydration.rehydratedRecords;
++	}
++
++	void writeReadToGraphRawOverlapRehydrationJson(
++		const std::string& path,
++		const ReadToGraphRawOverlapRehydrationResult& rehydration)
++	{
++		std::ostringstream json;
++		json << "{\n"
++			 << "  \"schema\": "
++				"\"cuflye-read-to-graph-full-query-hit-raw-overlap-rehydration-dry-run-v0\",\n"
++			 << "  \"status\": \"" << readAlignmentJsonEscape(rehydration.status)
++			 << "\",\n"
++			 << "  \"mode\": \"" << readAlignmentJsonEscape(rehydration.mode)
++			 << "\",\n"
++			 << "  \"typed_representation\": \"raw-overlap-vector-dry-run-v0\",\n"
++			 << "  \"proof_fault\": \""
++			 << readAlignmentJsonEscape(rehydration.proofFault) << "\",\n"
++			 << "  \"state\": \"" << readAlignmentJsonEscape(rehydration.state)
++			 << "\",\n"
++			 << "  \"decision\": \"" << readAlignmentJsonEscape(rehydration.decision)
++			 << "\",\n"
++			 << "  \"worker_tsv\": \""
++			 << readAlignmentJsonEscape(rehydration.workerTsv) << "\",\n"
++			 << "  \"eligible\": " << readAlignmentBoolJson(rehydration.eligible)
++			 << ",\n"
++			 << "  \"consumed\": " << readAlignmentBoolJson(rehydration.consumed)
++			 << ",\n"
++			 << "  \"not_consumed\": "
++			 << readAlignmentBoolJson(rehydration.notConsumed) << ",\n"
++			 << "  \"failed_closed\": "
++			 << readAlignmentBoolJson(rehydration.failedClosed) << ",\n"
++			 << "  \"graph_mutation_consumed_worker_output\": false,\n"
++			 << "  \"proof_fault_applied\": "
++			 << readAlignmentBoolJson(rehydration.proofFaultApplied) << ",\n"
++			 << "  \"worker_records\": " << rehydration.workerRecords << ",\n"
++			 << "  \"parsed_records\": " << rehydration.parsedRecords << ",\n"
++			 << "  \"rehydrated_records\": "
++			 << rehydration.rehydratedRecords << ",\n"
++			 << "  \"checks\": [\n";
++		for (size_t index = 0; index < rehydration.checks.size(); ++index)
++		{
++			const auto& check = rehydration.checks[index];
++			json << "    {\n"
++				 << "      \"name\": \"" << readAlignmentJsonEscape(check.name)
++				 << "\",\n"
++				 << "      \"required\": " << readAlignmentBoolJson(check.required)
++				 << ",\n"
++				 << "      \"passed\": " << readAlignmentBoolJson(check.passed)
++				 << ",\n"
++				 << "      \"detail\": \"" << readAlignmentJsonEscape(check.detail)
++				 << "\"\n"
++				 << "    }" << (index + 1 == rehydration.checks.size() ? "\n" : ",\n");
++		}
++		json << "  ],\n"
++			 << "  \"typed_row_key_diff\": {\n"
++			 << "    \"schema\": "
++				"\"cuflye-read-to-graph-raw-overlap-row-key-diff-v0\",\n"
++			 << "    \"status\": \""
++			 << (rehydration.typedDiff.matched ? "match" : "mismatch") << "\",\n"
++			 << "    \"left_records\": " << rehydration.typedDiff.leftRecords
++			 << ",\n"
++			 << "    \"right_records\": " << rehydration.typedDiff.rightRecords
++			 << ",\n"
++			 << "    \"ordered_match\": "
++			 << readAlignmentBoolJson(rehydration.typedDiff.orderedMatched)
++			 << ",\n"
++			 << "    \"matched_rows\": " << rehydration.typedDiff.matchedRows
++			 << ",\n"
++			 << "    \"missing_rows\": " << rehydration.typedDiff.missingRows
++			 << ",\n"
++			 << "    \"extra_rows\": " << rehydration.typedDiff.extraRows
++			 << ",\n"
++			 << "    \"missing_examples\": [";
++		for (size_t index = 0;
++			 index < rehydration.typedDiff.missingExamples.size(); ++index)
++		{
++			if (index) json << ", ";
++			json << "\"" << readAlignmentJsonEscape(
++				rehydration.typedDiff.missingExamples[index]) << "\"";
++		}
++		json << "],\n"
++			 << "    \"extra_examples\": [";
++		for (size_t index = 0;
++			 index < rehydration.typedDiff.extraExamples.size(); ++index)
++		{
++			if (index) json << ", ";
++			json << "\"" << readAlignmentJsonEscape(
++				rehydration.typedDiff.extraExamples[index]) << "\"";
++		}
++		json << "]\n"
++			 << "  }";
++		if (!rehydration.error.empty())
++		{
++			json << ",\n"
++				 << "  \"error\": \""
++				 << readAlignmentJsonEscape(rehydration.error) << "\"\n";
++		}
++		else
++		{
++			json << "\n";
++		}
++		json << "}\n";
++		writeReadAlignmentTextFile(path, json.str());
+ 	}
+ 
+ 	void writeReadToGraphFullQueryHitWorkerDryRunJson(
+@@ -3099,11 +3637,29 @@
+ 			 << "  \"worker_warmup_response_json\": \""
+ 			 << readAlignmentJsonEscape(result.workerWarmupResponseJson) << "\",\n"
+ 			 << "  \"worker_output_tsv\": \""
+-			 << readAlignmentJsonEscape(result.workerOutputTsv) << "\",\n"
+-			 << "  \"worker_warmup_output_tsv\": \""
+-			 << readAlignmentJsonEscape(result.workerWarmupOutputTsv) << "\",\n"
+-			 << "  \"stdout_log\": \"" << readAlignmentJsonEscape(result.stdoutLog)
+-			 << "\",\n"
++				 << readAlignmentJsonEscape(result.workerOutputTsv) << "\",\n"
++				 << "  \"worker_warmup_output_tsv\": \""
++				 << readAlignmentJsonEscape(result.workerWarmupOutputTsv) << "\",\n"
++				 << "  \"raw_overlap_rehydration_json\": \""
++				 << readAlignmentJsonEscape(result.rawOverlapRehydrationJson)
++				 << "\",\n"
++				 << "  \"raw_overlap_rehydration_mode\": \""
++				 << readAlignmentJsonEscape(result.rawOverlapRehydrationMode)
++				 << "\",\n"
++				 << "  \"raw_overlap_rehydration_proof_fault\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapRehydrationProofFault) << "\",\n"
++				 << "  \"raw_overlap_rehydration_status\": \""
++				 << readAlignmentJsonEscape(result.rawOverlapRehydrationStatus)
++				 << "\",\n"
++				 << "  \"raw_overlap_rehydration_state\": \""
++				 << readAlignmentJsonEscape(result.rawOverlapRehydrationState)
++				 << "\",\n"
++				 << "  \"raw_overlap_rehydration_decision\": \""
++				 << readAlignmentJsonEscape(result.rawOverlapRehydrationDecision)
++				 << "\",\n"
++				 << "  \"stdout_log\": \"" << readAlignmentJsonEscape(result.stdoutLog)
++				  << "\",\n"
+ 			 << "  \"stderr_log\": \"" << readAlignmentJsonEscape(result.stderrLog)
+ 			 << "\",\n"
+ 			 << "  \"worker_command\": \""
+@@ -3125,12 +3681,18 @@
+ 				 << ",\n"
+ 				 << "  \"worker_output_readable\": "
+ 				 << readAlignmentBoolJson(result.workerOutputReadable) << ",\n"
+-			 << "  \"worker_output_consumption_eligible\": "
+-			 << readAlignmentBoolJson(result.workerOutputConsumptionEligible)
+-			 << ",\n"
+-			 << "  \"graph_mutation_consumed_worker_output\": "
+-			 << readAlignmentBoolJson(result.graphMutationConsumedWorkerOutput)
+-			 << ",\n"
++				 << "  \"worker_output_consumption_eligible\": "
++				 << readAlignmentBoolJson(result.workerOutputConsumptionEligible)
++				 << ",\n"
++				 << "  \"raw_overlap_rehydration_eligible\": "
++				 << readAlignmentBoolJson(result.rawOverlapRehydrationEligible)
++				 << ",\n"
++				 << "  \"raw_overlap_rehydration_failed_closed\": "
++				 << readAlignmentBoolJson(
++					 result.rawOverlapRehydrationFailedClosed) << ",\n"
++				 << "  \"graph_mutation_consumed_worker_output\": "
++				 << readAlignmentBoolJson(result.graphMutationConsumedWorkerOutput)
++				 << ",\n"
+ 			 << "  \"failed_closed\": "
+ 			 << readAlignmentBoolJson(result.failedClosed) << ",\n"
+ 			 << "  \"worker_context_setup_ms\": "
+@@ -3144,9 +3706,11 @@
+ 			 << "    \"host_to_device\": "
+ 			 << result.actualHostToDeviceMs << "\n"
+ 			 << "  },\n"
+-			 << "  \"expected_output_records\": "
+-			 << result.expectedOutputRecords << ",\n"
+-			 << "  \"query_ids\": [";
++				 << "  \"expected_output_records\": "
++				 << result.expectedOutputRecords << ",\n"
++				 << "  \"raw_overlap_rehydrated_records\": "
++				 << result.rawOverlapRehydratedRecords << ",\n"
++				 << "  \"query_ids\": [";
+ 		for (size_t idx = 0; idx < result.queryIds.size(); ++idx)
+ 		{
+ 			if (idx) json << ", ";
+@@ -3219,11 +3783,15 @@
+ 	{
+ 		if (!readToGraphFullQueryHitWorkerDryRunEnabled()) return;
+ 
+-			ReadToGraphFullQueryHitWorkerDryRunResult result;
+-			result.mode = readToGraphFullQueryHitWorkerMode();
+-			result.sourcePackDir = std::string(readToGraphSourcePackDir());
+-			result.workerOutputRoot = readAlignmentRequiredEnv(
+-				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_OUTPUT_DIR");
++				ReadToGraphFullQueryHitWorkerDryRunResult result;
++				result.mode = readToGraphFullQueryHitWorkerMode();
++				result.rawOverlapRehydrationMode =
++					readToGraphFullQueryHitRawOverlapRehydrationMode();
++				result.rawOverlapRehydrationProofFault =
++					readToGraphFullQueryHitRawOverlapRehydrationProofFault();
++				result.sourcePackDir = std::string(readToGraphSourcePackDir());
++				result.workerOutputRoot = readAlignmentRequiredEnv(
++					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_OUTPUT_DIR");
+ 			result.workerLifecycleMode =
+ 				readToGraphFullQueryHitWorkerLifecycleMode();
+ 			if (readToGraphFullQueryHitWorkerFileSessionEnabled())
+@@ -3252,11 +3820,14 @@
+ 				result.workerOutputRoot, "full-query-hit-worker-stdout.log");
+ 			result.stderrLog = joinReplayPath(
+ 				result.workerOutputRoot, "full-query-hit-worker-stderr.log");
+-			result.auditJson = joinReplayPath(
+-				result.workerOutputRoot,
+-				"full-query-hit-worker-dry-run.json");
+-			result.workerSessionSubmitPath = joinReplayPath(
+-				result.workerOutputRoot, "full-query-hit-worker-session-submit.txt");
++				result.auditJson = joinReplayPath(
++					result.workerOutputRoot,
++					"full-query-hit-worker-dry-run.json");
++				result.rawOverlapRehydrationJson = joinReplayPath(
++					result.workerOutputRoot,
++					"full-query-hit-worker-raw-overlap-rehydration.json");
++				result.workerSessionSubmitPath = joinReplayPath(
++					result.workerOutputRoot, "full-query-hit-worker-session-submit.txt");
+ 			result.queryIds = sortedReadToGraphSourcePackQueryIds();
+ 			ensureReplayDirectory(result.workerOutputRoot);
+ 
+@@ -3467,20 +4038,49 @@
+ 			result.diff = compareReadToGraphRawOverlapRowKeys(
+ 				oracleKeys, workerKeys);
+ 			result.rowKeyMatched = result.diff.matched;
+-			if (!result.rowKeyMatched)
+-			{
+-				throw std::runtime_error(
+-					"CUDA full-query-hit worker raw-overlap row keys differ from "
+-					"CPU oracle");
++				if (!result.rowKeyMatched)
++				{
++					throw std::runtime_error(
++						"CUDA full-query-hit worker raw-overlap row keys differ from "
++						"CPU oracle");
++				}
++				result.workerOutputConsumptionEligible = true;
++				if (readToGraphFullQueryHitRawOverlapRehydrationEnabled())
++				{
++					auto rehydration = evaluateReadToGraphRawOverlapRehydration(
++						result, workerKeys);
++					captureReadToGraphRawOverlapRehydrationResult(
++						result, rehydration);
++					writeReadToGraphRawOverlapRehydrationJson(
++						result.rawOverlapRehydrationJson, rehydration);
++					if (rehydration.failedClosed)
++					{
++						result.status = "rehydration-failed-before-graph-mutation";
++						result.decision = "fail-closed-before-graph-mutation";
++						result.failedClosed = true;
++						result.workerOutputConsumptionEligible = false;
++						result.graphMutationConsumedWorkerOutput = false;
++						result.error =
++							"CUDA full-query-hit raw-overlap rehydration failed";
++					}
++					else
++					{
++						result.status = "passed";
++						result.decision = "stopped-before-graph-mutation";
++						result.failedClosed = false;
++						result.graphMutationConsumedWorkerOutput = false;
++					}
++				}
++				else
++				{
++					result.status = "passed";
++					result.decision = "stopped-before-graph-mutation";
++					result.failedClosed = false;
++					result.graphMutationConsumedWorkerOutput = false;
++				}
+ 			}
+-			result.status = "passed";
+-			result.decision = "stopped-before-graph-mutation";
+-			result.failedClosed = false;
+-			result.workerOutputConsumptionEligible = true;
+-			result.graphMutationConsumedWorkerOutput = false;
+-		}
+-		catch (const std::exception& exc)
+-		{
++			catch (const std::exception& exc)
++			{
+ 			markReadToGraphFullQueryHitWorkerDryRunFailed(result, exc.what());
+ 		}
+ 
+@@ -3488,6 +4088,14 @@
+ 			result.auditJson, result);
+ 		if (result.status != "passed")
+ 		{
++			if (result.status == "rehydration-failed-before-graph-mutation")
++			{
++				throw std::runtime_error(
++					"cuFlye read-to-graph full-query-hit raw-overlap rehydration "
++					"fail-closed before graph mutation; rehydration_json=" +
++					result.rawOverlapRehydrationJson + "; audit_json=" +
++					result.auditJson);
++			}
+ 			throw std::runtime_error(
+ 				"cuFlye read-to-graph full-query-hit worker dry-run "
+ 				"fail-closed before graph mutation; audit_json=" +

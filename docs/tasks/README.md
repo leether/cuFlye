@@ -11,12 +11,16 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m6p-full-query-hit-guarded-consumption-dry-run.md`:
-  parse session-validated full-query-hit worker rows into Flye-side typed
-  structures in a no-graph-mutation guarded dry-run.
+- `2026-07-01-cuflye-m6q-full-query-hit-shadow-consumption-ledger.md`:
+  add a no-mutation shadow consumption ledger for M6p-rehydrated full-query-hit
+  raw-overlap rows, including unresolved `edge_id=0` accounting.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m6p-full-query-hit-guarded-consumption-dry-run.md`:
+  parse session-validated full-query-hit worker rows into Flye-side
+  OverlapRange-shaped records in a no-graph-mutation guarded dry-run, prove
+  typed row-key round-trip, and fail closed on a post-row-key proof fault.
 - `2026-07-01-cuflye-m6o-session-scale-performance-gate.md`:
   run four compatible Flye full-query-hit dry-run seam submissions through one
   file-backed CUDA worker session, prove warm requests stay near kernel time,

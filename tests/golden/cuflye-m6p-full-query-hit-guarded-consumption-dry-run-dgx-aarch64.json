@@ -1,0 +1,52 @@
+{
+  "build_manifest": "/tmp/cuflye-m6p-work/out/m6p/build_manifest.json",
+  "checks": {
+    "negative_graph_not_consumed": true,
+    "negative_proof_fault_applied": true,
+    "negative_rehydration_failed": true,
+    "negative_row_key_still_matched": true,
+    "negative_status_rehydration_failed": true,
+    "positive_graph_not_consumed": true,
+    "positive_rehydrated_records_match_worker": true,
+    "positive_rehydration_status_passed": true,
+    "positive_row_key_matched": true,
+    "positive_status_passed": true
+  },
+  "default_cpu_artifact_check": {
+    "artifact_count": 9,
+    "golden_manifest": "tests/golden/toy-hifi-dgx-aarch64.json",
+    "run_dir": "/tmp/cuflye-m6p-cpu-default-check/flye",
+    "status": "match"
+  },
+  "default_cpu_artifact_hashes_match_m0": true,
+  "negative": {
+    "graph_mutation_consumed_worker_output": false,
+    "parsed_records": 36,
+    "proof_fault": "drop-first-rehydrated-record",
+    "proof_fault_applied": true,
+    "rehydrated_records": 35,
+    "rehydration_json": "/tmp/cuflye-m6p-proof-20260701T093152Z/negative/worker/full-query-hit-worker-raw-overlap-rehydration.json",
+    "rehydration_status": "failed",
+    "row_key_matched": true,
+    "status": "rehydration-failed-before-graph-mutation",
+    "typed_row_key_status": "mismatch",
+    "worker_dry_run_json": "/tmp/cuflye-m6p-proof-20260701T093152Z/negative/worker/full-query-hit-worker-dry-run.json",
+    "worker_records": 36
+  },
+  "positive": {
+    "graph_mutation_consumed_worker_output": false,
+    "parsed_records": 36,
+    "rehydrated_records": 36,
+    "rehydration_json": "/tmp/cuflye-m6p-proof-20260701T093152Z/positive/worker/full-query-hit-worker-raw-overlap-rehydration.json",
+    "rehydration_status": "passed",
+    "row_key_matched": true,
+    "status": "passed",
+    "typed_row_key_status": "match",
+    "worker_dry_run_json": "/tmp/cuflye-m6p-proof-20260701T093152Z/positive/worker/full-query-hit-worker-dry-run.json",
+    "worker_records": 36,
+    "worker_response_ok": true
+  },
+  "proof_root": "/tmp/cuflye-m6p-proof-20260701T093152Z",
+  "schema": "cuflye-m6p-full-query-hit-guarded-consumption-dry-run-proof-v0",
+  "worker_build_manifest": "/tmp/cuflye-m6p-work/out/m6p/full_query_hit_worker_build_manifest.json"
+}

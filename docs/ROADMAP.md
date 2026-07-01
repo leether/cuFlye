@@ -3450,3 +3450,89 @@ session-validated raw-overlap rows into Flye-side structures without enabling
 default GPU mode, then prove mismatch and corruption still fail closed before
 graph mutation.
 ```
+
+### M6p: Full-query-hit guarded consumption dry-run
+
+Status: complete.
+
+M6p adds
+`0045-cuflye-read-to-graph-full-query-hit-rehydration-dry-run.patch`,
+`docs/abi/read-to-graph-full-query-hit-raw-overlap-rehydration-dry-run-v0.md`,
+and the DGX manifest
+`tests/golden/cuflye-m6p-full-query-hit-guarded-consumption-dry-run-dgx-aarch64.json`.
+The Flye full-query-hit dry-run seam now supports:
+
+```text
+CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_REHYDRATION_MODE=raw-overlap-vector-dry-run-v0
+CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_REHYDRATION_PROOF_FAULT=drop-first-rehydrated-record
+```
+
+After the CUDA session worker output passes canonical row-key parity, Flye
+parses the worker `raw-overlaps.tsv` into checked `OverlapRange`-shaped records,
+canonicalizes those typed records back to row keys, writes
+`full-query-hit-worker-raw-overlap-rehydration.json`, and still stops before
+graph mutation. `edge_id=0` is treated as an unresolved graph-edge binding at
+this M6 boundary rather than a valid `GraphEdge*`.
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m6p-proof-20260701T093152Z
+fixture=toy-hifi
+query_ids=5,6,7,8,9,10,11,12
+positive_status=passed
+positive_row_key_matched=true
+positive_rehydration_status=passed
+positive_worker_records=36
+positive_parsed_records=36
+positive_rehydrated_records=36
+positive_typed_row_key_status=match
+positive_graph_mutation_consumed_worker_output=false
+negative_status=rehydration-failed-before-graph-mutation
+negative_row_key_matched=true
+negative_rehydration_status=failed
+negative_proof_fault=drop-first-rehydrated-record
+negative_proof_fault_applied=true
+negative_worker_records=36
+negative_rehydrated_records=35
+negative_typed_row_key_status=mismatch
+negative_graph_mutation_consumed_worker_output=false
+default_cpu_artifact_hashes_match_m0=true
+```
+
+Allowed M6p claim:
+
+```text
+cuFlye can rehydrate session-validated CUDA full-query-hit raw-overlap rows
+inside Flye into checked OverlapRange-shaped records, prove the typed records
+round-trip to the validated worker row keys, and fail closed on a post-row-key
+typed mismatch before graph mutation.
+```
+
+Forbidden M6p claim:
+
+```text
+M6p does not prove whole-Flye speedup, graph mutation from CUDA output, default
+GPU mode, GraphEdge object-vector consumption, or full non-key raw-overlap
+field parity.
+```
+
+Plain-language benefit:
+
+```text
+M6p does not make Flye faster yet. It does make the CUDA path more real: worker
+rows no longer stop at "TSV text matches"; Flye can parse them back into its own
+range/id representation and prove they still match. The negative proof happens
+after row-key parity has already passed, so this is a new safety gate rather
+than a repeat of M6l/M6n.
+```
+
+Next highest-ROI task:
+
+```text
+M6q: add a shadow consumption ledger for M6p-rehydrated full-query-hit rows,
+including explicit accounting for unresolved edge_id=0 rows, while still
+keeping graph mutation disabled. This should determine whether there is a safe
+first read-to-graph consumption candidate or whether the next blocker is graph
+edge identity.
+```
