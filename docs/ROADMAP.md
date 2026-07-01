@@ -3211,3 +3211,84 @@ M6m: add a warm/persistent Flye-side full-query-hit worker lifecycle so the real
 Flye seam can reuse CUDA context and device buffers instead of paying cold
 worker startup for each dry-run proof.
 ```
+
+### M6m: Persistent Flye full-query-hit worker lifecycle
+
+Status: complete.
+
+M6m adds
+`0043-cuflye-read-to-graph-full-query-hit-worker-jsonl-lifecycle.patch`. The
+Flye dry-run seam now supports:
+
+```text
+CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_LIFECYCLE_MODE=jsonl-persistent-v0
+```
+
+In that mode Flye emits a two-line JSONL request file: one warmup request and
+one actual request. The CUDA worker keeps its parsed source pack, CUDA context,
+and device buffers warm inside the worker process. Flye validates only the
+actual request output and still stops before graph mutation.
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m6m-proof-20260701T083036Z
+fixture=toy-hifi
+query_ids=5,6,7,8,9,10,11,12
+expected_output_records=36
+requests_jsonl_line_count=2
+request_ids=read-to-graph-full-query-hit-warmup,read-to-graph-full-query-hit-actual
+positive_status=passed
+actual_worker_cuda_context_warm=true
+worker_context_setup_ms=312.078
+actual_request_total_ms=52.2432
+actual_request_kernel_ms=52.179
+actual_request_parse_ms=0
+actual_request_device_allocation_ms=0
+actual_request_host_to_device_ms=0
+row_key_diff=match
+matched_rows=36
+missing_rows=0
+extra_rows=0
+graph_mutation_consumed_worker_output=false
+negative_status=failed-before-graph-mutation
+negative_error="CUDA full-query-hit worker failed with status 256: required bytes exceed memory budget"
+negative_missing_rows=36
+negative_graph_mutation_consumed_worker_output=false
+default_cpu_artifact_hashes_match_m0=true
+```
+
+Allowed M6m claim:
+
+```text
+cuFlye can now have a real Flye dry-run seam send warmup plus actual
+full-query-hit requests to one CUDA worker process, verify that the actual
+request is warm, validate 36/36 raw-overlap row keys, and stop before graph
+mutation.
+```
+
+Forbidden M6m claim:
+
+```text
+M6m does not prove whole-Flye speedup, graph consumption, default GPU mode,
+cross-process daemon reuse, or full non-key raw-overlap field parity.
+```
+
+Plain-language benefit:
+
+```text
+M6m proves the warm-worker shape inside the real Flye seam. The actual request
+no longer pays source parsing, device allocation, or host-to-device copy inside
+the worker; those are all reported as 0 ms for the actual request. Whole-Flye is
+not faster yet because this is still a dry-run proof and Flye still launches one
+worker process for the proof.
+```
+
+Next highest-ROI task:
+
+```text
+M6n: replace per-Flye-process JSONL proof invocation with a true file-backed
+worker session/daemon lifecycle so separate Flye seam calls can reuse one
+already-running CUDA worker process, then measure whether end-to-end worker
+wall time improves beyond this intra-process warm request proof.
+```

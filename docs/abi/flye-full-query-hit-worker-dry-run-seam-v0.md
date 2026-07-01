@@ -3,9 +3,10 @@
 Status: active
 
 M6l connects the M6k `cuflye-full-query-hit-worker-request-v0` protocol to a
-real Flye read-to-graph run. It is intentionally a dry-run seam: Flye generates
-the selected source pack, calls the CUDA worker, validates raw-overlap row-key
-parity, writes audit metadata, and stops before graph mutation.
+real Flye read-to-graph run. M6m extends that seam with an optional JSONL
+lifecycle mode. It is intentionally a dry-run seam: Flye generates the selected
+source pack, calls the CUDA worker, validates raw-overlap row-key parity, writes
+audit metadata, and stops before graph mutation.
 
 ## Environment
 
@@ -24,11 +25,14 @@ Optional:
 ```text
 CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_DEVICE=0
 CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_KERNEL_MODE=parallel-score
+CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_LIFECYCLE_MODE=jsonl-persistent-v0
 CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_MEMORY_BUDGET_BYTES=<bytes>
 ```
 
-`parallel-score` is the only supported M6l kernel mode. The mode requires
+`parallel-score` is the only supported kernel mode. The mode requires
 `--threads 1` because the selected source-pack oracle must be deterministic.
+The lifecycle mode is empty by default; `jsonl-persistent-v0` is the only
+supported non-empty lifecycle mode.
 
 ## Worker Request
 
@@ -53,6 +57,43 @@ The worker output is:
 full-query-hit-worker.raw-overlaps.tsv
 ```
 
+## JSONL Lifecycle
+
+When `CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_LIFECYCLE_MODE` is
+`jsonl-persistent-v0`, Flye writes a two-line JSONL request file:
+
+```text
+full-query-hit-worker-requests.jsonl
+```
+
+The first request is a warmup request:
+
+```text
+request_id=read-to-graph-full-query-hit-warmup
+output_tsv=full-query-hit-worker-warmup.raw-overlaps.tsv
+response_json=full-query-hit-worker-warmup-response.json
+```
+
+The second request is the actual request that Flye validates:
+
+```text
+request_id=read-to-graph-full-query-hit-actual
+output_tsv=full-query-hit-worker.raw-overlaps.tsv
+response_json=full-query-hit-worker-response.json
+```
+
+The positive M6m gate requires:
+
+```text
+warmup status=ok
+actual status=ok
+actual worker_cuda_context_warm=true
+actual row-key diff=match
+```
+
+Only the actual request output is eligible for row-key validation. The warmup
+output is proof metadata only and is not eligible for graph consumption.
+
 ## Audit
 
 Flye writes:
@@ -68,6 +109,18 @@ The positive path records:
   "schema": "cuflye-read-to-graph-full-query-hit-worker-dry-run-v0",
   "status": "passed",
   "decision": "stopped-before-graph-mutation",
+  "worker_lifecycle_mode": "jsonl-persistent-v0",
+  "worker_requests_jsonl": ".../full-query-hit-worker-requests.jsonl",
+  "worker_warmup_response_ok": true,
+  "actual_worker_cuda_context_warm": true,
+  "worker_context_setup_ms": 312.078,
+  "actual_request_timing_ms": {
+    "request_total": 52.2432,
+    "kernel": 52.179,
+    "parse": 0,
+    "device_allocation": 0,
+    "host_to_device": 0
+  },
   "row_key_matched": true,
   "worker_output_consumption_eligible": true,
   "graph_mutation_consumed_worker_output": false
@@ -100,9 +153,12 @@ edge_seq_id, edge_begin, edge_end, edge_len, score
 `seq_divergence`, and `passes_chain_input_filter` are not part of this M6l
 correctness claim.
 
+M6m keeps the same row-key claim. It adds timing attribution for the actual
+warm request but does not expand correctness beyond the row key.
+
 ## Non-Goals
 
-M6l does not:
+M6l/M6m do not:
 
 - mutate Flye graph state with CUDA output;
 - make CUDA the default path;

@@ -1,0 +1,208 @@
+{
+  "acceptance": {
+    "actual_request_reports_worker_cuda_context_warm": true,
+    "actual_request_row_key_diff_matches_cpu_oracle": true,
+    "actual_warm_timing_reported_separately_from_cold_setup": true,
+    "default_cpu_flye_artifacts_unchanged": true,
+    "flye_emits_two_request_jsonl_lifecycle": true,
+    "local_and_dgx_gates_passed": true,
+    "negative_lifecycle_proof_fails_closed_before_graph_mutation": true
+  },
+  "default_cpu_artifacts": {
+    "artifact_hashes_match_m0_golden": true,
+    "comparison": {
+      "current_records": 9,
+      "extra": [],
+      "golden_records": 9,
+      "mismatch": {},
+      "missing": [],
+      "status": "match"
+    }
+  },
+  "fixture": "toy-hifi",
+  "flye_build": {
+    "actual_commit": "886b8c17412c",
+    "actual_tags": [
+      "2.9.6"
+    ],
+    "applied_patch_count": 43,
+    "last_patch": "0043-cuflye-read-to-graph-full-query-hit-worker-jsonl-lifecycle.patch",
+    "manifest": "/tmp/cuflye-m6m-work/out/m6m/build_manifest.json"
+  },
+  "host": "edgexpert-45d2",
+  "machine": "aarch64",
+  "milestone": "M6m-persistent-flye-full-query-hit-worker-lifecycle",
+  "negative_fail_closed": {
+    "decision": "fail-closed-before-graph-mutation",
+    "error": "CUDA full-query-hit worker failed with status 256: required bytes exceed memory budget",
+    "expected_output_records": 36,
+    "failed_closed": true,
+    "graph_mutation_consumed_worker_output": false,
+    "row_key_diff": {
+      "extra_examples": [],
+      "extra_rows": 0,
+      "left_records": 36,
+      "matched_rows": 0,
+      "missing_examples": [],
+      "missing_rows": 36,
+      "ordered_match": false,
+      "right_records": 0,
+      "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+      "status": "mismatch"
+    },
+    "status": "failed-before-graph-mutation",
+    "worker_exit_status": 256,
+    "worker_lifecycle_mode": "jsonl-persistent-v0",
+    "worker_output_consumption_eligible": false,
+    "worker_warmup_response": {
+      "error_code": "request-failed",
+      "error_message": "required bytes exceed memory budget",
+      "request_id": "read-to-graph-full-query-hit-warmup",
+      "request_ordinal": 1,
+      "schema": "cuflye-full-query-hit-worker-response-v0",
+      "status": "error"
+    }
+  },
+  "next_recommended_step": "M6n: replace per-Flye-process JSONL proof invocation with a true file-backed worker session/daemon lifecycle so separate Flye seam calls can reuse one already-running CUDA worker process, then measure whether end-to-end worker wall time improves beyond this intra-process warm request proof.",
+  "patch_series_applied_through": "0043-cuflye-read-to-graph-full-query-hit-worker-jsonl-lifecycle.patch",
+  "plain_language_benefit": "M6m still does not claim whole-Flye speedup. It proves the real Flye seam can send warmup plus actual requests through the JSONL worker lifecycle, keep the CUDA context and device buffers warm for the actual request, validate 36/36 raw-overlap row keys, and stop before graph mutation. On this toy proof, the actual warm request reports parse/device-allocation/host-to-device as 0 ms and request_total around 52 ms, while cold setup remains separately attributed at about 312 ms.",
+  "positive_lifecycle_dry_run": {
+    "actual_request_timing_ms": {
+      "device_allocation": 0,
+      "host_to_device": 0,
+      "kernel": 52.179,
+      "parse": 0,
+      "request_total": 52.2432
+    },
+    "actual_response": {
+      "active_ext_groups": 22,
+      "adapter_mode": "full-query-hit-replay-v0",
+      "device": 0,
+      "device_name": "NVIDIA GB10",
+      "kernel_mode": "parallel-score",
+      "output_records": 36,
+      "output_tsv": "/tmp/cuflye-m6m-proof-20260701T083036Z/positive/worker/full-query-hit-worker.raw-overlaps.tsv",
+      "parallel_threads": 128,
+      "query_count": 8,
+      "raw_overlap_abi": "cuflye-read-to-graph-raw-overlap-v0",
+      "request_id": "read-to-graph-full-query-hit-actual",
+      "request_ordinal": 2,
+      "required_bytes": 1142052,
+      "schema": "cuflye-full-query-hit-worker-response-v0",
+      "source_ext_groups": 33,
+      "source_match_records": 7747,
+      "source_pack_dir": "/tmp/cuflye-m6m-proof-20260701T083036Z/positive/source-pack",
+      "status": "ok",
+      "timing_ms": {
+        "device_allocation": 0.0,
+        "device_to_host": 0.02304,
+        "host_pack": 0.0,
+        "host_to_device": 0.0,
+        "kernel": 52.178971,
+        "parse": 0.0,
+        "request_total": 52.243244,
+        "worker_uptime": 417.102652,
+        "write_output": 0.034753
+      },
+      "worker_context_setup_ms": 312.07826,
+      "worker_cuda_context_warm": true
+    },
+    "actual_worker_cuda_context_warm": true,
+    "decision": "stopped-before-graph-mutation",
+    "expected_output_records": 36,
+    "external_row_key_diff": {
+      "extra_examples": [],
+      "extra_rows": 0,
+      "left": "/tmp/cuflye-m6m-proof-20260701T083036Z/positive/oracle.raw-overlaps.tsv",
+      "left_records": 36,
+      "left_sha256": "8b417a19152d1b64801927a6c6e7d73e7734148d502c8b88ce9ee8fd779aace9",
+      "matched_rows": 36,
+      "missing_examples": [],
+      "missing_rows": 0,
+      "ordered_match": false,
+      "right": "/tmp/cuflye-m6m-proof-20260701T083036Z/positive/worker/full-query-hit-worker.raw-overlaps.tsv",
+      "right_records": 36,
+      "right_sha256": "8b417a19152d1b64801927a6c6e7d73e7734148d502c8b88ce9ee8fd779aace9",
+      "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+      "status": "match"
+    },
+    "graph_mutation_consumed_worker_output": false,
+    "request_ids": [
+      "read-to-graph-full-query-hit-warmup",
+      "read-to-graph-full-query-hit-actual"
+    ],
+    "requests_jsonl": "/tmp/cuflye-m6m-proof-20260701T083036Z/positive/worker/full-query-hit-worker-requests.jsonl",
+    "requests_jsonl_line_count": 2,
+    "row_key_diff": {
+      "extra_examples": [],
+      "extra_rows": 0,
+      "left_records": 36,
+      "matched_rows": 36,
+      "missing_examples": [],
+      "missing_rows": 0,
+      "ordered_match": false,
+      "right_records": 36,
+      "schema": "cuflye-read-to-graph-raw-overlap-row-key-diff-v0",
+      "status": "match"
+    },
+    "status": "passed",
+    "warmup_response": {
+      "active_ext_groups": 22,
+      "adapter_mode": "full-query-hit-replay-v0",
+      "device": 0,
+      "device_name": "NVIDIA GB10",
+      "kernel_mode": "parallel-score",
+      "output_records": 36,
+      "output_tsv": "/tmp/cuflye-m6m-proof-20260701T083036Z/positive/worker/full-query-hit-worker-warmup.raw-overlaps.tsv",
+      "parallel_threads": 128,
+      "query_count": 8,
+      "raw_overlap_abi": "cuflye-read-to-graph-raw-overlap-v0",
+      "request_id": "read-to-graph-full-query-hit-warmup",
+      "request_ordinal": 1,
+      "required_bytes": 1142052,
+      "schema": "cuflye-full-query-hit-worker-response-v0",
+      "source_ext_groups": 33,
+      "source_match_records": 7747,
+      "source_pack_dir": "/tmp/cuflye-m6m-proof-20260701T083036Z/positive/source-pack",
+      "status": "ok",
+      "timing_ms": {
+        "device_allocation": 0.17792,
+        "device_to_host": 0.033568,
+        "host_pack": 0.241488,
+        "host_to_device": 0.054464,
+        "kernel": 52.578284,
+        "parse": 9.003271,
+        "request_total": 364.832944,
+        "worker_uptime": 364.833024,
+        "write_output": 0.133472
+      },
+      "worker_context_setup_ms": 312.07826,
+      "worker_cuda_context_warm": false
+    },
+    "worker_context_setup_ms": 312.078,
+    "worker_exit_status": 0,
+    "worker_lifecycle_mode": "jsonl-persistent-v0",
+    "worker_output_consumption_eligible": true,
+    "worker_response_ok": true,
+    "worker_wall_ms": 551.673,
+    "worker_warmup_response_ok": true
+  },
+  "proof_root": "/tmp/cuflye-m6m-proof-20260701T083036Z",
+  "schema": "cuflye-m6m-persistent-flye-full-query-hit-worker-lifecycle-proof-v0",
+  "source_pack_query_ids": [
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+  ],
+  "worker_build": {
+    "cuda_arch": "sm_121",
+    "manifest": "/tmp/cuflye-m6m-work/out/m6m/full_query_hit_worker_build_manifest.json",
+    "nvcc": "/usr/local/cuda-13.0/bin/nvcc",
+    "output_binary": "/tmp/cuflye-m6m-work/out/m6m/bin/cuflye-cuda-full-query-hit-replay"
+  }
+}

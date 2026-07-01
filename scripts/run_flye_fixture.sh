@@ -76,6 +76,8 @@ Options:
                        Set CUFLYE_READ_TO_GRAPH_SOURCE_PACK_QUERY_IDS
   --read-to-graph-full-query-hit-worker-mode MODE
                        Set CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_MODE
+  --read-to-graph-full-query-hit-worker-lifecycle-mode MODE
+                       Set CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_LIFECYCLE_MODE
   --read-to-graph-full-query-hit-worker-bin PATH
                        Set CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_BIN
   --read-to-graph-full-query-hit-worker-output-dir PATH
@@ -222,6 +224,7 @@ read_alignment_predivergence_chain_proof_fault="${CUFLYE_READ_ALIGNMENT_PREDIVER
 read_to_graph_source_pack_dir="${CUFLYE_READ_TO_GRAPH_SOURCE_PACK_DIR:-}"
 read_to_graph_source_pack_query_ids="${CUFLYE_READ_TO_GRAPH_SOURCE_PACK_QUERY_IDS:-}"
 read_to_graph_full_query_hit_worker_mode="${CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_MODE:-}"
+read_to_graph_full_query_hit_worker_lifecycle_mode="${CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_LIFECYCLE_MODE:-}"
 read_to_graph_full_query_hit_worker_bin="${CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_BIN:-}"
 read_to_graph_full_query_hit_worker_output_dir="${CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_OUTPUT_DIR:-}"
 read_to_graph_full_query_hit_worker_device="${CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_DEVICE:-}"
@@ -422,6 +425,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --read-to-graph-full-query-hit-worker-mode)
       read_to_graph_full_query_hit_worker_mode="$2"
+      shift 2
+      ;;
+    --read-to-graph-full-query-hit-worker-lifecycle-mode)
+      read_to_graph_full_query_hit_worker_lifecycle_mode="$2"
       shift 2
       ;;
     --read-to-graph-full-query-hit-worker-bin)
@@ -855,6 +862,9 @@ if [ -n "${read_to_graph_source_pack_query_ids}" ]; then
 fi
 if [ -n "${read_to_graph_full_query_hit_worker_mode}" ]; then
   export CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_MODE="${read_to_graph_full_query_hit_worker_mode}"
+fi
+if [ -n "${read_to_graph_full_query_hit_worker_lifecycle_mode}" ]; then
+  export CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_LIFECYCLE_MODE="${read_to_graph_full_query_hit_worker_lifecycle_mode}"
 fi
 if [ -n "${read_to_graph_full_query_hit_worker_bin}" ]; then
   export CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_BIN="${read_to_graph_full_query_hit_worker_bin}"
