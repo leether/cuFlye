@@ -193,3 +193,5 @@ M6 read-to-graph input-boundary proof:
   `cuflye-m6i-parallel-full-query-hit-replay-benchmark-dgx-aarch64.json`
 - Persistent full query-hit replay session manifest:
   `cuflye-m6j-persistent-full-query-hit-replay-session-dgx-aarch64.json`
+- Full query-hit worker seam manifest:
+  `cuflye-m6k-full-query-hit-worker-seam-dgx-aarch64.json`

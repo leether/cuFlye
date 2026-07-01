@@ -5,6 +5,8 @@
 #include "cuflye_cuda_raii.hpp"
 
 #include <algorithm>
+#include <cerrno>
+#include <cctype>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
@@ -100,6 +102,8 @@ struct Options
 	std::string packDir;
 	std::string outputTsv;
 	std::string jsonOutput;
+	std::string workerRequestJson;
+	std::string workerRequestsJsonl;
 	std::string kernelMode = "serial";
 	int device = 0;
 	int repeatCount = 1;
@@ -140,6 +144,57 @@ struct RunSummary
 	std::string deviceName;
 	std::string kernelMode;
 	std::vector<RequestTiming> requestTimings;
+};
+
+struct ReplaySession
+{
+	bool initialized = false;
+	Options options;
+	std::vector<QuerySummary> queries;
+	std::vector<MatchRecord> flatMatches;
+	std::vector<GroupRecord> groups;
+	std::vector<int32_t> scoreTable;
+	std::vector<int32_t> backtrackTable;
+	std::vector<int32_t> orderScratch;
+	std::vector<OverlapRecord> proposalRows;
+	std::vector<int32_t> proposalCounts;
+	std::vector<OverlapRecord> outputRows;
+	std::vector<int32_t> outputCounts;
+	DeviceStatus zeroStatus{0, 0};
+	DeviceStatus lastStatus{0, 0};
+	cuflye::cuda_raii::DeviceBuffer<MatchRecord> dMatches;
+	cuflye::cuda_raii::DeviceBuffer<GroupRecord> dGroups;
+	cuflye::cuda_raii::DeviceBuffer<int32_t> dScore;
+	cuflye::cuda_raii::DeviceBuffer<int32_t> dBacktrack;
+	cuflye::cuda_raii::DeviceBuffer<int32_t> dOrder;
+	cuflye::cuda_raii::DeviceBuffer<OverlapRecord> dProposals;
+	cuflye::cuda_raii::DeviceBuffer<int32_t> dProposalCounts;
+	cuflye::cuda_raii::DeviceBuffer<OverlapRecord> dOutput;
+	cuflye::cuda_raii::DeviceBuffer<int32_t> dOutputCounts;
+	cuflye::cuda_raii::DeviceBuffer<DeviceStatus> dStatus;
+	double parseMs = 0.0;
+	double hostPackMs = 0.0;
+	double deviceAllocationMs = 0.0;
+	double hostToDeviceMs = 0.0;
+	size_t sourceMatchRecords = 0;
+	size_t extGroups = 0;
+	size_t activeGroups = 0;
+	size_t requiredBytes = 0;
+	size_t freeBytes = 0;
+	size_t totalBytes = 0;
+	std::string deviceName;
+};
+
+struct WorkerRequest
+{
+	std::string schema;
+	std::string requestId;
+	std::string responseJson;
+	std::string adapterMode;
+	std::string rawOverlapAbi;
+	Options options;
+	bool hasExpectedOutputRecords = false;
+	size_t expectedOutputRecords = 0;
 };
 
 double elapsedMs(Clock::time_point start, Clock::time_point end)
@@ -214,6 +269,176 @@ std::string readFile(const std::string& path)
 	}
 	return std::string((std::istreambuf_iterator<char>(input)),
 					   std::istreambuf_iterator<char>());
+}
+
+bool isSpace(char ch)
+{
+	return std::isspace(static_cast<unsigned char>(ch)) != 0;
+}
+
+std::string trim(const std::string& text)
+{
+	size_t begin = 0;
+	while (begin < text.size() && isSpace(text[begin])) ++begin;
+	size_t end = text.size();
+	while (end > begin && isSpace(text[end - 1])) --end;
+	return text.substr(begin, end - begin);
+}
+
+void writeTextFile(const std::string& path, const std::string& text)
+{
+	std::ofstream output(path.c_str());
+	if (!output)
+	{
+		throw std::runtime_error("can't write text file: " + path);
+	}
+	output << text;
+}
+
+void skipJsonWhitespace(const std::string& text, size_t& offset)
+{
+	while (offset < text.size() && isSpace(text[offset])) ++offset;
+}
+
+std::string parseJsonStringToken(const std::string& text, size_t& offset)
+{
+	if (offset >= text.size() || text[offset] != '"')
+	{
+		throw std::runtime_error("JSON string expected");
+	}
+	++offset;
+	std::ostringstream value;
+	while (offset < text.size())
+	{
+		char ch = text[offset++];
+		if (ch == '"') return value.str();
+		if (ch != '\\')
+		{
+			value << ch;
+			continue;
+		}
+		if (offset >= text.size()) throw std::runtime_error("unterminated JSON escape");
+		char escaped = text[offset++];
+		switch (escaped)
+		{
+		case '"': value << '"'; break;
+		case '\\': value << '\\'; break;
+		case '/': value << '/'; break;
+		case 'b': value << '\b'; break;
+		case 'f': value << '\f'; break;
+		case 'n': value << '\n'; break;
+		case 'r': value << '\r'; break;
+		case 't': value << '\t'; break;
+		default: throw std::runtime_error("unsupported JSON escape sequence");
+		}
+	}
+	throw std::runtime_error("unterminated JSON string");
+}
+
+std::string parseJsonValueToken(const std::string& text, size_t& offset)
+{
+	skipJsonWhitespace(text, offset);
+	if (offset >= text.size()) throw std::runtime_error("JSON value expected");
+	if (text[offset] == '"') return parseJsonStringToken(text, offset);
+	if (text[offset] == '{' || text[offset] == '[')
+	{
+		throw std::runtime_error(
+			"nested JSON values are not supported by full query-hit worker v0");
+	}
+	size_t begin = offset;
+	while (offset < text.size() && text[offset] != ',' && text[offset] != '}')
+	{
+		++offset;
+	}
+	std::string value = trim(text.substr(begin, offset - begin));
+	if (value.empty()) throw std::runtime_error("JSON scalar value expected");
+	return value;
+}
+
+std::map<std::string, std::string> parseFlatJsonObject(const std::string& text)
+{
+	std::map<std::string, std::string> fields;
+	size_t offset = 0;
+	skipJsonWhitespace(text, offset);
+	if (offset >= text.size() || text[offset] != '{')
+	{
+		throw std::runtime_error("JSON object expected");
+	}
+	++offset;
+	while (true)
+	{
+		skipJsonWhitespace(text, offset);
+		if (offset < text.size() && text[offset] == '}')
+		{
+			++offset;
+			break;
+		}
+		std::string key = parseJsonStringToken(text, offset);
+		skipJsonWhitespace(text, offset);
+		if (offset >= text.size() || text[offset] != ':')
+		{
+			throw std::runtime_error("JSON object field separator ':' expected");
+		}
+		++offset;
+		std::string value = parseJsonValueToken(text, offset);
+		if (!fields.insert(std::make_pair(key, value)).second)
+		{
+			throw std::runtime_error("duplicate JSON field: " + key);
+		}
+		skipJsonWhitespace(text, offset);
+		if (offset < text.size() && text[offset] == ',')
+		{
+			++offset;
+			continue;
+		}
+		if (offset < text.size() && text[offset] == '}')
+		{
+			++offset;
+			break;
+		}
+		throw std::runtime_error("JSON object field separator ',' or '}' expected");
+	}
+	skipJsonWhitespace(text, offset);
+	if (offset != text.size())
+	{
+		throw std::runtime_error("unexpected characters after JSON object");
+	}
+	return fields;
+}
+
+std::string requireJsonField(const std::map<std::string, std::string>& fields,
+							 const std::string& key)
+{
+	auto iter = fields.find(key);
+	if (iter == fields.end() || iter->second.empty())
+	{
+		throw std::runtime_error(
+			"full query-hit worker request missing required field: " + key);
+	}
+	return iter->second;
+}
+
+std::string optionalJsonField(const std::map<std::string, std::string>& fields,
+							  const std::string& key)
+{
+	auto iter = fields.find(key);
+	if (iter == fields.end()) return "";
+	return iter->second;
+}
+
+unsigned long long parseWorkerUnsigned(const std::string& value,
+									   const std::string& name)
+{
+	if (value.empty()) throw std::runtime_error(name + " must not be empty");
+	if (value[0] == '-') throw std::runtime_error(name + " must be unsigned");
+	char* end = nullptr;
+	errno = 0;
+	unsigned long long parsed = std::strtoull(value.c_str(), &end, 10);
+	if (errno != 0 || end == value.c_str() || *end != '\0')
+	{
+		throw std::runtime_error(name + " must be an unsigned decimal integer");
+	}
+	return parsed;
 }
 
 int32_t parseJsonI32(const std::string& text, const std::string& key)
@@ -526,6 +751,10 @@ Options parseOptions(int argc, char** argv)
 		if (arg == "--source-pack-dir") options.packDir = requireValue(arg);
 		else if (arg == "--output-tsv") options.outputTsv = requireValue(arg);
 		else if (arg == "--json-output") options.jsonOutput = requireValue(arg);
+		else if (arg == "--worker-request-json")
+			options.workerRequestJson = requireValue(arg);
+		else if (arg == "--worker-requests-jsonl")
+			options.workerRequestsJsonl = requireValue(arg);
 		else if (arg == "--kernel-mode") options.kernelMode = requireValue(arg);
 		else if (arg == "--device") options.device = parseI32(requireValue(arg), arg);
 		else if (arg == "--repeat-count")
@@ -541,6 +770,8 @@ Options parseOptions(int argc, char** argv)
 			std::cout << "Usage: cuflye-cuda-full-query-hit-replay "
 					  << "--source-pack-dir DIR --output-tsv PATH "
 					  << "[--json-output PATH] "
+					  << "or --worker-request-json PATH "
+					  << "or --worker-requests-jsonl PATH "
 					  << "[--kernel-mode serial|parallel-score] [--device ID] "
 					  << "[--repeat-count N] "
 					  << "[--memory-budget-bytes N]\n";
@@ -551,11 +782,32 @@ Options parseOptions(int argc, char** argv)
 			throw std::runtime_error("unknown option: " + arg);
 		}
 	}
-	if (options.packDir.empty())
+	bool workerMode = !options.workerRequestJson.empty() ||
+					  !options.workerRequestsJsonl.empty();
+	if (workerMode)
 	{
-		throw std::runtime_error("--source-pack-dir is required");
+		if (!options.workerRequestJson.empty() && !options.workerRequestsJsonl.empty())
+		{
+			throw std::runtime_error("set exactly one worker request input");
+		}
+		if (!options.packDir.empty() || !options.outputTsv.empty() ||
+			!options.jsonOutput.empty())
+		{
+			throw std::runtime_error(
+				"worker mode cannot be combined with direct replay mode");
+		}
 	}
-	if (options.outputTsv.empty()) throw std::runtime_error("--output-tsv is required");
+	else
+	{
+		if (options.packDir.empty())
+		{
+			throw std::runtime_error("--source-pack-dir is required");
+		}
+		if (options.outputTsv.empty())
+		{
+			throw std::runtime_error("--output-tsv is required");
+		}
+	}
 	if (options.kernelMode != "serial" && options.kernelMode != "parallel-score")
 	{
 		throw std::runtime_error("--kernel-mode must be serial or parallel-score");
@@ -1078,6 +1330,663 @@ void writeErrorJson(const std::string& path, const Options& options,
 		   << "  \"error\": \"" << jsonEscape(message) << "\"\n"
 		   << "}\n";
 }
+
+bool replaySessionCompatible(const ReplaySession& session, const Options& options)
+{
+	return session.initialized &&
+		   session.options.packDir == options.packDir &&
+		   session.options.device == options.device &&
+		   session.options.kernelMode == options.kernelMode &&
+		   session.options.hasMemoryBudget == options.hasMemoryBudget &&
+		   (!options.hasMemoryBudget ||
+			session.options.memoryBudgetBytes == options.memoryBudgetBytes);
+}
+
+void copySessionSummary(const ReplaySession& session, const Options& options,
+						RunSummary& summary)
+{
+	summary.device = options.device;
+	summary.kernelMode = options.kernelMode;
+	summary.parallelThreads = options.kernelMode == "parallel-score" ?
+							  kParallelScoreThreads : 1;
+	summary.repeatCount = options.repeatCount;
+	summary.parseMs = session.parseMs;
+	summary.hostPackMs = session.hostPackMs;
+	summary.deviceAllocationMs = session.deviceAllocationMs;
+	summary.hostToDeviceMs = session.hostToDeviceMs;
+	summary.queryCount = session.queries.size();
+	summary.sourceMatchRecords = session.sourceMatchRecords;
+	summary.extGroups = session.extGroups;
+	summary.activeGroups = session.activeGroups;
+	summary.requiredBytes = session.requiredBytes;
+	summary.freeBytes = session.freeBytes;
+	summary.totalBytes = session.totalBytes;
+	summary.deviceName = session.deviceName;
+}
+
+void initializeReplaySession(const Options& options, ReplaySession& session)
+{
+	session = ReplaySession();
+	session.options = options;
+	session.options.outputTsv.clear();
+	session.options.jsonOutput.clear();
+	session.options.repeatCount = 1;
+
+	auto parseStart = Clock::now();
+	std::vector<std::pair<int64_t, std::string>> queryDirs =
+		discoverQueryDirs(options.packDir);
+	int32_t outputOffset = 0;
+	for (const auto& item : queryDirs)
+	{
+		const std::string& queryDir = item.second;
+		QueryParams params = loadQueryParams(queryDir);
+		auto query = loadQuery(queryDir);
+		std::map<int64_t, int32_t> edgeLengths = loadEdgeLengths(queryDir);
+		std::vector<MatchRecord> matches =
+			loadFullQueryHits(queryDir, query.first);
+		QuerySummary querySummary;
+		querySummary.queryId = query.first;
+		querySummary.queryLen = query.second;
+		querySummary.chainInputCount = loadOracleChainInputCount(queryDir);
+		int32_t queryOrdinal = static_cast<int32_t>(session.queries.size());
+		session.queries.push_back(querySummary);
+		session.sourceMatchRecords += matches.size();
+
+		size_t begin = 0;
+		while (begin < matches.size())
+		{
+			size_t end = begin + 1;
+			while (end < matches.size() &&
+				   matches[end].extId == matches[begin].extId)
+			{
+				++end;
+			}
+			++session.extGroups;
+			int64_t extId = matches[begin].extId;
+			auto edgeIt = edgeLengths.find(extId);
+			if (edgeIt == edgeLengths.end())
+			{
+				throw std::runtime_error(queryDir +
+										 ": missing edge sequence for hit group");
+			}
+			std::vector<MatchRecord> group(matches.begin() + begin,
+										   matches.begin() + end);
+			if (prefilterGroup(group, edgeIt->second, params.minOverlap))
+			{
+				if (group.size() >
+					static_cast<size_t>(kMaxSupportedGroupMatches))
+				{
+					throw std::runtime_error(
+						"unsupported shape: group match count exceeds limit");
+				}
+				if (edgeIt->second > query.second)
+				{
+					std::sort(group.begin(), group.end(),
+							  [](const MatchRecord& left,
+								 const MatchRecord& right)
+							  { return left.extPos < right.extPos; });
+				}
+				GroupRecord groupRecord;
+				groupRecord.queryId = query.first;
+				groupRecord.queryOrdinal = queryOrdinal;
+				groupRecord.queryLen = query.second;
+				groupRecord.extId = extId;
+				groupRecord.extLen = edgeIt->second;
+				groupRecord.matchOffset =
+					static_cast<int32_t>(session.flatMatches.size());
+				groupRecord.matchCount = static_cast<int32_t>(group.size());
+				groupRecord.outputOffset = outputOffset;
+				groupRecord.kmerSize = params.kmerSize;
+				groupRecord.maxJump = params.maxJump;
+				groupRecord.minOverlap = params.minOverlap;
+				outputOffset += groupRecord.matchCount;
+				session.flatMatches.insert(session.flatMatches.end(),
+										  group.begin(), group.end());
+				session.groups.push_back(groupRecord);
+				++session.activeGroups;
+			}
+			begin = end;
+		}
+	}
+	if (session.groups.empty())
+	{
+		throw std::runtime_error("unsupported shape: no active replay groups");
+	}
+	session.parseMs = elapsedMs(parseStart, Clock::now());
+
+	auto hostPackStart = Clock::now();
+	session.scoreTable.assign(session.flatMatches.size(), 0);
+	session.backtrackTable.assign(session.flatMatches.size(), -1);
+	session.orderScratch.assign(session.flatMatches.size(), 0);
+	session.proposalRows.assign(session.flatMatches.size(), OverlapRecord{});
+	session.proposalCounts.assign(session.groups.size(), 0);
+	session.outputRows.assign(session.flatMatches.size(), OverlapRecord{});
+	session.outputCounts.assign(session.groups.size(), 0);
+	session.hostPackMs = elapsedMs(hostPackStart, Clock::now());
+
+	cuflye::cuda_raii::checkCuda(
+		cudaSetDevice(options.device), "select CUDA device");
+	cudaDeviceProp props{};
+	cuflye::cuda_raii::checkCuda(
+		cudaGetDeviceProperties(&props, options.device),
+		"read CUDA device properties");
+	session.deviceName = props.name;
+	cuflye::cuda_raii::checkCuda(
+		cudaMemGetInfo(&session.freeBytes, &session.totalBytes),
+		"read CUDA memory info");
+
+	size_t requiredBytes = 0;
+	requiredBytes = checkedAdd(
+		requiredBytes,
+		checkedBytes(session.flatMatches.size(), sizeof(MatchRecord), "matches"),
+		"required bytes");
+	requiredBytes = checkedAdd(
+		requiredBytes,
+		checkedBytes(session.groups.size(), sizeof(GroupRecord), "groups"),
+		"required bytes");
+	requiredBytes = checkedAdd(
+		requiredBytes,
+		checkedBytes(session.scoreTable.size(), sizeof(int32_t), "score table"),
+		"required bytes");
+	requiredBytes = checkedAdd(
+		requiredBytes,
+		checkedBytes(session.backtrackTable.size(), sizeof(int32_t),
+					 "backtrack table"),
+		"required bytes");
+	requiredBytes = checkedAdd(
+		requiredBytes,
+		checkedBytes(session.orderScratch.size(), sizeof(int32_t),
+					 "order scratch"),
+		"required bytes");
+	requiredBytes = checkedAdd(
+		requiredBytes,
+		checkedBytes(session.proposalRows.size(), sizeof(OverlapRecord),
+					 "proposals"),
+		"required bytes");
+	requiredBytes = checkedAdd(
+		requiredBytes,
+		checkedBytes(session.outputRows.size(), sizeof(OverlapRecord),
+					 "output rows"),
+		"required bytes");
+	requiredBytes = checkedAdd(
+		requiredBytes,
+		checkedBytes(session.proposalCounts.size(), sizeof(int32_t),
+					 "proposal counts"),
+		"required bytes");
+	requiredBytes = checkedAdd(
+		requiredBytes,
+		checkedBytes(session.outputCounts.size(), sizeof(int32_t),
+					 "output counts"),
+		"required bytes");
+	requiredBytes = checkedAdd(requiredBytes, sizeof(DeviceStatus),
+							   "required bytes");
+	session.requiredBytes = requiredBytes;
+	if (options.hasMemoryBudget &&
+		session.requiredBytes > options.memoryBudgetBytes)
+	{
+		throw std::runtime_error("required bytes exceed memory budget");
+	}
+
+	auto allocStart = Clock::now();
+	session.dMatches.allocate(
+		checkedBytes(session.flatMatches.size(), sizeof(MatchRecord), "dMatches"),
+		"full query-hit matches");
+	session.dGroups.allocate(
+		checkedBytes(session.groups.size(), sizeof(GroupRecord), "dGroups"),
+		"full query-hit groups");
+	session.dScore.allocate(
+		checkedBytes(session.scoreTable.size(), sizeof(int32_t), "dScore"),
+		"full query-hit score table");
+	session.dBacktrack.allocate(
+		checkedBytes(session.backtrackTable.size(), sizeof(int32_t), "dBacktrack"),
+		"full query-hit backtrack table");
+	session.dOrder.allocate(
+		checkedBytes(session.orderScratch.size(), sizeof(int32_t), "dOrder"),
+		"full query-hit order scratch");
+	session.dProposals.allocate(
+		checkedBytes(session.proposalRows.size(), sizeof(OverlapRecord),
+					 "dProposals"),
+		"full query-hit proposals");
+	session.dProposalCounts.allocate(
+		checkedBytes(session.proposalCounts.size(), sizeof(int32_t),
+					 "dProposalCounts"),
+		"full query-hit proposal counts");
+	session.dOutput.allocate(
+		checkedBytes(session.outputRows.size(), sizeof(OverlapRecord), "dOutput"),
+		"full query-hit output rows");
+	session.dOutputCounts.allocate(
+		checkedBytes(session.outputCounts.size(), sizeof(int32_t), "dOutputCounts"),
+		"full query-hit output counts");
+	session.dStatus.allocate(sizeof(DeviceStatus), "full query-hit status");
+	session.deviceAllocationMs = elapsedMs(allocStart, Clock::now());
+
+	auto h2dStart = Clock::now();
+	cuflye::cuda_raii::checkCuda(
+		cudaMemcpy(session.dMatches.get(), session.flatMatches.data(),
+				   checkedBytes(session.flatMatches.size(), sizeof(MatchRecord),
+								"copy matches"),
+				   cudaMemcpyHostToDevice),
+		"copy full query-hit matches to device");
+	cuflye::cuda_raii::checkCuda(
+		cudaMemcpy(session.dGroups.get(), session.groups.data(),
+				   checkedBytes(session.groups.size(), sizeof(GroupRecord),
+								"copy groups"),
+				   cudaMemcpyHostToDevice),
+		"copy full query-hit groups to device");
+	cuflye::cuda_raii::checkCuda(
+		cudaMemcpy(session.dProposalCounts.get(), session.proposalCounts.data(),
+				   checkedBytes(session.proposalCounts.size(), sizeof(int32_t),
+								"copy proposal counts"),
+				   cudaMemcpyHostToDevice),
+		"initialize proposal counts");
+	cuflye::cuda_raii::checkCuda(
+		cudaMemcpy(session.dOutputCounts.get(), session.outputCounts.data(),
+				   checkedBytes(session.outputCounts.size(), sizeof(int32_t),
+								"copy output counts"),
+				   cudaMemcpyHostToDevice),
+		"initialize output counts");
+	cuflye::cuda_raii::checkCuda(
+		cudaMemcpy(session.dStatus.get(), &session.zeroStatus,
+				   sizeof(DeviceStatus), cudaMemcpyHostToDevice),
+		"initialize full query-hit device status");
+	session.hostToDeviceMs = elapsedMs(h2dStart, Clock::now());
+	session.initialized = true;
+}
+
+RequestTiming runReplayKernel(ReplaySession& session, const std::string& kernelMode)
+{
+	RequestTiming requestTiming;
+	auto requestStart = Clock::now();
+
+	auto resetStart = Clock::now();
+	cuflye::cuda_raii::checkCuda(
+		cudaMemcpy(session.dStatus.get(), &session.zeroStatus,
+				   sizeof(DeviceStatus), cudaMemcpyHostToDevice),
+		"reset full query-hit device status");
+	requestTiming.resetMs = elapsedMs(resetStart, Clock::now());
+
+	auto kernelStart = Clock::now();
+	if (kernelMode == "serial")
+	{
+		replayFullQueryHitGroupsKernel
+			<<<static_cast<int32_t>(session.groups.size()), 1>>>(
+				session.dMatches.get(), session.dGroups.get(),
+				static_cast<int32_t>(session.groups.size()),
+				session.dScore.get(), session.dBacktrack.get(),
+				session.dOrder.get(), session.dProposals.get(),
+				session.dProposalCounts.get(), session.dOutput.get(),
+				session.dOutputCounts.get(), session.dStatus.get());
+	}
+	else
+	{
+		replayFullQueryHitGroupsParallelScoreKernel
+			<<<static_cast<int32_t>(session.groups.size()), kParallelScoreThreads>>>(
+				session.dMatches.get(), session.dGroups.get(),
+				static_cast<int32_t>(session.groups.size()),
+				session.dScore.get(), session.dBacktrack.get(),
+				session.dOrder.get(), session.dProposals.get(),
+				session.dProposalCounts.get(), session.dOutput.get(),
+				session.dOutputCounts.get(), session.dStatus.get());
+	}
+	cuflye::cuda_raii::checkCuda(
+		cudaGetLastError(), "launch full query-hit replay kernel");
+	cuflye::cuda_raii::checkCuda(
+		cudaDeviceSynchronize(), "synchronize full query-hit replay kernel");
+	requestTiming.kernelMs = elapsedMs(kernelStart, Clock::now());
+
+	auto d2hStart = Clock::now();
+	cuflye::cuda_raii::checkCuda(
+		cudaMemcpy(session.outputRows.data(), session.dOutput.get(),
+				   checkedBytes(session.outputRows.size(), sizeof(OverlapRecord),
+								"copy output rows"),
+				   cudaMemcpyDeviceToHost),
+		"copy full query-hit output rows to host");
+	cuflye::cuda_raii::checkCuda(
+		cudaMemcpy(session.outputCounts.data(), session.dOutputCounts.get(),
+				   checkedBytes(session.outputCounts.size(), sizeof(int32_t),
+								"copy output counts"),
+				   cudaMemcpyDeviceToHost),
+		"copy full query-hit output counts to host");
+	cuflye::cuda_raii::checkCuda(
+		cudaMemcpy(&session.lastStatus, session.dStatus.get(),
+				   sizeof(DeviceStatus), cudaMemcpyDeviceToHost),
+		"copy full query-hit status to host");
+	requestTiming.deviceToHostMs = elapsedMs(d2hStart, Clock::now());
+	requestTiming.requestTotalMs = elapsedMs(requestStart, Clock::now());
+	requestTiming.outputRecords = session.lastStatus.outputRecords;
+	if (session.lastStatus.errorCode != 0)
+	{
+		throw std::runtime_error("device full query-hit kernel reported an error");
+	}
+	return requestTiming;
+}
+
+std::vector<OverlapRecord> collectFinalRows(ReplaySession& session)
+{
+	std::vector<OverlapRecord> finalRows;
+	finalRows.reserve(static_cast<size_t>(session.lastStatus.outputRecords));
+	for (size_t groupIdx = 0; groupIdx < session.groups.size(); ++groupIdx)
+	{
+		int32_t count = session.outputCounts[groupIdx];
+		if (count < 0 || count > session.groups[groupIdx].matchCount)
+		{
+			throw std::runtime_error("device output count is outside group bounds");
+		}
+		std::vector<OverlapRecord> groupRows;
+		groupRows.reserve(static_cast<size_t>(count));
+		for (int32_t pos = 0; pos < count; ++pos)
+		{
+			groupRows.push_back(
+				session.outputRows[session.groups[groupIdx].outputOffset + pos]);
+		}
+		std::sort(groupRows.begin(), groupRows.end(),
+				  [](const OverlapRecord& left, const OverlapRecord& right)
+				  { return left.score > right.score; });
+		finalRows.insert(finalRows.end(), groupRows.begin(), groupRows.end());
+	}
+	if (finalRows.size() !=
+		static_cast<size_t>(session.lastStatus.outputRecords))
+	{
+		throw std::runtime_error("device output count mismatch");
+	}
+	for (auto& query : session.queries)
+	{
+		query.outputRecords = 0;
+	}
+	for (const auto& row : finalRows)
+	{
+		if (row.queryOrdinal < 0 ||
+			row.queryOrdinal >= static_cast<int32_t>(session.queries.size()))
+		{
+			throw std::runtime_error("device output row has invalid query ordinal");
+		}
+		session.queries[row.queryOrdinal].outputRecords += 1;
+	}
+	return finalRows;
+}
+
+RunSummary runReplayWithSession(const Options& options, ReplaySession& session,
+								bool allowReuse)
+{
+	auto totalStart = Clock::now();
+	if (!allowReuse || !replaySessionCompatible(session, options))
+	{
+		if (allowReuse && session.initialized)
+		{
+			throw std::runtime_error(
+				"full query-hit worker requires stable source-pack/device/kernel shape");
+		}
+		initializeReplaySession(options, session);
+	}
+
+	RunSummary summary;
+	copySessionSummary(session, options, summary);
+	for (int requestIdx = 0; requestIdx < options.repeatCount; ++requestIdx)
+	{
+		summary.requestTimings.push_back(
+			runReplayKernel(session, options.kernelMode));
+	}
+	const RequestTiming& finalRequest = summary.requestTimings.back();
+	summary.kernelMs = finalRequest.kernelMs;
+	summary.deviceToHostMs = finalRequest.deviceToHostMs;
+	summary.outputRecords = finalRequest.outputRecords;
+
+	std::vector<OverlapRecord> finalRows = collectFinalRows(session);
+	summary.outputRecords = finalRows.size();
+
+	auto writeStart = Clock::now();
+	writeRawOverlapTsv(options.outputTsv, session.queries, finalRows);
+	summary.writeMs = elapsedMs(writeStart, Clock::now());
+	summary.totalMs = elapsedMs(totalStart, Clock::now());
+	return summary;
+}
+
+WorkerRequest parseWorkerRequestObject(const std::string& text)
+{
+	std::map<std::string, std::string> fields = parseFlatJsonObject(text);
+	WorkerRequest request;
+	request.schema = requireJsonField(fields, "schema");
+	request.requestId = requireJsonField(fields, "request_id");
+	request.responseJson = requireJsonField(fields, "response_json");
+	request.adapterMode = requireJsonField(fields, "adapter_mode");
+	request.rawOverlapAbi = requireJsonField(fields, "raw_overlap_abi");
+	request.options.packDir = requireJsonField(fields, "source_pack_dir");
+	request.options.outputTsv = requireJsonField(fields, "output_tsv");
+	request.options.kernelMode = requireJsonField(fields, "kernel_mode");
+	request.options.device =
+		parseI32(requireJsonField(fields, "device"), "device");
+	request.options.repeatCount = 1;
+	request.options.jsonOutput = optionalJsonField(fields, "debug_json_output");
+	std::string memoryBudget = optionalJsonField(fields, "memory_budget_bytes");
+	if (!memoryBudget.empty() && memoryBudget != "null")
+	{
+		request.options.hasMemoryBudget = true;
+		request.options.memoryBudgetBytes =
+			parseWorkerUnsigned(memoryBudget, "memory_budget_bytes");
+	}
+	std::string expectedOutputRecords =
+		optionalJsonField(fields, "expected_output_records");
+	if (!expectedOutputRecords.empty() && expectedOutputRecords != "null")
+	{
+		request.hasExpectedOutputRecords = true;
+		request.expectedOutputRecords = static_cast<size_t>(
+			parseWorkerUnsigned(expectedOutputRecords, "expected_output_records"));
+	}
+	return request;
+}
+
+std::vector<WorkerRequest> loadWorkerRequests(const Options& cliOptions)
+{
+	std::vector<WorkerRequest> requests;
+	if (!cliOptions.workerRequestJson.empty())
+	{
+		requests.push_back(parseWorkerRequestObject(
+			readFile(cliOptions.workerRequestJson)));
+		return requests;
+	}
+
+	std::ifstream input(cliOptions.workerRequestsJsonl.c_str());
+	if (!input)
+	{
+		throw std::runtime_error(
+			"can't read full query-hit worker requests JSONL: " +
+			cliOptions.workerRequestsJsonl);
+	}
+	std::string line;
+	size_t lineNumber = 0;
+	while (std::getline(input, line))
+	{
+		++lineNumber;
+		std::string stripped = trim(line);
+		if (stripped.empty()) continue;
+		try
+		{
+			requests.push_back(parseWorkerRequestObject(stripped));
+		}
+		catch (const std::exception& exc)
+		{
+			throw std::runtime_error(cliOptions.workerRequestsJsonl + ":" +
+									 std::to_string(lineNumber) + ": " + exc.what());
+		}
+	}
+	if (requests.size() < 2)
+	{
+		throw std::runtime_error(
+			"--worker-requests-jsonl proof mode requires at least two requests");
+	}
+	return requests;
+}
+
+void validateWorkerRequest(const WorkerRequest& request)
+{
+	if (request.schema != "cuflye-full-query-hit-worker-request-v0")
+	{
+		throw std::runtime_error("unsupported full query-hit worker request schema");
+	}
+	if (request.adapterMode != "full-query-hit-replay-v0")
+	{
+		throw std::runtime_error("unsupported full query-hit worker adapter_mode");
+	}
+	if (request.rawOverlapAbi != "cuflye-read-to-graph-raw-overlap-v0")
+	{
+		throw std::runtime_error("unsupported full query-hit worker raw_overlap_abi");
+	}
+	if (request.options.kernelMode != "parallel-score")
+	{
+		throw std::runtime_error(
+			"full query-hit worker supports parallel-score kernel mode only");
+	}
+	if (request.options.outputTsv.empty())
+	{
+		throw std::runtime_error("full query-hit worker output_tsv is required");
+	}
+}
+
+std::string buildWorkerResponseJson(const WorkerRequest& request,
+									const RunSummary& summary,
+									size_t requestOrdinal,
+									bool workerContextWarm,
+									double workerContextSetupMs,
+									double workerUptimeMs,
+									double requestTotalMs)
+{
+	double requestParseMs = workerContextWarm ? 0.0 : summary.parseMs;
+	double requestHostPackMs = workerContextWarm ? 0.0 : summary.hostPackMs;
+	double requestDeviceAllocationMs =
+		workerContextWarm ? 0.0 : summary.deviceAllocationMs;
+	double requestHostToDeviceMs = workerContextWarm ? 0.0 : summary.hostToDeviceMs;
+	std::ostringstream json;
+	json << std::fixed << std::setprecision(6);
+	json << "{\n"
+		 << "  \"schema\": \"cuflye-full-query-hit-worker-response-v0\",\n"
+		 << "  \"request_id\": \"" << jsonEscape(request.requestId) << "\",\n"
+		 << "  \"status\": \"ok\",\n"
+		 << "  \"request_ordinal\": " << requestOrdinal << ",\n"
+		 << "  \"worker_cuda_context_warm\": "
+		 << (workerContextWarm ? "true" : "false") << ",\n"
+		 << "  \"worker_context_setup_ms\": " << workerContextSetupMs << ",\n"
+		 << "  \"adapter_mode\": \"full-query-hit-replay-v0\",\n"
+		 << "  \"raw_overlap_abi\": \"cuflye-read-to-graph-raw-overlap-v0\",\n"
+		 << "  \"kernel_mode\": \"" << jsonEscape(summary.kernelMode) << "\",\n"
+		 << "  \"parallel_threads\": " << summary.parallelThreads << ",\n"
+		 << "  \"source_pack_dir\": \""
+		 << jsonEscape(request.options.packDir) << "\",\n"
+		 << "  \"output_tsv\": \"" << jsonEscape(request.options.outputTsv) << "\",\n"
+		 << "  \"device\": " << summary.device << ",\n"
+		 << "  \"device_name\": \"" << jsonEscape(summary.deviceName) << "\",\n"
+		 << "  \"query_count\": " << summary.queryCount << ",\n"
+		 << "  \"source_match_records\": " << summary.sourceMatchRecords << ",\n"
+		 << "  \"source_ext_groups\": " << summary.extGroups << ",\n"
+		 << "  \"active_ext_groups\": " << summary.activeGroups << ",\n"
+		 << "  \"output_records\": " << summary.outputRecords << ",\n"
+		 << "  \"required_bytes\": " << summary.requiredBytes << ",\n"
+		 << "  \"timing_ms\": {\n"
+		 << "    \"worker_uptime\": " << workerUptimeMs << ",\n"
+		 << "    \"request_total\": " << requestTotalMs << ",\n"
+		 << "    \"parse\": " << requestParseMs << ",\n"
+		 << "    \"host_pack\": " << requestHostPackMs << ",\n"
+		 << "    \"device_allocation\": " << requestDeviceAllocationMs << ",\n"
+		 << "    \"host_to_device\": " << requestHostToDeviceMs << ",\n"
+		 << "    \"kernel\": " << summary.kernelMs << ",\n"
+		 << "    \"device_to_host\": " << summary.deviceToHostMs << ",\n"
+		 << "    \"write_output\": " << summary.writeMs << "\n"
+		 << "  }\n"
+		 << "}\n";
+	return json.str();
+}
+
+std::string buildWorkerErrorJson(const WorkerRequest& request,
+								 size_t requestOrdinal,
+								 const std::string& message)
+{
+	std::ostringstream json;
+	json << "{\n"
+		 << "  \"schema\": \"cuflye-full-query-hit-worker-response-v0\",\n"
+		 << "  \"request_id\": \"" << jsonEscape(request.requestId) << "\",\n"
+		 << "  \"status\": \"error\",\n"
+		 << "  \"request_ordinal\": " << requestOrdinal << ",\n"
+		 << "  \"error_code\": \"request-failed\",\n"
+		 << "  \"error_message\": \"" << jsonEscape(message) << "\"\n"
+		 << "}\n";
+	return json.str();
+}
+
+bool executeWorkerRequest(const WorkerRequest& request,
+						  size_t requestOrdinal,
+						  Clock::time_point workerStart,
+						  ReplaySession& session,
+						  double& workerContextSetupMs)
+{
+	auto requestStart = Clock::now();
+	bool hadSession = session.initialized;
+	try
+	{
+		validateWorkerRequest(request);
+		if (request.hasExpectedOutputRecords && request.expectedOutputRecords == 0)
+		{
+			throw std::runtime_error(
+				"full query-hit worker expected_output_records must be > 0");
+		}
+		if (!session.initialized)
+		{
+			auto setupStart = Clock::now();
+			initializeReplaySession(request.options, session);
+			workerContextSetupMs = elapsedMs(setupStart, Clock::now());
+		}
+		else if (!replaySessionCompatible(session, request.options))
+		{
+			throw std::runtime_error(
+				"full query-hit worker requires stable source-pack/device/kernel shape");
+		}
+
+		RunSummary summary =
+			runReplayWithSession(request.options, session, true);
+		if (request.hasExpectedOutputRecords &&
+			summary.outputRecords != request.expectedOutputRecords)
+		{
+			throw std::runtime_error("full query-hit worker output count mismatch");
+		}
+		double requestTotalMs = elapsedMs(requestStart, Clock::now());
+		double workerUptimeMs = elapsedMs(workerStart, Clock::now());
+		std::string response = buildWorkerResponseJson(
+			request, summary, requestOrdinal, hadSession, workerContextSetupMs,
+			workerUptimeMs, requestTotalMs);
+		writeTextFile(request.responseJson, response);
+		std::cout << response;
+		return true;
+	}
+	catch (const std::exception& exc)
+	{
+		std::string response =
+			buildWorkerErrorJson(request, requestOrdinal, exc.what());
+		if (!request.responseJson.empty()) writeTextFile(request.responseJson, response);
+		std::cout << response;
+		return false;
+	}
+}
+
+int runWorkerMain(const Options& cliOptions)
+{
+	std::vector<WorkerRequest> requests = loadWorkerRequests(cliOptions);
+	ReplaySession session;
+	double workerContextSetupMs = 0.0;
+	auto workerStart = Clock::now();
+	for (size_t idx = 0; idx < requests.size(); ++idx)
+	{
+		bool ok = executeWorkerRequest(requests[idx], idx + 1, workerStart,
+									   session, workerContextSetupMs);
+		if (!ok) return 1;
+	}
+	return 0;
+}
+
+int runDirectMain(const Options& options)
+{
+	ReplaySession session;
+	RunSummary summary = runReplayWithSession(options, session, false);
+	writeJson(options.jsonOutput, options, summary);
+	return 0;
+}
 }
 
 int main(int argc, char** argv)
@@ -1085,349 +1994,13 @@ int main(int argc, char** argv)
 	Options options;
 	try
 	{
-		auto totalStart = Clock::now();
 		options = parseOptions(argc, argv);
-		RunSummary summary;
-		summary.device = options.device;
-		summary.kernelMode = options.kernelMode;
-		summary.parallelThreads = options.kernelMode == "parallel-score" ?
-								  kParallelScoreThreads : 1;
-		summary.repeatCount = options.repeatCount;
-
-		auto parseStart = Clock::now();
-		std::vector<QuerySummary> queries;
-		std::vector<MatchRecord> flatMatches;
-		std::vector<GroupRecord> groups;
-		std::vector<std::pair<int64_t, std::string>> queryDirs =
-			discoverQueryDirs(options.packDir);
-		int32_t outputOffset = 0;
-		for (const auto& item : queryDirs)
+		if (!options.workerRequestJson.empty() ||
+			!options.workerRequestsJsonl.empty())
 		{
-			const std::string& queryDir = item.second;
-			QueryParams params = loadQueryParams(queryDir);
-			auto query = loadQuery(queryDir);
-			std::map<int64_t, int32_t> edgeLengths = loadEdgeLengths(queryDir);
-			std::vector<MatchRecord> matches =
-				loadFullQueryHits(queryDir, query.first);
-			QuerySummary querySummary;
-			querySummary.queryId = query.first;
-			querySummary.queryLen = query.second;
-			querySummary.chainInputCount = loadOracleChainInputCount(queryDir);
-			int32_t queryOrdinal = static_cast<int32_t>(queries.size());
-			queries.push_back(querySummary);
-			summary.sourceMatchRecords += matches.size();
-
-			size_t begin = 0;
-			while (begin < matches.size())
-			{
-				size_t end = begin + 1;
-				while (end < matches.size() &&
-					   matches[end].extId == matches[begin].extId)
-				{
-					++end;
-				}
-				++summary.extGroups;
-				int64_t extId = matches[begin].extId;
-				auto edgeIt = edgeLengths.find(extId);
-				if (edgeIt == edgeLengths.end())
-				{
-					throw std::runtime_error(queryDir +
-											 ": missing edge sequence for hit group");
-				}
-				std::vector<MatchRecord> group(matches.begin() + begin,
-											   matches.begin() + end);
-				if (prefilterGroup(group, edgeIt->second, params.minOverlap))
-				{
-					if (group.size() >
-						static_cast<size_t>(kMaxSupportedGroupMatches))
-					{
-						throw std::runtime_error(
-							"unsupported shape: group match count exceeds limit");
-					}
-					if (edgeIt->second > query.second)
-					{
-						std::sort(group.begin(), group.end(),
-								  [](const MatchRecord& left,
-									 const MatchRecord& right)
-								  { return left.extPos < right.extPos; });
-					}
-					GroupRecord groupRecord;
-					groupRecord.queryId = query.first;
-					groupRecord.queryOrdinal = queryOrdinal;
-					groupRecord.queryLen = query.second;
-					groupRecord.extId = extId;
-					groupRecord.extLen = edgeIt->second;
-					groupRecord.matchOffset =
-						static_cast<int32_t>(flatMatches.size());
-					groupRecord.matchCount = static_cast<int32_t>(group.size());
-					groupRecord.outputOffset = outputOffset;
-					groupRecord.kmerSize = params.kmerSize;
-					groupRecord.maxJump = params.maxJump;
-					groupRecord.minOverlap = params.minOverlap;
-					outputOffset += groupRecord.matchCount;
-					flatMatches.insert(flatMatches.end(), group.begin(), group.end());
-					groups.push_back(groupRecord);
-					++summary.activeGroups;
-				}
-				begin = end;
-			}
+			return runWorkerMain(options);
 		}
-		if (groups.empty())
-		{
-			throw std::runtime_error("unsupported shape: no active replay groups");
-		}
-		summary.parseMs = elapsedMs(parseStart, Clock::now());
-
-		auto hostPackStart = Clock::now();
-		std::vector<int32_t> scoreTable(flatMatches.size(), 0);
-		std::vector<int32_t> backtrackTable(flatMatches.size(), -1);
-		std::vector<int32_t> orderScratch(flatMatches.size(), 0);
-		std::vector<OverlapRecord> proposalRows(flatMatches.size());
-		std::vector<int32_t> proposalCounts(groups.size(), 0);
-		std::vector<OverlapRecord> outputRows(flatMatches.size());
-		std::vector<int32_t> outputCounts(groups.size(), 0);
-		DeviceStatus zeroStatus{0, 0};
-		summary.hostPackMs = elapsedMs(hostPackStart, Clock::now());
-
-		cuflye::cuda_raii::checkCuda(
-			cudaSetDevice(options.device), "select CUDA device");
-		cudaDeviceProp props{};
-		cuflye::cuda_raii::checkCuda(
-			cudaGetDeviceProperties(&props, options.device),
-			"read CUDA device properties");
-		summary.deviceName = props.name;
-		cuflye::cuda_raii::checkCuda(
-			cudaMemGetInfo(&summary.freeBytes, &summary.totalBytes),
-			"read CUDA memory info");
-
-		summary.queryCount = queries.size();
-		summary.outputRecords = 0;
-		size_t requiredBytes = 0;
-		requiredBytes = checkedAdd(
-			requiredBytes,
-			checkedBytes(flatMatches.size(), sizeof(MatchRecord), "matches"),
-			"required bytes");
-		requiredBytes = checkedAdd(
-			requiredBytes,
-			checkedBytes(groups.size(), sizeof(GroupRecord), "groups"),
-			"required bytes");
-		requiredBytes = checkedAdd(
-			requiredBytes,
-			checkedBytes(scoreTable.size(), sizeof(int32_t), "score table"),
-			"required bytes");
-		requiredBytes = checkedAdd(
-			requiredBytes,
-			checkedBytes(backtrackTable.size(), sizeof(int32_t), "backtrack table"),
-			"required bytes");
-		requiredBytes = checkedAdd(
-			requiredBytes,
-			checkedBytes(orderScratch.size(), sizeof(int32_t), "order scratch"),
-			"required bytes");
-		requiredBytes = checkedAdd(
-			requiredBytes,
-			checkedBytes(proposalRows.size(), sizeof(OverlapRecord), "proposals"),
-			"required bytes");
-		requiredBytes = checkedAdd(
-			requiredBytes,
-			checkedBytes(outputRows.size(), sizeof(OverlapRecord), "output rows"),
-			"required bytes");
-		requiredBytes = checkedAdd(
-			requiredBytes,
-			checkedBytes(proposalCounts.size(), sizeof(int32_t), "proposal counts"),
-			"required bytes");
-		requiredBytes = checkedAdd(
-			requiredBytes,
-			checkedBytes(outputCounts.size(), sizeof(int32_t), "output counts"),
-			"required bytes");
-		requiredBytes = checkedAdd(requiredBytes, sizeof(DeviceStatus),
-								   "required bytes");
-		summary.requiredBytes = requiredBytes;
-		if (options.hasMemoryBudget &&
-			summary.requiredBytes > options.memoryBudgetBytes)
-		{
-			throw std::runtime_error("required bytes exceed memory budget");
-		}
-
-		auto allocStart = Clock::now();
-		cuflye::cuda_raii::DeviceBuffer<MatchRecord> dMatches(
-			checkedBytes(flatMatches.size(), sizeof(MatchRecord), "dMatches"),
-			"full query-hit matches");
-		cuflye::cuda_raii::DeviceBuffer<GroupRecord> dGroups(
-			checkedBytes(groups.size(), sizeof(GroupRecord), "dGroups"),
-			"full query-hit groups");
-		cuflye::cuda_raii::DeviceBuffer<int32_t> dScore(
-			checkedBytes(scoreTable.size(), sizeof(int32_t), "dScore"),
-			"full query-hit score table");
-		cuflye::cuda_raii::DeviceBuffer<int32_t> dBacktrack(
-			checkedBytes(backtrackTable.size(), sizeof(int32_t), "dBacktrack"),
-			"full query-hit backtrack table");
-		cuflye::cuda_raii::DeviceBuffer<int32_t> dOrder(
-			checkedBytes(orderScratch.size(), sizeof(int32_t), "dOrder"),
-			"full query-hit order scratch");
-		cuflye::cuda_raii::DeviceBuffer<OverlapRecord> dProposals(
-			checkedBytes(proposalRows.size(), sizeof(OverlapRecord), "dProposals"),
-			"full query-hit proposals");
-		cuflye::cuda_raii::DeviceBuffer<int32_t> dProposalCounts(
-			checkedBytes(proposalCounts.size(), sizeof(int32_t), "dProposalCounts"),
-			"full query-hit proposal counts");
-		cuflye::cuda_raii::DeviceBuffer<OverlapRecord> dOutput(
-			checkedBytes(outputRows.size(), sizeof(OverlapRecord), "dOutput"),
-			"full query-hit output rows");
-		cuflye::cuda_raii::DeviceBuffer<int32_t> dOutputCounts(
-			checkedBytes(outputCounts.size(), sizeof(int32_t), "dOutputCounts"),
-			"full query-hit output counts");
-		cuflye::cuda_raii::DeviceBuffer<DeviceStatus> dStatus(
-			sizeof(DeviceStatus), "full query-hit status");
-		summary.deviceAllocationMs = elapsedMs(allocStart, Clock::now());
-
-		auto h2dStart = Clock::now();
-		cuflye::cuda_raii::checkCuda(
-			cudaMemcpy(dMatches.get(), flatMatches.data(),
-					   checkedBytes(flatMatches.size(), sizeof(MatchRecord),
-									"copy matches"),
-					   cudaMemcpyHostToDevice),
-			"copy full query-hit matches to device");
-		cuflye::cuda_raii::checkCuda(
-			cudaMemcpy(dGroups.get(), groups.data(),
-					   checkedBytes(groups.size(), sizeof(GroupRecord),
-									"copy groups"),
-					   cudaMemcpyHostToDevice),
-			"copy full query-hit groups to device");
-		cuflye::cuda_raii::checkCuda(
-			cudaMemcpy(dProposalCounts.get(), proposalCounts.data(),
-					   checkedBytes(proposalCounts.size(), sizeof(int32_t),
-									"copy proposal counts"),
-					   cudaMemcpyHostToDevice),
-			"initialize proposal counts");
-		cuflye::cuda_raii::checkCuda(
-			cudaMemcpy(dOutputCounts.get(), outputCounts.data(),
-					   checkedBytes(outputCounts.size(), sizeof(int32_t),
-									"copy output counts"),
-					   cudaMemcpyHostToDevice),
-			"initialize output counts");
-		cuflye::cuda_raii::checkCuda(
-			cudaMemcpy(dStatus.get(), &zeroStatus, sizeof(DeviceStatus),
-					   cudaMemcpyHostToDevice),
-			"initialize full query-hit device status");
-		summary.hostToDeviceMs = elapsedMs(h2dStart, Clock::now());
-
-		DeviceStatus status{};
-		for (int requestIdx = 0; requestIdx < options.repeatCount; ++requestIdx)
-		{
-			RequestTiming requestTiming;
-			auto requestStart = Clock::now();
-
-			auto resetStart = Clock::now();
-			cuflye::cuda_raii::checkCuda(
-				cudaMemcpy(dStatus.get(), &zeroStatus, sizeof(DeviceStatus),
-						   cudaMemcpyHostToDevice),
-				"reset full query-hit device status");
-			requestTiming.resetMs = elapsedMs(resetStart, Clock::now());
-
-			auto kernelStart = Clock::now();
-			if (options.kernelMode == "serial")
-			{
-				replayFullQueryHitGroupsKernel
-					<<<static_cast<int32_t>(groups.size()), 1>>>(
-						dMatches.get(), dGroups.get(),
-						static_cast<int32_t>(groups.size()), dScore.get(),
-						dBacktrack.get(), dOrder.get(), dProposals.get(),
-						dProposalCounts.get(), dOutput.get(), dOutputCounts.get(),
-						dStatus.get());
-			}
-			else
-			{
-				replayFullQueryHitGroupsParallelScoreKernel
-					<<<static_cast<int32_t>(groups.size()), kParallelScoreThreads>>>(
-						dMatches.get(), dGroups.get(),
-						static_cast<int32_t>(groups.size()), dScore.get(),
-						dBacktrack.get(), dOrder.get(), dProposals.get(),
-						dProposalCounts.get(), dOutput.get(), dOutputCounts.get(),
-						dStatus.get());
-			}
-			cuflye::cuda_raii::checkCuda(
-				cudaGetLastError(), "launch full query-hit replay kernel");
-			cuflye::cuda_raii::checkCuda(
-				cudaDeviceSynchronize(), "synchronize full query-hit replay kernel");
-			requestTiming.kernelMs = elapsedMs(kernelStart, Clock::now());
-
-			auto d2hStart = Clock::now();
-			cuflye::cuda_raii::checkCuda(
-				cudaMemcpy(outputRows.data(), dOutput.get(),
-						   checkedBytes(outputRows.size(), sizeof(OverlapRecord),
-										"copy output rows"),
-						   cudaMemcpyDeviceToHost),
-				"copy full query-hit output rows to host");
-			cuflye::cuda_raii::checkCuda(
-				cudaMemcpy(outputCounts.data(), dOutputCounts.get(),
-						   checkedBytes(outputCounts.size(), sizeof(int32_t),
-										"copy output counts"),
-						   cudaMemcpyDeviceToHost),
-				"copy full query-hit output counts to host");
-			cuflye::cuda_raii::checkCuda(
-				cudaMemcpy(&status, dStatus.get(), sizeof(DeviceStatus),
-						   cudaMemcpyDeviceToHost),
-				"copy full query-hit status to host");
-			requestTiming.deviceToHostMs = elapsedMs(d2hStart, Clock::now());
-			requestTiming.requestTotalMs = elapsedMs(requestStart, Clock::now());
-			requestTiming.outputRecords = status.outputRecords;
-			summary.requestTimings.push_back(requestTiming);
-			if (status.errorCode != 0)
-			{
-				throw std::runtime_error(
-					"device full query-hit kernel reported an error");
-			}
-		}
-		const RequestTiming& finalRequest = summary.requestTimings.back();
-		summary.kernelMs = finalRequest.kernelMs;
-		summary.deviceToHostMs = finalRequest.deviceToHostMs;
-		summary.outputRecords = finalRequest.outputRecords;
-
-		std::vector<OverlapRecord> finalRows;
-		finalRows.reserve(static_cast<size_t>(status.outputRecords));
-		for (size_t groupIdx = 0; groupIdx < groups.size(); ++groupIdx)
-		{
-			int32_t count = outputCounts[groupIdx];
-			if (count < 0 || count > groups[groupIdx].matchCount)
-			{
-				throw std::runtime_error("device output count is outside group bounds");
-			}
-			std::vector<OverlapRecord> groupRows;
-			groupRows.reserve(static_cast<size_t>(count));
-			for (int32_t pos = 0; pos < count; ++pos)
-			{
-				groupRows.push_back(outputRows[groups[groupIdx].outputOffset + pos]);
-			}
-			std::sort(groupRows.begin(), groupRows.end(),
-					  [](const OverlapRecord& left, const OverlapRecord& right)
-					  { return left.score > right.score; });
-			finalRows.insert(finalRows.end(), groupRows.begin(), groupRows.end());
-		}
-		if (finalRows.size() != static_cast<size_t>(status.outputRecords))
-		{
-			throw std::runtime_error("device output count mismatch");
-		}
-		for (auto& query : queries)
-		{
-			query.outputRecords = 0;
-		}
-		for (const auto& row : finalRows)
-		{
-			if (row.queryOrdinal < 0 ||
-				row.queryOrdinal >= static_cast<int32_t>(queries.size()))
-			{
-				throw std::runtime_error("device output row has invalid query ordinal");
-			}
-			queries[row.queryOrdinal].outputRecords += 1;
-		}
-		summary.outputRecords = finalRows.size();
-
-		auto writeStart = Clock::now();
-		writeRawOverlapTsv(options.outputTsv, queries, finalRows);
-		summary.writeMs = elapsedMs(writeStart, Clock::now());
-		summary.totalMs = elapsedMs(totalStart, Clock::now());
-		writeJson(options.jsonOutput, options, summary);
-		return 0;
+		return runDirectMain(options);
 	}
 	catch (const std::exception& exc)
 	{

@@ -11,12 +11,16 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m6k-full-query-hit-worker-seam.md`:
-  convert the M6j warm repeat-count benchmark into a real worker or Flye-side
-  dry-run seam while preserving row-key parity and fail-closed behavior.
+- `2026-07-01-cuflye-m6l-flye-full-query-hit-worker-dry-run-seam.md`:
+  move the M6k full-query-hit worker boundary into a Flye-side dry-run seam
+  while preserving row-key parity and stopping before graph mutation.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m6k-full-query-hit-worker-seam.md`:
+  convert the M6j warm repeat-count benchmark into a real file-backed worker
+  boundary, preserve row-key parity and fail-closed behavior, and keep the
+  bounded warm worker request faster than matched CPU replay.
 - `2026-07-01-cuflye-m6j-persistent-full-query-hit-replay-session.md`:
   add a `--repeat-count` warm-session benchmark mode that preserves canonical
   row-key parity and shows the bounded warm CUDA request is faster than the

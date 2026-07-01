@@ -384,6 +384,17 @@ Completed:
   `1.7241666341150392x`. The cold CUDA process was still slower at about
   `470 ms`, so this is a scoped session hot-path claim, not a whole-Flye
   speedup claim.
+- M6k: the full-query-hit replay consumer now has a file-backed worker
+  request/response boundary with `--worker-request-json` and
+  `--worker-requests-jsonl`. Two compatible requests in one worker process
+  preserve CUDA context and device buffers; the second request reports
+  `worker_cuda_context_warm=true`, `parse=0`, `device_allocation=0`, and
+  `host_to_device=0`. DGX proof preserved CPU-vs-worker row-key `match`,
+  cold-vs-worker row-key `match`, worker A/B row-key `match`, and fail-closed
+  memory-budget rejection. On the selected source pack, warm worker actual
+  request time was `52.243993 ms` versus CPU replay wall time `110.0 ms`, a
+  bounded warm-worker speedup of `2.105505220475778x`. This is a worker-boundary
+  hot-request claim, not a Flye graph-consumption or whole-Flye speed claim.
 
 Current allowed performance claim:
 
@@ -552,6 +563,12 @@ context and device buffers kept warm, the bounded `parallel-score` request beats
 the matched CPU replay wall time for the selected source pack while preserving
 canonical row-key parity. This is a hot-request claim, not a cold-process,
 Flye-stage, or whole-Flye claim.
+
+cuFlye now preserves that hot-request advantage through a file-backed
+full-query-hit worker boundary. The second compatible worker request reuses the
+warm CUDA session and beats matched CPU replay wall time while preserving
+canonical row-key parity. This is still not Flye graph consumption or a
+whole-Flye speed claim.
 ```
 
 Current forbidden claim:
@@ -3051,10 +3068,70 @@ only if we expose it through a warm worker/session seam instead of launching a
 fresh CUDA process each time.
 ```
 
+M6k accepted result:
+
+```text
+cuFlye now has a file-backed full-query-hit worker protocol. Compatible JSONL
+requests reuse one CUDA session, and the second request is a real warm worker
+request instead of an in-process repeat-count benchmark.
+```
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m6k-proof-20260701T074410Z
+golden=tests/golden/cuflye-m6k-full-query-hit-worker-seam-dgx-aarch64.json
+source_pack_canonical_sha256=16f4ced6054e7e4491071a1a7512760424a1e4fbc157e532ddb7c9e2aac53e5f
+cpu_replay_status=match
+cpu_row_key_exact_match=true
+cpu_replay_wall_ms=110.0
+cold_parallel_wall_ms=490.0
+cold_parallel_total_ms=356.641602
+worker_a_actual_request_ordinal=2
+worker_a_actual_cuda_context_warm=true
+worker_a_actual_request_ms=52.243993
+worker_a_actual_kernel_ms=52.177993
+worker_a_actual_parse_ms=0.0
+worker_a_actual_device_allocation_ms=0.0
+cpu_vs_worker_a_row_key_diff=match
+cold_vs_worker_a_row_key_diff=match
+worker_ab_row_key_diff=match
+unsupported_exit_status=1
+unsupported_json_status=error
+unsupported_error="required bytes exceed memory budget"
+bounded_warm_worker_speedup_vs_cpu_replay_wall=2.105505220475778
+```
+
+Allowed M6k claim:
+
+```text
+cuFlye can request bounded full-query-hit CUDA replay through a file-backed
+worker boundary, keep the second compatible request warm, and beat matched CPU
+replay wall time while preserving canonical raw-overlap row-key parity.
+```
+
+Forbidden M6k claim:
+
+```text
+M6k does not prove Flye graph consumption, default GPU mode, cold-process
+speedup, full non-key field reproduction, Flye-stage speedup, or whole-Flye
+speedup.
+```
+
+Plain-language benefit:
+
+```text
+M6k moves the win out of a benchmark loop and behind a worker interface. In
+plain terms: a caller can now ask the GPU worker for the same bounded replay,
+and the warm request still wins, about 52.244 ms versus 110 ms for CPU replay.
+The next risk is integration, not kernel math: Flye still needs to submit this
+request, validate it, and refuse to mutate graph state until the gate passes.
+```
+
 Next highest-ROI task:
 
 ```text
-M6k: convert the M6j warm repeat-count benchmark into a real worker or
-Flye-side dry-run seam while preserving the same row-key parity, fail-closed
-behavior, and bounded hot-request timing advantage.
+M6l: move the M6k full-query-hit worker boundary into a Flye-side dry-run seam
+so a real Flye run can request worker output, validate row-key parity, preserve
+canonical artifacts, and still stop before graph mutation.
 ```

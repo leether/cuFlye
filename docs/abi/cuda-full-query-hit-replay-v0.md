@@ -16,8 +16,9 @@ records with row keys compatible with the M6g CPU replay oracle.
 
 M6h is a correctness boundary. M6i adds an optional `parallel-score` kernel
 mode for the same ABI. M6j adds a bounded `--repeat-count` warm-session
-benchmark mode for the same selected source-pack shape. None of these modes
-feed CUDA output into Flye graph logic or claim whole-Flye acceleration.
+benchmark mode for the same selected source-pack shape. M6k adds a file-backed
+worker request/response boundary for the same path. None of these modes feed
+CUDA output into Flye graph logic or claim whole-Flye acceleration.
 
 ## Command
 
@@ -31,6 +32,15 @@ cuflye-cuda-full-query-hit-replay \
   [--repeat-count N] \
   [--memory-budget-bytes N]
 ```
+
+Worker mode:
+
+```text
+cuflye-cuda-full-query-hit-replay --worker-request-json PATH
+cuflye-cuda-full-query-hit-replay --worker-requests-jsonl PATH
+```
+
+Worker mode is mutually exclusive with direct replay options.
 
 ## Input
 
@@ -70,6 +80,11 @@ inside one process, then launches the selected kernel `N` times. It writes only
 the final request's TSV output, and JSON records per-request reset, kernel,
 device-to-host, and request-total timings. This is a benchmark harness for the
 future worker boundary, not a long-lived JSONL worker.
+
+`--worker-requests-jsonl` processes file-backed requests in one worker process.
+The first compatible request initializes the source pack, CUDA context, and
+device buffers; later compatible requests reuse that session and report
+`worker_cuda_context_warm=true`.
 
 ## Output TSV
 
@@ -132,9 +147,79 @@ On fail-closed errors, JSON uses the same schema with `status: "error"` and an
 `error` string. Error JSON also includes `kernel_mode` so rejected requests can
 be attributed to the selected backend shape.
 
+## Worker Protocol
+
+Request schema:
+
+```text
+cuflye-full-query-hit-worker-request-v0
+```
+
+Minimum supported request:
+
+```json
+{
+  "schema": "cuflye-full-query-hit-worker-request-v0",
+  "request_id": "m6k-actual",
+  "adapter_mode": "full-query-hit-replay-v0",
+  "raw_overlap_abi": "cuflye-read-to-graph-raw-overlap-v0",
+  "backend": "cuda",
+  "kernel_mode": "parallel-score",
+  "device": 0,
+  "source_pack_dir": "/path/to/source-pack",
+  "output_tsv": "/path/to/output.raw-overlaps.tsv",
+  "response_json": "/path/to/response.json",
+  "expected_output_records": 36
+}
+```
+
+Successful response:
+
+```json
+{
+  "schema": "cuflye-full-query-hit-worker-response-v0",
+  "request_id": "m6k-actual",
+  "status": "ok",
+  "request_ordinal": 2,
+  "worker_cuda_context_warm": true,
+  "worker_context_setup_ms": 262.722292,
+  "adapter_mode": "full-query-hit-replay-v0",
+  "raw_overlap_abi": "cuflye-read-to-graph-raw-overlap-v0",
+  "kernel_mode": "parallel-score",
+  "output_records": 36,
+  "timing_ms": {
+    "request_total": 52.243993,
+    "parse": 0.0,
+    "device_allocation": 0.0,
+    "host_to_device": 0.0,
+    "kernel": 52.177993,
+    "device_to_host": 0.027584,
+    "write_output": 0.032112
+  }
+}
+```
+
+Failure response:
+
+```json
+{
+  "schema": "cuflye-full-query-hit-worker-response-v0",
+  "request_id": "m6k-unsupported-memory-budget",
+  "status": "error",
+  "request_ordinal": 1,
+  "error_code": "request-failed",
+  "error_message": "required bytes exceed memory budget"
+}
+```
+
+M6k supports only `parallel-score` worker requests for the selected source-pack
+shape. The worker fails closed on unsupported schema, ABI, kernel mode, memory
+budget, output-count mismatch, or a different source-pack/device/kernel shape
+after the session has been initialized.
+
 ## Non-Goals
 
-M6h/M6i/M6j do not:
+M6h/M6i/M6j/M6k do not:
 
 - reproduce non-key raw-overlap fields such as `edge_id` or full
   `seq_divergence` parity;
