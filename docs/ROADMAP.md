@@ -3798,3 +3798,88 @@ bound rows, keep it behind a no-mutation gate, and fail closed if object
 accounting is corrupted before the vector can be returned to Flye's mutating
 read-to-graph path.
 ```
+
+## 2026-07-01 Update: M6t Full Query-Hit Object Vector Consumption Smoke
+
+Status: completed.
+
+Task Card:
+
+- `docs/tasks/2026-07-01-cuflye-m6t-full-query-hit-object-vector-consumption-smoke.md`
+
+Golden proof:
+
+- `tests/golden/cuflye-m6t-full-query-hit-object-vector-smoke-dgx-aarch64.json`
+
+What changed:
+
+- Added Flye patch `0048` with an opt-in no-mutation object-vector smoke audit.
+- Added ABI notes for
+  `cuflye-read-to-graph-full-query-hit-object-vector-smoke-v0`.
+- Extended `scripts/run_flye_fixture.sh` so proof runs can enable object-vector
+  smoke mode and inject an object-accounting proof fault.
+- Kept graph mutation disabled and audited as not consumed.
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m6t-proof-20260701T105600Z
+fixture=toy-hifi
+query_ids=5,6,7,8,9,10,11,12
+positive_status=passed
+positive_rehydration_status=passed
+positive_shadow_ledger_status=passed
+positive_graph_edge_binding_status=passed
+positive_object_vector_smoke_status=passed
+positive_object_rows=8
+positive_object_accounting_rows=8
+positive_query_accounted_rows=8
+positive_edge_accounted_rows=8
+positive_query_edge_accounted_rows=8
+positive_graph_mutation_consumed_worker_output=false
+negative_status=object-vector-smoke-failed-before-graph-mutation
+negative_rehydration_status=passed
+negative_shadow_ledger_status=passed
+negative_graph_edge_binding_status=passed
+negative_object_vector_smoke_status=failed
+negative_proof_fault=drop-first-object-accounting-row
+negative_proof_fault_applied=true
+negative_object_rows=8
+negative_object_accounting_rows=7
+negative_graph_mutation_consumed_worker_output=false
+default_cpu_artifact_hashes_match_m0=true
+```
+
+Allowed M6t claim:
+
+```text
+cuFlye can construct 8 graph-facing in-memory objects from selected CUDA
+full-query-hit rows, bind each to live Flye graph edges, account every object
+by query and edge, and still block graph mutation.
+```
+
+Forbidden M6t claim:
+
+```text
+M6t does not prove whole-Flye speedup, object-vector substitution, graph
+mutation, default GPU mode, or GPU-computed chain-input filtering/edge identity.
+```
+
+Plain-language benefit:
+
+```text
+M6t still does not make full Flye faster. It proves the CUDA output can become
+Flye-facing objects with complete accounting, instead of remaining an external
+TSV audit. The next boundary is a guarded substitution handoff: can Flye see
+the vector at the replacement point and still refuse mutation unless all counts
+match?
+```
+
+Next highest-ROI task:
+
+```text
+M6u: add a no-mutation substitution guard after M6t. It should receive the
+object vector at the handoff boundary, prove the handoff count matches M6t
+accounting, and fail closed on a deliberately corrupted handoff before graph
+mutation.
+```

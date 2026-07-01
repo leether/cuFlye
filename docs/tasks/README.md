@@ -11,12 +11,15 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m6t-full-query-hit-object-vector-consumption-smoke.md`:
-  construct and account the first graph-facing object vector from M6s-bound
-  full-query-hit rows while still preventing graph mutation consumption.
+- `2026-07-01-cuflye-m6u-full-query-hit-object-vector-substitution-guard.md`:
+  receive the M6t object vector at a guarded no-mutation substitution handoff,
+  prove the handoff count matches, and fail closed before graph mutation.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m6t-full-query-hit-object-vector-consumption-smoke.md`:
+  construct and account the first graph-facing object vector from M6s-bound
+  full-query-hit rows while still preventing graph mutation consumption.
 - `2026-07-01-cuflye-m6s-full-query-hit-graph-edge-binding-dry-run.md`:
   bind chain-input-positive, resolved-edge CUDA full-query-hit rows back to
   live Flye graph edge objects in a no-mutation dry-run audit.
