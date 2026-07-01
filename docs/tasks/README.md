@@ -7,9 +7,9 @@ change is considered complete.
 
 Active cards:
 
-- `2026-07-01-cuflye-m5p-read-alignment-pre-divergence-batch-dry-run.md`:
-  reduce M5o per-read worker overhead with a batch or persistent CUDA
-  pre-divergence dry-run seam while preserving Flye artifacts.
+- `2026-07-01-cuflye-m5q-read-alignment-pre-divergence-batch-crossover.md`:
+  use the M5p batch seam on larger selected-read batches to find the CPU/CUDA
+  crossover point or identify the remaining setup/process overhead blocker.
 
 Proposed cards:
 
@@ -17,6 +17,10 @@ Proposed cards:
 
 Completed cards:
 
+- `2026-07-01-cuflye-m5p-read-alignment-pre-divergence-batch-dry-run.md`:
+  batch selected pre-divergence CUDA read-alignment chain output into one worker
+  invocation, compare Flye-filtered goodChains per query, preserve exact
+  artifacts, and fail closed on mismatch.
 - `2026-07-01-cuflye-m5o-read-alignment-pre-divergence-flye-dry-run.md`:
   invoke CUDA pre-divergence read-alignment chain output from inside Flye, run
   Flye's divergence filter on GPU-produced chains, compare goodChains against

@@ -1,6 +1,6 @@
 # Task Card: cuFlye M5p Read Alignment Pre-Divergence Batch Dry Run
 
-Status: planned
+Status: accepted
 
 Created: 2026-07-01
 
@@ -64,24 +64,54 @@ integration path becomes cheaper than per-read process startup?
 
 ## Acceptance Gates
 
-- [ ] Patch series applies and patched Flye builds on DGX.
-- [ ] CUDA read-alignment replay binary builds on DGX.
-- [ ] Positive selected-read batch invokes CUDA pre-divergence chain output.
-- [ ] Positive run records per-query post-divergence goodChain matches.
-- [ ] Positive run preserves exact canonical Flye artifacts versus CPU.
-- [ ] Timing separates process/session overhead, CUDA core, and output copy.
-- [ ] Negative mismatch or unsupported-shape proof fails closed.
-- [ ] Local syntax/style gates pass.
-- [ ] C++/CUDA ownership scan shows no new direct owning heap APIs.
+- [x] Patch series applies and patched Flye builds on DGX.
+- [x] CUDA read-alignment replay binary builds on DGX.
+- [x] Positive selected-read batch invokes CUDA pre-divergence chain output.
+- [x] Positive run records per-query post-divergence goodChain matches.
+- [x] Positive run preserves exact canonical Flye artifacts versus CPU.
+- [x] Timing separates process/session overhead, CUDA core, and output copy.
+- [x] Negative mismatch or unsupported-shape proof fails closed.
+- [x] Local syntax/style gates pass.
+- [x] C++/CUDA ownership scan shows no new direct owning heap APIs.
 
 ## Completion Notes
 
-Pending implementation and DGX proof.
+Accepted with DGX proof:
+
+```text
+tests/golden/cuflye-m5p-read-alignment-pre-divergence-batch-dry-run-dgx-aarch64.json
+proof_root=/tmp/cuflye-m5p-proof-20260701T023808Z
+host=edgexpert-45d2
+arch=aarch64
+cuda_arch=sm_121
+positive_query_ids=5,47,200,204,3512
+positive_status=passed
+positive_fixture_count=5
+positive_matched_fixture_count=5
+positive_total_cpu_good_records=10
+positive_total_gpu_good_records=10
+positive_canonical_diff=match
+positive_worker_wall_ms=446.799500
+worker_setup_ms=313.588244
+worker_kernel_ms=0.148640
+worker_device_to_host_ms=0.074208
+worker_write_output_ms=0.298688
+negative_fault=drop-first-gpu-good-chain
+negative_exit_status=1
+negative_worker_exit_status=0
+negative_matched_fixture_count=4
+negative_mismatched_fixture_count=1
+negative_failed_closed=true
+graph_mutation_consumed_worker_output=false
+```
 
 Allowed M5p claim:
 
 ```text
-Pending proof.
+cuFlye can batch selected Flye read-alignment pre-divergence CUDA chain output
+into one worker invocation, let Flye apply its existing divergence filtering per
+query, recover the same CPU goodChains for every selected query, preserve exact
+canonical artifacts, and fail closed on mismatch.
 ```
 
 Forbidden M5p claim:
@@ -90,4 +120,14 @@ Forbidden M5p claim:
 M5p does not prove default GPU mode, broad _readAlignments replacement, CUDA
 minimizer overlap discovery, CPU divergence replacement, or end-to-end Flye
 acceleration unless the measured proof explicitly demonstrates it.
+```
+
+Plain-language benefit:
+
+```text
+M5p is not a full-Flye speed win. It is an integration-overhead win over M5o:
+five selected reads now use one CUDA worker process and one batch audit instead
+of one worker process per read. On the tiny toy batch, CUDA setup still
+dominates wall time, so the next ROI is a larger-batch crossover proof or a
+setup/context overhead reduction.
 ```

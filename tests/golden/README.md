@@ -150,3 +150,5 @@ M5 read-to-graph alignment proof:
   `cuflye-m5n-read-alignment-pre-divergence-chain-output-dgx-aarch64.json`
 - Read alignment pre-divergence Flye dry-run manifest:
   `cuflye-m5o-read-alignment-pre-divergence-flye-dry-run-dgx-aarch64.json`
+- Read alignment pre-divergence batch dry-run manifest:
+  `cuflye-m5p-read-alignment-pre-divergence-batch-dry-run-dgx-aarch64.json`

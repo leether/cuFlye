@@ -1972,3 +1972,69 @@ chain output into a batched or persistent Flye-side dry-run seam, then measure
 whether the integration path can become cheaper than CPU chainReadAlignments on
 a supported batch.
 ```
+
+M5p accepted result:
+
+```text
+cuFlye can batch selected Flye read-alignment pre-divergence CUDA chain output
+into one worker invocation, let Flye apply its existing divergence filtering per
+query, and prove all selected GPU-filtered goodChains match CPU goodChains.
+```
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m5p-proof-20260701T023808Z
+query_ids=5,47,200,204,3512
+positive_status=passed
+positive_fixture_count=5
+positive_matched_fixture_count=5
+positive_total_cpu_good_records=10
+positive_total_gpu_good_records=10
+positive_canonical_diff=match
+positive_worker_wall_ms=446.799500
+worker_setup_ms=313.588244
+worker_kernel_ms=0.148640
+worker_device_to_host_ms=0.074208
+worker_write_output_ms=0.298688
+negative_fault=drop-first-gpu-good-chain
+negative_exit_status=1
+negative_worker_exit_status=0
+negative_matched_fixture_count=4
+negative_mismatched_fixture_count=1
+negative_failed_closed=true
+graph_mutation_consumed_worker_output=false
+```
+
+Allowed M5p claim:
+
+```text
+cuFlye can run one CUDA pre-divergence read-alignment batch worker for multiple
+selected Flye reads, rehydrate the GPU chains, apply Flye's existing divergence
+filter per query, preserve exact artifacts, and fail closed on mismatch.
+```
+
+Forbidden M5p claim:
+
+```text
+M5p does not prove default GPU mode, broad _readAlignments replacement, CUDA
+minimizer overlap discovery, CPU divergence replacement, or end-to-end Flye
+acceleration.
+```
+
+Plain-language benefit:
+
+```text
+M5p is not a full-Flye speed win. It removes M5o's per-selected-read worker
+process overhead: five selected reads now share one CUDA worker process and one
+batch audit. The measurement also shows the next blocker clearly: CUDA setup
+dominates this tiny batch, while kernel/output-copy time is already small.
+```
+
+Next highest-ROI task:
+
+```text
+M5q: use the M5p batch seam on larger selected-read batches and compare CPU
+versus CUDA pre-divergence replay timing to find the crossover point or prove
+that setup/process overhead remains the dominant blocker.
+```

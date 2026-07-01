@@ -1,0 +1,184 @@
+{
+  "acceptance": {
+    "cuda_read_alignment_worker_builds_on_dgx": true,
+    "local_and_dgx_syntax_style_ownership_gates_pass": true,
+    "negative_fault_fails_closed": true,
+    "negative_no_graph_mutation_consumption": true,
+    "negative_worker_output_produced_before_failure": true,
+    "patch_series_applies_through_0033": true,
+    "patched_flye_builds_on_dgx": true,
+    "positive_canonical_artifacts_match_cpu": true,
+    "positive_per_query_goodchains_match": true,
+    "positive_selected_read_batch_invokes_cuda_predivergence": true,
+    "positive_status_passed": true,
+    "timing_separates_setup_cuda_core_output_copy_and_write": true
+  },
+  "artifacts": {
+    "cpu_baseline_run": "/tmp/cuflye-m5p-proof-20260701T023808Z/out/m5p/cpu-baseline",
+    "cuda_worker_build_manifest": "/tmp/cuflye-m5p-proof-20260701T023808Z/out/m5p/build/cuda-read-alignment-chain-replay-build.json",
+    "flye_build_manifest": "/tmp/cuflye-m5p-proof-20260701T023808Z/out/m5p/build/flye-build.json",
+    "negative_batch_audit_json": "/tmp/cuflye-m5p-proof-20260701T023808Z/out/m5p/negative-predivergence-batch-dry-run/read-alignment-replay-fixtures/predivergence-batch-worker/read-alignment-predivergence-batch-dry-run.json",
+    "negative_run": "/tmp/cuflye-m5p-proof-20260701T023808Z/out/m5p/negative-predivergence-batch-dry-run",
+    "negative_worker_batch_json": "/tmp/cuflye-m5p-proof-20260701T023808Z/out/m5p/negative-predivergence-batch-dry-run/read-alignment-replay-fixtures/predivergence-batch-worker/read-alignment-worker-batch.json",
+    "positive_batch_audit_json": "/tmp/cuflye-m5p-proof-20260701T023808Z/out/m5p/positive-predivergence-batch-dry-run/read-alignment-replay-fixtures/predivergence-batch-worker/read-alignment-predivergence-batch-dry-run.json",
+    "positive_run": "/tmp/cuflye-m5p-proof-20260701T023808Z/out/m5p/positive-predivergence-batch-dry-run",
+    "positive_vs_cpu_diff_json": "/tmp/cuflye-m5p-proof-20260701T023808Z/out/m5p/positive-canonical-diff.json",
+    "positive_worker_batch_json": "/tmp/cuflye-m5p-proof-20260701T023808Z/out/m5p/positive-predivergence-batch-dry-run/read-alignment-replay-fixtures/predivergence-batch-worker/read-alignment-worker-batch.json"
+  },
+  "builds": {
+    "applied_patch_count": 33,
+    "cuda_worker_built_on_dgx": true,
+    "flye_built_on_dgx": true,
+    "last_applied_patch": "0033-cuflye-read-alignment-pre-divergence-batch-dry-run.patch"
+  },
+  "host": {
+    "architecture": "aarch64",
+    "cuda_arch": "sm_121",
+    "hostname": "edgexpert-45d2",
+    "nvcc": "/usr/local/cuda/bin/nvcc",
+    "nvidia_smi": "GPU 0: NVIDIA GB10 (UUID: GPU-36e1e91e-fa5c-6e0d-d076-203391a7bb03)",
+    "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39"
+  },
+  "milestone": "M5p-read-alignment-pre-divergence-batch-dry-run",
+  "negative_batch_fault": {
+    "decision": "failed-closed-before-graph-mutation",
+    "elapsed_seconds": 13,
+    "error": "One or more GPU-filtered batch goodChain sets differ from CPU goodChains",
+    "exit_status": 1,
+    "expected_failure": true,
+    "failed_closed": true,
+    "fixture_count": 5,
+    "graph_mutation_consumed_worker_output": false,
+    "matched": false,
+    "matched_fixture_count": 4,
+    "mismatched_fixture_count": 1,
+    "mode": "batch-dry-run-v0",
+    "proof_fault": "drop-first-gpu-good-chain",
+    "proof_fault_applied": true,
+    "query_ids": [
+      5,
+      47,
+      200,
+      204,
+      3512
+    ],
+    "status": "failed",
+    "worker_exit_status": 0,
+    "worker_tsvs_readable": true,
+    "worker_wall_ms": 533.375386
+  },
+  "next_recommended_step": "M5q: use the M5p batch seam on larger selected-read batches and compare CPU versus CUDA pre-divergence replay timing to find the crossover point or prove that CUDA setup/process overhead is still the dominant blocker.",
+  "plain_language_assessment": "M5p does not prove full-Flye acceleration. It does improve the integration path versus M5o: five selected reads now use one CUDA worker process and one batch audit instead of one worker process per read. On this tiny toy batch, CUDA kernel work is very small, but CUDA setup dominates wall time, so the next ROI is a larger-batch crossover proof or a setup/context overhead reduction.",
+  "positive_batch_dry_run": {
+    "canonical_artifacts": [
+      {
+        "path": "00-assembly/draft_assembly.fasta",
+        "sha256": "f24373e93e70d4e2dc26fd4e035f6f319b5c4957eb79233d74c49e63d1099af6",
+        "status": "match"
+      },
+      {
+        "path": "20-repeat/repeat_graph_dump",
+        "sha256": "62952fa5ecbf84b4f5a5470da16d95f85a962e8cb722aa532610ba87431a56ef",
+        "status": "match"
+      },
+      {
+        "path": "20-repeat/read_alignment_dump",
+        "sha256": "26740f1d782591fdcd5c5aef11f591d4559df353b7b31409b6f579caa17bffc5",
+        "status": "match"
+      },
+      {
+        "path": "20-repeat/repeat_graph_edges.fasta",
+        "sha256": "ed90d197289573e3f83c2ebd038115d9371b74d465f903ec4649caa013b4b6d3",
+        "status": "match"
+      },
+      {
+        "path": "30-contigger/graph_final.gfa",
+        "sha256": "faa40610465dc27b5a52d9ea892f61d4ad6ab5cb35ea83ab9430e63ca2084ff1",
+        "status": "match"
+      },
+      {
+        "path": "30-contigger/graph_final.fasta",
+        "sha256": "cc51357bbf92798b7c29574b809fb0926e7a4fba078183a8d40b3f919b5066b3",
+        "status": "match"
+      },
+      {
+        "path": "assembly.fasta",
+        "sha256": "59e1db047711152e2c70c03a8b7cfbdd3f2595a2dee81cd958b4ec6485158db7",
+        "status": "match"
+      },
+      {
+        "path": "assembly_info.txt",
+        "sha256": "5daa37903ecde55d19951c4f2f0f205dc1992abd59b59744e369998d07ee971f",
+        "status": "match"
+      },
+      {
+        "path": "assembly_graph.gfa",
+        "sha256": "e0c4c0d4e0d6b65936eb911a7267bbba5c68f15b2ab28ff0e66f043de3b9e40c",
+        "status": "match"
+      }
+    ],
+    "canonical_diff_status": "match",
+    "decision": "batch-dry-run-match-not-consumed",
+    "elapsed_seconds": 21,
+    "exit_status": 0,
+    "expected_failure": false,
+    "fixture_count": 5,
+    "graph_mutation_consumed_worker_output": false,
+    "matched": true,
+    "matched_fixture_count": 5,
+    "mismatched_fixture_count": 0,
+    "mode": "batch-dry-run-v0",
+    "query_ids": [
+      5,
+      47,
+      200,
+      204,
+      3512
+    ],
+    "status": "passed",
+    "total_cpu_good_chains": 5,
+    "total_cpu_good_records": 10,
+    "total_cpu_predivergence_chains": 5,
+    "total_gpu_good_chains": 5,
+    "total_gpu_good_records": 10,
+    "total_gpu_predivergence_chains": 5,
+    "total_worker_records": 10,
+    "worker_exit_status": 0,
+    "worker_wall_ms": 446.7995
+  },
+  "proof_dir": "/tmp/cuflye-m5p-proof-20260701T023808Z",
+  "schema": "cuflye-golden-proof-v1",
+  "source": {
+    "base_commit_before_m5p": "25361a8171a31d57256b35038d046b50de7f5a44",
+    "local_branch": "main",
+    "proof_checkout": "/tmp/cuflye-m5p-proof-20260701T023808Z/repo",
+    "repo_status_at_sync": "M cuda/cuflye_cuda_read_alignment_chain_replay.cu\n?? patches/flye/2.9.6/0033-cuflye-read-alignment-pre-divergence-batch-dry-run.patch"
+  },
+  "status": "accepted",
+  "title": "cuFlye M5p read-alignment pre-divergence batch dry-run proof",
+  "worker_batch_timing": {
+    "accepted_chains": 5,
+    "backend": "cuda",
+    "candidate_chains": 5,
+    "cuda_execution_mode": "per-run-allocation",
+    "fixture_count": 5,
+    "mean_core_ms": 0.14864,
+    "mean_total_before_json_ms": 314.436391,
+    "output_mode": "pre-divergence-chains",
+    "output_records": 10,
+    "pre_divergence_accepted_chains": 5,
+    "setup_ms": 313.588244,
+    "shape_group_count": 4,
+    "timing_ms": {
+      "device_allocation": 0.583747,
+      "device_to_host": 0.074208,
+      "finalize": 0.000096,
+      "host_to_device": 0.041456,
+      "kernel": 0.14864,
+      "setup": 313.588244,
+      "total_before_json": 314.436391,
+      "write_output": 0.298688
+    },
+    "uses_fixture_divergence_acceptance": false
+  }
+}

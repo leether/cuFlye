@@ -1,0 +1,688 @@
+diff --git a/src/repeat_graph/read_aligner.cpp b/src/repeat_graph/read_aligner.cpp
+index 6207648..9f70f9c 100644
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -7,6 +7,7 @@
+ #include "../common/parallel.h"
+ #include <algorithm>
+ #include <cerrno>
++#include <chrono>
+ #include <cmath>
+ #include <cstring>
+ #include <cstdlib>
+@@ -263,6 +264,61 @@ namespace
+ 		std::string error;
+ 	};
+ 
++	struct ReadAlignmentPreDivergenceBatchFixture
++	{
++		int64_t queryId = 0;
++		std::string fixtureDir;
++		std::string workerTsv;
++		std::string status = "failed";
++		bool matched = false;
++		bool proofFaultApplied = false;
++		bool workerTsvReadable = false;
++		size_t cpuPreDivergenceChains = 0;
++		size_t gpuPreDivergenceChains = 0;
++		size_t cpuGoodChains = 0;
++		size_t gpuGoodChains = 0;
++		size_t cpuGoodRecords = 0;
++		size_t gpuGoodRecords = 0;
++		size_t workerRecords = 0;
++		std::vector<ReadAlignmentDumpRecord> cpuGoodRecordsCanonical;
++		std::string error;
++	};
++
++	struct ReadAlignmentPreDivergenceBatchDryRunResult
++	{
++		std::string mode;
++		std::string proofFault;
++		std::string status = "not-requested";
++		std::string decision = "disabled";
++		std::string workerOutputRoot;
++		std::string batchOutputDir;
++		std::string fixtureList;
++		std::string batchJson;
++		std::string stdoutLog;
++		std::string stderrLog;
++		std::string auditJson;
++		std::string workerCommand;
++		int workerExitStatus = 1;
++		double workerWallMs = 0.0;
++		bool attempted = false;
++		bool matched = false;
++		bool failedClosed = false;
++		bool proofFaultApplied = false;
++		bool graphMutationConsumedWorkerOutput = false;
++		size_t fixtureCount = 0;
++		size_t matchedFixtureCount = 0;
++		size_t mismatchedFixtureCount = 0;
++		size_t totalCpuPreDivergenceChains = 0;
++		size_t totalGpuPreDivergenceChains = 0;
++		size_t totalCpuGoodChains = 0;
++		size_t totalGpuGoodChains = 0;
++		size_t totalCpuGoodRecords = 0;
++		size_t totalGpuGoodRecords = 0;
++		size_t totalWorkerRecords = 0;
++		std::vector<ReadAlignmentPreDivergenceBatchFixture> fixtures;
++		std::string error;
++	};
++
+ 	std::mutex& readAlignmentDumpMutex()
+ 	{
+ 		static std::mutex dumpMutex;
+@@ -483,6 +539,13 @@ namespace
+ 		return value ? "true" : "false";
+ 	}
+ 
++	double readAlignmentElapsedMs(
++		std::chrono::steady_clock::time_point start,
++		std::chrono::steady_clock::time_point end)
++	{
++		return std::chrono::duration<double, std::milli>(end - start).count();
++	}
++
+ 	std::string readAlignmentShellQuote(const std::string& value)
+ 	{
+ 		std::string quoted = "'";
+@@ -1051,7 +1114,8 @@ namespace
+ 				std::getenv("CUFLYE_READ_ALIGNMENT_PREDIVERGENCE_CHAIN_MODE");
+ 			if (!raw || !raw[0]) return std::string();
+ 			std::string selected(raw);
+-			if (selected != "selected-read-dry-run-v0")
++			if (selected != "selected-read-dry-run-v0" &&
++				selected != "batch-dry-run-v0")
+ 			{
+ 				throw std::runtime_error(
+ 					"Unsupported "
+@@ -1068,6 +1132,17 @@ namespace
+ 		return !readAlignmentPreDivergenceChainMode().empty();
+ 	}
+ 
++	bool readAlignmentPreDivergenceSelectedReadDryRunEnabled()
++	{
++		return readAlignmentPreDivergenceChainMode() ==
++			"selected-read-dry-run-v0";
++	}
++
++	bool readAlignmentPreDivergenceBatchDryRunEnabled()
++	{
++		return readAlignmentPreDivergenceChainMode() == "batch-dry-run-v0";
++	}
++
+ 	std::string readAlignmentPreDivergenceChainProofFault()
+ 	{
+ 		static std::string fault = []()
+@@ -2358,6 +2433,244 @@ namespace
+ 		writeReadAlignmentTextFile(path, json.str());
+ 	}
+ 
++	void markReadAlignmentPreDivergenceBatchDryRunFailed(
++		ReadAlignmentPreDivergenceBatchDryRunResult& result,
++		const std::string& error)
++	{
++		result.status = "failed";
++		result.decision = "failed-closed-before-graph-mutation";
++		result.failedClosed = true;
++		result.matched = false;
++		result.graphMutationConsumedWorkerOutput = false;
++		if (!error.empty()) result.error = error;
++	}
++
++	void writeReadAlignmentPreDivergenceBatchDryRunJson(
++		const std::string& path,
++		const ReadAlignmentPreDivergenceBatchDryRunResult& result)
++	{
++		std::ostringstream json;
++		json << std::fixed << std::setprecision(6);
++		json << "{\n"
++			 << "  \"schema\": "
++			 << "\"cuflye-read-alignment-predivergence-batch-dry-run-v0\",\n"
++			 << "  \"status\": \"" << readAlignmentJsonEscape(result.status)
++			 << "\",\n"
++			 << "  \"mode\": \"" << readAlignmentJsonEscape(result.mode) << "\",\n"
++			 << "  \"proof_fault\": \""
++			 << readAlignmentJsonEscape(result.proofFault) << "\",\n"
++			 << "  \"decision\": \""
++			 << readAlignmentJsonEscape(result.decision) << "\",\n"
++			 << "  \"worker_output_root\": \""
++			 << readAlignmentJsonEscape(result.workerOutputRoot) << "\",\n"
++			 << "  \"batch_output_dir\": \""
++			 << readAlignmentJsonEscape(result.batchOutputDir) << "\",\n"
++			 << "  \"fixture_list\": \""
++			 << readAlignmentJsonEscape(result.fixtureList) << "\",\n"
++			 << "  \"worker_batch_json\": \""
++			 << readAlignmentJsonEscape(result.batchJson) << "\",\n"
++			 << "  \"stdout_log\": \""
++			 << readAlignmentJsonEscape(result.stdoutLog) << "\",\n"
++			 << "  \"stderr_log\": \""
++			 << readAlignmentJsonEscape(result.stderrLog) << "\",\n"
++			 << "  \"audit_json\": \""
++			 << readAlignmentJsonEscape(result.auditJson) << "\",\n"
++			 << "  \"worker_command\": \""
++			 << readAlignmentJsonEscape(result.workerCommand) << "\",\n"
++			 << "  \"worker_exit_status\": " << result.workerExitStatus << ",\n"
++			 << "  \"worker_wall_ms\": " << result.workerWallMs << ",\n"
++			 << "  \"attempted\": "
++			 << readAlignmentBoolJson(result.attempted) << ",\n"
++			 << "  \"matched\": " << readAlignmentBoolJson(result.matched)
++			 << ",\n"
++			 << "  \"failed_closed\": "
++			 << readAlignmentBoolJson(result.failedClosed) << ",\n"
++			 << "  \"proof_fault_applied\": "
++			 << readAlignmentBoolJson(result.proofFaultApplied) << ",\n"
++			 << "  \"graph_mutation_consumed_worker_output\": "
++			 << readAlignmentBoolJson(result.graphMutationConsumedWorkerOutput)
++			 << ",\n"
++			 << "  \"fixture_count\": " << result.fixtureCount << ",\n"
++			 << "  \"matched_fixture_count\": "
++			 << result.matchedFixtureCount << ",\n"
++			 << "  \"mismatched_fixture_count\": "
++			 << result.mismatchedFixtureCount << ",\n"
++			 << "  \"total_cpu_predivergence_chains\": "
++			 << result.totalCpuPreDivergenceChains << ",\n"
++			 << "  \"total_gpu_predivergence_chains\": "
++			 << result.totalGpuPreDivergenceChains << ",\n"
++			 << "  \"total_cpu_good_chains\": "
++			 << result.totalCpuGoodChains << ",\n"
++			 << "  \"total_gpu_good_chains\": "
++			 << result.totalGpuGoodChains << ",\n"
++			 << "  \"total_cpu_good_records\": "
++			 << result.totalCpuGoodRecords << ",\n"
++			 << "  \"total_gpu_good_records\": "
++			 << result.totalGpuGoodRecords << ",\n"
++			 << "  \"total_worker_records\": "
++			 << result.totalWorkerRecords << ",\n";
++		if (!result.error.empty())
++		{
++			json << "  \"error\": \""
++				 << readAlignmentJsonEscape(result.error) << "\",\n";
++		}
++		json << "  \"fixtures\": [\n";
++		for (size_t index = 0; index < result.fixtures.size(); ++index)
++		{
++			const auto& fixture = result.fixtures[index];
++			json << "    {\n"
++				 << "      \"query_id\": " << fixture.queryId << ",\n"
++				 << "      \"fixture_dir\": \""
++				 << readAlignmentJsonEscape(fixture.fixtureDir) << "\",\n"
++				 << "      \"worker_tsv\": \""
++				 << readAlignmentJsonEscape(fixture.workerTsv) << "\",\n"
++				 << "      \"status\": \""
++				 << readAlignmentJsonEscape(fixture.status) << "\",\n"
++				 << "      \"matched\": "
++				 << readAlignmentBoolJson(fixture.matched) << ",\n"
++				 << "      \"proof_fault_applied\": "
++				 << readAlignmentBoolJson(fixture.proofFaultApplied) << ",\n"
++				 << "      \"worker_tsv_readable\": "
++				 << readAlignmentBoolJson(fixture.workerTsvReadable) << ",\n"
++				 << "      \"cpu_predivergence_chains\": "
++				 << fixture.cpuPreDivergenceChains << ",\n"
++				 << "      \"gpu_predivergence_chains\": "
++				 << fixture.gpuPreDivergenceChains << ",\n"
++				 << "      \"cpu_good_chains\": " << fixture.cpuGoodChains
++				 << ",\n"
++				 << "      \"gpu_good_chains\": " << fixture.gpuGoodChains
++				 << ",\n"
++				 << "      \"cpu_good_records\": " << fixture.cpuGoodRecords
++				 << ",\n"
++				 << "      \"gpu_good_records\": " << fixture.gpuGoodRecords
++				 << ",\n"
++				 << "      \"worker_records\": " << fixture.workerRecords;
++			if (!fixture.error.empty())
++			{
++				json << ",\n      \"error\": \""
++					 << readAlignmentJsonEscape(fixture.error) << "\"\n";
++			}
++			else
++			{
++				json << "\n";
++			}
++			json << "    }";
++			if (index + 1 != result.fixtures.size()) json << ",";
++			json << "\n";
++		}
++		json << "  ]\n"
++			 << "}\n";
++		writeReadAlignmentTextFile(path, json.str());
++	}
++
++	void prepareReadAlignmentPreDivergenceBatchDryRun(
++		const std::vector<ReadAlignmentPreDivergenceBatchFixture>& fixtures,
++		ReadAlignmentPreDivergenceBatchDryRunResult& result)
++	{
++		if (fixtures.empty())
++		{
++			throw std::runtime_error(
++				"cuFlye read alignment pre-divergence batch dry-run has no "
++				"selected replay fixtures");
++		}
++		result.mode = readAlignmentPreDivergenceChainMode();
++		result.proofFault = readAlignmentPreDivergenceChainProofFault();
++		result.status = "failed";
++		result.decision = "failed-closed-before-graph-mutation";
++		result.failedClosed = true;
++		result.graphMutationConsumedWorkerOutput = false;
++		result.attempted = true;
++		result.workerOutputRoot = joinReplayPath(
++			std::string(readAlignmentReplayDumpDir()),
++			"predivergence-batch-worker");
++		result.batchOutputDir =
++			joinReplayPath(result.workerOutputRoot, "read-alignment-output");
++		result.fixtureList =
++			joinReplayPath(result.workerOutputRoot, "read-alignment-fixtures.list");
++		result.batchJson =
++			joinReplayPath(result.workerOutputRoot,
++						   "read-alignment-worker-batch.json");
++		result.stdoutLog =
++			joinReplayPath(result.workerOutputRoot,
++						   "read-alignment-worker-stdout.log");
++		result.stderrLog =
++			joinReplayPath(result.workerOutputRoot,
++						   "read-alignment-worker-stderr.log");
++		result.auditJson = joinReplayPath(
++			result.workerOutputRoot,
++			"read-alignment-predivergence-batch-dry-run.json");
++
++		ensureReplayDirectory(std::string(readAlignmentReplayDumpDir()));
++		ensureReplayDirectory(result.workerOutputRoot);
++		ensureReplayDirectory(result.batchOutputDir);
++
++		result.fixtures = fixtures;
++		result.fixtureCount = result.fixtures.size();
++		for (auto& fixture : result.fixtures)
++		{
++			fixture.workerTsv = joinReplayPath(
++				joinReplayPath(result.batchOutputDir,
++							   replayQueryDirName(fixture.queryId)),
++				"read-alignment.tsv");
++			fixture.status = "pending";
++			result.totalCpuPreDivergenceChains +=
++				fixture.cpuPreDivergenceChains;
++			result.totalCpuGoodChains += fixture.cpuGoodChains;
++			result.totalCpuGoodRecords += fixture.cpuGoodRecords;
++		}
++	}
++
++	void runReadAlignmentPreDivergenceBatchWorker(
++		ReadAlignmentPreDivergenceBatchDryRunResult& result)
++	{
++		std::vector<int64_t> queryIds;
++		queryIds.reserve(result.fixtures.size());
++		for (const auto& fixture : result.fixtures)
++		{
++			queryIds.push_back(fixture.queryId);
++		}
++		writeReadAlignmentFixtureList(result.fixtureList, queryIds);
++
++		std::string workerBin =
++			readAlignmentRequiredEnv("CUFLYE_READ_ALIGNMENT_WORKER_BIN");
++		result.workerCommand = readAlignmentShellQuote(workerBin) +
++			" --backend cuda --device " +
++			readAlignmentShellQuote(
++				readAlignmentOptionalEnv("CUFLYE_READ_ALIGNMENT_WORKER_DEVICE",
++										 "0")) +
++			" --batch-fixtures-file " + readAlignmentShellQuote(result.fixtureList) +
++			" --batch-output-dir " + readAlignmentShellQuote(result.batchOutputDir) +
++			" --batch-json-output " + readAlignmentShellQuote(result.batchJson) +
++			" --allow-heterogeneous-batch --emit-pre-divergence-chains "
++			"--warmup-runs " +
++			readAlignmentShellQuote(readAlignmentOptionalEnv(
++				"CUFLYE_READ_ALIGNMENT_WORKER_WARMUP_RUNS", "0")) +
++			" --benchmark-runs " +
++			readAlignmentShellQuote(readAlignmentOptionalEnv(
++				"CUFLYE_READ_ALIGNMENT_WORKER_BENCHMARK_RUNS", "1"));
++		std::string memoryBudget = readAlignmentOptionalEnv(
++			"CUFLYE_READ_ALIGNMENT_WORKER_MEMORY_BUDGET_BYTES", "");
++		if (!memoryBudget.empty())
++		{
++			result.workerCommand += " --memory-budget-bytes " +
++									readAlignmentShellQuote(memoryBudget);
++		}
++		result.workerCommand += " > " +
++								readAlignmentShellQuote(result.stdoutLog) +
++								" 2> " +
++								readAlignmentShellQuote(result.stderrLog);
++		auto workerStart = std::chrono::steady_clock::now();
++		result.workerExitStatus = std::system(result.workerCommand.c_str());
++		auto workerEnd = std::chrono::steady_clock::now();
++		result.workerWallMs = readAlignmentElapsedMs(workerStart, workerEnd);
++		if (result.workerExitStatus != 0)
++		{
++			throw std::runtime_error(
++				"CUDA read-alignment pre-divergence batch worker failed with "
++				"status " + std::to_string(result.workerExitStatus));
++		}
++	}
++
+ 	bool readAlignmentPreDivergenceChainSelected(const FastaRecord::Id& seqId)
+ 	{
+ 		return readAlignmentPreDivergenceChainEnabled() &&
+@@ -2961,10 +3274,13 @@ void ReadAligner::alignReads()
+ 	int alignedInFull = 0;
+ 	int64_t alignedLength = 0;
+ 	OvlpDivStats divergenceStats;
++	std::vector<ReadAlignmentPreDivergenceBatchFixture>
++		preDivergenceBatchFixtures;
+ 
+ 	std::function<void(const FastaRecord::Id&)> alignRead = 
+ 	[this, &indexMutex, &numAligned, &readsOverlaps,
+-		&idToSegment, &alignedLength, &alignedInFull, &divergenceStats] 
++		&idToSegment, &alignedLength, &alignedInFull, &divergenceStats,
++		&preDivergenceBatchFixtures]
+ 	(const FastaRecord::Id& seqId)
+ 	{
+ 		auto overlaps = readsOverlaps.quickSeqOverlaps(seqId);
+@@ -3008,81 +3324,100 @@ void ReadAligner::alignReads()
+ 
+ 		if (readAlignmentPreDivergenceChainSelected(seqId))
+ 		{
+-			ReadAlignmentPreDivergenceDryRunResult dryRun;
+-			try
++			if (readAlignmentPreDivergenceSelectedReadDryRunEnabled())
+ 			{
+-				dryRun.cpuPreDivergenceChains = readChains.size();
+-				dryRun.cpuGoodChains = goodChains.size();
+-				auto cpuGoodRecords =
+-					canonicalReadAlignmentRecordsFromGraphAlignments(goodChains);
+-				dryRun.cpuGoodRecords = cpuGoodRecords.size();
+-
+-				auto gpuPreChains =
+-					runReadAlignmentPreDivergenceWorker(seqId, _graph, dryRun);
+-				std::vector<GraphAlignment> gpuGoodChains;
+-				for (auto& chain : gpuPreChains)
++				ReadAlignmentPreDivergenceDryRunResult dryRun;
++				try
+ 				{
+-					float chainDivergence = this->getChainBaseDivergence(
+-						chain, (bool)Config::get("reads_base_alignment"));
+-					if (chainDivergence < MAX_DIVERGENCE)
++					dryRun.cpuPreDivergenceChains = readChains.size();
++					dryRun.cpuGoodChains = goodChains.size();
++					auto cpuGoodRecords =
++						canonicalReadAlignmentRecordsFromGraphAlignments(goodChains);
++					dryRun.cpuGoodRecords = cpuGoodRecords.size();
++
++					auto gpuPreChains =
++						runReadAlignmentPreDivergenceWorker(seqId, _graph, dryRun);
++					std::vector<GraphAlignment> gpuGoodChains;
++					for (auto& chain : gpuPreChains)
+ 					{
+-						gpuGoodChains.push_back(chain);
++						float chainDivergence = this->getChainBaseDivergence(
++							chain, (bool)Config::get("reads_base_alignment"));
++						if (chainDivergence < MAX_DIVERGENCE)
++						{
++							gpuGoodChains.push_back(chain);
++						}
++					}
++					if (dryRun.proofFault == "drop-first-gpu-good-chain" &&
++						!gpuGoodChains.empty())
++					{
++						gpuGoodChains.erase(gpuGoodChains.begin());
++						dryRun.proofFaultApplied = true;
++					}
++					dryRun.gpuGoodChains = gpuGoodChains.size();
++					auto gpuGoodRecords =
++						canonicalReadAlignmentRecordsFromGraphAlignments(gpuGoodChains);
++					dryRun.gpuGoodRecords = gpuGoodRecords.size();
++					dryRun.matched = cpuGoodRecords == gpuGoodRecords;
++					if (dryRun.matched)
++					{
++						dryRun.status = "passed";
++						dryRun.decision = "dry-run-match-not-consumed";
++						dryRun.failedClosed = false;
++						dryRun.graphMutationConsumedWorkerOutput = false;
++					}
++					else
++					{
++						markReadAlignmentPreDivergenceDryRunFailed(
++							dryRun,
++							"GPU-filtered goodChains differ from CPU goodChains");
+ 					}
+ 				}
+-				if (dryRun.proofFault == "drop-first-gpu-good-chain" &&
+-					!gpuGoodChains.empty())
+-				{
+-					gpuGoodChains.erase(gpuGoodChains.begin());
+-					dryRun.proofFaultApplied = true;
+-				}
+-				dryRun.gpuGoodChains = gpuGoodChains.size();
+-				auto gpuGoodRecords =
+-					canonicalReadAlignmentRecordsFromGraphAlignments(gpuGoodChains);
+-				dryRun.gpuGoodRecords = gpuGoodRecords.size();
+-				dryRun.matched = cpuGoodRecords == gpuGoodRecords;
+-				if (dryRun.matched)
+-				{
+-					dryRun.status = "passed";
+-					dryRun.decision = "dry-run-match-not-consumed";
+-					dryRun.failedClosed = false;
+-					dryRun.graphMutationConsumedWorkerOutput = false;
+-				}
+-				else
+-				{
+-					markReadAlignmentPreDivergenceDryRunFailed(
+-						dryRun,
+-						"GPU-filtered goodChains differ from CPU goodChains");
+-				}
+-			}
+-			catch (const std::exception& exc)
+-			{
+-				if (dryRun.auditJson.empty())
+-				{
+-					dryRun.queryId = seqId.signedId();
+-					dryRun.fixtureDir =
+-						readAlignmentFixtureDirForQuery(seqId.signedId());
+-					dryRun.auditJson = joinReplayPath(
+-						dryRun.fixtureDir,
+-						"read-alignment-predivergence-dry-run.json");
+-				}
+-				if (dryRun.mode.empty())
++				catch (const std::exception& exc)
+ 				{
+-					dryRun.mode = readAlignmentPreDivergenceChainMode();
++					if (dryRun.auditJson.empty())
++					{
++						dryRun.queryId = seqId.signedId();
++						dryRun.fixtureDir =
++							readAlignmentFixtureDirForQuery(seqId.signedId());
++						dryRun.auditJson = joinReplayPath(
++							dryRun.fixtureDir,
++							"read-alignment-predivergence-dry-run.json");
++					}
++					if (dryRun.mode.empty())
++					{
++						dryRun.mode = readAlignmentPreDivergenceChainMode();
++					}
++					if (dryRun.proofFault.empty())
++					{
++						dryRun.proofFault =
++							readAlignmentPreDivergenceChainProofFault();
++					}
++					markReadAlignmentPreDivergenceDryRunFailed(dryRun, exc.what());
+ 				}
+-				if (dryRun.proofFault.empty())
++				writeReadAlignmentPreDivergenceDryRunJson(dryRun.auditJson,
++														  dryRun);
++				if (dryRun.status != "passed")
+ 				{
+-					dryRun.proofFault =
+-						readAlignmentPreDivergenceChainProofFault();
++					throw std::runtime_error(
++						"cuFlye read alignment pre-divergence dry-run failed "
++						"for query " + std::to_string(seqId.signedId()) +
++						": " + dryRun.auditJson);
+ 				}
+-				markReadAlignmentPreDivergenceDryRunFailed(dryRun, exc.what());
+ 			}
+-			writeReadAlignmentPreDivergenceDryRunJson(dryRun.auditJson, dryRun);
+-			if (dryRun.status != "passed")
++			else if (readAlignmentPreDivergenceBatchDryRunEnabled())
+ 			{
+-				throw std::runtime_error(
+-					"cuFlye read alignment pre-divergence dry-run failed for "
+-					"query " + std::to_string(seqId.signedId()) + ": " +
+-					dryRun.auditJson);
++				ReadAlignmentPreDivergenceBatchFixture fixture;
++				fixture.queryId = seqId.signedId();
++				fixture.fixtureDir =
++					readAlignmentFixtureDirForQuery(seqId.signedId());
++				fixture.cpuPreDivergenceChains = readChains.size();
++				fixture.cpuGoodChains = goodChains.size();
++				fixture.cpuGoodRecordsCanonical =
++					canonicalReadAlignmentRecordsFromGraphAlignments(goodChains);
++				fixture.cpuGoodRecords =
++					fixture.cpuGoodRecordsCanonical.size();
++				fixture.status = "captured";
++				preDivergenceBatchFixtures.push_back(fixture);
+ 			}
+ 		}
+ 
+@@ -3123,6 +3458,146 @@ void ReadAligner::alignReads()
+ 	processInParallel(allQueries, alignRead, 
+ 					  Parameters::get().numThreads, true);
+ 
++	if (readAlignmentPreDivergenceBatchDryRunEnabled())
++	{
++		ReadAlignmentPreDivergenceBatchDryRunResult batchDryRun;
++		try
++		{
++			prepareReadAlignmentPreDivergenceBatchDryRun(
++				preDivergenceBatchFixtures, batchDryRun);
++			runReadAlignmentPreDivergenceBatchWorker(batchDryRun);
++
++			bool faultApplied = false;
++			for (auto& fixture : batchDryRun.fixtures)
++			{
++				try
++				{
++					fixture.workerTsvReadable = readableFile(fixture.workerTsv);
++					if (!fixture.workerTsvReadable)
++					{
++						throw std::runtime_error(
++							"CUDA read-alignment pre-divergence batch worker "
++							"did not write TSV: " + fixture.workerTsv);
++					}
++					auto workerRecords =
++						readAlignmentDumpRecords(fixture.workerTsv);
++					fixture.workerRecords = workerRecords.size();
++					auto typedRecords =
++						rehydrateTypedReadAlignmentRecords(
++							workerRecords, _graph, fixture.workerTsv);
++					auto gpuPreChains =
++						rehydrateGraphAlignmentObjectVector(
++							typedRecords, fixture.workerTsv);
++					fixture.gpuPreDivergenceChains = gpuPreChains.size();
++
++					std::vector<GraphAlignment> gpuGoodChains;
++					for (auto& chain : gpuPreChains)
++					{
++						float chainDivergence = this->getChainBaseDivergence(
++							chain, (bool)Config::get("reads_base_alignment"));
++						if (chainDivergence < MAX_DIVERGENCE)
++						{
++							gpuGoodChains.push_back(chain);
++						}
++					}
++					if (batchDryRun.proofFault ==
++							"drop-first-gpu-good-chain" &&
++						!faultApplied && !gpuGoodChains.empty())
++					{
++						gpuGoodChains.erase(gpuGoodChains.begin());
++						fixture.proofFaultApplied = true;
++						batchDryRun.proofFaultApplied = true;
++						faultApplied = true;
++					}
++					fixture.gpuGoodChains = gpuGoodChains.size();
++					auto gpuGoodRecords =
++						canonicalReadAlignmentRecordsFromGraphAlignments(
++							gpuGoodChains);
++					fixture.gpuGoodRecords = gpuGoodRecords.size();
++					fixture.matched =
++						fixture.cpuGoodRecordsCanonical == gpuGoodRecords;
++					fixture.status = fixture.matched ? "passed" : "failed";
++					if (!fixture.matched)
++					{
++						fixture.error =
++							"GPU-filtered batch goodChains differ from CPU "
++							"goodChains";
++					}
++				}
++				catch (const std::exception& exc)
++				{
++					fixture.status = "failed";
++					fixture.matched = false;
++					fixture.error = exc.what();
++				}
++
++				batchDryRun.totalGpuPreDivergenceChains +=
++					fixture.gpuPreDivergenceChains;
++				batchDryRun.totalGpuGoodChains += fixture.gpuGoodChains;
++				batchDryRun.totalGpuGoodRecords += fixture.gpuGoodRecords;
++				batchDryRun.totalWorkerRecords += fixture.workerRecords;
++				if (fixture.matched)
++				{
++					++batchDryRun.matchedFixtureCount;
++				}
++				else
++				{
++					++batchDryRun.mismatchedFixtureCount;
++				}
++			}
++
++			batchDryRun.matched =
++				batchDryRun.matchedFixtureCount == batchDryRun.fixtureCount;
++			if (batchDryRun.matched)
++			{
++				batchDryRun.status = "passed";
++				batchDryRun.decision = "batch-dry-run-match-not-consumed";
++				batchDryRun.failedClosed = false;
++				batchDryRun.graphMutationConsumedWorkerOutput = false;
++			}
++			else
++			{
++				markReadAlignmentPreDivergenceBatchDryRunFailed(
++					batchDryRun,
++					"One or more GPU-filtered batch goodChain sets differ "
++					"from CPU goodChains");
++			}
++		}
++		catch (const std::exception& exc)
++		{
++			if (batchDryRun.mode.empty())
++			{
++				batchDryRun.mode = readAlignmentPreDivergenceChainMode();
++			}
++			if (batchDryRun.proofFault.empty())
++			{
++				batchDryRun.proofFault =
++					readAlignmentPreDivergenceChainProofFault();
++			}
++			if (batchDryRun.workerOutputRoot.empty())
++			{
++				batchDryRun.workerOutputRoot = joinReplayPath(
++					std::string(readAlignmentReplayDumpDir()),
++					"predivergence-batch-worker");
++				batchDryRun.auditJson = joinReplayPath(
++					batchDryRun.workerOutputRoot,
++					"read-alignment-predivergence-batch-dry-run.json");
++				ensureReplayDirectory(std::string(readAlignmentReplayDumpDir()));
++				ensureReplayDirectory(batchDryRun.workerOutputRoot);
++			}
++			markReadAlignmentPreDivergenceBatchDryRunFailed(
++				batchDryRun, exc.what());
++		}
++		writeReadAlignmentPreDivergenceBatchDryRunJson(
++			batchDryRun.auditJson, batchDryRun);
++		if (batchDryRun.status != "passed")
++		{
++			throw std::runtime_error(
++				"cuFlye read alignment pre-divergence batch dry-run "
++				"failed: " + batchDryRun.auditJson);
++		}
++	}
++
+ 	Logger::get().debug() << "Total reads : " << allQueries.size();
+ 	Logger::get().debug() << "Read with aligned parts : " << numAligned;
+ 	Logger::get().debug() << "Aligned in one piece : " << alignedInFull;
