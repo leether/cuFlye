@@ -11,12 +11,18 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m7c-read-to-graph-selected-cpu-skip-canary.md`:
-  turn the M7b post-hoc selected substitution into a selected CPU-skip canary
-  where selected query work is skipped and supplied from CUDA output.
+- `2026-07-01-cuflye-m7d-read-to-graph-selected-cpu-skip-timing-expansion.md`:
+  measure selected CPU-skip ROI by comparing skipped CPU chain/divergence work,
+  CUDA handoff cost, and graph-facing placeholder fill cost under larger
+  supported selected sets.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m7c-read-to-graph-selected-cpu-skip-canary.md`:
+  skip the selected read-to-graph CPU chain/divergence slice for 8 toy-hifi
+  full-query-hit queries, fill graph-facing placeholders from CUDA-derived
+  `goodChains`, preserve canonical artifacts, and fail closed on a missing
+  selected rebuilt chain.
 - `2026-07-01-cuflye-m7b-full-query-hit-selected-graph-consumption-mutation-canary.md`:
   consume the selected CUDA full-query-hit handoff as rebuilt Flye
   `goodChains`, substituting 8 forward plus 8 complement selected chains while

@@ -1,0 +1,226 @@
+{
+  "allowed_claim": "cuFlye can opt in to skip the selected read-to-graph CPU chain/divergence slice for 8 toy-hifi full-query-hit queries, fill graph-facing placeholders with CUDA-worker-derived goodChains, preserve canonical Flye artifacts, and fail closed before graph mutation when selected CUDA output is corrupted.",
+  "baseline": {
+    "metadata": {
+      "elapsed_seconds": 29,
+      "exit_status": 0,
+      "fixture": "toy-hifi",
+      "host": "edgexpert-45d2",
+      "machine": "aarch64",
+      "threads": 1
+    },
+    "vs_golden": {
+      "artifact_count": 9,
+      "extra": [],
+      "matched_count": 9,
+      "mismatch": [],
+      "missing": [],
+      "schema": "cuflye-canonical-artifact-diff-v0",
+      "status": "match"
+    }
+  },
+  "build": {
+    "cuda_worker": {
+      "cuda_arch": "sm_121",
+      "cuda_home": "/usr/local/cuda-13.0",
+      "host": "edgexpert-45d2",
+      "machine": "aarch64",
+      "nvcc": "/usr/local/cuda-13.0/bin/nvcc",
+      "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:57:39_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+      "output_binary": "/tmp/cuflye-m7b-work-uZhePGLL/cuFlye/out/m7b/bin/cuflye-cuda-full-query-hit-replay",
+      "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+      "repo_commit": "d6d31f32b82a383bdc912938cde99fe2179a85b5"
+    },
+    "flye": {
+      "actual_commit": "886b8c17412c",
+      "actual_tags": [
+        "2.9.6"
+      ],
+      "applied_patch_count": 57,
+      "flye_dir": "/tmp/cuflye-m7b-work-uZhePGLL/upstream-flye-m7c-0057",
+      "flye_version": "2.9.6-b1802",
+      "gxx": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "host": "edgexpert-45d2",
+      "last_applied_patch": "0057-cuflye-read-to-graph-full-query-hit-selected-cpu-skip-canary.patch",
+      "machine": "aarch64",
+      "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39"
+    }
+  },
+  "checks": {
+    "baseline_matches_golden": true,
+    "negative_cpu_skip_failed_closed": true,
+    "negative_detected_missing_rebuilt_chain": true,
+    "negative_expected_failure": true,
+    "negative_failed_closed_before_graph_mutation": true,
+    "negative_fault_applied": true,
+    "negative_no_graph_mutation_consumption": true,
+    "negative_no_placeholder_fill": true,
+    "positive_graph_mutation_consumed_worker_output": true,
+    "positive_m7b_canary_consumed": true,
+    "positive_matches_baseline_canonical_artifacts": true,
+    "positive_metadata_records_cpu_skip_mode": true,
+    "positive_placeholders_filled": true,
+    "positive_rebuilt_chains_match_chain_input": true,
+    "positive_residual_records_preserved": true,
+    "positive_selected_cpu_skip_consumed": true,
+    "positive_selected_cpu_skip_enabled": true,
+    "positive_selected_cpu_work_skipped": true,
+    "positive_timing_recorded": true,
+    "positive_worker_status_passed": true
+  },
+  "created_at_utc": "2026-07-01T14:06:00.692882Z",
+  "fixture": "toy-hifi",
+  "forbidden_claim": "M7c does not prove default GPU mode, whole-Flye speedup, broad read-to-graph replacement, or production support beyond the bounded toy-hifi selected CPU-skip canary.",
+  "negative": {
+    "chain_input_rows": 8,
+    "checks": {
+      "failed": [
+        "selected_cpu_skip_rebuilt_chains_match_chain_input",
+        "proof_fault_not_applied"
+      ],
+      "passed": 12,
+      "required": 14
+    },
+    "cpu_slice_chains": 0,
+    "cpu_slice_records": 0,
+    "decision": "failed-closed-before-graph-mutation-commit",
+    "dry_run_decision": "fail-closed-before-graph-mutation",
+    "dry_run_status": "selected-graph-consumption-mutation-canary-failed-before-graph-mutation",
+    "failed_checks": [
+      "selected_cpu_skip_rebuilt_chains_match_chain_input",
+      "proof_fault_not_applied"
+    ],
+    "failed_closed": true,
+    "graph_mutation_consumed_worker_output": false,
+    "metadata": {
+      "elapsed_seconds": 18,
+      "exit_status": 1,
+      "expected_failure": true,
+      "proof_fault": "drop-first-cpu-skip-canary-chain"
+    },
+    "placeholder_complement_chains_filled": 0,
+    "placeholder_forward_chains_filled": 0,
+    "proof_fault": "drop-first-cpu-skip-canary-chain",
+    "proof_fault_applied": true,
+    "rebuilt_good_chains": 7,
+    "selected_cpu_skip_canary_failed_closed": true,
+    "selected_cpu_skip_cpu_slice_absent": true,
+    "selected_cpu_skip_rebuilt_chains_matched": false,
+    "selected_cpu_skipped_queries": 8,
+    "state": "failed-closed",
+    "status": "failed",
+    "timing_ms": {
+      "compare": 0.087904,
+      "rebuild": 0.536722,
+      "substitution": 0,
+      "total": 0.627858
+    },
+    "total_read_alignments_after": 7092,
+    "total_read_alignments_before": 7092,
+    "worker_records": 36
+  },
+  "next_recommended_step": "M7d: add timing attribution around the selected CPU-skip boundary and expand the selected set only where the skipped CPU work is large enough to compete with CUDA handoff and worker overhead.",
+  "plain_language_benefit": "M7c is the first proof that this path can remove a selected CPU read-to-graph slice instead of only replacing it after CPU already computed it. The useful advantage is architectural correctness under a fail-closed gate; the toy-hifi cold worker path is still not an end-to-end speed win.",
+  "positive": {
+    "chain_input_rows": 8,
+    "checks": {
+      "failed": [],
+      "passed": 18,
+      "required": 18
+    },
+    "consumed": true,
+    "cpu_slice_chains": 0,
+    "cpu_slice_records": 0,
+    "decision": "selected-cpu-skip-canary-substituted",
+    "final_alignment_records_matched": true,
+    "graph_mutation_consumed_worker_output": true,
+    "metadata": {
+      "cpu_skip_canary_mode": "selected-cpu-skip-canary-v0",
+      "elapsed_seconds": 22,
+      "exit_status": 0,
+      "mutation_canary_mode": "selected-graph-consumption-mutation-canary-v0",
+      "parity_mode": "selected-graph-consumption-parity-v0",
+      "worker_mode": "full-query-hit-dry-run-v0"
+    },
+    "placeholder_complement_chains_filled": 8,
+    "placeholder_forward_chains_filled": 8,
+    "rebuilt_good_chains": 8,
+    "rebuilt_good_records": 8,
+    "residual_alignment_records_preserved": true,
+    "selected_cpu_bypass_smoke_timing_ms": {
+      "check_accounting": 0.002816,
+      "cpu_owned_residual_accounting": 0.000784,
+      "cuda_supplier_handoff": 0.028704,
+      "final_merge_accounting": 0.005696,
+      "selected_cpu_bypass_smoke_total": 0.125616,
+      "selected_cpu_skip_accounting": 0.086048
+    },
+    "selected_cpu_skip_canary_consumed": true,
+    "selected_cpu_skip_canary_enabled": true,
+    "selected_cpu_skip_cpu_slice_absent": true,
+    "selected_cpu_skip_rebuilt_chains_matched": true,
+    "selected_cpu_skipped_queries": 8,
+    "state": "consumed",
+    "status": "passed",
+    "substituted_complement_chains": 8,
+    "substituted_forward_chains": 8,
+    "timing_ms": {
+      "compare": 0.093745,
+      "rebuild": 0.509249,
+      "substitution": 0.84685,
+      "total": 1.58868
+    },
+    "total_read_alignments_after": 7092,
+    "total_read_alignments_before": 7092,
+    "vs_baseline": {
+      "artifact_count": 9,
+      "matched_count": 9,
+      "mismatch": [],
+      "raw_byte_differences": [
+        {
+          "baseline_bytes": 1500,
+          "canonical_sha256": "62952fa5ecbf84b4f5a5470da16d95f85a962e8cb722aa532610ba87431a56ef",
+          "path": "20-repeat/repeat_graph_dump",
+          "positive_bytes": 1499
+        }
+      ],
+      "schema": "cuflye-canonical-artifact-diff-v0",
+      "status": "match"
+    },
+    "worker_records": 36,
+    "worker_request_timing_ms": {
+      "device_allocation": 0.197313,
+      "device_to_host": 0.03576,
+      "host_pack": 0.322929,
+      "host_to_device": 0.058816,
+      "kernel": 52.750273,
+      "parse": 7.188854,
+      "request_total": 361.528209,
+      "worker_uptime": 361.528369,
+      "write_output": 0.138737
+    },
+    "worker_wall_ms": 480.702
+  },
+  "proof_root": "/tmp/cuflye-m7c-proof-20260701T180000Z",
+  "schema": "cuflye-m7c-read-to-graph-selected-cpu-skip-canary-proof-v0",
+  "source_selection": {
+    "selected_query_count": 8,
+    "selected_query_ids": [
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "selected_query_ids_csv": "5,6,7,8,9,10,11,12",
+    "selected_total_chain_input_rows": 8,
+    "selected_total_raw_rows": 36,
+    "source_pack_dir": "/tmp/cuflye-m7c-proof-20260701T180000Z/positive/source-pack"
+  },
+  "summary_checks_passed": 20,
+  "summary_checks_required": 20,
+  "work_root": "/tmp/cuflye-m7b-work-uZhePGLL"
+}

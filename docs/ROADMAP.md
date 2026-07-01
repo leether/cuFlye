@@ -4587,3 +4587,97 @@ canary. The selected query CPU read-to-graph work must be skipped before the
 graph-facing slice is rebuilt from CUDA output, with canonical artifact parity
 and fail-closed negative proof.
 ```
+
+## 2026-07-01 Update: M7c Read-to-Graph Selected CPU-Skip Canary
+
+Status: completed.
+
+Task Card:
+
+- `docs/tasks/2026-07-01-cuflye-m7c-read-to-graph-selected-cpu-skip-canary.md`
+
+Golden proof:
+
+- `tests/golden/cuflye-m7c-read-to-graph-selected-cpu-skip-canary-dgx-aarch64.json`
+
+What changed:
+
+- Added Flye patch `0057` with an opt-in selected CPU-skip canary after M7b.
+- Added ABI notes for
+  `cuflye-read-to-graph-full-query-hit-selected-cpu-skip-canary-v0`.
+- Extended `scripts/run_flye_fixture.sh` with M7c mode/proof-fault switches and
+  metadata capture.
+- Kept the Flye patch inside C++11-compatible upstream style: no owning raw
+  allocation, no direct CUDA resource lifecycle calls, and non-owning
+  `GraphEdge*` bindings only.
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m7c-proof-20260701T180000Z
+fixture=toy-hifi
+query_ids=5,6,7,8,9,10,11,12
+baseline_matches_golden=true
+positive_status=passed
+positive_canary_checks=18/18
+positive_graph_mutation_consumed_worker_output=true
+positive_selected_cpu_skipped_queries=8
+positive_worker_records=36
+positive_chain_input_rows=8
+positive_cpu_slice_chains=0
+positive_cpu_slice_records=0
+positive_rebuilt_good_chains=8
+positive_placeholder_forward_chains_filled=8
+positive_placeholder_complement_chains_filled=8
+positive_total_read_alignments_before=7092
+positive_total_read_alignments_after=7092
+positive_vs_baseline_canonical_artifacts=match
+positive_canary_total_ms=1.58868
+positive_worker_request_total_ms=361.528209
+positive_worker_kernel_ms=52.750273
+negative_status=failed
+negative_state=failed-closed
+negative_proof_fault=drop-first-cpu-skip-canary-chain
+negative_proof_fault_applied=true
+negative_rebuilt_good_chains=7
+negative_cpu_slice_chains=0
+negative_cpu_slice_records=0
+negative_placeholder_forward_chains_filled=0
+negative_placeholder_complement_chains_filled=0
+negative_graph_mutation_consumed_worker_output=false
+summary_checks=20/20
+```
+
+Allowed M7c claim:
+
+```text
+cuFlye can opt in to skip the selected read-to-graph CPU chain/divergence slice
+for 8 toy-hifi full-query-hit queries, fill graph-facing placeholders with
+CUDA-worker-derived goodChains, preserve canonical Flye artifacts, and fail
+closed before graph mutation when selected CUDA output is corrupted.
+```
+
+Forbidden M7c claim:
+
+```text
+M7c does not prove default GPU mode, whole-Flye speedup, broad read-to-graph
+replacement, or production support beyond the bounded toy-hifi selected
+CPU-skip canary.
+```
+
+Plain-language benefit:
+
+```text
+M7c is the first proof that this path can remove a selected CPU read-to-graph
+slice instead of only replacing it after CPU already computed it. The useful
+advantage is architectural correctness under a fail-closed gate; the toy-hifi
+cold worker path is still not an end-to-end speed win.
+```
+
+Next highest-ROI task:
+
+```text
+M7d: add timing attribution around the selected CPU-skip boundary and expand
+the selected set only where the skipped CPU work is large enough to compete
+with CUDA handoff and worker overhead.
+```
