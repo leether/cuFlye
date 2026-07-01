@@ -11,12 +11,18 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m5y-read-alignment-post-bypass-attribution.md`:
-  attribute the remaining Flye wall time after M5x selected CPU-bypass and
-  choose the next CUDA boundary from measured evidence.
+- `2026-07-01-cuflye-m6a-read-to-graph-overlap-input-boundary.md`:
+  define the read-to-graph overlap/minimizer input-boundary oracle before
+  adding more CUDA kernels, because M5y shows selected chain-DP bypass is not
+  the dominant toy-hifi wall-time bottleneck.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m5y-read-alignment-post-bypass-attribution.md`:
+  attribute the remaining Flye wall time after M5x selected CPU-bypass, prove
+  selected CPU pre-divergence chain and divergence-filter work are really
+  bypassed while canonical artifacts still match, and choose M6a as the next
+  CUDA boundary.
 - `2026-07-01-cuflye-m5x-read-alignment-selected-cpu-bypass.md`:
   run an opt-in selected-read CPU-bypass mode for the full3546 selected set,
   skip selected CPU pre-divergence chain DP, consume verified compact-binary

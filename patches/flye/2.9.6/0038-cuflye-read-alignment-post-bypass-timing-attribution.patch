@@ -1,0 +1,184 @@
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -299,6 +299,11 @@
+ 		size_t workerRecords = 0;
+ 		size_t substitutedChains = 0;
+ 		size_t cpuBypassInsertedChains = 0;
++		double cpuChainDpWallMs = 0.0;
++		double cpuDivergenceFilterWallMs = 0.0;
++		double replayFixtureDumpWallMs = 0.0;
++		double cpuBypassPlaceholderWallMs = 0.0;
++		double gpuDivergenceFilterWallMs = 0.0;
+ 		std::vector<ReadAlignmentDumpRecord> cpuGoodRecordsCanonical;
+ 		std::vector<GraphAlignment> gpuGoodChainsObject;
+ 		std::string error;
+@@ -361,6 +366,12 @@
+ 		size_t totalGpuGoodRecords = 0;
+ 		size_t totalWorkerRecords = 0;
+ 		size_t totalSubstitutedChains = 0;
++		double totalCpuChainDpWallMs = 0.0;
++		double totalCpuDivergenceFilterWallMs = 0.0;
++		double totalReplayFixtureDumpWallMs = 0.0;
++		double totalCpuBypassPlaceholderWallMs = 0.0;
++		double totalGpuDivergenceFilterWallMs = 0.0;
++		double vectorSubstitutionWallMs = 0.0;
+ 		std::vector<ReadAlignmentPreDivergenceBatchFixture> fixtures;
+ 		std::string error;
+ 	};
+@@ -3468,7 +3479,19 @@
+ 			 << "  \"total_worker_records\": "
+ 			 << result.totalWorkerRecords << ",\n"
+ 			 << "  \"total_substituted_chains\": "
+-			 << result.totalSubstitutedChains << ",\n";
++			 << result.totalSubstitutedChains << ",\n"
++			 << "  \"total_cpu_chain_dp_wall_ms\": "
++			 << result.totalCpuChainDpWallMs << ",\n"
++			 << "  \"total_cpu_divergence_filter_wall_ms\": "
++			 << result.totalCpuDivergenceFilterWallMs << ",\n"
++			 << "  \"total_replay_fixture_dump_wall_ms\": "
++			 << result.totalReplayFixtureDumpWallMs << ",\n"
++			 << "  \"total_cpu_bypass_placeholder_wall_ms\": "
++			 << result.totalCpuBypassPlaceholderWallMs << ",\n"
++			 << "  \"total_gpu_divergence_filter_wall_ms\": "
++			 << result.totalGpuDivergenceFilterWallMs << ",\n"
++			 << "  \"vector_substitution_wall_ms\": "
++			 << result.vectorSubstitutionWallMs << ",\n";
+ 		if (!result.error.empty())
+ 		{
+ 			json << "  \"error\": \""
+@@ -3505,6 +3528,16 @@
+ 				 << fixture.cpuBypassPlaceholderOffset << ",\n"
+ 				 << "      \"cpu_bypass_inserted_chains\": "
+ 				 << fixture.cpuBypassInsertedChains << ",\n"
++				 << "      \"cpu_chain_dp_wall_ms\": "
++				 << fixture.cpuChainDpWallMs << ",\n"
++				 << "      \"cpu_divergence_filter_wall_ms\": "
++				 << fixture.cpuDivergenceFilterWallMs << ",\n"
++				 << "      \"replay_fixture_dump_wall_ms\": "
++				 << fixture.replayFixtureDumpWallMs << ",\n"
++				 << "      \"cpu_bypass_placeholder_wall_ms\": "
++				 << fixture.cpuBypassPlaceholderWallMs << ",\n"
++				 << "      \"gpu_divergence_filter_wall_ms\": "
++				 << fixture.gpuDivergenceFilterWallMs << ",\n"
+ 				 << "      \"proof_fault_applied\": "
+ 				 << readAlignmentBoolJson(fixture.proofFaultApplied) << ",\n"
+ 				 << "      \"worker_tsv_readable\": "
+@@ -3641,6 +3674,13 @@
+ 				fixture.cpuPreDivergenceChains;
+ 			result.totalCpuGoodChains += fixture.cpuGoodChains;
+ 			result.totalCpuGoodRecords += fixture.cpuGoodRecords;
++			result.totalCpuChainDpWallMs += fixture.cpuChainDpWallMs;
++			result.totalCpuDivergenceFilterWallMs +=
++				fixture.cpuDivergenceFilterWallMs;
++			result.totalReplayFixtureDumpWallMs +=
++				fixture.replayFixtureDumpWallMs;
++			result.totalCpuBypassPlaceholderWallMs +=
++				fixture.cpuBypassPlaceholderWallMs;
+ 		}
+ 	}
+ 
+@@ -4440,11 +4480,17 @@
+ 		std::vector<GraphAlignment> readChains;
+ 		std::vector<GraphAlignment> goodChains;
+ 		std::vector<float> chainDivergences;
++		double cpuChainDpWallMs = 0.0;
++		double cpuDivergenceFilterWallMs = 0.0;
+ 		if (!selectedCpuBypass)
+ 		{
++			auto cpuChainStart = std::chrono::steady_clock::now();
+ 			readChains = this->chainReadAlignments(alignments);
++			cpuChainDpWallMs = readAlignmentElapsedMs(
++				cpuChainStart, std::chrono::steady_clock::now());
+ 
+ 			//check divergence once the chain is formed
++			auto cpuDivergenceStart = std::chrono::steady_clock::now();
+ 			for (auto& chain : readChains)
+ 			{
+ 				float chainDivergence =
+@@ -4457,10 +4503,15 @@
+ 					goodChains.push_back(chain);
+ 				}
+ 			}
++			cpuDivergenceFilterWallMs = readAlignmentElapsedMs(
++				cpuDivergenceStart, std::chrono::steady_clock::now());
+ 		}
++		auto replayDumpStart = std::chrono::steady_clock::now();
+ 		dumpReadAlignmentReplayFixture(seqId, alignments, readChains,
+ 									   chainDivergences, goodChains, _readSeqs,
+ 									   _graph.edgeSequences());
++		double replayFixtureDumpWallMs = readAlignmentElapsedMs(
++			replayDumpStart, std::chrono::steady_clock::now());
+ 
+ 		if (selectedForPreDivergence)
+ 		{
+@@ -4472,10 +4523,14 @@
+ 					readAlignmentFixtureDirForQuery(seqId.signedId());
+ 				fixture.cpuBypassed = true;
+ 				fixture.status = "captured";
++				fixture.replayFixtureDumpWallMs = replayFixtureDumpWallMs;
++				auto placeholderStart = std::chrono::steady_clock::now();
+ 				indexMutex.lock();
+ 				fixture.cpuBypassPlaceholderOffset = _readAlignments.size();
+ 				fixture.cpuBypassPlaceholderInserted = true;
+ 				_readAlignments.emplace_back();
++				fixture.cpuBypassPlaceholderWallMs = readAlignmentElapsedMs(
++					placeholderStart, std::chrono::steady_clock::now());
+ 				preDivergenceBatchFixtures.push_back(fixture);
+ 				indexMutex.unlock();
+ 				return;
+@@ -4568,6 +4623,10 @@
+ 					readAlignmentFixtureDirForQuery(seqId.signedId());
+ 				fixture.cpuPreDivergenceChains = readChains.size();
+ 				fixture.cpuGoodChains = goodChains.size();
++				fixture.cpuChainDpWallMs = cpuChainDpWallMs;
++				fixture.cpuDivergenceFilterWallMs =
++					cpuDivergenceFilterWallMs;
++				fixture.replayFixtureDumpWallMs = replayFixtureDumpWallMs;
+ 				fixture.cpuGoodRecordsCanonical =
+ 					canonicalReadAlignmentRecordsFromGraphAlignments(goodChains);
+ 				fixture.cpuGoodRecords =
+@@ -4695,6 +4754,8 @@
+ 					fixture.gpuPreDivergenceChains = gpuPreChains.size();
+ 
+ 					std::vector<GraphAlignment> gpuGoodChains;
++					auto gpuDivergenceStart =
++						std::chrono::steady_clock::now();
+ 					for (auto& chain : gpuPreChains)
+ 					{
+ 						float chainDivergence = this->getChainBaseDivergence(
+@@ -4708,6 +4769,10 @@
+ 							gpuGoodChains.push_back(chain);
+ 						}
+ 					}
++					fixture.gpuDivergenceFilterWallMs =
++						readAlignmentElapsedMs(
++							gpuDivergenceStart,
++							std::chrono::steady_clock::now());
+ 					if (batchDryRun.proofFault ==
+ 							"drop-first-gpu-good-chain" &&
+ 						!faultApplied && !gpuGoodChains.empty())
+@@ -4764,6 +4829,8 @@
+ 				batchDryRun.totalGpuGoodChains += fixture.gpuGoodChains;
+ 				batchDryRun.totalGpuGoodRecords += fixture.gpuGoodRecords;
+ 				batchDryRun.totalWorkerRecords += fixture.workerRecords;
++				batchDryRun.totalGpuDivergenceFilterWallMs +=
++					fixture.gpuDivergenceFilterWallMs;
+ 				if (fixture.matched)
+ 				{
+ 					++batchDryRun.matchedFixtureCount;
+@@ -4782,9 +4849,15 @@
+ 					batchDryRun.decision = "batch-dry-run-match-not-consumed";
+ 					batchDryRun.failedClosed = false;
+ 					batchDryRun.graphMutationConsumedWorkerOutput = false;
++					auto substitutionStart =
++						std::chrono::steady_clock::now();
+ 					substituteReadAlignmentPreDivergenceBatchGoodChains(
+ 						batchDryRun, _graph, _readAlignments, numAligned,
+ 						alignedInFull, alignedLength);
++					batchDryRun.vectorSubstitutionWallMs =
++						readAlignmentElapsedMs(
++							substitutionStart,
++							std::chrono::steady_clock::now());
+ 				}
+ 				else
+ 			{

@@ -267,7 +267,14 @@ Completed:
   `goodChains` are inserted back through audited placeholders, and canonical
   artifacts still match CPU. On toy-hifi this avoids `3546` selected CPU
   pre-divergence chains, but whole-Flye wall time improves by only about
-  `0.024` seconds.
+  `0.024` seconds. M5y then attributes the post-bypass run: the selected CPU
+  chain DP work is about `1.034468 ms`, selected CPU divergence filtering is
+  about `174.507361 ms`, GPU divergence filtering still costs about
+  `167.315051 ms`, and the attribution rerun remains noise-scale at the
+  whole-Flye level (`20.81s` M5w vs `20.88s` M5x with `/usr/bin/time` log
+  precision). This points the next boundary upstream to read-to-graph
+  overlap/minimizer candidate generation, not more micro-optimization of the
+  selected chain-DP slice.
 
 Current allowed performance claim:
 
@@ -406,6 +413,13 @@ full3546 set. This is the first read-alignment proof where selected CPU
 pre-divergence chain DP is not computed before GPU consumption. It is a local
 GPU-mode advantage, not a meaningful whole-Flye speedup: the toy-hifi full run
 only improves from `20.765673444s` to `20.741208213s`.
+
+cuFlye can now attribute that selected CPU-bypass effect: selected reads skip
+CPU pre-divergence chain DP and CPU divergence filtering, consume verified
+compact-binary CUDA-derived `goodChains`, and preserve exact canonical Flye
+artifacts for the full3546 toy-hifi set. M5y does not prove whole-Flye
+acceleration; it proves the next high-ROI CUDA boundary should move earlier to
+read-to-graph overlap/minimizer candidate generation.
 ```
 
 Current forbidden claim:
