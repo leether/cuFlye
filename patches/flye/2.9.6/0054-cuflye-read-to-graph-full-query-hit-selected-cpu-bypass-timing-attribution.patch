@@ -1,0 +1,196 @@
+diff --git a/src/repeat_graph/read_aligner.cpp b/src/repeat_graph/read_aligner.cpp
+index 87e30c4..5c7c042 100644
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -836,6 +836,12 @@ namespace
+ 		size_t missingCudaSuppliedRows = 0;
+ 		size_t unexpectedCudaSuppliedRows = 0;
+ 		size_t missingGraphEdgeRows = 0;
++		double selectedCpuSkipAccountingMs = 0.0;
++		double cudaSupplierHandoffMs = 0.0;
++		double cpuOwnedResidualAccountingMs = 0.0;
++		double finalMergeAccountingMs = 0.0;
++		double checkAccountingMs = 0.0;
++		double selectedCpuBypassSmokeTotalMs = 0.0;
+ 		std::vector<ReadToGraphFullQueryHitSelectedBypassPlanCheck>
+ 			checks;
+ 		std::vector<ReadToGraphFullQueryHitSelectedBypassPlanRow>
+@@ -991,6 +997,12 @@ namespace
+ 		size_t rawOverlapSelectedCpuBypassSmokeSkippedRows = 0;
+ 		size_t rawOverlapSelectedCpuBypassSmokeSuppliedRows = 0;
+ 		size_t rawOverlapSelectedCpuBypassSmokeMergedRows = 0;
++		double rawOverlapSelectedCpuBypassSmokeSelectedCpuSkipAccountingMs = 0.0;
++		double rawOverlapSelectedCpuBypassSmokeCudaSupplierHandoffMs = 0.0;
++		double rawOverlapSelectedCpuBypassSmokeCpuOwnedResidualAccountingMs = 0.0;
++		double rawOverlapSelectedCpuBypassSmokeFinalMergeAccountingMs = 0.0;
++		double rawOverlapSelectedCpuBypassSmokeCheckAccountingMs = 0.0;
++		double rawOverlapSelectedCpuBypassSmokeTotalMs = 0.0;
+ 		double workerContextSetupMs = 0.0;
+ 		double actualRequestTotalMs = 0.0;
+ 		double actualKernelMs = 0.0;
+@@ -7387,6 +7399,7 @@ namespace
+ 			return result;
+ 		}
+ 
++		auto smokeStart = std::chrono::steady_clock::now();
+ 		markReadToGraphFullQueryHitSelectedCpuBypassSmokeFailed(result);
+ 		addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
+ 			result, "explicit_selected_cpu_bypass_smoke_mode",
+@@ -7420,11 +7433,14 @@ namespace
+ 				result))
+ 		{
+ 			result.error = "selected CPU-bypass smoke preconditions failed";
++			result.selectedCpuBypassSmokeTotalMs = readAlignmentElapsedMs(
++				smokeStart, std::chrono::steady_clock::now());
+ 			return result;
+ 		}
+ 
+ 		try
+ 		{
++			auto selectedCpuSkipStart = std::chrono::steady_clock::now();
+ 			auto allCpuRecords =
+ 				readToGraphOracleRawOverlapRecords(dryRun.queryIds);
+ 			auto selectedCpuRecords =
+@@ -7449,7 +7465,10 @@ namespace
+ 			}
+ 			result.skippedCpuSelectedRows =
+ 				result.skippedCpuSelectedRowsLedger.size();
++			result.selectedCpuSkipAccountingMs = readAlignmentElapsedMs(
++				selectedCpuSkipStart, std::chrono::steady_clock::now());
+ 
++			auto cudaSupplierStart = std::chrono::steady_clock::now();
+ 			std::vector<ReadToGraphFullQueryHitObjectVectorSmokeObject>
+ 				suppliedObjects =
+ 					buildReadToGraphFullQueryHitLiveObjectVector(
+@@ -7483,9 +7502,16 @@ namespace
+ 				result.cudaSuppliedRowKeyDiff.missingRows;
+ 			result.unexpectedCudaSuppliedRows =
+ 				result.cudaSuppliedRowKeyDiff.extraRows;
++			result.cudaSupplierHandoffMs = readAlignmentElapsedMs(
++				cudaSupplierStart, std::chrono::steady_clock::now());
++
++			auto cpuOwnedResidualStart = std::chrono::steady_clock::now();
+ 			result.cpuOwnedRows = selectedBypass.cpuOwnedRows;
+ 			result.cpuOwnedResidualRows = result.cpuOwnedRows.size();
++			result.cpuOwnedResidualAccountingMs = readAlignmentElapsedMs(
++				cpuOwnedResidualStart, std::chrono::steady_clock::now());
+ 
++			auto finalMergeStart = std::chrono::steady_clock::now();
+ 			bool leakFirstSkippedCpuRow =
+ 				result.proofFault == "leak-first-skipped-cpu-row" &&
+ 				!selectedCpuRecords.empty();
+@@ -7556,7 +7582,10 @@ namespace
+ 				result.finalMergedRowKeyDiff.matched;
+ 			result.finalMergedOrderedRowKeyMatched =
+ 				result.finalMergedRowKeyDiff.orderedMatched;
++			result.finalMergeAccountingMs = readAlignmentElapsedMs(
++				finalMergeStart, std::chrono::steady_clock::now());
+ 
++			auto checksStart = std::chrono::steady_clock::now();
+ 			addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
+ 				result, "selected_cpu_handoff_rows_present",
+ 				result.selectedCpuHandoffRows > 0,
+@@ -7624,6 +7653,28 @@ namespace
+ 				result, "graph_not_mutated_after_selected_cpu_bypass_smoke",
+ 				!result.graphMutationConsumedWorkerOutput,
+ 				"selected CPU-bypass smoke must not mutate graph state");
++			addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++				result, "selected_cpu_skip_accounting_timed",
++				result.selectedCpuSkipAccountingMs > 0.0,
++				"selected CPU skip accounting timing must be recorded");
++			addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++				result, "cuda_supplier_handoff_timed",
++				result.cudaSupplierHandoffMs > 0.0,
++				"CUDA supplier handoff timing must be recorded");
++			addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++				result, "final_merge_accounting_timed",
++				result.finalMergeAccountingMs > 0.0,
++				"final merged ledger accounting timing must be recorded");
++			result.selectedCpuBypassSmokeTotalMs = readAlignmentElapsedMs(
++				smokeStart, std::chrono::steady_clock::now());
++			addReadToGraphFullQueryHitSelectedCpuBypassSmokeCheck(
++				result, "selected_cpu_bypass_smoke_total_timed",
++				result.selectedCpuBypassSmokeTotalMs > 0.0,
++				"selected CPU-bypass smoke total timing must be recorded");
++			result.checkAccountingMs = readAlignmentElapsedMs(
++				checksStart, std::chrono::steady_clock::now());
++			result.selectedCpuBypassSmokeTotalMs = readAlignmentElapsedMs(
++				smokeStart, std::chrono::steady_clock::now());
+ 
+ 			if (allReadToGraphFullQueryHitSelectedCpuBypassSmokeChecksPassed(
+ 					result))
+@@ -7647,6 +7698,8 @@ namespace
+ 		catch (const std::exception& exc)
+ 		{
+ 			result.error = exc.what();
++			result.selectedCpuBypassSmokeTotalMs = readAlignmentElapsedMs(
++				smokeStart, std::chrono::steady_clock::now());
+ 			markReadToGraphFullQueryHitSelectedCpuBypassSmokeFailed(result);
+ 		}
+ 		return result;
+@@ -7671,6 +7724,18 @@ namespace
+ 			smoke.cudaSuppliedSelectedRows;
+ 		dryRun.rawOverlapSelectedCpuBypassSmokeMergedRows =
+ 			smoke.finalMergedLedgerRows;
++		dryRun.rawOverlapSelectedCpuBypassSmokeSelectedCpuSkipAccountingMs =
++			smoke.selectedCpuSkipAccountingMs;
++		dryRun.rawOverlapSelectedCpuBypassSmokeCudaSupplierHandoffMs =
++			smoke.cudaSupplierHandoffMs;
++		dryRun.rawOverlapSelectedCpuBypassSmokeCpuOwnedResidualAccountingMs =
++			smoke.cpuOwnedResidualAccountingMs;
++		dryRun.rawOverlapSelectedCpuBypassSmokeFinalMergeAccountingMs =
++			smoke.finalMergeAccountingMs;
++		dryRun.rawOverlapSelectedCpuBypassSmokeCheckAccountingMs =
++			smoke.checkAccountingMs;
++		dryRun.rawOverlapSelectedCpuBypassSmokeTotalMs =
++			smoke.selectedCpuBypassSmokeTotalMs;
+ 	}
+ 
+ 	void writeReadToGraphFullQueryHitRawOverlapKeyDiffJson(
+@@ -7775,6 +7840,20 @@ namespace
+ 			 << smoke.unexpectedCudaSuppliedRows << ",\n"
+ 			 << "  \"missing_graph_edge_rows\": "
+ 			 << smoke.missingGraphEdgeRows << ",\n"
++			 << "  \"timing_ms\": {\n"
++			 << "    \"selected_cpu_skip_accounting\": "
++			 << smoke.selectedCpuSkipAccountingMs << ",\n"
++			 << "    \"cuda_supplier_handoff\": "
++			 << smoke.cudaSupplierHandoffMs << ",\n"
++			 << "    \"cpu_owned_residual_accounting\": "
++			 << smoke.cpuOwnedResidualAccountingMs << ",\n"
++			 << "    \"final_merge_accounting\": "
++			 << smoke.finalMergeAccountingMs << ",\n"
++			 << "    \"check_accounting\": " << smoke.checkAccountingMs
++			 << ",\n"
++			 << "    \"selected_cpu_bypass_smoke_total\": "
++			 << smoke.selectedCpuBypassSmokeTotalMs << "\n"
++			 << "  },\n"
+ 			 << "  \"checks\": [\n";
+ 		for (size_t index = 0; index < smoke.checks.size(); ++index)
+ 		{
+@@ -8198,6 +8277,25 @@ namespace
+ 				 << result.rawOverlapSelectedCpuBypassSmokeSuppliedRows << ",\n"
+ 				 << "  \"raw_overlap_selected_cpu_bypass_smoke_merged_rows\": "
+ 				 << result.rawOverlapSelectedCpuBypassSmokeMergedRows << ",\n"
++				 << "  \"raw_overlap_selected_cpu_bypass_smoke_timing_ms\": {\n"
++				 << "    \"selected_cpu_skip_accounting\": "
++				 << result.rawOverlapSelectedCpuBypassSmokeSelectedCpuSkipAccountingMs
++				 << ",\n"
++				 << "    \"cuda_supplier_handoff\": "
++				 << result.rawOverlapSelectedCpuBypassSmokeCudaSupplierHandoffMs
++				 << ",\n"
++				 << "    \"cpu_owned_residual_accounting\": "
++				 << result.rawOverlapSelectedCpuBypassSmokeCpuOwnedResidualAccountingMs
++				 << ",\n"
++				 << "    \"final_merge_accounting\": "
++				 << result.rawOverlapSelectedCpuBypassSmokeFinalMergeAccountingMs
++				 << ",\n"
++				 << "    \"check_accounting\": "
++				 << result.rawOverlapSelectedCpuBypassSmokeCheckAccountingMs
++				 << ",\n"
++				 << "    \"selected_cpu_bypass_smoke_total\": "
++				 << result.rawOverlapSelectedCpuBypassSmokeTotalMs << "\n"
++				 << "  },\n"
+ 				 << "  \"query_ids\": [";
+ 		for (size_t idx = 0; idx < result.queryIds.size(); ++idx)
+ 		{

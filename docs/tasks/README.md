@@ -11,13 +11,17 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m6z-full-query-hit-selected-cpu-bypass-timing-attribution.md`:
-  measure the M6y selected CPU-bypass seam by attributing skipped CPU handoff
-  work, CUDA supplier handoff cost, seam merge/accounting cost, and residual
-  CPU-owned work before any performance claim is made.
+- `2026-07-01-cuflye-m7a-full-query-hit-selected-graph-consumption-parity.md`:
+  move from no-mutation selected CPU-bypass smoke to a selected graph-facing
+  consumption parity gate while preserving exact canonical artifacts and
+  fail-closed behavior.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m6z-full-query-hit-selected-cpu-bypass-timing-attribution.md`:
+  attribute the M6y selected CPU-bypass seam timing for skipped CPU handoff
+  accounting, CUDA supplier handoff, final merge accounting, and total smoke
+  seam cost while preserving M6y correctness and fail-closed behavior.
 - `2026-07-01-cuflye-m6y-full-query-hit-selected-cpu-bypass-smoke.md`:
   skip selected CPU handoff rows in a guarded smoke ledger, supply the same
   rows from CUDA-derived selected bypass output, preserve CPU-owned residual

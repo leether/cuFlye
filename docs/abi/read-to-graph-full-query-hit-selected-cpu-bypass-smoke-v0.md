@@ -1,6 +1,6 @@
 # ABI: Read-to-Graph Full Query-Hit Selected CPU-Bypass Smoke v0
 
-Status: proposed
+Status: accepted in M6y; timing attribution accepted in M6z
 
 Created: 2026-07-01
 
@@ -56,7 +56,15 @@ The worker dry-run audit also mirrors the status and row counts:
   "raw_overlap_selected_cpu_bypass_smoke_status": "passed",
   "raw_overlap_selected_cpu_bypass_smoke_skipped_rows": 8,
   "raw_overlap_selected_cpu_bypass_smoke_supplied_rows": 8,
-  "raw_overlap_selected_cpu_bypass_smoke_merged_rows": 36
+  "raw_overlap_selected_cpu_bypass_smoke_merged_rows": 36,
+  "raw_overlap_selected_cpu_bypass_smoke_timing_ms": {
+    "selected_cpu_skip_accounting": 0.089280,
+    "cuda_supplier_handoff": 0.028721,
+    "cpu_owned_residual_accounting": 0.000768,
+    "final_merge_accounting": 0.005760,
+    "check_accounting": 0.002736,
+    "selected_cpu_bypass_smoke_total": 0.128913
+  }
 }
 ```
 
@@ -88,6 +96,7 @@ Top-level fields:
 | `leaked_selected_cpu_rows` | Skipped selected CPU rows that leaked back into CPU-owned path. |
 | `missing_cuda_supplied_rows` | Skipped selected CPU rows missing a CUDA supplier. |
 | `unexpected_cuda_supplied_rows` | Unexpected rows added to the CUDA supplier ledger. |
+| `timing_ms` | M6z timing attribution for this smoke seam, in milliseconds. |
 | `skipped_cpu_selected_rows_ledger` | Deterministic rows skipped from CPU-selected handoff. |
 | `cuda_supplied_rows` | Deterministic CUDA-derived selected supplier rows. |
 | `cpu_owned_rows` | Deterministic CPU-owned residual rows. |
@@ -107,6 +116,24 @@ Each ledger entry contains:
 | `edge_seq_id` | `OverlapRange.extId`. |
 | `decision` | One of `selected-cpu-handoff-skipped`, `cuda-supplied-selected-bypass`, `cpu-owned`, `cpu-owned-selected-leak`, or `selected-cpu-skip-without-cuda-supply`. |
 | `reason` | Why the row is in that ledger. |
+
+## M6z Timing Fields
+
+M6z adds timing attribution without changing the correctness schema or default
+behavior:
+
+| Field | Meaning |
+| --- | --- |
+| `timing_ms.selected_cpu_skip_accounting` | Read CPU oracle rows, read selected CPU handoff rows, build selected skip ledger, and build selected CPU row-key sets. |
+| `timing_ms.cuda_supplier_handoff` | Rehydrate CUDA worker TSV rows into graph-facing objects and compare CUDA-supplied selected row keys against selected CPU handoff row keys. |
+| `timing_ms.cpu_owned_residual_accounting` | Copy and count M6x CPU-owned residual rows. |
+| `timing_ms.final_merge_accounting` | Build the final merged smoke ledger and compare it against the CPU oracle row keys. |
+| `timing_ms.check_accounting` | Add and evaluate required smoke checks. |
+| `timing_ms.selected_cpu_bypass_smoke_total` | Total selected CPU-bypass smoke seam time. |
+
+Timing fields are diagnostic proof data, not canonical scientific outputs. M6z
+requires the main phase timings and total timing to be nonzero in the DGX proof,
+but timing noise must not hide correctness failures.
 
 ## Invariants
 
