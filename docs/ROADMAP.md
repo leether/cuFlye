@@ -351,6 +351,18 @@ Completed:
   versus capture full Flye artifact diffs remained `match`. M6g is not a CUDA
   or speed claim; it removes the last ordering blocker before a CUDA
   full-query-hit replay consumer.
+- M6h: a standalone CUDA full-query-hit replay consumer now reads the selected
+  M6f/M6g source pack and emits raw-overlap records that canonical row-key diff
+  `match` against the M6g CPU replay. The DGX proof used source-pack SHA-256
+  `16f4ced6054e7e4491071a1a7512760424a1e4fbc157e532ddb7c9e2aac53e5f`,
+  replayed `7747` full query-hit records across `33` ext groups, ran CUDA work
+  for `22` active groups, and emitted `36` CUDA raw-overlap records. CPU versus
+  CUDA canonical row-key diff matched all `36` rows, CUDA A/B row-key diff also
+  matched, and an intentionally too-small memory budget failed closed with JSON
+  `status=error`. Direct CPU-vs-CUDA row order still differs for one
+  equal-score pair, so M6h uses the explicit canonical row-key diff gate. This
+  is not a speed claim: CPU replay wall time was about `0.11s`, while the cold
+  CUDA process was about `0.48s` and CUDA kernel time was `53.170850 ms`.
 
 Current allowed performance claim:
 
@@ -501,6 +513,12 @@ cuFlye can now replay the selected read-to-graph full-query-hit source pack to
 row-key equality after modeling Flye's libstdc++ equal-key sort behavior. This
 is a CPU replay correctness claim for raw-overlap coordinates and scores, not a
 CUDA speed claim and not full non-key field reproduction.
+
+cuFlye now has a standalone CUDA consumer for that selected full-query-hit
+source pack. It produces the same canonical raw-overlap row-key set as the M6g
+CPU replay for all selected rows and fails closed on unsupported memory budget,
+but it is slower than CPU on the tiny pack because the M6h kernel is still a
+serial per-group correctness prototype.
 ```
 
 Current forbidden claim:
@@ -2821,10 +2839,68 @@ and edge. The next CUDA step now has a clean target: reproduce the same
 coordinates and scores from full query-hit input.
 ```
 
+M6h accepted result:
+
+```text
+cuFlye now has a standalone CUDA full-query-hit replay consumer that emits raw
+overlap records canonical row-key-equivalent to the M6g CPU replay for the
+selected source pack.
+```
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m6h-proof-20260701T070728Z
+golden=tests/golden/cuflye-m6h-cuda-full-query-hit-replay-consumer-dgx-aarch64.json
+source_pack_canonical_sha256=16f4ced6054e7e4491071a1a7512760424a1e4fbc157e532ddb7c9e2aac53e5f
+cpu_replay_raw_overlaps_sha256=2e1201a2e768ed682afc6b0feb90d50aeeea8ad66597861c6c61ba062a34e420
+cpu_row_key_exact_match=true
+cuda_status=ok
+cuda_output_records=36
+cuda_source_match_records=7747
+cuda_source_ext_groups=33
+cuda_active_ext_groups=22
+cpu_vs_cuda_row_key_diff=match
+cpu_vs_cuda_ordered_match=false
+cuda_ab_row_key_diff=match
+cuda_ab_ordered_match=true
+unsupported_exit_status=2
+unsupported_json_status=error
+unsupported_error="required bytes exceed memory budget"
+cpu_replay_wall_seconds=0.11
+cuda_replay_wall_seconds=0.48
+cuda_kernel_ms=53.170850
+```
+
+Allowed M6h claim:
+
+```text
+cuFlye can run a bounded CUDA full-query-hit replay consumer that produces the
+same canonical raw-overlap row-key set as the M6g CPU replay and fails closed
+on unsupported memory budget.
+```
+
+Forbidden M6h claim:
+
+```text
+M6h does not prove ordered raw row parity, full non-key field reproduction,
+Flye graph consumption, default GPU mode, or any speedup.
+```
+
+Plain-language benefit:
+
+```text
+M6h moves the target boundary onto CUDA for the first time: the GPU path now
+generates the same selected raw-overlap coordinates and scores after canonical
+row-key comparison. It is still slower than CPU because the kernel is serial per
+edge group and pays cold CUDA process overhead. This is a correctness migration
+milestone, not a performance milestone.
+```
+
 Next highest-ROI task:
 
 ```text
-M6h: build the first CUDA full-query-hit replay consumer that emits M6g
-row-key-compatible raw-overlap records for the selected source pack, with
-unsupported shapes failing closed and no speed claim until parity is proven.
+M6i: parallelize the full-query-hit replay benchmark while preserving canonical
+row-key parity, then decide whether the next blocker is kernel parallelism or
+worker/session overhead.
 ```

@@ -11,12 +11,17 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m6h-cuda-full-query-hit-replay-consumer.md`:
-  build the first CUDA consumer for the M6g full-query-hit replay boundary,
-  emitting row-key-compatible raw-overlap records for the selected source pack.
+- `2026-07-01-cuflye-m6i-parallel-full-query-hit-replay-benchmark.md`:
+  parallelize the M6h CUDA full-query-hit replay benchmark while preserving
+  canonical row-key parity and fail-closed behavior.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m6h-cuda-full-query-hit-replay-consumer.md`:
+  build the first CUDA consumer for the selected full-query-hit source pack,
+  emit `36` raw-overlap records that canonical row-key diff `match` against
+  the M6g CPU replay, and show the current serial CUDA prototype is slower than
+  CPU on the tiny pack.
 - `2026-07-01-cuflye-m6g-query-hit-replay-tie-closure.md`:
   model libstdc++ `std::sort` equal-key ordering in the external replay
   harness, close the final M6f query `11` / edge sequence `-3587` mismatch, and
