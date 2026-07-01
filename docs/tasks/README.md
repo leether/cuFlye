@@ -11,12 +11,16 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m7b-full-query-hit-selected-graph-consumption-mutation-canary.md`:
-  attempt a tiny opt-in selected graph-consumption mutation canary after M7a
-  live-edge parity, preserving canonical artifacts and fail-closed behavior.
+- `2026-07-01-cuflye-m7c-read-to-graph-selected-cpu-skip-canary.md`:
+  turn the M7b post-hoc selected substitution into a selected CPU-skip canary
+  where selected query work is skipped and supplied from CUDA output.
 
 Completed cards:
 
+- `2026-07-01-cuflye-m7b-full-query-hit-selected-graph-consumption-mutation-canary.md`:
+  consume the selected CUDA full-query-hit handoff as rebuilt Flye
+  `goodChains`, substituting 8 forward plus 8 complement selected chains while
+  preserving canonical artifacts and failing closed on a dropped canary chain.
 - `2026-07-01-cuflye-m7a-full-query-hit-selected-graph-consumption-parity.md`:
   prove the M6y/M6z final merged selected handoff reaches graph-facing live
   rows with 8 CUDA-supplied selected rows, 28 CPU-owned residual rows, and zero

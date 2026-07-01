@@ -4491,3 +4491,99 @@ Only after M7a parity passes should a tiny opt-in path let the selected handoff
 reach the actual graph mutation path and compare canonical artifacts against
 the CPU golden.
 ```
+
+## 2026-07-01 Update: M7b Full Query-Hit Selected Graph-Consumption Mutation Canary
+
+Status: completed.
+
+Task Card:
+
+- `docs/tasks/2026-07-01-cuflye-m7b-full-query-hit-selected-graph-consumption-mutation-canary.md`
+
+Golden proof:
+
+- `tests/golden/cuflye-m7b-full-query-hit-selected-graph-consumption-mutation-canary-dgx-aarch64.json`
+
+What changed:
+
+- Added Flye patch `0056` with an opt-in selected graph-consumption mutation
+  canary after M7a.
+- Added ABI notes for
+  `cuflye-read-to-graph-full-query-hit-selected-graph-consumption-mutation-canary-v0`.
+- Extended `scripts/run_flye_fixture.sh` with M7b mode/proof-fault switches and
+  metadata capture.
+- Kept Flye patch ownership local to upstream containers: no owning raw
+  allocation, no CUDA resource lifecycle calls, and non-owning `GraphEdge*`
+  bindings only.
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m7b-proof-20260701T170000Z
+fixture=toy-hifi
+query_ids=5,6,7,8,9,10,11,12
+baseline_matches_golden=true
+positive_status=passed
+positive_canary_checks=16/16
+positive_consumed=true
+positive_graph_mutation_consumed_worker_output=true
+positive_worker_records=36
+positive_chain_input_rows=8
+positive_rebuilt_good_chains=8
+positive_substituted_forward_chains=8
+positive_substituted_complement_chains=8
+positive_total_read_alignments_before=7092
+positive_total_read_alignments_after=7092
+positive_vs_baseline_canonical_artifacts=match
+positive_canary_total_ms=1.6067
+negative_status=failed
+negative_state=failed-closed
+negative_proof_fault=drop-first-canary-chain
+negative_proof_fault_applied=true
+negative_rebuilt_good_chains=7
+negative_cpu_slice_chains=8
+negative_total_read_alignments_before=7092
+negative_total_read_alignments_after=7092
+negative_substituted_forward_chains=0
+negative_substituted_complement_chains=0
+negative_graph_mutation_consumed_worker_output=false
+summary_checks=15/15
+```
+
+Allowed M7b claim:
+
+```text
+cuFlye can rebuild the selected full-query-hit CUDA handoff into Flye
+goodChains, substitute 8 selected forward chains plus 8 complement chains into
+the graph-facing read-alignment slice, and preserve canonical Flye artifacts on
+DGX.
+```
+
+Forbidden M7b claim:
+
+```text
+M7b does not prove whole-Flye speedup, default GPU mode, or broad read-to-graph
+CPU elimination. The selected CPU slice still exists before the canary compares
+against it, so this is guarded graph-facing consumption, not a performance
+win.
+```
+
+Plain-language benefit:
+
+```text
+M7b crosses the first real consumption boundary: the CUDA-derived selected
+handoff is no longer only audited beside Flye. It is rebuilt into Flye chain
+objects and swapped into the graph-facing alignment vector under a strict
+canonical parity gate. That makes the next speed-oriented step legitimate,
+because the project now has a proven place where CUDA output can feed Flye
+without changing results.
+```
+
+Next highest-ROI task:
+
+```text
+M7c: turn the M7b post-hoc selected substitution into a selected CPU-skip
+canary. The selected query CPU read-to-graph work must be skipped before the
+graph-facing slice is rebuilt from CUDA output, with canonical artifact parity
+and fail-closed negative proof.
+```

@@ -1,0 +1,933 @@
+diff --git a/src/repeat_graph/read_aligner.cpp b/src/repeat_graph/read_aligner.cpp
+index c1327ef..92b6ec5 100644
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -16,6 +16,7 @@
+ #include <cstring>
+ #include <cstdlib>
+ #include <fstream>
++#include <functional>
+ #include <iomanip>
+ #include <limits>
+ #include <map>
+@@ -888,6 +889,45 @@ namespace
+ 			graphFacingLedger;
+ 	};
+ 
++	struct ReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryResult
++	{
++		std::string mode;
++		std::string proofFault;
++		std::string status = "not-requested";
++		std::string state = "not-consumed";
++		std::string decision = "disabled";
++		std::string selectedGraphConsumptionParityStatus = "not-requested";
++		std::string error;
++		bool eligible = false;
++		bool attempted = false;
++		bool accepted = false;
++		bool consumed = false;
++		bool failedClosed = false;
++		bool proofFaultApplied = false;
++		bool graphMutationConsumedWorkerOutput = false;
++		bool selectedCanaryRecordsMatched = false;
++		bool finalAlignmentRecordsMatched = false;
++		size_t selectedQueryCount = 0;
++		size_t workerRecords = 0;
++		size_t chainInputRows = 0;
++		size_t missingGraphEdgeRows = 0;
++		size_t rebuiltPreDivergenceChains = 0;
++		size_t rebuiltGoodChains = 0;
++		size_t rebuiltGoodRecords = 0;
++		size_t cpuSliceChains = 0;
++		size_t cpuSliceRecords = 0;
++		size_t totalReadAlignmentsBefore = 0;
++		size_t totalReadAlignmentsAfter = 0;
++		size_t substitutedForwardChains = 0;
++		size_t substitutedComplementChains = 0;
++		double rebuildMs = 0.0;
++		double compareMs = 0.0;
++		double substitutionMs = 0.0;
++		double totalMs = 0.0;
++		std::vector<ReadToGraphFullQueryHitSelectedBypassPlanCheck>
++			checks;
++	};
++
+ 	struct ReadToGraphFullQueryHitWorkerDryRunResult
+ 	{
+ 		std::string mode;
+@@ -970,6 +1010,12 @@ namespace
+ 		std::string rawOverlapSelectedGraphConsumptionParityStatus = "not-requested";
+ 		std::string rawOverlapSelectedGraphConsumptionParityState = "not-consumed";
+ 		std::string rawOverlapSelectedGraphConsumptionParityDecision = "disabled";
++		std::string rawOverlapSelectedGraphConsumptionMutationCanaryJson;
++		std::string rawOverlapSelectedGraphConsumptionMutationCanaryMode;
++		std::string rawOverlapSelectedGraphConsumptionMutationCanaryProofFault;
++		std::string rawOverlapSelectedGraphConsumptionMutationCanaryStatus = "not-requested";
++		std::string rawOverlapSelectedGraphConsumptionMutationCanaryState = "not-consumed";
++		std::string rawOverlapSelectedGraphConsumptionMutationCanaryDecision = "disabled";
+ 		std::string workerCommand;
+ 		std::string error;
+ 		std::vector<int64_t> queryIds;
+@@ -1005,6 +1051,9 @@ namespace
+ 		bool rawOverlapSelectedCpuBypassSmokeFailedClosed = false;
+ 		bool rawOverlapSelectedGraphConsumptionParityEligible = false;
+ 		bool rawOverlapSelectedGraphConsumptionParityFailedClosed = false;
++		bool rawOverlapSelectedGraphConsumptionMutationCanaryEligible = false;
++		bool rawOverlapSelectedGraphConsumptionMutationCanaryConsumed = false;
++		bool rawOverlapSelectedGraphConsumptionMutationCanaryFailedClosed = false;
+ 		size_t expectedOutputRecords = 0;
+ 		size_t rawOverlapRehydratedRecords = 0;
+ 		size_t rawOverlapShadowLedgerRows = 0;
+@@ -1041,6 +1090,8 @@ namespace
+ 		size_t rawOverlapSelectedGraphConsumptionParityCudaSuppliedRows = 0;
+ 		size_t rawOverlapSelectedGraphConsumptionParityCpuOwnedRows = 0;
+ 		size_t rawOverlapSelectedGraphConsumptionParityMissingGraphEdgeRows = 0;
++		size_t rawOverlapSelectedGraphConsumptionMutationCanaryRebuiltGoodChains = 0;
++		size_t rawOverlapSelectedGraphConsumptionMutationCanarySubstitutedChains = 0;
+ 		double rawOverlapSelectedCpuBypassSmokeSelectedCpuSkipAccountingMs = 0.0;
+ 		double rawOverlapSelectedCpuBypassSmokeCudaSupplierHandoffMs = 0.0;
+ 		double rawOverlapSelectedCpuBypassSmokeCpuOwnedResidualAccountingMs = 0.0;
+@@ -3443,6 +3494,51 @@ namespace
+ 		return proofFault;
+ 	}
+ 
++	std::string readToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryMode()
++	{
++		static std::string mode = []()
++		{
++			const char* raw = std::getenv(
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_MUTATION_CANARY_MODE");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "selected-graph-consumption-mutation-canary-v0")
++			{
++				throw std::runtime_error(
++					"Unsupported "
++					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_MUTATION_CANARY_MODE: " +
++					selected);
++			}
++			return selected;
++		}();
++		return mode;
++	}
++
++	bool readToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryEnabled()
++	{
++		return !readToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryMode().empty();
++	}
++
++	std::string readToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryProofFault()
++	{
++		static std::string proofFault = []()
++		{
++			const char* raw = std::getenv(
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_MUTATION_CANARY_PROOF_FAULT");
++			if (!raw || !raw[0]) return std::string();
++			std::string selected(raw);
++			if (selected != "drop-first-canary-chain")
++			{
++				throw std::runtime_error(
++					"Unsupported "
++					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_MUTATION_CANARY_PROOF_FAULT: " +
++					selected);
++			}
++			return selected;
++		}();
++		return proofFault;
++	}
++
+ 	std::string readToGraphFullQueryHitWorkerLifecycleMode()
+ 	{
+ 		static std::string mode = []()
+@@ -3602,6 +3698,10 @@ namespace
+ 			readToGraphFullQueryHitSelectedGraphConsumptionParityEnabled();
+ 		std::string selectedGraphConsumptionParityProofFault =
+ 			readToGraphFullQueryHitSelectedGraphConsumptionParityProofFault();
++		bool selectedGraphConsumptionMutationCanaryEnabled =
++			readToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryEnabled();
++		std::string selectedGraphConsumptionMutationCanaryProofFault =
++			readToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryProofFault();
+ 		if (rehydrationEnabled && !readToGraphFullQueryHitWorkerDryRunEnabled())
+ 		{
+ 			throw std::runtime_error(
+@@ -3908,6 +4008,29 @@ namespace
+ 				"parity proof fault requires "
+ 				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_PARITY_MODE");
+ 		}
++		if (selectedGraphConsumptionMutationCanaryEnabled &&
++			!readToGraphFullQueryHitWorkerDryRunEnabled())
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit selected graph-consumption "
++				"mutation canary requires CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_MODE");
++		}
++		if (selectedGraphConsumptionMutationCanaryEnabled &&
++			!selectedGraphConsumptionParityEnabled)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit selected graph-consumption "
++				"mutation canary requires "
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_PARITY_MODE");
++		}
++		if (!selectedGraphConsumptionMutationCanaryProofFault.empty() &&
++			!selectedGraphConsumptionMutationCanaryEnabled)
++		{
++			throw std::runtime_error(
++				"cuFlye read-to-graph full-query-hit selected graph-consumption "
++				"mutation canary proof fault requires "
++				"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_MUTATION_CANARY_MODE");
++		}
+ 		if (!readToGraphFullQueryHitWorkerDryRunEnabled()) return;
+ 		if (!readToGraphSourcePackEnabled())
+ 		{
+@@ -8172,6 +8295,531 @@ namespace
+ 		writeReadAlignmentTextFile(path, json.str());
+ 	}
+ 
++	void markReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryFailed(
++		ReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryResult& canary)
++	{
++		canary.status = "failed";
++		canary.state = "failed-closed";
++		canary.decision = "failed-closed-before-graph-mutation-commit";
++		canary.eligible = false;
++		canary.accepted = false;
++		canary.consumed = false;
++		canary.failedClosed = true;
++		canary.graphMutationConsumedWorkerOutput = false;
++	}
++
++	bool allReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryChecksPassed(
++		const ReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryResult& canary)
++	{
++		for (const auto& check : canary.checks)
++		{
++			if (check.required && !check.passed) return false;
++		}
++		return !canary.checks.empty();
++	}
++
++	void addReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryCheck(
++		ReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryResult& canary,
++		const std::string& name,
++		bool passed,
++		const std::string& detail)
++	{
++		ReadToGraphFullQueryHitSelectedBypassPlanCheck check;
++		check.name = name;
++		check.required = true;
++		check.passed = passed;
++		check.detail = detail;
++		canary.checks.push_back(check);
++	}
++
++	std::vector<GraphAlignment> complementReadToGraphMutationCanaryChains(
++		const std::vector<GraphAlignment>& chains,
++		RepeatGraph& graph)
++	{
++		std::vector<GraphAlignment> complChains(chains);
++		for (auto& chain : complChains)
++		{
++			for (auto& aln : chain)
++			{
++				aln.edge = graph.complementEdge(aln.edge);
++				aln.overlap = aln.overlap.complement();
++			}
++			std::reverse(chain.begin(), chain.end());
++		}
++		return complChains;
++	}
++
++	typedef std::function<std::vector<GraphAlignment>(
++		const std::vector<EdgeAlignment>&)> ReadToGraphMutationCanaryChainBuilder;
++	typedef std::function<float(const GraphAlignment&, bool)>
++		ReadToGraphMutationCanaryDivergenceComputer;
++
++	struct ReadToGraphMutationCanaryReplacement
++	{
++		int64_t queryId = 0;
++		std::vector<GraphAlignment> chains;
++	};
++
++	ReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryResult
++	evaluateReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanary(
++		const ReadToGraphFullQueryHitWorkerDryRunResult& dryRun,
++		const ReadToGraphFullQueryHitSelectedCpuBypassSmokeResult& smoke,
++		const ReadToGraphFullQueryHitSelectedGraphConsumptionParityResult& parity,
++		RepeatGraph& graph,
++		std::vector<GraphAlignment>& readAlignments,
++		const ReadToGraphMutationCanaryChainBuilder& buildChains,
++		const ReadToGraphMutationCanaryDivergenceComputer& computeDivergence)
++	{
++		ReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryResult result;
++		result.mode =
++			readToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryMode();
++		result.proofFault =
++			readToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryProofFault();
++		result.selectedGraphConsumptionParityStatus = parity.status;
++		if (!readToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryEnabled())
++		{
++			return result;
++		}
++
++		auto totalStart = std::chrono::steady_clock::now();
++		result.attempted = true;
++		result.totalReadAlignmentsBefore = readAlignments.size();
++		result.totalReadAlignmentsAfter = result.totalReadAlignmentsBefore;
++		markReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryFailed(
++			result);
++		addReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryCheck(
++			result, "explicit_selected_graph_consumption_mutation_canary_mode",
++			result.mode == "selected-graph-consumption-mutation-canary-v0",
++			"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_MUTATION_CANARY_MODE="
++			"selected-graph-consumption-mutation-canary-v0");
++		addReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryCheck(
++			result, "selected_graph_consumption_parity_passed",
++			parity.status == "passed" && parity.eligible &&
++				!parity.failedClosed,
++			"M7a selected graph-consumption parity must pass before mutation canary");
++		addReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryCheck(
++			result, "selected_cpu_bypass_smoke_passed",
++			smoke.status == "passed" && smoke.eligible &&
++				!smoke.failedClosed,
++			"M6y selected CPU-bypass smoke must pass before mutation canary");
++		addReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryCheck(
++			result, "worker_output_readable",
++			dryRun.workerOutputReadable,
++			"validated worker raw-overlap TSV must be readable");
++		addReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryCheck(
++			result, "graph_not_previously_mutated",
++			!dryRun.graphMutationConsumedWorkerOutput,
++			"worker output must not have been consumed before M7b canary");
++
++		if (!allReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryChecksPassed(
++				result))
++		{
++			result.error =
++				"selected graph-consumption mutation canary preconditions failed";
++			result.totalMs = readAlignmentElapsedMs(
++				totalStart, std::chrono::steady_clock::now());
++			return result;
++		}
++
++		try
++		{
++			auto rebuildStart = std::chrono::steady_clock::now();
++			auto workerRecords = readToGraphRawOverlapRecords(dryRun.workerOutputTsv);
++			result.workerRecords = workerRecords.size();
++			std::map<int64_t, std::vector<ReadToGraphRawOverlapRecord> >
++				recordsByQuery;
++			for (const auto& record : workerRecords)
++			{
++				if (!record.passesChainInputFilter) continue;
++				++result.chainInputRows;
++				if (record.edgeId == 0)
++				{
++					++result.missingGraphEdgeRows;
++					continue;
++				}
++				recordsByQuery[record.queryId].push_back(record);
++			}
++			result.selectedQueryCount = recordsByQuery.size();
++
++			std::vector<ReadToGraphMutationCanaryReplacement> replacements;
++			for (auto& item : recordsByQuery)
++			{
++				std::vector<EdgeAlignment> edgeAlignments;
++				edgeAlignments.reserve(item.second.size());
++				for (const auto& record : item.second)
++				{
++					GraphEdge* edge = graph.getEdge(
++						checkedReadAlignmentFastaIdFromSigned(
++							record.edgeId, "edge_id", dryRun.workerOutputTsv));
++					if (!edge)
++					{
++						++result.missingGraphEdgeRows;
++						continue;
++					}
++					edgeAlignments.push_back({record.overlap, edge});
++				}
++				std::sort(edgeAlignments.begin(), edgeAlignments.end(),
++					[](const EdgeAlignment& left, const EdgeAlignment& right)
++					{return left.overlap.curBegin < right.overlap.curBegin;});
++
++				auto preDivergenceChains = buildChains(edgeAlignments);
++				result.rebuiltPreDivergenceChains +=
++					preDivergenceChains.size();
++				std::vector<GraphAlignment> goodChains;
++				for (const auto& chain : preDivergenceChains)
++				{
++					float divergence = computeDivergence(
++						chain, (bool)Config::get("reads_base_alignment"));
++					if (divergence <
++						static_cast<float>(
++							Config::get("read_align_ovlp_divergence")))
++					{
++						goodChains.push_back(chain);
++					}
++				}
++				if (result.proofFault == "drop-first-canary-chain" &&
++					!result.proofFaultApplied && !goodChains.empty())
++				{
++					goodChains.erase(goodChains.begin());
++					result.proofFaultApplied = true;
++				}
++				result.rebuiltGoodChains += goodChains.size();
++				result.rebuiltGoodRecords +=
++					canonicalReadAlignmentRecordsFromGraphAlignments(
++						goodChains).size();
++
++				ReadToGraphMutationCanaryReplacement replacement;
++				replacement.queryId = item.first;
++				replacement.chains = goodChains;
++				replacements.push_back(replacement);
++			}
++			result.rebuildMs = readAlignmentElapsedMs(
++				rebuildStart, std::chrono::steady_clock::now());
++
++			auto compareStart = std::chrono::steady_clock::now();
++			bool allSelectedRecordsMatched = !replacements.empty();
++			for (const auto& replacement : replacements)
++			{
++				auto cpuSlice = readAlignmentCpuSliceForQuery(
++					readAlignments, replacement.queryId);
++				result.cpuSliceChains += cpuSlice.size();
++				auto cpuRecords =
++					canonicalReadAlignmentRecordsFromGraphAlignments(cpuSlice);
++				auto canaryRecords =
++					canonicalReadAlignmentRecordsFromGraphAlignments(
++						replacement.chains);
++				result.cpuSliceRecords += cpuRecords.size();
++				if (cpuRecords != canaryRecords)
++				{
++					allSelectedRecordsMatched = false;
++				}
++			}
++			result.selectedCanaryRecordsMatched = allSelectedRecordsMatched;
++			result.compareMs = readAlignmentElapsedMs(
++				compareStart, std::chrono::steady_clock::now());
++
++			addReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryCheck(
++				result, "selected_queries_present",
++				result.selectedQueryCount > 0,
++				"mutation canary requires at least one selected query");
++			addReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryCheck(
++				result, "worker_records_present",
++				result.workerRecords > 0 && result.chainInputRows > 0,
++				"worker raw-overlap TSV must provide chain-input rows");
++			addReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryCheck(
++				result, "worker_rows_have_live_edges",
++				result.missingGraphEdgeRows == 0,
++				"all canary rows must bind to live GraphEdge objects");
++			addReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryCheck(
++				result, "rebuilt_good_chains_present",
++				result.rebuiltGoodChains > 0 && result.rebuiltGoodRecords > 0,
++				"canary must rebuild nonzero Flye goodChains");
++			addReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryCheck(
++				result, "cpu_slice_present",
++				result.cpuSliceChains > 0 && result.cpuSliceRecords > 0,
++				"existing _readAlignments must contain the selected CPU/GPU slice");
++			addReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryCheck(
++				result, "selected_canary_records_match_cpu_slice",
++				result.selectedCanaryRecordsMatched,
++				"full-query-hit rebuilt selected goodChains must match _readAlignments slice");
++			addReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryCheck(
++				result, "proof_fault_not_applied",
++				!result.proofFaultApplied,
++				"no mutation canary proof fault may be applied in the positive path");
++
++			if (!allReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryChecksPassed(
++					result))
++			{
++				result.error =
++					"selected graph-consumption mutation canary records differ";
++				result.totalMs = readAlignmentElapsedMs(
++					totalStart, std::chrono::steady_clock::now());
++				return result;
++			}
++
++			auto substitutionStart = std::chrono::steady_clock::now();
++			auto beforeRecords =
++				canonicalReadAlignmentRecordsFromGraphAlignments(readAlignments);
++			std::vector<GraphAlignment> substitutedAlignments(readAlignments);
++			std::vector<size_t> forwardOffsets(replacements.size(), 0);
++			std::vector<size_t> complementOffsets(replacements.size(), 0);
++			std::vector<std::vector<GraphAlignment> > complementReplacements;
++			complementReplacements.reserve(replacements.size());
++			for (const auto& replacement : replacements)
++			{
++				complementReplacements.push_back(
++					complementReadToGraphMutationCanaryChains(
++						replacement.chains, graph));
++			}
++			for (auto& chain : substitutedAlignments)
++			{
++				if (chain.empty()) continue;
++				int64_t queryId = chain.front().overlap.curId.signedId();
++				for (size_t index = 0; index < replacements.size(); ++index)
++				{
++					if (queryId == replacements[index].queryId)
++					{
++						size_t& offset = forwardOffsets[index];
++						if (offset >= replacements[index].chains.size())
++						{
++							throw std::runtime_error(
++								"M7b forward replacement count mismatch for query " +
++								std::to_string(queryId));
++						}
++						chain = replacements[index].chains[offset];
++						++offset;
++						++result.substitutedForwardChains;
++						break;
++					}
++					if (queryId == -replacements[index].queryId)
++					{
++						size_t& offset = complementOffsets[index];
++						if (offset >= complementReplacements[index].size())
++						{
++							throw std::runtime_error(
++								"M7b complement replacement count mismatch for query " +
++								std::to_string(queryId));
++						}
++						chain = complementReplacements[index][offset];
++						++offset;
++						++result.substitutedComplementChains;
++						break;
++					}
++				}
++			}
++			for (size_t index = 0; index < replacements.size(); ++index)
++			{
++				if (forwardOffsets[index] != replacements[index].chains.size())
++				{
++					throw std::runtime_error(
++						"M7b did not replace every forward selected chain for query " +
++						std::to_string(replacements[index].queryId));
++				}
++				if (complementOffsets[index] !=
++					complementReplacements[index].size())
++				{
++					throw std::runtime_error(
++						"M7b did not replace every complement selected chain for query " +
++						std::to_string(replacements[index].queryId));
++				}
++			}
++			auto afterRecords =
++				canonicalReadAlignmentRecordsFromGraphAlignments(
++					substitutedAlignments);
++			result.finalAlignmentRecordsMatched = beforeRecords == afterRecords;
++			addReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryCheck(
++				result, "forward_selected_chains_substituted",
++				result.substitutedForwardChains == result.rebuiltGoodChains,
++				"every rebuilt selected forward goodChain must be substituted");
++			addReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryCheck(
++				result, "complement_selected_chains_substituted",
++				result.substitutedComplementChains == result.rebuiltGoodChains,
++				"every selected complement goodChain must be substituted");
++			addReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryCheck(
++				result, "final_alignment_records_match_before_substitution",
++				result.finalAlignmentRecordsMatched,
++				"guarded substitution must preserve canonical _readAlignments records");
++			result.substitutionMs = readAlignmentElapsedMs(
++				substitutionStart, std::chrono::steady_clock::now());
++			addReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryCheck(
++				result, "substitution_timed",
++				result.substitutionMs > 0.0,
++				"mutation canary substitution timing must be recorded");
++
++			if (allReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryChecksPassed(
++					result))
++			{
++				readAlignments.swap(substitutedAlignments);
++				result.totalReadAlignmentsAfter = readAlignments.size();
++				result.status = "passed";
++				result.state = "consumed";
++				result.decision =
++					"selected-graph-consumption-mutation-canary-substituted";
++				result.eligible = true;
++				result.accepted = true;
++				result.consumed = true;
++				result.failedClosed = false;
++				result.graphMutationConsumedWorkerOutput = true;
++				result.error.clear();
++			}
++			else
++			{
++				result.error =
++					"selected graph-consumption mutation canary substitution failed";
++			}
++		}
++		catch (const std::exception& exc)
++		{
++			result.error = exc.what();
++			markReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryFailed(
++				result);
++		}
++		result.totalMs = readAlignmentElapsedMs(
++			totalStart, std::chrono::steady_clock::now());
++		if (result.totalReadAlignmentsAfter == 0)
++		{
++			result.totalReadAlignmentsAfter = readAlignments.size();
++		}
++		return result;
++	}
++
++	void captureReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryResult(
++		ReadToGraphFullQueryHitWorkerDryRunResult& dryRun,
++		const ReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryResult& canary)
++	{
++		dryRun.rawOverlapSelectedGraphConsumptionMutationCanaryMode =
++			canary.mode;
++		dryRun.rawOverlapSelectedGraphConsumptionMutationCanaryProofFault =
++			canary.proofFault;
++		dryRun.rawOverlapSelectedGraphConsumptionMutationCanaryStatus =
++			canary.status;
++		dryRun.rawOverlapSelectedGraphConsumptionMutationCanaryState =
++			canary.state;
++		dryRun.rawOverlapSelectedGraphConsumptionMutationCanaryDecision =
++			canary.decision;
++		dryRun.rawOverlapSelectedGraphConsumptionMutationCanaryEligible =
++			canary.eligible;
++		dryRun.rawOverlapSelectedGraphConsumptionMutationCanaryConsumed =
++			canary.consumed;
++		dryRun.rawOverlapSelectedGraphConsumptionMutationCanaryFailedClosed =
++			canary.failedClosed;
++		dryRun.rawOverlapSelectedGraphConsumptionMutationCanaryRebuiltGoodChains =
++			canary.rebuiltGoodChains;
++		dryRun.rawOverlapSelectedGraphConsumptionMutationCanarySubstitutedChains =
++			canary.substitutedForwardChains + canary.substitutedComplementChains;
++		if (canary.consumed)
++		{
++			dryRun.graphMutationConsumedWorkerOutput = true;
++		}
++	}
++
++	void writeReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryJson(
++		const std::string& path,
++		const ReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryResult& canary)
++	{
++		std::ostringstream json;
++		json << "{\n"
++			 << "  \"schema\": "
++				"\"cuflye-read-to-graph-full-query-hit-selected-graph-consumption-mutation-canary-v0\",\n"
++			 << "  \"status\": \"" << readAlignmentJsonEscape(canary.status)
++			 << "\",\n"
++			 << "  \"mode\": \"" << readAlignmentJsonEscape(canary.mode)
++			 << "\",\n"
++			 << "  \"proof_fault\": \""
++			 << readAlignmentJsonEscape(canary.proofFault) << "\",\n"
++			 << "  \"proof_fault_applied\": "
++			 << readAlignmentBoolJson(canary.proofFaultApplied) << ",\n"
++			 << "  \"state\": \"" << readAlignmentJsonEscape(canary.state)
++			 << "\",\n"
++			 << "  \"decision\": \"" << readAlignmentJsonEscape(canary.decision)
++			 << "\",\n"
++			 << "  \"selected_graph_consumption_parity_status\": \""
++			 << readAlignmentJsonEscape(
++					canary.selectedGraphConsumptionParityStatus) << "\",\n"
++			 << "  \"eligible\": " << readAlignmentBoolJson(canary.eligible)
++			 << ",\n"
++			 << "  \"attempted\": " << readAlignmentBoolJson(canary.attempted)
++			 << ",\n"
++			 << "  \"accepted\": " << readAlignmentBoolJson(canary.accepted)
++			 << ",\n"
++			 << "  \"consumed\": " << readAlignmentBoolJson(canary.consumed)
++			 << ",\n"
++			 << "  \"failed_closed\": "
++			 << readAlignmentBoolJson(canary.failedClosed) << ",\n"
++			 << "  \"graph_mutation_consumed_worker_output\": "
++			 << readAlignmentBoolJson(
++					canary.graphMutationConsumedWorkerOutput) << ",\n"
++			 << "  \"selected_canary_records_matched\": "
++			 << readAlignmentBoolJson(canary.selectedCanaryRecordsMatched)
++			 << ",\n"
++			 << "  \"final_alignment_records_matched\": "
++			 << readAlignmentBoolJson(canary.finalAlignmentRecordsMatched)
++			 << ",\n"
++			 << "  \"selected_query_count\": " << canary.selectedQueryCount
++			 << ",\n"
++			 << "  \"worker_records\": " << canary.workerRecords << ",\n"
++			 << "  \"chain_input_rows\": " << canary.chainInputRows << ",\n"
++			 << "  \"missing_graph_edge_rows\": "
++			 << canary.missingGraphEdgeRows << ",\n"
++			 << "  \"rebuilt_pre_divergence_chains\": "
++			 << canary.rebuiltPreDivergenceChains << ",\n"
++			 << "  \"rebuilt_good_chains\": "
++			 << canary.rebuiltGoodChains << ",\n"
++			 << "  \"rebuilt_good_records\": "
++			 << canary.rebuiltGoodRecords << ",\n"
++			 << "  \"cpu_slice_chains\": " << canary.cpuSliceChains << ",\n"
++			 << "  \"cpu_slice_records\": " << canary.cpuSliceRecords << ",\n"
++			 << "  \"total_read_alignments_before\": "
++			 << canary.totalReadAlignmentsBefore << ",\n"
++			 << "  \"total_read_alignments_after\": "
++			 << canary.totalReadAlignmentsAfter << ",\n"
++			 << "  \"substituted_forward_chains\": "
++			 << canary.substitutedForwardChains << ",\n"
++			 << "  \"substituted_complement_chains\": "
++			 << canary.substitutedComplementChains << ",\n"
++			 << "  \"timing_ms\": {\n"
++			 << "    \"rebuild\": " << canary.rebuildMs << ",\n"
++			 << "    \"compare\": " << canary.compareMs << ",\n"
++			 << "    \"substitution\": " << canary.substitutionMs << ",\n"
++			 << "    \"total\": " << canary.totalMs << "\n"
++			 << "  },\n"
++			 << "  \"checks\": [\n";
++		for (size_t index = 0; index < canary.checks.size(); ++index)
++		{
++			const auto& check = canary.checks[index];
++			json << "    {\n"
++				 << "      \"name\": \"" << readAlignmentJsonEscape(check.name)
++				 << "\",\n"
++				 << "      \"required\": " << readAlignmentBoolJson(check.required)
++				 << ",\n"
++				 << "      \"passed\": " << readAlignmentBoolJson(check.passed)
++				 << ",\n"
++				 << "      \"detail\": \"" << readAlignmentJsonEscape(check.detail)
++				 << "\"\n"
++				 << "    }" << (index + 1 == canary.checks.size() ? "\n" : ",\n");
++		}
++		json << "  ]";
++		if (!canary.error.empty())
++		{
++			json << ",\n"
++				 << "  \"error\": \""
++				 << readAlignmentJsonEscape(canary.error) << "\"\n";
++		}
++		else
++		{
++			json << "\n";
++		}
++		json << "}\n";
++		writeReadAlignmentTextFile(path, json.str());
++	}
++
++	typedef std::function<
++		ReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryResult(
++			const ReadToGraphFullQueryHitWorkerDryRunResult&,
++			const ReadToGraphFullQueryHitSelectedCpuBypassSmokeResult&,
++			const ReadToGraphFullQueryHitSelectedGraphConsumptionParityResult&)>
++		ReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryRunner;
++
+ 	void writeReadToGraphFullQueryHitRawOverlapKeyDiffJson(
+ 		std::ostringstream& json,
+ 		const ReadToGraphRawOverlapRowKeyDiff& diff,
+@@ -8564,6 +9212,24 @@ namespace
+ 				 << "  \"raw_overlap_selected_graph_consumption_parity_decision\": \""
+ 				 << readAlignmentJsonEscape(
+ 					 result.rawOverlapSelectedGraphConsumptionParityDecision) << "\",\n"
++				 << "  \"raw_overlap_selected_graph_consumption_mutation_canary_json\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSelectedGraphConsumptionMutationCanaryJson) << "\",\n"
++				 << "  \"raw_overlap_selected_graph_consumption_mutation_canary_mode\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSelectedGraphConsumptionMutationCanaryMode) << "\",\n"
++				 << "  \"raw_overlap_selected_graph_consumption_mutation_canary_proof_fault\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSelectedGraphConsumptionMutationCanaryProofFault) << "\",\n"
++				 << "  \"raw_overlap_selected_graph_consumption_mutation_canary_status\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSelectedGraphConsumptionMutationCanaryStatus) << "\",\n"
++				 << "  \"raw_overlap_selected_graph_consumption_mutation_canary_state\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSelectedGraphConsumptionMutationCanaryState) << "\",\n"
++				 << "  \"raw_overlap_selected_graph_consumption_mutation_canary_decision\": \""
++				 << readAlignmentJsonEscape(
++					 result.rawOverlapSelectedGraphConsumptionMutationCanaryDecision) << "\",\n"
+ 				 << "  \"stdout_log\": \"" << readAlignmentJsonEscape(result.stdoutLog)
+ 				  << "\",\n"
+ 			 << "  \"stderr_log\": \"" << readAlignmentJsonEscape(result.stderrLog)
+@@ -8650,6 +9316,15 @@ namespace
+ 				 << "  \"raw_overlap_selected_graph_consumption_parity_failed_closed\": "
+ 				 << readAlignmentBoolJson(
+ 					 result.rawOverlapSelectedGraphConsumptionParityFailedClosed) << ",\n"
++				 << "  \"raw_overlap_selected_graph_consumption_mutation_canary_eligible\": "
++				 << readAlignmentBoolJson(
++					 result.rawOverlapSelectedGraphConsumptionMutationCanaryEligible) << ",\n"
++				 << "  \"raw_overlap_selected_graph_consumption_mutation_canary_consumed\": "
++				 << readAlignmentBoolJson(
++					 result.rawOverlapSelectedGraphConsumptionMutationCanaryConsumed) << ",\n"
++				 << "  \"raw_overlap_selected_graph_consumption_mutation_canary_failed_closed\": "
++				 << readAlignmentBoolJson(
++					 result.rawOverlapSelectedGraphConsumptionMutationCanaryFailedClosed) << ",\n"
+ 				 << "  \"graph_mutation_consumed_worker_output\": "
+ 				 << readAlignmentBoolJson(result.graphMutationConsumedWorkerOutput)
+ 				 << ",\n"
+@@ -8766,6 +9441,12 @@ namespace
+ 				 << "  \"raw_overlap_selected_graph_consumption_parity_missing_graph_edge_rows\": "
+ 				 << result.rawOverlapSelectedGraphConsumptionParityMissingGraphEdgeRows
+ 				 << ",\n"
++				 << "  \"raw_overlap_selected_graph_consumption_mutation_canary_rebuilt_good_chains\": "
++				 << result.rawOverlapSelectedGraphConsumptionMutationCanaryRebuiltGoodChains
++				 << ",\n"
++				 << "  \"raw_overlap_selected_graph_consumption_mutation_canary_substituted_chains\": "
++				 << result.rawOverlapSelectedGraphConsumptionMutationCanarySubstitutedChains
++				 << ",\n"
+ 				 << "  \"query_ids\": [";
+ 		for (size_t idx = 0; idx < result.queryIds.size(); ++idx)
+ 		{
+@@ -8835,7 +9516,10 @@ namespace
+ 		result.error = error;
+ 	}
+ 
+-	void runReadToGraphFullQueryHitWorkerDryRunSeam(RepeatGraph& graph)
++	void runReadToGraphFullQueryHitWorkerDryRunSeam(
++		RepeatGraph& graph,
++		const ReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryRunner&
++			mutationCanaryRunner)
+ 	{
+ 		if (!readToGraphFullQueryHitWorkerDryRunEnabled()) return;
+ 
+@@ -8881,6 +9565,10 @@ namespace
+ 					readToGraphFullQueryHitSelectedGraphConsumptionParityMode();
+ 				result.rawOverlapSelectedGraphConsumptionParityProofFault =
+ 					readToGraphFullQueryHitSelectedGraphConsumptionParityProofFault();
++				result.rawOverlapSelectedGraphConsumptionMutationCanaryMode =
++					readToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryMode();
++				result.rawOverlapSelectedGraphConsumptionMutationCanaryProofFault =
++					readToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryProofFault();
+ 				result.sourcePackDir = std::string(readToGraphSourcePackDir());
+ 				result.workerOutputRoot = readAlignmentRequiredEnv(
+ 					"CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_WORKER_OUTPUT_DIR");
+@@ -8946,6 +9634,10 @@ namespace
+ 					joinReplayPath(
+ 						result.workerOutputRoot,
+ 						"full-query-hit-worker-selected-graph-consumption-parity.json");
++				result.rawOverlapSelectedGraphConsumptionMutationCanaryJson =
++					joinReplayPath(
++						result.workerOutputRoot,
++						"full-query-hit-worker-selected-graph-consumption-mutation-canary.json");
+ 				result.workerSessionSubmitPath = joinReplayPath(
+ 					result.workerOutputRoot, "full-query-hit-worker-session-submit.txt");
+ 			result.queryIds = sortedReadToGraphSourcePackQueryIds();
+@@ -9265,6 +9957,48 @@ namespace
+ 														writeReadToGraphFullQueryHitSelectedGraphConsumptionParityJson(
+ 															result.rawOverlapSelectedGraphConsumptionParityJson,
+ 															graphParity);
++														if (readToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryEnabled() &&
++															!graphParity.failedClosed)
++														{
++															auto mutationCanary =
++																mutationCanaryRunner(
++																	result, cpuBypassSmoke,
++																	graphParity);
++															captureReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryResult(
++																result, mutationCanary);
++															writeReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryJson(
++																result.rawOverlapSelectedGraphConsumptionMutationCanaryJson,
++																mutationCanary);
++															if (mutationCanary.consumed)
++															{
++																result.status = "passed";
++																result.decision =
++																	"selected-graph-consumption-mutation-canary-consumed";
++																result.failedClosed = false;
++																result.workerOutputConsumptionEligible =
++																	true;
++																result.graphMutationConsumedWorkerOutput =
++																	true;
++															}
++															else if (mutationCanary.failedClosed &&
++																!smoke.failedClosed &&
++																!binding.failedClosed &&
++																!ledger.failedClosed &&
++																!rehydration.failedClosed)
++															{
++																result.status =
++																	"selected-graph-consumption-mutation-canary-failed-before-graph-mutation";
++																result.decision =
++																	"fail-closed-before-graph-mutation";
++																result.failedClosed = true;
++																result.workerOutputConsumptionEligible =
++																	false;
++																result.graphMutationConsumedWorkerOutput =
++																	false;
++																result.error =
++																	"CUDA full-query-hit selected graph-consumption mutation canary failed";
++															}
++														}
+ 														if (graphParity.failedClosed &&
+ 															!smoke.failedClosed &&
+ 															!binding.failedClosed &&
+@@ -9435,6 +10169,9 @@ namespace
+ 							"CUDA full-query-hit raw-overlap rehydration failed";
+ 					}
+ 					else if (result.status !=
++							 "passed" &&
++							 !result.rawOverlapSelectedGraphConsumptionMutationCanaryConsumed &&
++							 result.status !=
+ 							 "shadow-ledger-failed-before-graph-mutation" &&
+ 							 result.status !=
+ 							 "graph-edge-binding-failed-before-graph-mutation" &&
+@@ -9451,7 +10188,9 @@ namespace
+ 							 result.status !=
+ 							 "selected-cpu-bypass-smoke-failed-before-graph-mutation" &&
+ 							 result.status !=
+-							 "selected-graph-consumption-parity-failed-before-graph-mutation")
++							 "selected-graph-consumption-parity-failed-before-graph-mutation" &&
++							 result.status !=
++							 "selected-graph-consumption-mutation-canary-failed-before-graph-mutation")
+ 					{
+ 						result.status = "passed";
+ 						result.decision = "stopped-before-graph-mutation";
+@@ -9561,11 +10300,25 @@ namespace
+ 					result.rawOverlapSelectedGraphConsumptionParityJson +
+ 					"; audit_json=" + result.auditJson);
+ 			}
++			if (result.status ==
++				"selected-graph-consumption-mutation-canary-failed-before-graph-mutation")
++			{
++				throw std::runtime_error(
++					"cuFlye read-to-graph full-query-hit selected graph-consumption "
++					"mutation canary fail-closed before graph mutation; "
++					"mutation_canary_json=" +
++					result.rawOverlapSelectedGraphConsumptionMutationCanaryJson +
++					"; audit_json=" + result.auditJson);
++			}
+ 			throw std::runtime_error(
+ 				"cuFlye read-to-graph full-query-hit worker dry-run "
+ 				"fail-closed before graph mutation; audit_json=" +
+ 				result.auditJson);
+ 		}
++		if (result.rawOverlapSelectedGraphConsumptionMutationCanaryConsumed)
++		{
++			return;
++		}
+ 		throw std::runtime_error(
+ 			"cuFlye read-to-graph full-query-hit worker dry-run stopped before "
+ 			"graph mutation; audit_json=" + result.auditJson);
+@@ -12777,7 +13530,32 @@ void ReadAligner::alignReads()
+ 		<< totalLength << " (" << (float)alignedLength / totalLength << ")";
+ 	readsOverlaps.overlapDivergenceStats(divergenceStats, MAX_DIVERGENCE);
+ 	dumpReadAlignmentRecords(_readAlignments);
+-	runReadToGraphFullQueryHitWorkerDryRunSeam(_graph);
++	ReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryRunner
++		mutationCanaryRunner =
++		[this](
++			const ReadToGraphFullQueryHitWorkerDryRunResult& dryRun,
++			const ReadToGraphFullQueryHitSelectedCpuBypassSmokeResult& smoke,
++			const ReadToGraphFullQueryHitSelectedGraphConsumptionParityResult& parity)
++		{
++			ReadToGraphMutationCanaryChainBuilder buildChains =
++				[this](const std::vector<EdgeAlignment>& edgeAlignments)
++				{
++					return this->chainReadAlignments(edgeAlignments);
++				};
++			ReadToGraphMutationCanaryDivergenceComputer computeDivergence =
++				[this](const GraphAlignment& chain, bool realign)
++				{
++					return this->getChainBaseDivergence(chain, realign);
++				};
++			return evaluateReadToGraphFullQueryHitSelectedGraphConsumptionMutationCanary(
++				dryRun, smoke, parity, this->_graph, this->_readAlignments,
++				buildChains, computeDivergence);
++		};
++	runReadToGraphFullQueryHitWorkerDryRunSeam(_graph, mutationCanaryRunner);
++	if (readToGraphFullQueryHitSelectedGraphConsumptionMutationCanaryEnabled())
++	{
++		dumpReadAlignmentRecords(_readAlignments);
++	}
+ 	runReadAlignmentWorkerDryRunSeam(_graph, _readAlignments);
+ }
+ 

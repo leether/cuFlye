@@ -134,6 +134,10 @@ Options:
                        Set CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_PARITY_MODE
   --read-to-graph-full-query-hit-selected-graph-consumption-parity-proof-fault NAME
                        Set CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_PARITY_PROOF_FAULT
+  --read-to-graph-full-query-hit-selected-graph-consumption-mutation-canary-mode MODE
+                       Set CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_MUTATION_CANARY_MODE
+  --read-to-graph-full-query-hit-selected-graph-consumption-mutation-canary-proof-fault NAME
+                       Set CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_MUTATION_CANARY_PROOF_FAULT
   --overlap-replay-dump-dir PATH
                        Set CUFLYE_OVERLAP_REPLAY_DUMP_DIR for M4b replay fixture
   --overlap-replay-query-id ID
@@ -299,6 +303,8 @@ read_to_graph_full_query_hit_selected_cpu_bypass_smoke_mode="${CUFLYE_READ_TO_GR
 read_to_graph_full_query_hit_selected_cpu_bypass_smoke_proof_fault="${CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_CPU_BYPASS_SMOKE_PROOF_FAULT:-}"
 read_to_graph_full_query_hit_selected_graph_consumption_parity_mode="${CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_PARITY_MODE:-}"
 read_to_graph_full_query_hit_selected_graph_consumption_parity_proof_fault="${CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_PARITY_PROOF_FAULT:-}"
+read_to_graph_full_query_hit_selected_graph_consumption_mutation_canary_mode="${CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_MUTATION_CANARY_MODE:-}"
+read_to_graph_full_query_hit_selected_graph_consumption_mutation_canary_proof_fault="${CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_MUTATION_CANARY_PROOF_FAULT:-}"
 overlap_replay_dump_dir="${CUFLYE_OVERLAP_REPLAY_DUMP_DIR:-}"
 overlap_replay_query_id="${CUFLYE_OVERLAP_REPLAY_QUERY_ID:-}"
 overlap_replay_query_ids="${CUFLYE_OVERLAP_REPLAY_QUERY_IDS:-}"
@@ -610,6 +616,14 @@ while [ "$#" -gt 0 ]; do
       ;;
     --read-to-graph-full-query-hit-selected-graph-consumption-parity-proof-fault)
       read_to_graph_full_query_hit_selected_graph_consumption_parity_proof_fault="$2"
+      shift 2
+      ;;
+    --read-to-graph-full-query-hit-selected-graph-consumption-mutation-canary-mode)
+      read_to_graph_full_query_hit_selected_graph_consumption_mutation_canary_mode="$2"
+      shift 2
+      ;;
+    --read-to-graph-full-query-hit-selected-graph-consumption-mutation-canary-proof-fault)
+      read_to_graph_full_query_hit_selected_graph_consumption_mutation_canary_proof_fault="$2"
       shift 2
       ;;
     --overlap-replay-dump-dir)
@@ -1111,6 +1125,12 @@ fi
 if [ -n "${read_to_graph_full_query_hit_selected_graph_consumption_parity_proof_fault}" ]; then
   export CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_PARITY_PROOF_FAULT="${read_to_graph_full_query_hit_selected_graph_consumption_parity_proof_fault}"
 fi
+if [ -n "${read_to_graph_full_query_hit_selected_graph_consumption_mutation_canary_mode}" ]; then
+  export CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_MUTATION_CANARY_MODE="${read_to_graph_full_query_hit_selected_graph_consumption_mutation_canary_mode}"
+fi
+if [ -n "${read_to_graph_full_query_hit_selected_graph_consumption_mutation_canary_proof_fault}" ]; then
+  export CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_MUTATION_CANARY_PROOF_FAULT="${read_to_graph_full_query_hit_selected_graph_consumption_mutation_canary_proof_fault}"
+fi
 if [ -n "${overlap_replay_dump_dir}" ]; then
   export CUFLYE_OVERLAP_REPLAY_DUMP_DIR="${overlap_replay_dump_dir}"
 fi
@@ -1391,6 +1411,14 @@ if read_to_graph_full_query_hit_selected_graph_consumption_parity_mode:
     payload["read_to_graph_full_query_hit_selected_graph_consumption_parity_mode"] = read_to_graph_full_query_hit_selected_graph_consumption_parity_mode
 if read_to_graph_full_query_hit_selected_graph_consumption_parity_proof_fault:
     payload["read_to_graph_full_query_hit_selected_graph_consumption_parity_proof_fault"] = read_to_graph_full_query_hit_selected_graph_consumption_parity_proof_fault
+read_to_graph_full_query_hit_selected_graph_consumption_mutation_canary_mode = os.environ.get(
+    "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_MUTATION_CANARY_MODE", "")
+read_to_graph_full_query_hit_selected_graph_consumption_mutation_canary_proof_fault = os.environ.get(
+    "CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SELECTED_GRAPH_CONSUMPTION_MUTATION_CANARY_PROOF_FAULT", "")
+if read_to_graph_full_query_hit_selected_graph_consumption_mutation_canary_mode:
+    payload["read_to_graph_full_query_hit_selected_graph_consumption_mutation_canary_mode"] = read_to_graph_full_query_hit_selected_graph_consumption_mutation_canary_mode
+if read_to_graph_full_query_hit_selected_graph_consumption_mutation_canary_proof_fault:
+    payload["read_to_graph_full_query_hit_selected_graph_consumption_mutation_canary_proof_fault"] = read_to_graph_full_query_hit_selected_graph_consumption_mutation_canary_proof_fault
 if overlap_replay_dump_dir:
     payload["overlap_replay_dump_dir"] = os.path.abspath(overlap_replay_dump_dir)
 if overlap_replay_query_id:

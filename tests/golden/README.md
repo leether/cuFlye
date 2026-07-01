@@ -227,3 +227,5 @@ M6 read-to-graph input-boundary proof:
   `cuflye-m6z-full-query-hit-selected-cpu-bypass-timing-attribution-dgx-aarch64.json`
 - Full query-hit selected graph-consumption parity manifest:
   `cuflye-m7a-full-query-hit-selected-graph-consumption-parity-dgx-aarch64.json`
+- Full query-hit selected graph-consumption mutation canary manifest:
+  `cuflye-m7b-full-query-hit-selected-graph-consumption-mutation-canary-dgx-aarch64.json`

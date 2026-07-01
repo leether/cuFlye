@@ -1,0 +1,191 @@
+{
+  "baseline": {
+    "metadata": {
+      "elapsed_seconds": 26,
+      "exit_status": 0,
+      "fixture": "toy-hifi",
+      "host": "edgexpert-45d2",
+      "machine": "aarch64",
+      "threads": 1
+    },
+    "vs_golden": {
+      "artifact_count": 9,
+      "extra": [],
+      "matched_count": 9,
+      "mismatch": [],
+      "missing": [],
+      "raw_byte_differences": [],
+      "schema": "cuflye-canonical-artifact-diff-v0",
+      "status": "match"
+    }
+  },
+  "build": {
+    "cuda_worker": {
+      "cuda_arch": "sm_121",
+      "cuda_home": "/usr/local/cuda-13.0",
+      "host": "edgexpert-45d2",
+      "machine": "aarch64",
+      "nvcc": "/usr/local/cuda-13.0/bin/nvcc",
+      "nvcc_version": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:57:39_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+      "output_binary": "/tmp/cuflye-m7b-work-uZhePGLL/cuFlye/out/m7b/bin/cuflye-cuda-full-query-hit-replay",
+      "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39",
+      "repo_commit": "d6d31f32b82a383bdc912938cde99fe2179a85b5"
+    },
+    "flye": {
+      "actual_commit": "886b8c17412c",
+      "actual_tags": [
+        "2.9.6"
+      ],
+      "applied_patch_count": 56,
+      "flye_dir": "/tmp/cuflye-m7b-work-uZhePGLL/upstream-flye-m7b-0056fix2",
+      "flye_version": "2.9.6-b1802",
+      "gxx": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "host": "edgexpert-45d2",
+      "last_applied_patch": "0056-cuflye-read-to-graph-full-query-hit-selected-graph-consumption-mutation-canary.patch",
+      "machine": "aarch64",
+      "platform": "Linux-6.17.0-1021-nvidia-aarch64-with-glibc2.39"
+    }
+  },
+  "checks": {
+    "baseline_matches_golden": true,
+    "negative_alignment_count_preserved_before_fail_closed": true,
+    "negative_detected_corrupted_canary_records": true,
+    "negative_expected_failure": true,
+    "negative_failed_closed_before_graph_mutation": true,
+    "negative_fault_applied": true,
+    "negative_no_selected_substitution": true,
+    "positive_all_required_canary_checks_passed": true,
+    "positive_canary_consumed": true,
+    "positive_final_alignment_records_match": true,
+    "positive_graph_mutation_consumed_worker_output": true,
+    "positive_matches_baseline_canonical_artifacts": true,
+    "positive_metadata_records_mutation_canary_mode": true,
+    "positive_selected_records_match_cpu_slice": true,
+    "positive_worker_status_passed": true
+  },
+  "created_at_utc": "2026-07-01T13:47:35.581137+00:00",
+  "negative": {
+    "checks": {
+      "failed": [
+        "selected_canary_records_match_cpu_slice",
+        "proof_fault_not_applied"
+      ],
+      "passed": 10,
+      "required": 12
+    },
+    "cpu_slice_chains": 8,
+    "decision": "failed-closed-before-graph-mutation-commit",
+    "dry_run_decision": "fail-closed-before-graph-mutation",
+    "dry_run_status": "selected-graph-consumption-mutation-canary-failed-before-graph-mutation",
+    "failed_checks": [
+      "selected_canary_records_match_cpu_slice",
+      "proof_fault_not_applied"
+    ],
+    "failed_closed": true,
+    "graph_mutation_consumed_worker_output": false,
+    "metadata": {
+      "elapsed_seconds": 18,
+      "exit_status": 1,
+      "expected_failure": true,
+      "proof_fault": "drop-first-canary-chain"
+    },
+    "proof_fault": "drop-first-canary-chain",
+    "proof_fault_applied": true,
+    "rebuilt_good_chains": 7,
+    "selected_canary_records_matched": false,
+    "state": "failed-closed",
+    "status": "failed",
+    "substituted_complement_chains": 0,
+    "substituted_forward_chains": 0,
+    "timing_ms": {
+      "compare": 0.161232,
+      "rebuild": 0.920469,
+      "substitution": 0,
+      "total": 1.08719
+    },
+    "total_read_alignments_after": 7092,
+    "total_read_alignments_before": 7092
+  },
+  "positive": {
+    "chain_input_rows": 8,
+    "checks": {
+      "failed": [],
+      "passed": 16,
+      "required": 16
+    },
+    "consumed": true,
+    "decision": "selected-graph-consumption-mutation-canary-substituted",
+    "dry_run_decision": "selected-graph-consumption-mutation-canary-consumed",
+    "dry_run_status": "passed",
+    "final_alignment_records_matched": true,
+    "graph_mutation_consumed_worker_output": true,
+    "metadata": {
+      "elapsed_seconds": 29,
+      "exit_status": 0,
+      "mutation_canary_mode": "selected-graph-consumption-mutation-canary-v0",
+      "parity_mode": "selected-graph-consumption-parity-v0"
+    },
+    "rebuilt_good_chains": 8,
+    "selected_canary_records_matched": true,
+    "state": "consumed",
+    "status": "passed",
+    "substituted_complement_chains": 8,
+    "substituted_forward_chains": 8,
+    "timing_ms": {
+      "compare": 0.092816,
+      "rebuild": 0.521699,
+      "substitution": 0.865205,
+      "total": 1.6067
+    },
+    "total_read_alignments_after": 7092,
+    "total_read_alignments_before": 7092,
+    "vs_baseline": {
+      "artifact_count": 9,
+      "extra": [],
+      "matched_count": 9,
+      "mismatch": [],
+      "missing": [],
+      "raw_byte_differences": [
+        {
+          "baseline_bytes": 1498,
+          "canonical_sha256": "62952fa5ecbf84b4f5a5470da16d95f85a962e8cb722aa532610ba87431a56ef",
+          "path": "20-repeat/repeat_graph_dump",
+          "positive_bytes": 1499
+        }
+      ],
+      "schema": "cuflye-canonical-artifact-diff-v0",
+      "status": "match"
+    },
+    "worker_records": 36,
+    "worker_request_timing_ms": {
+      "device_allocation": 0.172897,
+      "host_to_device": 0.051088,
+      "kernel": 52.7535,
+      "parse": 5.05879,
+      "request_total": 355.439
+    },
+    "worker_wall_ms": 477.167
+  },
+  "proof_root": "/tmp/cuflye-m7b-proof-20260701T170000Z",
+  "schema": "cuflye-m7b-full-query-hit-selected-graph-consumption-mutation-canary-proof-v0",
+  "source_selection": {
+    "selected_query_count": 8,
+    "selected_query_ids": [
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "selected_query_ids_csv": "5,6,7,8,9,10,11,12",
+    "selected_total_chain_input_rows": 8,
+    "selected_total_raw_rows": 36,
+    "source_pack_dir": "/tmp/cuflye-m7b-proof-20260701T170000Z/positive/source-pack"
+  },
+  "summary_checks_passed": 15,
+  "summary_checks_required": 15,
+  "work_root": "/tmp/cuflye-m7b-work-uZhePGLL"
+}
