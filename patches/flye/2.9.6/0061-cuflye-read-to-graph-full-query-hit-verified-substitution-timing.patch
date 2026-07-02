@@ -1,0 +1,51 @@
+diff --git a/src/repeat_graph/read_aligner.cpp b/src/repeat_graph/read_aligner.cpp
+index e2d263c..312377e 100644
+--- a/src/repeat_graph/read_aligner.cpp
++++ b/src/repeat_graph/read_aligner.cpp
+@@ -1122,6 +1122,7 @@ namespace
+ 		double rawOverlapGraphEdgeBindingMs = 0.0;
+ 		double rawOverlapObjectVectorSmokeMs = 0.0;
+ 		double rawOverlapSubstitutionGuardMs = 0.0;
++		double rawOverlapVerifiedSubstitutionMs = 0.0;
+ 		double graphFacingValidationMs = 0.0;
+ 		double noMutationSeamTotalMs = 0.0;
+ 		ReadToGraphRawOverlapRowKeyDiff diff;
+@@ -9615,6 +9616,8 @@ namespace
+ 				 << result.rawOverlapObjectVectorSmokeMs << ",\n"
+ 				 << "    \"raw_overlap_substitution_guard\": "
+ 				 << result.rawOverlapSubstitutionGuardMs << ",\n"
++				 << "    \"raw_overlap_verified_substitution\": "
++				 << result.rawOverlapVerifiedSubstitutionMs << ",\n"
+ 				 << "    \"graph_facing_validation_total\": "
+ 				 << result.graphFacingValidationMs << ",\n"
+ 				 << "    \"no_mutation_seam_total\": "
+@@ -10205,6 +10208,8 @@ namespace
+ 									if (readToGraphFullQueryHitVerifiedSubstitutionEnabled() &&
+ 										!guard.failedClosed)
+ 									{
++										auto substitutionStart =
++											std::chrono::steady_clock::now();
+ 										auto substitution =
+ 											evaluateReadToGraphFullQueryHitVerifiedSubstitution(
+ 												result, guard, graph);
+@@ -10213,6 +10218,10 @@ namespace
+ 										writeReadToGraphFullQueryHitVerifiedSubstitutionJson(
+ 											result.rawOverlapVerifiedSubstitutionJson,
+ 											substitution);
++										result.rawOverlapVerifiedSubstitutionMs =
++											readAlignmentElapsedMs(
++												substitutionStart,
++												std::chrono::steady_clock::now());
+ 										if (readToGraphFullQueryHitSelectedBypassPlanEnabled() &&
+ 											!substitution.failedClosed)
+ 										{
+@@ -10510,7 +10519,8 @@ namespace
+ 					result.rawOverlapShadowLedgerMs +
+ 					result.rawOverlapGraphEdgeBindingMs +
+ 					result.rawOverlapObjectVectorSmokeMs +
+-					result.rawOverlapSubstitutionGuardMs;
++					result.rawOverlapSubstitutionGuardMs +
++					result.rawOverlapVerifiedSubstitutionMs;
+ 				result.noMutationSeamTotalMs = result.workerWallMs +
+ 					result.graphFacingValidationMs;
+ 			}

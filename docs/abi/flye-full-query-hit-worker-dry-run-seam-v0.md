@@ -135,8 +135,9 @@ The positive path records:
     "raw_overlap_graph_edge_binding": 0.053,
     "raw_overlap_object_vector_smoke": 0.062,
     "raw_overlap_substitution_guard": 0.055,
-    "graph_facing_validation_total": 0.368,
-    "no_mutation_seam_total": 66.048
+    "raw_overlap_verified_substitution": 0.137,
+    "graph_facing_validation_total": 0.478,
+    "no_mutation_seam_total": 66.945
   },
   "row_key_matched": true,
   "worker_output_consumption_eligible": true,
@@ -193,6 +194,13 @@ object-vector smoke passes. In the M8f DGX proof, warm
 `raw_overlap_substitution_guard` averaged `0.054832 ms` and warm
 `no_mutation_seam_total` averaged `66.047567 ms` against the matched M8a CPU
 quick-overlap baseline of `79.294112 ms`.
+
+M8g extends the timing object with `raw_overlap_verified_substitution`. This
+field measures the selected verified-substitution ledger comparison after the
+M8f substitution guard passes. In the M8g DGX proof, warm
+`raw_overlap_verified_substitution` averaged `0.136502 ms` and warm
+`no_mutation_seam_total` averaged `66.945033 ms` against the same M8a CPU
+quick-overlap baseline.
 
 ## Non-Goals
 

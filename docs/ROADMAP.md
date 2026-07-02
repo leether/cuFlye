@@ -5318,3 +5318,111 @@ M8g: compare the selected handoff contract against the later verified
 substitution or bypass-plan ledger while still stopping before unguarded graph
 mutation.
 ```
+
+## 2026-07-02 Update: M8g Selected Handoff To Verified-Substitution Ledger
+
+Status: completed.
+
+Task Card:
+
+- `docs/tasks/2026-07-02-cuflye-m8g-selected-handoff-to-verified-substitution-ledger.md`
+
+Golden proof:
+
+- `tests/golden/cuflye-m8g-selected-handoff-verified-substitution-ledger-dgx-aarch64.json`
+
+What changed:
+
+- Added `0061-cuflye-read-to-graph-full-query-hit-verified-substitution-timing.patch`
+  so Flye dry-run audits separately time the verified-substitution ledger
+  comparison.
+- Added `scripts/run_m8g_selected_handoff_verified_substitution_ledger.sh` to
+  run the M8 selected pack through `session-file-v0`, row-key diff,
+  raw-overlap rehydration, shadow ledger, graph-edge binding, object-vector
+  smoke, substitution guard, and verified-substitution gates.
+- Added a verified-substitution proof-fault negative where the substitution
+  ledger is corrupted after substitution guard passes, proving fail-closed
+  behavior before graph mutation.
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m8g-proof-20260702T010000Z
+fixture=toy-hifi
+selected_query_count=16
+m8a_selected_quick_overlap_ms=79.294112
+m8b_source_pack_sha256=5fb1df86185f3cdce0bc0c15087b7bead53db6d46b523740650d4092a89c25aa
+source_pack_full_query_hit_records=15306
+source_pack_index_bucket_records=15159
+source_pack_query_minimizers=17069
+source_pack_edge_sequence_records=47
+source_pack_raw_overlap_records=27
+source_pack_chain_input_records=18
+file_session_request_count=4
+positive_handoff_rows=18
+positive_verified_cpu_handoff_rows=18
+positive_verified_would_substitute_rows=18
+positive_verified_substitution_ledger_rows=18
+positive_verified_row_key_matched=true
+positive_verified_ordered_row_key_matched=true
+warm_worker_wall_avg_ms=66.4669
+warm_request_total_avg_ms=63.89876733333333
+warm_kernel_avg_ms=63.702553333333334
+warm_row_key_diff_avg_ms=0.024282666666666664
+warm_raw_overlap_rehydration_avg_ms=0.09148266666666667
+warm_raw_overlap_shadow_ledger_avg_ms=0.056565333333333336
+warm_raw_overlap_graph_edge_binding_avg_ms=0.05580266666666667
+warm_raw_overlap_object_vector_smoke_avg_ms=0.059872
+warm_raw_overlap_substitution_guard_avg_ms=0.05359466666666667
+warm_raw_overlap_verified_substitution_avg_ms=0.13650166666666666
+warm_graph_facing_validation_total_avg_ms=0.47810166666666665
+warm_no_mutation_seam_total_avg_ms=66.94503333333334
+warm_no_mutation_seam_speedup_vs_m8a=1.1844659424572694
+all_no_mutation_seam_speedup_vs_m8a=1.1453882529762622
+m8a_chain_input_oracle_replay=match
+default_cpu_artifacts=match
+negative_memory_status=failed-before-graph-mutation
+negative_verified_status=verified-substitution-smoke-failed-before-graph-mutation
+negative_verified_rehydration_status=passed
+negative_verified_shadow_status=passed
+negative_verified_binding_status=passed
+negative_verified_object_status=passed
+negative_verified_guard_status=passed
+negative_verified_substitution_status=failed
+negative_verified_graph_mutation_consumed_worker_output=false
+summary_checks_passed=36/36
+```
+
+Allowed M8g claim:
+
+```text
+M8g proves the M8 selected handoff contract can be compared against a
+verified-substitution ledger by row key and deterministic order while
+preserving a bounded warm selected advantage.
+```
+
+Forbidden M8g claim:
+
+```text
+M8g does not prove default GPU mode, unguarded graph mutation, actual
+object-vector substitution into Flye graph update logic, selected CPU bypass,
+full non-key raw-overlap field parity, or whole-Flye speedup.
+```
+
+Plain-language benefit:
+
+```text
+M8g shows that the selected CUDA path can take the guarded M8f handoff and
+prove its verified-substitution ledger matches the CPU-selected handoff by row
+key and deterministic order. The verified ledger comparison costs about
+0.137 ms on warm requests, and the warm no-mutation seam remains faster than
+the matched CPU quick-overlap baseline: 66.945033 ms vs 79.294112 ms, or
+1.184x.
+```
+
+Next highest-ROI task:
+
+```text
+M8h: turn the selected verified-substitution ledger into a selected bypass-plan
+ledger while still stopping before unguarded graph mutation.
+```

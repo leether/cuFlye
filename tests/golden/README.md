@@ -245,3 +245,5 @@ M6 read-to-graph input-boundary proof:
   `cuflye-m8e-selected-graph-binding-object-proof-dgx-aarch64.json`
 - M8f selected object-vector handoff contract manifest:
   `cuflye-m8f-selected-object-vector-handoff-contract-dgx-aarch64.json`
+- M8g selected handoff verified-substitution ledger manifest:
+  `cuflye-m8g-selected-handoff-verified-substitution-ledger-dgx-aarch64.json`

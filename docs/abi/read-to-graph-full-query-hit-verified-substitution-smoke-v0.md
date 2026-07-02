@@ -1,6 +1,6 @@
 # ABI: Read-to-Graph Full Query-Hit Verified Substitution Smoke v0
 
-Status: proposed
+Status: active
 
 Created: 2026-07-01
 
@@ -115,3 +115,31 @@ Each `ledger` row contains:
 This ABI does not prove default GPU mode, real Flye graph mutation, repeat
 graph simplification changes, whole-Flye speedup, or independent GPU
 calculation of chain-input filtering and edge identity.
+
+## M8g Selected Verified-Ledger Proof
+
+M8g reuses this smoke audit on the M8 selected source pack after the M8f
+handoff contract passes. The positive DGX proof records:
+
+```text
+proof_root=/tmp/cuflye-m8g-proof-20260702T010000Z
+selected_query_count=16
+guard_handoff_rows=18
+selected_cpu_handoff_rows=18
+would_substitute_rows=18
+substitution_ledger_rows=18
+row_key_matched=true
+ordered_row_key_matched=true
+warm_raw_overlap_verified_substitution_avg_ms=0.13650166666666666
+warm_graph_facing_validation_total_avg_ms=0.47810166666666665
+warm_no_mutation_seam_total_avg_ms=66.94503333333334
+warm_no_mutation_seam_speedup_vs_m8a=1.1844659424572694
+summary_checks_passed=36/36
+```
+
+The negative M8g proof applies
+`CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_VERIFIED_SUBSTITUTION_PROOF_FAULT=drop-first-substitution-ledger-row`
+after substitution guard passes. Rehydration, shadow ledger, graph-edge
+binding, object-vector smoke, and substitution guard still pass, but verified
+substitution reports `verified-substitution-smoke-failed-before-graph-mutation`
+and `graph_mutation_consumed_worker_output=false`.

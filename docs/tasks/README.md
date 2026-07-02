@@ -11,12 +11,19 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-02-cuflye-m8g-selected-handoff-to-verified-substitution-ledger.md`:
-  compare the M8f selected handoff contract with a verified-substitution or
-  bypass-plan ledger shape, while still stopping before unguarded graph
-  mutation.
+- `2026-07-02-cuflye-m8h-selected-verified-ledger-to-bypass-plan.md`:
+  turn the M8g verified-substitution ledger into a selected bypass-plan ledger
+  with explicit CPU-owned residual accounting, while still stopping before
+  unguarded graph mutation.
 
 Completed cards:
+
+- `2026-07-02-cuflye-m8g-selected-handoff-to-verified-substitution-ledger.md`:
+  compare the `18` M8f selected handoff rows with the CPU-selected handoff by
+  verified-substitution row key and deterministic order, prove a corrupted
+  verified ledger fails closed before graph mutation, and keep warm
+  no-mutation seam total below the matched CPU quick-overlap baseline at
+  `66.945033 ms` versus `79.294112 ms`.
 
 - `2026-07-01-cuflye-m8f-selected-object-vector-handoff-contract.md`:
   turn the M8e selected object-vector smoke rows into a deterministic
