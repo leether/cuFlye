@@ -243,3 +243,5 @@ M6 read-to-graph input-boundary proof:
   `cuflye-m8d-m8c-guarded-rehydration-shadow-consumption-dgx-aarch64.json`
 - M8e selected graph binding/object proof manifest:
   `cuflye-m8e-selected-graph-binding-object-proof-dgx-aarch64.json`
+- M8f selected object-vector handoff contract manifest:
+  `cuflye-m8f-selected-object-vector-handoff-contract-dgx-aarch64.json`

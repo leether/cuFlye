@@ -5214,3 +5214,107 @@ M8f: turn the selected object-vector smoke result into a tighter no-mutation
 graph-facing handoff contract, still guarded by the same source-pack, row-key,
 rehydration, ledger, binding, and object-vector gates.
 ```
+
+## 2026-07-02 Update: M8f Selected Object-Vector Handoff Contract
+
+Status: completed.
+
+Task Card:
+
+- `docs/tasks/2026-07-01-cuflye-m8f-selected-object-vector-handoff-contract.md`
+
+Golden proof:
+
+- `tests/golden/cuflye-m8f-selected-object-vector-handoff-contract-dgx-aarch64.json`
+
+What changed:
+
+- Added `0060-cuflye-read-to-graph-full-query-hit-handoff-contract-timing.patch`
+  so Flye dry-run audits separately time the substitution-guard handoff
+  contract.
+- Added `scripts/run_m8f_selected_object_vector_handoff_contract.sh` to run the
+  M8 selected pack through `session-file-v0`, row-key diff, raw-overlap
+  rehydration, shadow ledger, graph-edge binding, object-vector smoke, and
+  substitution-guard handoff gates.
+- Added a handoff proof-fault negative where handoff accounting is corrupted
+  after object-vector smoke passes, proving fail-closed behavior before graph
+  mutation.
+
+DGX proof:
+
+```text
+proof_root=/tmp/cuflye-m8f-proof-20260702T000000Z
+fixture=toy-hifi
+selected_query_count=16
+m8a_selected_quick_overlap_ms=79.294112
+m8b_source_pack_sha256=5fb1df86185f3cdce0bc0c15087b7bead53db6d46b523740650d4092a89c25aa
+source_pack_full_query_hit_records=15306
+source_pack_index_bucket_records=15159
+source_pack_query_minimizers=17069
+source_pack_edge_sequence_records=47
+source_pack_raw_overlap_records=27
+source_pack_chain_input_records=18
+file_session_request_count=4
+positive_object_vector_smoke_rows=18
+positive_substitution_guard_handoff_rows=18
+positive_substitution_guard_accounting_rows=18
+positive_substitution_guard_object_summary_rows=18
+warm_worker_wall_avg_ms=65.6791
+warm_request_total_avg_ms=63.836674666666674
+warm_kernel_avg_ms=63.69725566666667
+warm_row_key_diff_avg_ms=0.026373333333333332
+warm_raw_overlap_rehydration_avg_ms=0.10718966666666667
+warm_raw_overlap_shadow_ledger_avg_ms=0.05945066666666667
+warm_raw_overlap_graph_edge_binding_avg_ms=0.05582433333333333
+warm_raw_overlap_object_vector_smoke_avg_ms=0.06478400000000001
+warm_raw_overlap_substitution_guard_avg_ms=0.054832
+warm_graph_facing_validation_total_avg_ms=0.368454
+warm_no_mutation_seam_total_avg_ms=66.04756666666667
+warm_no_mutation_seam_speedup_vs_m8a=1.2005606868181367
+all_no_mutation_seam_speedup_vs_m8a=0.980847766503788
+m8a_chain_input_oracle_replay=match
+default_cpu_artifacts=match
+negative_memory_status=failed-before-graph-mutation
+negative_handoff_status=substitution-guard-failed-before-graph-mutation
+negative_handoff_rehydration_status=passed
+negative_handoff_shadow_status=passed
+negative_handoff_binding_status=passed
+negative_handoff_object_status=passed
+negative_handoff_guard_status=failed
+negative_handoff_graph_mutation_consumed_worker_output=false
+summary_checks_passed=30/30
+```
+
+Allowed M8f claim:
+
+```text
+M8f proves the M8 selected CUDA path can turn live GraphEdge-bound object-vector
+rows into a deterministic no-mutation handoff contract while preserving a
+bounded warm selected advantage.
+```
+
+Forbidden M8f claim:
+
+```text
+M8f does not prove default GPU mode, unguarded graph mutation, object-vector
+substitution into Flye graph update logic, full non-key raw-overlap field
+parity, or whole-Flye speedup.
+```
+
+Plain-language benefit:
+
+```text
+M8f shows that the selected CUDA path can turn 18 live GraphEdge-bound
+object-vector rows into a deterministic no-mutation handoff contract. The
+handoff contract costs about 0.055 ms on warm requests, and the warm
+no-mutation seam remains faster than the matched CPU quick-overlap baseline:
+66.047567 ms vs 79.294112 ms, or 1.201x.
+```
+
+Next highest-ROI task:
+
+```text
+M8g: compare the selected handoff contract against the later verified
+substitution or bypass-plan ledger while still stopping before unguarded graph
+mutation.
+```

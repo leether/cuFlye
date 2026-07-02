@@ -134,8 +134,9 @@ The positive path records:
     "raw_overlap_shadow_ledger": 0.057,
     "raw_overlap_graph_edge_binding": 0.053,
     "raw_overlap_object_vector_smoke": 0.062,
-    "graph_facing_validation_total": 0.313,
-    "no_mutation_seam_total": 66.499
+    "raw_overlap_substitution_guard": 0.055,
+    "graph_facing_validation_total": 0.368,
+    "no_mutation_seam_total": 66.048
   },
   "row_key_matched": true,
   "worker_output_consumption_eligible": true,
@@ -185,6 +186,13 @@ M8e extends the same timing object with `raw_overlap_graph_edge_binding` and
 `raw_overlap_object_vector_smoke`. These fields measure the next graph-facing
 gates separately from worker wall time, row-key diff, rehydration, and
 shadow-ledger accounting.
+
+M8f extends the timing object with `raw_overlap_substitution_guard`. This field
+measures the selected object-vector handoff contract build and validation after
+object-vector smoke passes. In the M8f DGX proof, warm
+`raw_overlap_substitution_guard` averaged `0.054832 ms` and warm
+`no_mutation_seam_total` averaged `66.047567 ms` against the matched M8a CPU
+quick-overlap baseline of `79.294112 ms`.
 
 ## Non-Goals
 

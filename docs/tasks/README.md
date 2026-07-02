@@ -11,12 +11,19 @@ Active cards:
 
 Proposed cards:
 
-- `2026-07-01-cuflye-m8f-selected-object-vector-handoff-contract.md`:
-  turn the M8e selected object-vector smoke rows into a tighter no-mutation
-  graph-facing handoff contract, with deterministic accounting and a
-  fail-closed handoff proof fault.
+- `2026-07-02-cuflye-m8g-selected-handoff-to-verified-substitution-ledger.md`:
+  compare the M8f selected handoff contract with a verified-substitution or
+  bypass-plan ledger shape, while still stopping before unguarded graph
+  mutation.
 
 Completed cards:
+
+- `2026-07-01-cuflye-m8f-selected-object-vector-handoff-contract.md`:
+  turn the M8e selected object-vector smoke rows into a deterministic
+  no-mutation handoff contract with `18` guarded rows, prove a corrupted
+  handoff fails closed before graph mutation, and keep warm no-mutation seam
+  total below the matched CPU quick-overlap baseline at `66.047567 ms` versus
+  `79.294112 ms`.
 
 - `2026-07-01-cuflye-m8e-selected-graph-facing-binding-object-proof.md`:
   enable graph-edge binding and object-vector smoke for the M8 selected source

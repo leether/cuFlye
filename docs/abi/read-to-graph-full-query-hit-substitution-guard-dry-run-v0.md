@@ -1,6 +1,6 @@
 # Read-to-Graph Full Query-Hit Substitution Guard Dry-Run v0
 
-Status: proposed
+Status: active
 
 Created: 2026-07-01
 
@@ -109,3 +109,28 @@ Each `objects` entry records:
 
 M6u does not prove whole-Flye speedup, graph mutation, real object substitution,
 default GPU mode, or GPU-computed chain-input filtering/edge identity.
+
+## M8f Selected Handoff Proof
+
+M8f reuses this guard as the selected object-vector handoff contract for the
+M8 selected source pack. The positive DGX proof records:
+
+```text
+proof_root=/tmp/cuflye-m8f-proof-20260702T000000Z
+selected_query_count=16
+handoff_rows=18
+handoff_accounting_rows=18
+handoff_object_summary_rows=18
+warm_raw_overlap_substitution_guard_avg_ms=0.054832
+warm_graph_facing_validation_total_avg_ms=0.368454
+warm_no_mutation_seam_total_avg_ms=66.04756666666667
+warm_no_mutation_seam_speedup_vs_m8a=1.2005606868181367
+summary_checks_passed=30/30
+```
+
+The negative M8f proof applies
+`CUFLYE_READ_TO_GRAPH_FULL_QUERY_HIT_SUBSTITUTION_GUARD_PROOF_FAULT=drop-first-handoff-row`
+after object-vector smoke passes. Rehydration, shadow ledger, graph-edge
+binding, and object-vector smoke still pass, but the guard reports
+`substitution-guard-failed-before-graph-mutation` and
+`graph_mutation_consumed_worker_output=false`.
